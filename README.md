@@ -48,19 +48,19 @@ npm run dev
 
 TODO List
 Backend
-[ ] Verify lexer correctness against the full PORTIA spec
-[ ] Double‑check token classification (keywords vs identifiers, literals, operators, delimiters)
-[ ] Add more robust error handling and edge‑case coverage
+- Verify lexer correctness against the full PORTIA spec
+- Double‑check token classification (keywords vs identifiers, literals, operators, delimiters)
+- Add more robust error handling and edge‑case coverage
 
 Frontend
-[ ] Fix Monaco syntax highlighting (tokenizer + theme integration)
-[ ] Implement theme switching (light/dark/high‑contrast/custom)
-[ ] Display backend errors inline in the editor (squiggly underlines)
-[ ] Improve developer ergonomics (hot reload, onboarding docs)
+- Fix Monaco syntax highlighting (tokenizer + theme integration)
+- Implement theme switching (light/dark/high‑contrast/custom)
+- Display backend errors inline in the editor (squiggly underlines)
+- Improve developer ergonomics (hot reload, onboarding docs)
 
 General
-[ ] Write reference documentation for the language spec
-[ ] Add sample PORTIA programs for testing
-[ ] Expand test suite (unit + integration)
+- Write reference documentation for the language spec
+- Add sample PORTIA programs for testing
+- Expand test suite (unit + integration)
 
 Next Step: Semantic -> Syntax
