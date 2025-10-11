@@ -1,28 +1,65 @@
-# app/lexer/lexer.py
+import re
+from typing import List, Dict, Any
+from dataclasses import asdict
 
-from .tokens import Token, LexError
+from .keywords import KEYWORDS
+from .tokens import Token
+from .errors import LexError
 
-def lex(code: str):
+# Define token regex patterns
+TOKEN_SPEC = [
+    ("NUMBER",   r"\d+"),
+    ("STRING",   r'"([^"\\]|\\.)*"'),
+    ("ID",       r"[A-Za-z_][A-Za-z0-9_]*"),
+    ("OP",       r"==|!=|=|\+|\-|\*|\/|%|\.\."),
+    ("DELIM",    r"[{}()\[\];,]"),
+    ("NEWLINE",  r"\n"),
+    ("SKIP",     r"[ \t]+"),
+    ("MISMATCH", r"."),
+]
+
+# Compile into one regex
+token_re = re.compile("|".join(f"(?P<{name}>{pattern})" for name, pattern in TOKEN_SPEC))
+
+
+def lex(code: str) -> Dict[str, Any]:
     """
-    Minimal stub for the PORTIA lexer.
-    Right now it just returns a single dummy token and no errors.
-    Replace this with the full scanning logic later.
+    Lexical analyzer for PORTIA code.
+    Returns a dict with 'tokens' and 'errors' lists, both JSON-serializable.
     """
-    tokens = []
-    errors = []
+    tokens: List[Token] = []
+    errors: List[LexError] = []
 
-    # Example: if code is not empty, return a dummy IDENTIFIER token
-    if code.strip():
-        tokens.append(Token(
-            type="IDENTIFIER",
-            lexeme=code.strip(),
-            line=1,
-            column=1,
-            endLine=1,
-            endColumn=len(code.strip()) + 1
-        ))
+    line_num = 1
+    line_start = 0
+
+    for mo in token_re.finditer(code):
+        kind = mo.lastgroup
+        value = mo.group()
+        column = mo.start() - line_start + 1
+
+        if kind == "NUMBER":
+            tokens.append(Token(type="INT_LIT", lexeme=value, line=line_num, column=column))
+        elif kind == "STRING":
+            tokens.append(Token(type="STRING_LIT", lexeme=value, line=line_num, column=column))
+        elif kind == "ID":
+            if value in KEYWORDS:
+                tokens.append(Token(type="KEYWORD", lexeme=value, line=line_num, column=column))
+            else:
+                tokens.append(Token(type="IDENTIFIER", lexeme=value, line=line_num, column=column))
+        elif kind == "OP":
+            tokens.append(Token(type="OPERATOR", lexeme=value, line=line_num, column=column))
+        elif kind == "DELIM":
+            tokens.append(Token(type="DELIMITER", lexeme=value, line=line_num, column=column))
+        elif kind == "NEWLINE":
+            line_num += 1
+            line_start = mo.end()
+        elif kind == "SKIP":
+            continue
+        elif kind == "MISMATCH":
+            errors.append(LexError(message=f"Unexpected character: {value}", line=line_num, column=column))
 
     return {
-        "tokens": [t.__dict__ for t in tokens],
-        "errors": [e.__dict__ for e in errors],
+        "tokens": [asdict(t) for t in tokens],
+        "errors": [asdict(e) for e in errors],
     }

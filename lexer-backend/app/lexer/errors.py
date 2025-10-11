@@ -1,4 +1,7 @@
-from .tokens import LexError
+from dataclasses import dataclass
 
-def make_error(msg, lexeme, sl, sc, el, ec):
-    return LexError(message=msg, lexeme=lexeme, line=sl, column=sc, endLine=el, endColumn=ec)
+@dataclass
+class LexError:
+    message: str
+    line: int
+    column: int

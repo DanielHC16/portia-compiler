@@ -1,20 +1,30 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from app.lexer.lexer import lex
 
 app = FastAPI()
+
+# Allow your frontend dev server
+origins = [
+    "http://localhost:5173",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,          # or ["*"] for dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-class LexRequest(BaseModel):
+class CodeRequest(BaseModel):
     code: str
 
+@app.get("/")
+def root():
+    return {"message": "PORTIA Lexer backend is running"}
+
 @app.post("/lex")
-def lex_endpoint(req: LexRequest):
+def lex_code(req: CodeRequest):
     return lex(req.code)
