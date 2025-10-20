@@ -1,0 +1,6 @@
+TODOs: 
+1. dot operator
+2. float lits 
+3. token highlighting
+4. weave accessing
+5. error handling 
