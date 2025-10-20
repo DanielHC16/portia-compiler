@@ -34,7 +34,7 @@ cd backend python -m venv venv source venv/bin/activate # On Windows: venv\Scrip
 
 ### 3. Run the backend
 ```bash
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```
 ### 4. Set up the frontend (React + Vite + TypeScript)
 ```bash
