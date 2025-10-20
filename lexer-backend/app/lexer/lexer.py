@@ -13,7 +13,7 @@ TOKEN_SPEC = [
     ("STRING",   r'"([^"\\]|\\.)*"'),
     ("ID",       r"[A-Za-z_][A-Za-z0-9_]*"),
 
-    # ✅ Comments must come before OP
+    # Comments must come before OP
     ("ML_COMMENT", r"/\*[\s\S]*?\*/"),       # multi-line comments
     ("COMMENT",   r"//[^\n]*"),              # single-line comments
 

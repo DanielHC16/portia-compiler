@@ -1,32 +1,17 @@
-import * as monaco from "monaco-editor";
+import type * as Monaco from "monaco-editor";
 
-export function registerPortiaLanguage() {
-  // Register the language ID
+export function registerPortiaLanguage(monaco: typeof Monaco) {
   monaco.languages.register({ id: "portia" });
 
-  // Define the Monarch tokenizer
   monaco.languages.setMonarchTokensProvider("portia", {
     keywords: [
-      // Declarations / Storage
-      "global", "using", "local", "var", "const",
-
-      // Functions
+      "global", "using", "local", "var", "const", "let", "type",
       "func", "return", "main",
-
-      // Types
       "int", "long", "float", "double", "char", "bool", "string", "void",
-
-      // Concurrency / Weaving
       "weave", "thread", "threadln",
-
-      // Control Flow
       "if", "else", "switch", "case", "break", "default",
       "for", "while", "do",
-
-      // Error Handling
       "trap",
-
-      // Literals
       "true", "false",
     ],
 
@@ -40,11 +25,16 @@ export function registerPortiaLanguage() {
           }
         }],
 
-        // numbers
+        // floats then ints
+        [/\d+\.\d+/, "number.float"],
         [/\d+/, "number"],
 
         // strings
         [/\"([^\"\\]|\\.)*\"/, "string"],
+
+        // comments
+        [/\/\/.*$/, "comment"],
+        [/\/\*.*?\*\//, "comment"],
 
         // operators
         [/==|!=|=|\+|\-|\*|\/|%|\.\./, "operator"],
@@ -55,6 +45,25 @@ export function registerPortiaLanguage() {
         // whitespace
         [/[ \t\r\n]+/, "white"],
       ],
+    },
+  });
+
+  monaco.editor.defineTheme("portia-hc-dark", {
+    base: "hc-black",
+    inherit: true,
+    rules: [
+      { token: "keyword",      foreground: "FFCC00", fontStyle: "bold" },
+      { token: "identifier",   foreground: "FFFFFF" },
+      { token: "number",       foreground: "00FF00" },
+      { token: "number.float", foreground: "7FFF00" },
+      { token: "string",       foreground: "00BFFF" },
+      { token: "operator",     foreground: "FF69B4" },
+      { token: "delimiter",    foreground: "AAAAAA" },
+      { token: "comment",      foreground: "888888", fontStyle: "italic" },
+    ],
+    colors: {
+      "editor.background": "#000000",
+      "editor.foreground": "#FFFFFF",
     },
   });
 }
