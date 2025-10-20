@@ -8,13 +8,14 @@ from .errors import LexError
 
 # Define token regex patterns
 TOKEN_SPEC = [
-    ("NUMBER",   r"\d+"),
+    ("FLOAT",    r"\d+\.\d+"),               # float literals
+    ("NUMBER",   r"\d+"),                    # integer literals
     ("STRING",   r'"([^"\\]|\\.)*"'),
     ("ID",       r"[A-Za-z_][A-Za-z0-9_]*"),
 
-    # Comments must come before OP so they take precedence
-    ("ML_COMMENT", r"/\*[\s\S]*?\*/"),   # multi-line comments
-    ("COMMENT",   r"//[^\n]*"),          # single-line comments
+    # ✅ Comments must come before OP
+    ("ML_COMMENT", r"/\*[\s\S]*?\*/"),       # multi-line comments
+    ("COMMENT",   r"//[^\n]*"),              # single-line comments
 
     ("OP",       r"==|!=|=|\+|\-|\*|\/|%|\.\."),
     ("DELIM",    r"[{}()\[\];,]"),
@@ -43,7 +44,9 @@ def lex(code: str) -> Dict[str, Any]:
         value = mo.group()
         column = mo.start() - line_start + 1
 
-        if kind == "NUMBER":
+        if kind == "FLOAT":
+            tokens.append(Token(type="FLOAT_LIT", lexeme=value, line=line_num, column=column))
+        elif kind == "NUMBER":
             tokens.append(Token(type="INT_LIT", lexeme=value, line=line_num, column=column))
         elif kind == "STRING":
             tokens.append(Token(type="STRING_LIT", lexeme=value, line=line_num, column=column))
@@ -57,8 +60,7 @@ def lex(code: str) -> Dict[str, Any]:
         elif kind == "DELIM":
             tokens.append(Token(type="DELIMITER", lexeme=value, line=line_num, column=column))
         elif kind == "COMMENT" or kind == "ML_COMMENT":
-            # Ignore comments entirely
-            continue
+            continue  # ignore comments
         elif kind == "NEWLINE":
             line_num += 1
             line_start = mo.end()
@@ -67,22 +69,7 @@ def lex(code: str) -> Dict[str, Any]:
         elif kind == "MISMATCH":
             errors.append(LexError(message=f"Unexpected character: {value}", line=line_num, column=column))
 
-    def _as_dict_safe(obj):
-        """
-        Convert an object to a JSON-serializable dict: prefer dataclasses.asdict but
-        fall back to __dict__ or dict() for other simple objects.
-        """
-        try:
-            return asdict(obj)
-        except Exception:
-            if hasattr(obj, "__dict__"):
-                return obj.__dict__
-            try:
-                return dict(obj)
-            except Exception:
-                return {"repr": repr(obj)}
-
     return {
-        "tokens": [_as_dict_safe(t) for t in tokens],
-        "errors": [_as_dict_safe(e) for e in errors],
+        "tokens": [asdict(t) for t in tokens],
+        "errors": [asdict(e) for e in errors],
     }
