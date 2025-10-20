@@ -23,7 +23,7 @@ export const EditorPane: React.FC<{ onCodeChange: (code: string) => void }> = ({
     <Editor
       height="60vh"
       language="portia"   
-      defaultValue={`// Type PORTIA code here\nlocal var int x = 10;`}
+      defaultValue={`// Write your PORTIA code here\n`}
       onChange={handleChange}
       theme="hc-black" // vs-dark, vs-light, hc-black, or custom themes TODO: Enable switching
       beforeMount={handleEditorWillMount}
