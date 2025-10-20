@@ -9,7 +9,7 @@ from .errors import LexError
 # Define token regex patterns
 TOKEN_SPEC = [
     ("FLOAT",    r"\d+\.\d+"),               # float literals
-    ("NUMBER",   r"\d+"),                    # integer literals
+    ("NUMBER",   r"\d+"),                    # integers
     ("STRING",   r'"([^"\\]|\\.)*"'),
     ("ID",       r"[A-Za-z_][A-Za-z0-9_]*"),
 
@@ -18,8 +18,13 @@ TOKEN_SPEC = [
     ("COMMENT",   r"//[^\n]*"),              # single-line comments
 
     ("OP",       r"==|!=|=|\+|\-|\*|\/|%|\.\."),
+
+    # ✅ includes ; and placed before MISMATCH
     ("DELIM",    r"[{}()\[\];,]"),
-    ("NEWLINE",  r"\n"),
+
+    # ✅ handle both Unix (\n) and Windows (\r\n)
+    ("NEWLINE",  r"\r?\n"),
+
     ("SKIP",     r"[ \t]+"),
     ("MISMATCH", r"."),
 ]
