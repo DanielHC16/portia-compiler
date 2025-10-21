@@ -1,0 +1,8 @@
+{
+  "name": "lexer-backend",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "start": "uvicorn app.main:app --reload"
+  }
+}

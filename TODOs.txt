@@ -6,6 +6,14 @@ Lexical Analyzer
 3. Identifier Iteration
 4. Space and other specific lexeme to token generation 
 
+Notes:
+Error Handling for Lexer Includes:
+Dangling operators at the end of a line (x = 5 +)
+Invalid operators not in the PORTIA set
+Unclosed strings (unterminated "...")
+Unclosed block comments (/* ...)
+Keep MISMATCH for truly unknown characters
+
 Syntax Analyzer / Parser
 1. Requires Complete CFG
 2. Separate Identifier Scope (Ex: Global, Functions, Main)

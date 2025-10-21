@@ -32,9 +32,9 @@ export function registerPortiaLanguage(monaco: typeof Monaco) {
         // strings
         [/\"([^\"\\]|\\.)*\"/, "string"],
 
-        // comments
-        [/\/\/.*$/, "comment"],
-        [/\/\*.*?\*\//, "comment"],
+        // ✅ comments
+        [/\/\/.*$/, "comment"],                // single-line
+        [/\/\*/, "comment", "@comment"],       // enter comment state
 
         // operators
         [/==|!=|=|\+|\-|\*|\/|%|\.\./, "operator"],
@@ -44,6 +44,13 @@ export function registerPortiaLanguage(monaco: typeof Monaco) {
 
         // whitespace
         [/[ \t\r\n]+/, "white"],
+      ],
+
+      // ✅ multi-line comment state
+      comment: [
+        [/[^\/*]+/, "comment"],
+        [/\*\//, "comment", "@pop"],           // closing */
+        [/[\/*]/, "comment"]                   // still inside comment
       ],
     },
   });
