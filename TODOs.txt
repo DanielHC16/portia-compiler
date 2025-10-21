@@ -1,9 +1,9 @@
 TODOs and Notes: 
 
 Lexical Analyzer
-1. Multi-line comment update
+1. Array Handling ex: arr[] -> Needs to generate proper tokens
 2. Lexeme to Token Proper Generation
-3. Identifier Iteration
+3. Identifier Iteration(?)
 4. Space and other specific lexeme to token generation 
 
 Notes:
