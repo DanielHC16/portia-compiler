@@ -36,6 +36,10 @@ cd backend python -m venv venv source venv/bin/activate # On Windows: venv\Scrip
 ```bash
 uvicorn app.main:app --reload
 ```
+or
+```bash
+npm start
+```
 ### 4. Set up the frontend (React + Vite + TypeScript)
 ```bash
 cd ../frontend npm install
@@ -49,18 +53,15 @@ npm run dev
 TODO List
 Backend
 - Verify lexer correctness against the full PORTIA spec
-- Double‑check token classification (keywords vs identifiers, literals, operators, delimiters)
+- Double‑check token classification 
 - Add more robust error handling and edge‑case coverage
 
 Frontend
-- Fix Monaco syntax highlighting (tokenizer + theme integration)
-- Implement theme switching (light/dark/high‑contrast/custom)
-- Display backend errors inline in the editor (squiggly underlines)
-- Improve developer ergonomics (hot reload, onboarding docs)
+- Theme Picker Integration
+- Add buttons for: Semantic and Syntax Analyzer
 
 General
-- Write reference documentation for the language spec
-- Add sample PORTIA programs for testing
-- Expand test suite (unit + integration)
+- Include Syntax and Semantic Analyzer Buttons. 
+- Finalize and Verify CFG
 
 Next Step: Semantic -> Syntax
