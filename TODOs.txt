@@ -1,5 +1,11 @@
-TODOs: 
+TODOs and Notes: 
+
+Lexical Analyzer
 1. Multi-line comment update
 2. Lexeme to Token Proper Generation
 3. Identifier Iteration
 4. Space and other specific lexeme to token generation 
+
+Syntax Analyzer / Parser
+1. Requires Complete CFG
+2. Separate Identifier Scope (Ex: Global, Functions, Main)
