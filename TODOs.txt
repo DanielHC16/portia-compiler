@@ -1,6 +1,5 @@
 TODOs: 
-1. dot operator
-2. float lits 
-3. token highlighting
-4. weave accessing
-5. error handling 
+1. Multi-line comment update
+2. Lexeme to Token Proper Generation
+3. Identifier Iteration
+4. Space and other specific lexeme to token generation 
