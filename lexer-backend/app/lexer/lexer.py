@@ -19,10 +19,10 @@ TOKEN_SPEC = [
 
     ("OP",       r"==|!=|=|\+|\-|\*|\/|%|\.\."),
 
-    # ✅ includes ; and placed before MISMATCH
+    # Includes ; and placed before MISMATCH
     ("DELIM",    r"[{}()\[\];,]"),
 
-    # ✅ handle both Unix (\n) and Windows (\r\n)
+    # Handle both Unix (\n) and Windows (\r\n)
     ("NEWLINE",  r"\r?\n"),
 
     ("SKIP",     r"[ \t]+"),
@@ -57,7 +57,9 @@ def lex(code: str) -> Dict[str, Any]:
             tokens.append(Token(type="STRING_LIT", lexeme=value, line=line_num, column=column))
         elif kind == "ID":
             if value in KEYWORDS:
-                tokens.append(Token(type="KEYWORD", lexeme=value, line=line_num, column=column))
+                # Specific keyword token type
+                kw_type = f"KW_{value.upper()}"
+                tokens.append(Token(type=kw_type, lexeme=value, line=line_num, column=column))
             else:
                 tokens.append(Token(type="IDENTIFIER", lexeme=value, line=line_num, column=column))
         elif kind == "OP":
