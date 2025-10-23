@@ -10,7 +10,7 @@ export default function ViewSwitcher() {
   return (
     <div className="app-shell">
       <div className="header">
-        <div className="brand">PORTIA Explorer</div>
+        <div className="brand">PORTIA</div>
 
         <div className="view-switch" role="tablist" aria-label="View switcher">
           <button className={view === "lexical" ? "active" : ""} onClick={() => setView("lexical")}>Lexical</button>

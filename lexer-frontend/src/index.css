@@ -92,6 +92,18 @@ html,body,#root{height:100%;margin:0;background:var(--bg);font-family:Inter,syst
 .hl-operator{color:#fce7f3}
 .hl-delim{color:#e9e6ff}
 
+/* MonacoPortia decoration classes (solid violet accents) */
+.monaco-editor .mp-keyword { color: #7c3aed !important; font-weight: 700 !important; }
+.monaco-editor .mp-type { color: #5b21b6 !important; font-weight: 600 !important; }
+.monaco-editor .mp-number { color: #d97706 !important; }
+.monaco-editor .mp-string { color: #059669 !important; }
+.monaco-editor .mp-char { color: #059669 !important; }
+.monaco-editor .mp-comment { color: #6b7280 !important; font-style: italic !important; }
+.monaco-editor .mp-identifier { color: #e6eef6 !important; }
+.monaco-editor .mp-operator { color: #be185d !important; }
+.monaco-editor .mp-delim { color: #ddd6fe !important; }
+
+
 /* Responsive */
 @media (max-width:900px){
   .workspace{grid-template-columns:1fr;height:auto}
