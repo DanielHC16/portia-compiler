@@ -6,10 +6,9 @@ from .keywords import KEYWORDS
 from .tokens import Token
 from .errors import LexError
 
-# Only these operators are valid in PORTIA (keep identical to original)
+# Only these operators are valid in PORTIA
 VALID_OPERATORS = {"==", "!=", "=", "+", "-", "*", "/", "%", ".."}
 
-# Helper character sets (conservative, compatible with original regex)
 _ALPHA = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _DIGIT = "0123456789"
 _IDENT_START = set(_ALPHA + "_")
@@ -22,12 +21,12 @@ _OPERATOR_CHARS = set("+-*/%=&|!<>.")
 
 def lex(code: str) -> Dict[str, Any]:
     """
-    Drop-in replacement lexer: ladderized, character-at-a-time scanner.
-    Preserves original lex(...) API, token types, and error messages.
-    Emits COMMENT and ML_COMMENT tokens (previous behavior ignored them).
+    Ladderized, character-at-a-time lexer that returns token dicts and errors.
+    Each token dict includes fields: type, lexeme, line, column, start, end
+    where start/end are 0-based character offsets and end is exclusive.
     """
 
-    tokens: List[Token] = []
+    tokens: List[Dict[str, Any]] = []
     errors: List[LexError] = []
 
     src = code or ""
@@ -62,8 +61,12 @@ def lex(code: str) -> Dict[str, Any]:
                 else:
                     col += 1
 
-    def add_token(t_type: str, lexeme: str, t_line: int, t_col: int) -> None:
-        tokens.append(Token(type=t_type, lexeme=lexeme, line=t_line, column=t_col))
+    def add_token_obj(t_type: str, lexeme: str, t_line: int, t_col: int, start_idx: int, end_idx: int) -> None:
+        t = Token(type=t_type, lexeme=lexeme, line=t_line, column=t_col)
+        d = asdict(t)
+        d["start"] = start_idx
+        d["end"] = end_idx
+        tokens.append(d)
 
     def add_error(msg: str, e_line: int, e_col: int) -> None:
         errors.append(LexError(message=msg, line=e_line, column=e_col))
@@ -82,7 +85,9 @@ def lex(code: str) -> Dict[str, Any]:
         # Newline handling
         if ch == _NEWLINE:
             start_col = col
-            add_token("NEWLINE", "\\n", line, start_col)
+            # NEWLINE token lexeme is the single newline char; compute offsets
+            start_idx = pos
+            add_token_obj("NEWLINE", "\\n", line, start_col, start_idx, start_idx + 1)
             if expect_operand:
                 add_error("Dangling operator at end of line", line, last_op_column or start_col)
             advance()
@@ -95,6 +100,7 @@ def lex(code: str) -> Dict[str, Any]:
         # Line comment //
         if ch == "/" and peek() == "/":
             start_line, start_col = line, col
+            start_idx = pos
             buf = []
             buf.append(ch)
             advance()
@@ -105,14 +111,15 @@ def lex(code: str) -> Dict[str, Any]:
                 buf.append(current_char())
                 advance()
             lexeme = "".join(buf)
-            add_token("COMMENT", lexeme, start_line, start_col)
+            end_idx = pos
+            add_token_obj("COMMENT", lexeme, start_line, start_col, start_idx, end_idx)
             prev_type = None
-            # comments do not reset expect_operand
             continue
 
         # Block comment /*
         if ch == "/" and peek() == "*":
             start_line, start_col = line, col
+            start_idx = pos
             buf = []
             buf.append(ch)
             advance()
@@ -125,29 +132,28 @@ def lex(code: str) -> Dict[str, Any]:
                 if c == "*" and peek() == "/":
                     buf.append(c)
                     advance()
-                    buf.append(current_char())
-                    advance()
+                    if current_char() is not None:
+                        buf.append(current_char())
+                        advance()
                     closed = True
                     break
                 else:
                     buf.append(c)
                     advance()
             lexeme = "".join(buf)
+            end_idx = pos
             if not closed:
                 add_error("Unterminated block comment", start_line, start_col)
-                # still emit ML_COMMENT with what we have for downstream inspection
-                add_token("ML_COMMENT", lexeme, start_line, start_col)
+                add_token_obj("ML_COMMENT", lexeme, start_line, start_col, start_idx, end_idx)
             else:
-                add_token("ML_COMMENT", lexeme, start_line, start_col)
+                add_token_obj("ML_COMMENT", lexeme, start_line, start_col, start_idx, end_idx)
             prev_type = None
-            # comments do not reset expect_operand
             continue
 
         # Stray block comment terminator */
         if ch == "*" and peek() == "/":
             start_col = col
             add_error("Unmatched block comment terminator", line, start_col)
-            # consume both chars
             advance(2)
             prev_type = None
             expect_operand = False
@@ -158,6 +164,7 @@ def lex(code: str) -> Dict[str, Any]:
         # Strings: " ... " with backslash escapes
         if ch == '"':
             start_line, start_col = line, col
+            start_idx = pos
             buf = []
             buf.append(ch)
             advance()
@@ -179,10 +186,11 @@ def lex(code: str) -> Dict[str, Any]:
                     break
                 advance()
             lexeme = "".join(buf)
+            end_idx = pos
             if not closed:
                 add_error("Unterminated string literal", start_line, start_col)
             else:
-                add_token("STRING_LIT", lexeme, start_line, start_col)
+                add_token_obj("STRING_LIT", lexeme, start_line, start_col, start_idx, end_idx)
             prev_type = "LITERAL"
             expect_operand = False
             continue
@@ -190,6 +198,7 @@ def lex(code: str) -> Dict[str, Any]:
         # Char literal: 'a' or '\n' ; BAD_CHAR = too many chars
         if ch == "'":
             start_line, start_col = line, col
+            start_idx = pos
             buf = []
             buf.append(ch)
             advance()
@@ -209,6 +218,7 @@ def lex(code: str) -> Dict[str, Any]:
                     break
                 advance()
             lexeme = "".join(buf)
+            end_idx = pos
             inner = lexeme[1:-1] if lexeme.endswith("'") and len(lexeme) >= 2 else ""
             valid = False
             if lexeme.endswith("'") and len(inner) > 0 and (len(inner) == 1 or (inner.startswith("\\") and len(inner) == 2)):
@@ -218,7 +228,7 @@ def lex(code: str) -> Dict[str, Any]:
                 prev_type = None
                 expect_operand = False
             else:
-                add_token("CHAR_LIT", lexeme, start_line, start_col)
+                add_token_obj("CHAR_LIT", lexeme, start_line, start_col, start_idx, end_idx)
                 prev_type = "LITERAL"
                 expect_operand = False
             continue
@@ -226,6 +236,7 @@ def lex(code: str) -> Dict[str, Any]:
         # Numbers (INT / FLOAT). Handle '..' operator by stopping before a dot-dot.
         if ch.isdigit():
             start_line, start_col = line, col
+            start_idx = pos
             buf = []
             seen_dot = False
             while current_char() is not None:
@@ -245,19 +256,21 @@ def lex(code: str) -> Dict[str, Any]:
                     continue
                 break
             lexeme = "".join(buf)
+            end_idx = pos
             if seen_dot:
-                add_token("FLOAT_LIT", lexeme, start_line, start_col)
+                add_token_obj("FLOAT_LIT", lexeme, start_line, start_col, start_idx, end_idx)
             else:
-                add_token("INT_LIT", lexeme, start_line, start_col)
+                add_token_obj("INT_LIT", lexeme, start_line, start_col, start_idx, end_idx)
             prev_type = "LITERAL"
             expect_operand = False
             last_op_line = None
             last_op_column = None
             continue
 
-        # Identifiers and keywords: per-character longest-match check against KEYWORDS
+        # Identifiers and keywords
         if ch in _IDENT_START:
             start_line, start_col = line, col
+            start_idx = pos
             candidates = [kw for kw in KEYWORDS if kw and kw[0] == ch]
             longest = ""
             for kw in candidates:
@@ -275,7 +288,7 @@ def lex(code: str) -> Dict[str, Any]:
                         longest = kw
             if longest:
                 lexeme = src[pos: pos + len(longest)]
-                add_token(f"KW_{lexeme.upper()}", lexeme, start_line, start_col)
+                add_token_obj(f"KW_{lexeme.upper()}", lexeme, start_line, start_col, pos, pos + len(lexeme))
                 advance(len(longest))
                 prev_type = "KEYWORD"
                 expect_operand = False
@@ -287,7 +300,8 @@ def lex(code: str) -> Dict[str, Any]:
                 buf.append(current_char())
                 advance()
             lexeme = "".join(buf)
-            add_token("IDENTIFIER", lexeme, start_line, start_col)
+            end_idx = pos
+            add_token_obj("IDENTIFIER", lexeme, start_line, start_col, start_idx, end_idx)
             prev_type = "IDENTIFIER"
             expect_operand = False
             last_op_line = None
@@ -297,7 +311,8 @@ def lex(code: str) -> Dict[str, Any]:
         # Delimiters (single char)
         if ch in _SINGLE_DELIMS:
             start_line, start_col = line, col
-            add_token("DELIMITER", ch, start_line, start_col)
+            start_idx = pos
+            add_token_obj("DELIMITER", ch, start_line, start_col, start_idx, start_idx + 1)
             advance()
             prev_type = "DELIMITER"
             expect_operand = False
@@ -308,6 +323,7 @@ def lex(code: str) -> Dict[str, Any]:
         # Operators and punctuation: prefer longest match (two-char) then single
         if ch in _OPERATOR_CHARS:
             start_line, start_col = line, col
+            start_idx = pos
             nxt = peek()
             two = (ch + nxt) if nxt is not None else None
             lexeme = ch
@@ -320,6 +336,7 @@ def lex(code: str) -> Dict[str, Any]:
                     advance(2)
                 else:
                     advance()
+            end_idx = pos
             if lexeme not in VALID_OPERATORS:
                 add_error(f"Invalid operator: {lexeme}", start_line, start_col)
                 prev_type = None
@@ -327,7 +344,7 @@ def lex(code: str) -> Dict[str, Any]:
                 last_op_line = None
                 last_op_column = None
             else:
-                add_token("OPERATOR", lexeme, start_line, start_col)
+                add_token_obj("OPERATOR", lexeme, start_line, start_col, start_idx, end_idx)
                 prev_type = "OPERATOR"
                 expect_operand = True
                 last_op_line = start_line
@@ -336,6 +353,7 @@ def lex(code: str) -> Dict[str, Any]:
 
         # If none matched, it's an unexpected character
         start_col = col
+        start_idx = pos
         add_error(f"Unexpected character: {ch}", line, start_col)
         advance()
         prev_type = None
@@ -343,11 +361,12 @@ def lex(code: str) -> Dict[str, Any]:
         last_op_line = None
         last_op_column = None
 
-    # EOF dangling operator check (mirror original behavior)
+    # EOF dangling operator check
     if expect_operand and last_op_line is not None and last_op_column is not None:
         add_error("Dangling operator at end of line", last_op_line, last_op_column)
 
+    # Return token dicts and error dicts
     return {
-        "tokens": [asdict(t) for t in tokens],
+        "tokens": tokens,
         "errors": [asdict(e) for e in errors],
     }
