@@ -1,10 +1,12 @@
 TODOs and Notes: 
 
 Lexical Analyzer
-1. Array Handling ex: arr[] -> Needs to generate proper tokens
+1. Confirm Delimiters and tokenization
 2. Lexeme to Token Proper Generation
 3. Identifier Iteration(?)
 4. Space and other specific lexeme to token generation 
+5. Comments must not be ignored in the lexer. It separates tokens if it does.
+6. Restructure into a class-based lexer
 
 Notes:
 Error Handling for Lexer Includes:
@@ -17,3 +19,6 @@ Keep MISMATCH for truly unknown characters
 Syntax Analyzer / Parser
 1. Requires Complete CFG
 2. Separate Identifier Scope (Ex: Global, Functions, Main)
+
+General:
+Multi-view panel for switching between: Lexical, Syntax, and Semantic. Each Analyzer will render its own tokens/errors/outputs. The user wil be able to toggle which one is visible. 
