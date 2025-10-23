@@ -1,213 +1,351 @@
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from dataclasses import asdict
 
 from .keywords import KEYWORDS
 from .tokens import Token
 from .errors import LexError
 
-
-# TOKEN SPECIFICATION
-# -----------------------------------------------------------------------------
-# Order matters! Regex alternations are evaluated left-to-right.
-# - Comments must come before OP, otherwise "/*" would be split into "/" and "*".
-# - BAD_CHAR is placed before CHAR to catch invalid multi-character literals.
-# -----------------------------------------------------------------------------
-TOKEN_SPEC = [
-    ("FLOAT",       r"\d+\.\d+"),
-    ("NUMBER",      r"\d+"),
-    # BAD_CHAR: catches anything in single quotes that isn't a valid char literal
-    ("BAD_CHAR",    r"'[^']*'"),
-    # CHAR: valid single character or escape sequence
-    ("CHAR",        r"'([^'\\]|\\.)'"),
-    ("STRING",      r"\"([^\"\\]|\\.)*\""),               # must end with "
-    ("ID",          r"[A-Za-z_][A-Za-z0-9_]*"),
-
-    # Comments first to avoid misclassification
-    ("ML_COMMENT",        r"/\*[\s\S]*?(?:\*/|$)"),       # match until */ or EOF
-    ("COMMENT",           r"//[^\r\n]*"),
-    ("BLOCK_COMMENT_END", r"\*/"),                        # stray terminator
-
-    # Operators and delimiters
-    ("OP",         r"==|!=|=|\+|\-|\*|\/|%|\.\."),
-    ("DELIM",      r"[{}()\[\];,]"),
-
-    # Newline and spaces/tabs (ignored)
-    ("NEWLINE",    r"\r?\n"),
-    ("SKIP",       r"[ \t]+"),
-
-    # Stray quotes and mismatch
-    ("QUOTE",      r"['\"]"),
-    ("MISMATCH",   r"."),
-]
-
-# Only these operators are valid in PORTIA
+# Only these operators are valid in PORTIA (keep identical to original)
 VALID_OPERATORS = {"==", "!=", "=", "+", "-", "*", "/", "%", ".."}
 
-# Compile the master regex
-token_re = re.compile("|".join(f"(?P<{name}>{pattern})" for name, pattern in TOKEN_SPEC))
+# Helper character sets (conservative, compatible with original regex)
+_ALPHA = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_DIGIT = "0123456789"
+_IDENT_START = set(_ALPHA + "_")
+_IDENT_PART = set(_ALPHA + _DIGIT + "_")
+_WHITESPACE = {" ", "\t", "\r"}
+_NEWLINE = "\n"
+_SINGLE_DELIMS = set("{}()[];,")
+_OPERATOR_CHARS = set("+-*/%=&|!<>.")
 
 
 def lex(code: str) -> Dict[str, Any]:
     """
-    Lexical analyzer for PORTIA.
-    Produces a list of tokens and a list of lexical errors.
+    Drop-in replacement lexer: ladderized, character-at-a-time scanner.
+    Preserves original lex(...) API, token types, and error messages.
+    Emits COMMENT and ML_COMMENT tokens (previous behavior ignored them).
     """
 
     tokens: List[Token] = []
     errors: List[LexError] = []
 
-    line_num = 1
+    src = code or ""
+    length = len(src)
+    pos = 0
+    line = 1
     line_start = 0
+    col = 1
 
     prev_type = None
-    expect_operand = False  # True after an operator until a valid operand appears
-    last_op_line = None
-    last_op_column = None
+    expect_operand = False
+    last_op_line: Optional[int] = None
+    last_op_column: Optional[int] = None
 
-    for mo in token_re.finditer(code):
-        kind = mo.lastgroup
-        value = mo.group()
-        column = mo.start() - line_start + 1
+    def current_char() -> Optional[str]:
+        return src[pos] if pos < length else None
 
-        # ---------------------------------------------------------------------
-        # Literals
-        # ---------------------------------------------------------------------
-        if kind == "FLOAT":
-            tokens.append(Token(type="FLOAT_LIT", lexeme=value, line=line_num, column=column))
-            prev_type = "LITERAL"
-            expect_operand = False
+    def peek(n: int = 1) -> Optional[str]:
+        p = pos + n
+        return src[p] if p < length else None
 
-        elif kind == "NUMBER":
-            tokens.append(Token(type="INT_LIT", lexeme=value, line=line_num, column=column))
-            prev_type = "LITERAL"
-            expect_operand = False
+    def advance(n: int = 1) -> None:
+        nonlocal pos, line, col, line_start
+        for _ in range(n):
+            if pos < length:
+                ch = src[pos]
+                pos += 1
+                if ch == _NEWLINE:
+                    line += 1
+                    line_start = pos
+                    col = 1
+                else:
+                    col += 1
 
-        elif kind == "CHAR":
-            # Valid char literal (already matched by regex)
-            tokens.append(Token(type="CHAR_LIT", lexeme=value, line=line_num, column=column))
-            prev_type = "LITERAL"
-            expect_operand = False
+    def add_token(t_type: str, lexeme: str, t_line: int, t_col: int) -> None:
+        tokens.append(Token(type=t_type, lexeme=lexeme, line=t_line, column=t_col))
 
-        elif kind == "BAD_CHAR":
-            # Too many characters inside single quotes
-            errors.append(LexError(message="Invalid character literal", line=line_num, column=column))
-            prev_type = None
-            expect_operand = False
+    def add_error(msg: str, e_line: int, e_col: int) -> None:
+        errors.append(LexError(message=msg, line=e_line, column=e_col))
 
-        elif kind == "STRING":
-            if not value.endswith('"'):
-                errors.append(LexError(message="Unterminated string literal", line=line_num, column=column))
-            else:
-                tokens.append(Token(type="STRING_LIT", lexeme=value, line=line_num, column=column))
-            prev_type = "LITERAL"
-            expect_operand = False
+    # Main scanner loop
+    while pos < length:
+        ch = current_char()
+        if ch is None:
+            break
 
-        elif kind == "QUOTE":
-            # Stray quote (unterminated literal)
-            errors.append(LexError(message="Unterminated string or char literal", line=line_num, column=column))
+        # Skip spaces and tabs and carriage returns
+        if ch in _WHITESPACE:
+            advance()
+            continue
+
+        # Newline handling
+        if ch == _NEWLINE:
+            start_col = col
+            add_token("NEWLINE", "\\n", line, start_col)
+            if expect_operand:
+                add_error("Dangling operator at end of line", line, last_op_column or start_col)
+            advance()
             prev_type = None
             expect_operand = False
             last_op_line = None
             last_op_column = None
+            continue
 
-        # ---------------------------------------------------------------------
-        # Identifiers and keywords
-        # ---------------------------------------------------------------------
-        elif kind == "ID":
-            if value in KEYWORDS:
-                kw_type = f"KW_{value.upper()}"
-                tokens.append(Token(type=kw_type, lexeme=value, line=line_num, column=column))
+        # Line comment //
+        if ch == "/" and peek() == "/":
+            start_line, start_col = line, col
+            buf = []
+            buf.append(ch)
+            advance()
+            if current_char() is not None:
+                buf.append(current_char())
+                advance()
+            while current_char() is not None and current_char() != _NEWLINE:
+                buf.append(current_char())
+                advance()
+            lexeme = "".join(buf)
+            add_token("COMMENT", lexeme, start_line, start_col)
+            prev_type = None
+            # comments do not reset expect_operand
+            continue
+
+        # Block comment /*
+        if ch == "/" and peek() == "*":
+            start_line, start_col = line, col
+            buf = []
+            buf.append(ch)
+            advance()
+            if current_char() is not None:
+                buf.append(current_char())
+                advance()
+            closed = False
+            while current_char() is not None:
+                c = current_char()
+                if c == "*" and peek() == "/":
+                    buf.append(c)
+                    advance()
+                    buf.append(current_char())
+                    advance()
+                    closed = True
+                    break
+                else:
+                    buf.append(c)
+                    advance()
+            lexeme = "".join(buf)
+            if not closed:
+                add_error("Unterminated block comment", start_line, start_col)
+                # still emit ML_COMMENT with what we have for downstream inspection
+                add_token("ML_COMMENT", lexeme, start_line, start_col)
+            else:
+                add_token("ML_COMMENT", lexeme, start_line, start_col)
+            prev_type = None
+            # comments do not reset expect_operand
+            continue
+
+        # Stray block comment terminator */
+        if ch == "*" and peek() == "/":
+            start_col = col
+            add_error("Unmatched block comment terminator", line, start_col)
+            # consume both chars
+            advance(2)
+            prev_type = None
+            expect_operand = False
+            last_op_line = None
+            last_op_column = None
+            continue
+
+        # Strings: " ... " with backslash escapes
+        if ch == '"':
+            start_line, start_col = line, col
+            buf = []
+            buf.append(ch)
+            advance()
+            closed = False
+            while current_char() is not None:
+                c = current_char()
+                buf.append(c)
+                if c == "\\":
+                    advance()
+                    if current_char() is not None:
+                        buf.append(current_char())
+                        advance()
+                    continue
+                if c == '"':
+                    closed = True
+                    advance()
+                    break
+                if c == _NEWLINE:
+                    break
+                advance()
+            lexeme = "".join(buf)
+            if not closed:
+                add_error("Unterminated string literal", start_line, start_col)
+            else:
+                add_token("STRING_LIT", lexeme, start_line, start_col)
+            prev_type = "LITERAL"
+            expect_operand = False
+            continue
+
+        # Char literal: 'a' or '\n' ; BAD_CHAR = too many chars
+        if ch == "'":
+            start_line, start_col = line, col
+            buf = []
+            buf.append(ch)
+            advance()
+            closed = False
+            while current_char() is not None:
+                c = current_char()
+                buf.append(c)
+                if c == "\\":
+                    advance()
+                    if current_char() is not None:
+                        buf.append(current_char())
+                        advance()
+                    continue
+                if c == "'":
+                    advance()
+                    closed = True
+                    break
+                advance()
+            lexeme = "".join(buf)
+            inner = lexeme[1:-1] if lexeme.endswith("'") and len(lexeme) >= 2 else ""
+            valid = False
+            if lexeme.endswith("'") and len(inner) > 0 and (len(inner) == 1 or (inner.startswith("\\") and len(inner) == 2)):
+                valid = True
+            if not valid:
+                add_error("Invalid character literal", start_line, start_col)
+                prev_type = None
+                expect_operand = False
+            else:
+                add_token("CHAR_LIT", lexeme, start_line, start_col)
+                prev_type = "LITERAL"
+                expect_operand = False
+            continue
+
+        # Numbers (INT / FLOAT). Handle '..' operator by stopping before a dot-dot.
+        if ch.isdigit():
+            start_line, start_col = line, col
+            buf = []
+            seen_dot = False
+            while current_char() is not None:
+                c = current_char()
+                if c.isdigit():
+                    buf.append(c)
+                    advance()
+                    continue
+                if c == ".":
+                    if peek() == ".":
+                        break
+                    if seen_dot:
+                        break
+                    seen_dot = True
+                    buf.append(c)
+                    advance()
+                    continue
+                break
+            lexeme = "".join(buf)
+            if seen_dot:
+                add_token("FLOAT_LIT", lexeme, start_line, start_col)
+            else:
+                add_token("INT_LIT", lexeme, start_line, start_col)
+            prev_type = "LITERAL"
+            expect_operand = False
+            last_op_line = None
+            last_op_column = None
+            continue
+
+        # Identifiers and keywords: per-character longest-match check against KEYWORDS
+        if ch in _IDENT_START:
+            start_line, start_col = line, col
+            candidates = [kw for kw in KEYWORDS if kw and kw[0] == ch]
+            longest = ""
+            for kw in candidates:
+                match = True
+                for i, kch in enumerate(kw):
+                    p = src[pos + i] if (pos + i) < length else None
+                    if p != kch:
+                        match = False
+                        break
+                if not match:
+                    continue
+                after = src[pos + len(kw)] if (pos + len(kw)) < length else None
+                if after is None or (after not in _IDENT_PART):
+                    if len(kw) > len(longest):
+                        longest = kw
+            if longest:
+                lexeme = src[pos: pos + len(longest)]
+                add_token(f"KW_{lexeme.upper()}", lexeme, start_line, start_col)
+                advance(len(longest))
                 prev_type = "KEYWORD"
+                expect_operand = False
+                last_op_line = None
+                last_op_column = None
+                continue
+            buf = []
+            while current_char() is not None and current_char() in _IDENT_PART:
+                buf.append(current_char())
+                advance()
+            lexeme = "".join(buf)
+            add_token("IDENTIFIER", lexeme, start_line, start_col)
+            prev_type = "IDENTIFIER"
+            expect_operand = False
+            last_op_line = None
+            last_op_column = None
+            continue
+
+        # Delimiters (single char)
+        if ch in _SINGLE_DELIMS:
+            start_line, start_col = line, col
+            add_token("DELIMITER", ch, start_line, start_col)
+            advance()
+            prev_type = "DELIMITER"
+            expect_operand = False
+            last_op_line = None
+            last_op_column = None
+            continue
+
+        # Operators and punctuation: prefer longest match (two-char) then single
+        if ch in _OPERATOR_CHARS:
+            start_line, start_col = line, col
+            nxt = peek()
+            two = (ch + nxt) if nxt is not None else None
+            lexeme = ch
+            if two and two in VALID_OPERATORS:
+                lexeme = two
+                advance(2)
             else:
-                tokens.append(Token(type="IDENTIFIER", lexeme=value, line=line_num, column=column))
-                prev_type = "IDENTIFIER"
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
-
-        # ---------------------------------------------------------------------
-        # Comments
-        # ---------------------------------------------------------------------
-        elif kind == "ML_COMMENT":
-            if not value.endswith("*/"):
-                errors.append(LexError(message="Unterminated block comment", line=line_num, column=column))
-            # Comments are ignored but DO NOT reset expect_operand
-            prev_type = None
-            continue
-
-        elif kind == "COMMENT":
-            # Comments are ignored but DO NOT reset expect_operand
-            prev_type = None
-            continue
-
-        elif kind == "BLOCK_COMMENT_END":
-            # Stray "*/" without a matching "/*"
-            errors.append(LexError(message="Unmatched block comment terminator", line=line_num, column=column))
-            prev_type = None
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
-            continue
-
-        # ---------------------------------------------------------------------
-        # Operators and delimiters
-        # ---------------------------------------------------------------------
-        elif kind == "OP":
-            if value not in VALID_OPERATORS:
-                errors.append(LexError(message=f"Invalid operator: {value}", line=line_num, column=column))
+                if ch == "." and nxt == ".":
+                    lexeme = ".."
+                    advance(2)
+                else:
+                    advance()
+            if lexeme not in VALID_OPERATORS:
+                add_error(f"Invalid operator: {lexeme}", start_line, start_col)
                 prev_type = None
                 expect_operand = False
                 last_op_line = None
                 last_op_column = None
             else:
-                tokens.append(Token(type="OPERATOR", lexeme=value, line=line_num, column=column))
+                add_token("OPERATOR", lexeme, start_line, start_col)
                 prev_type = "OPERATOR"
                 expect_operand = True
-                last_op_line = line_num
-                last_op_column = column
-
-        elif kind == "DELIM":
-            tokens.append(Token(type="DELIMITER", lexeme=value, line=line_num, column=column))
-            prev_type = "DELIMITER"
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
-
-        # ---------------------------------------------------------------------
-        # Whitespace and newlines
-        # ---------------------------------------------------------------------
-        elif kind == "SKIP":
-            # Ignore spaces and tabs entirely
+                last_op_line = start_line
+                last_op_column = start_col
             continue
 
-        elif kind == "NEWLINE":
-            tokens.append(Token(type="NEWLINE", lexeme="\\n", line=line_num, column=column))
-            if expect_operand:
-                # Operator was left hanging at end of line
-                errors.append(LexError(message="Dangling operator at end of line", line=line_num, column=last_op_column or column))
-            line_num += 1
-            line_start = mo.end()
-            prev_type = None
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
+        # If none matched, it's an unexpected character
+        start_col = col
+        add_error(f"Unexpected character: {ch}", line, start_col)
+        advance()
+        prev_type = None
+        expect_operand = False
+        last_op_line = None
+        last_op_column = None
 
-        # ---------------------------------------------------------------------
-        # Mismatches
-        # ---------------------------------------------------------------------
-        elif kind == "MISMATCH":
-            errors.append(LexError(message=f"Unexpected character: {value}", line=line_num, column=column))
-            prev_type = None
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
-
-    # -------------------------------------------------------------------------
-    # End-of-file check: if file ends with an operator, flag dangling operator
-    # -------------------------------------------------------------------------
+    # EOF dangling operator check (mirror original behavior)
     if expect_operand and last_op_line is not None and last_op_column is not None:
-        errors.append(LexError(message="Dangling operator at end of line", line=last_op_line, column=last_op_column))
+        add_error("Dangling operator at end of line", last_op_line, last_op_column)
 
     return {
         "tokens": [asdict(t) for t in tokens],

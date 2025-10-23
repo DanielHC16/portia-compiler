@@ -1,10 +1,9 @@
 TODOs and Notes: 
 
 Lexical Analyzer
-1. Array Handling ex: arr[] -> Needs to generate proper tokens
-2. Lexeme to Token Proper Generation
-3. Identifier Iteration(?)
-4. Space and other specific lexeme to token generation 
+1.. Lexeme to Token Proper Generation
+2.. Identifier Iteration(?)
+3.. Space and other specific lexeme to token generation 
 
 Notes:
 Error Handling for Lexer Includes:
@@ -12,7 +11,7 @@ Dangling operators at the end of a line (x = 5 +)
 Invalid operators not in the PORTIA set
 Unclosed strings (unterminated "...")
 Unclosed block comments (/* ...)
-Keep MISMATCH for truly unknown characters
+
 
 Syntax Analyzer / Parser
 1. Requires Complete CFG
