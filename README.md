@@ -23,7 +23,7 @@ Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/<your-org>/portia.git
+git clone https://github.com/DanielHC16/portia-compiler
 cd portia
 ```
 
