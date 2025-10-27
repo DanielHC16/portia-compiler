@@ -3,8 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { lexCode, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
 
-const EXAMPLE = `
-thread("Hello World");
+const EXAMPLE = `// PORTIA by LoomVI
 `;
 
 type SimpleToken = Token & { start?: number; end?: number };
@@ -31,7 +30,7 @@ export default function LexerPanel() {
     typingRef.current = window.setTimeout(() => {
       runLex();
       typingRef.current = null;
-    }, 150);
+    }, 20);
   }
 
   async function runLex() {
@@ -49,19 +48,21 @@ export default function LexerPanel() {
     }
   }
 
-  // Sync scroll: when textarea scrolls, mirror pre scroll
+  // Sync scroll between textarea, highlighting overlay, and line numbers
   useEffect(() => {
     const ta = textareaRef.current;
     const pre = preRef.current;
     const lineNums = lineNumbersRef.current;
-    if (!ta || !pre) return;
+    if (!ta || !pre || !lineNums) return;
+    
     const onScroll = () => {
-      pre.scrollTop = ta.scrollTop;
-      pre.scrollLeft = ta.scrollLeft;
-      if (lineNums) {
-        lineNums.scrollTop = ta.scrollTop;
-      }
+      const scrollTop = ta.scrollTop;
+      const scrollLeft = ta.scrollLeft;
+      pre.scrollTop = scrollTop;
+      pre.scrollLeft = scrollLeft;
+      lineNums.scrollTop = scrollTop;
     };
+    
     ta.addEventListener("scroll", onScroll);
     return () => ta.removeEventListener("scroll", onScroll);
   }, []);
@@ -79,15 +80,23 @@ export default function LexerPanel() {
 
     // Build error positions for highlighting
     const errorRanges: Array<{start: number, end: number}> = [];
+    
+    // Calculate line start positions (line numbers are 1-indexed from backend)
     const lineStarts: number[] = [0];
     for (let i = 0; i < src.length; i++) {
-      if (src[i] === '\n') lineStarts.push(i + 1);
+      if (src[i] === '\n') {
+        lineStarts.push(i + 1);
+      }
     }
     
     for (const err of errs) {
+      // Error line and column are 1-indexed
       if (err.line > 0 && err.line <= lineStarts.length) {
         const lineStart = lineStarts[err.line - 1];
-        const colPos = lineStart + (err.column > 0 ? err.column - 1 : 0);
+        const colPos = lineStart + Math.max(0, err.column - 1);
+        
+        // Bounds check
+        if (colPos >= src.length) continue;
         
         // Find the end of the error token - look for the next whitespace or special char
         let endPos = colPos + 1;
@@ -214,8 +223,9 @@ export default function LexerPanel() {
   const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
   const highlightedHTML = rawSegments.map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text)).join("");
   
-  // Calculate line numbers
-  const lineCount = code.split('\n').length;
+  // Calculate line numbers - ensure we count correctly even without trailing newline
+  const lines = code.split('\n');
+  const lineCount = lines.length;
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
   return (
@@ -255,7 +265,7 @@ export default function LexerPanel() {
                 style={{
                   position: "relative",
                   width: 40,
-                  padding: "12px 6px 12px 8px",
+                  padding: "12px 8px",
                   background: "var(--bg-secondary)",
                   borderLeft: "1px solid var(--border)",
                   borderTop: "1px solid var(--border)",
@@ -266,14 +276,14 @@ export default function LexerPanel() {
                   userSelect: "none",
                   textAlign: "right",
                   fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace",
-                  fontSize: 12,
+                  fontSize: 14,
                   lineHeight: "1.5",
                   color: "var(--text-muted)",
                   opacity: 0.6,
                 }}
               >
                 {lineNumbers.map((num) => (
-                  <div key={num}>{num}</div>
+                  <div key={num} style={{ minHeight: "21px" }}>{num}</div>
                 ))}
               </div>
 
@@ -334,17 +344,10 @@ export default function LexerPanel() {
                     resize: "none",
                     outline: "none",
                     caretColor: "var(--text)",
+                    whiteSpace: "pre-wrap",
+                    wordWrap: "break-word",
                     borderTopLeftRadius: 0,
                     borderBottomLeftRadius: 0,
-                  }}
-                  onScroll={(e) => {
-                    if (preRef.current) {
-                      preRef.current.scrollTop = e.currentTarget.scrollTop;
-                      preRef.current.scrollLeft = e.currentTarget.scrollLeft;
-                    }
-                    if (lineNumbersRef.current) {
-                      lineNumbersRef.current.scrollTop = e.currentTarget.scrollTop;
-                    }
                   }}
                 />
               </div>
