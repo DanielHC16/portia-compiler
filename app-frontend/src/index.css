@@ -323,6 +323,13 @@ html, body, #root {
 :root[data-theme="dark"] .hl-identifier{color:#e8dff5}
 :root[data-theme="dark"] .hl-operator{color:#f9a8d4}
 :root[data-theme="dark"] .hl-delim{color:#ddd6fe}
+:root[data-theme="dark"] .hl-error{
+  background:rgba(248, 113, 113, 0.2);
+  border-bottom:2px solid #f87171;
+  border-radius:2px;
+  position:relative;
+  animation:error-pulse 1.5s ease-in-out infinite;
+}
 
 /* Highlighting - Light Theme */
 :root[data-theme="light"] .hl-keyword{color:#7c3aed;font-weight:600}
@@ -334,6 +341,18 @@ html, body, #root {
 :root[data-theme="light"] .hl-identifier{color:#2d1b4e}
 :root[data-theme="light"] .hl-operator{color:#be185d}
 :root[data-theme="light"] .hl-delim{color:#8b5cf6}
+:root[data-theme="light"] .hl-error{
+  background:rgba(220, 38, 38, 0.15);
+  border-bottom:2px solid #dc2626;
+  border-radius:2px;
+  position:relative;
+  animation:error-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes error-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
 
 /* MonacoPortia decoration classes (solid violet accents) */
 .monaco-editor .mp-keyword { color: #7c3aed !important; font-weight: 700 !important; }
