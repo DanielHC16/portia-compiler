@@ -82,9 +82,16 @@ export default function ViewSwitcher() {
         </div>
       </div>
 
-      {view === "lexical" && <LexerPanel />}
-      {view === "syntax" && <ParserTBA />}
-      {view === "semantics" && <SemanticTBA />}
+      {/* Keep all panels mounted to preserve state, show/hide with display */}
+      <div style={{ display: view === "lexical" ? "block" : "none", height: "100%" }}>
+        <LexerPanel />
+      </div>
+      <div style={{ display: view === "syntax" ? "block" : "none", height: "100%" }}>
+        <ParserTBA />
+      </div>
+      <div style={{ display: view === "semantics" ? "block" : "none", height: "100%" }}>
+        <SemanticTBA />
+      </div>
     </div>
   );
 }

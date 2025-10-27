@@ -3,8 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { lexCode, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
 
-const EXAMPLE = `// PORTIA by LoomVI
-`;
+const EXAMPLE = `// PORTIA by LoomVI`;
 
 type SimpleToken = Token & { start?: number; end?: number };
 
@@ -38,6 +37,21 @@ export default function LexerPanel() {
     setErrors([]);
     try {
       const resp = await lexCode(code);
+      setTokens(resp.tokens as SimpleToken[]);
+      setErrors(resp.errors);
+    } catch (err: any) {
+      setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
+      setTokens([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runLexWithCode(sourceCode: string) {
+    setLoading(true);
+    setErrors([]);
+    try {
+      const resp = await lexCode(sourceCode);
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
     } catch (err: any) {
@@ -239,11 +253,12 @@ export default function LexerPanel() {
           </button>
           <button
             className="btn ghost"
-            onClick={() => {
+            onClick={async () => {
               setCode(EXAMPLE);
               setTokens([]);
               setErrors([]);
-              setTimeout(() => runLex(), 50);
+              // Run lexer with EXAMPLE code directly to avoid stale closure
+              await runLexWithCode(EXAMPLE);
             }}
           >
             Reset
