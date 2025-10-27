@@ -150,112 +150,137 @@ export default function LexerPanel() {
   const highlightedHTML = rawSegments.map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text)).join("");
 
   return (
-    <div className="workspace" style={{ alignItems: "stretch" }}>
-      <div className="panel" style={{ minHeight: 320 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <h2>Source</h2>
-          <div style={{ marginLeft: "auto" }}>
-            <button className="btn" onClick={runLex} disabled={loading}>
-              {loading ? "Lexing..." : "Run Lexer"}
-            </button>
-            <button
-              className="btn ghost"
-              style={{ marginLeft: 8 }}
-              onClick={() => {
-                setCode(EXAMPLE);
-                setTokens([]);
-                setErrors([]);
-                setTimeout(() => runLex(), 50);
-              }}
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 6 }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexDirection: "column" }}>
-            <div style={{ width: "100%" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <div style={{ fontSize: 13, color: "#6b7280" }}>Source (read-only)</div>
-              </div>
-              <div className="source-display" style={{ minHeight: 200 }}>
-                <pre
-                  ref={preRef}
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace",
-                    fontSize: 13,
-                  }}
-                >
-                  <span dangerouslySetInnerHTML={{ __html: highlightedHTML }} />
-                </pre>
-              </div>
-            </div>
-
-            <div style={{ width: "100%" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <div style={{ fontSize: 13, color: "#6b7280" }}>Edit</div>
-              </div>
-              <div className="source-edit">
-                <textarea
-                  ref={textareaRef}
-                  value={code}
-                  onChange={(e) => {
-                    setCode(e.target.value);
-                    scheduleLex();
-                  }}
-                  rows={12}
-                  aria-label="source-input"
-                  style={{
-                    width: "100%",
-                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%", padding: 16 }}>
+      {/* Header with actions */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <h2 style={{ margin: 0 }}>Lexical Analyzer</h2>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button className="btn" onClick={runLex} disabled={loading}>
+            {loading ? "Lexing..." : "Run Lexer"}
+          </button>
+          <button
+            className="btn ghost"
+            onClick={() => {
+              setCode(EXAMPLE);
+              setTokens([]);
+              setErrors([]);
+              setTimeout(() => runLex(), 50);
+            }}
+          >
+            Reset
+          </button>
         </div>
       </div>
 
-      <div className="side">
-        <div className="tokens panel">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <h2 style={{ margin: 0 }}>Tokens</h2>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <input
-                  type="checkbox"
-                  checked={hideComments}
-                  onChange={(e) => setHideComments(e.target.checked)}
-                />
-                <span className="small">Hide comments</span>
-              </label>
+      {/* Two-column layout: Left (Source + Errors) | Right (Tokens) */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, flex: "1 1 auto", minHeight: 0 }}>
+        {/* Left Column: Source Code and Errors */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
+          {/* Code Editor with Syntax Highlighting */}
+          <div className="panel" style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 8 }}>Source Code</h3>
+            <div style={{ position: "relative", flex: "1 1 auto", minHeight: 300 }}>
+              {/* Highlighted overlay */}
+              <pre
+                ref={preRef}
+                className="source-display"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  margin: 0,
+                  padding: "12px",
+                  whiteSpace: "pre-wrap",
+                  wordWrap: "break-word",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace",
+                  fontSize: 14,
+                  lineHeight: "1.5",
+                  pointerEvents: "none",
+                  overflow: "hidden",
+                }}
+              >
+                <span dangerouslySetInnerHTML={{ __html: highlightedHTML }} />
+              </pre>
+              
+              {/* Editable textarea */}
+              <textarea
+                ref={textareaRef}
+                value={code}
+                onChange={(e) => {
+                  setCode(e.target.value);
+                  scheduleLex();
+                }}
+                aria-label="source-input"
+                spellCheck={false}
+                className="source-edit"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: "100%",
+                  height: "100%",
+                  margin: 0,
+                  padding: "12px",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace",
+                  fontSize: 14,
+                  lineHeight: "1.5",
+                  backgroundColor: "transparent",
+                  color: "transparent",
+                  resize: "none",
+                  outline: "none",
+                  caretColor: "var(--text)",
+                }}
+                onScroll={(e) => {
+                  if (preRef.current) {
+                    preRef.current.scrollTop = e.currentTarget.scrollTop;
+                    preRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                  }
+                }}
+              />
             </div>
           </div>
 
-          <TokenList tokens={tokens} hideComments={hideComments} />
+          {/* Errors Panel */}
+          <div className="panel" style={{ flex: "0 0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ margin: 0 }}>Errors</h3>
+              <div className="small">Problems: {errors.length}</div>
+            </div>
+            <div style={{ maxHeight: 200, overflow: "auto" }}>
+              {errors.length === 0 ? (
+                <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>No lexical errors</div>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: 16 }}>
+                  {errors.map((err, i) => (
+                    <li key={i}>
+                      <strong>{err.message}</strong> — line {err.line}, col {err.column}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="errors panel">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 style={{ margin: 0 }}>Errors</h2>
-            <div className="small">Problems: {errors.length}</div>
+        {/* Right Column: Tokens Panel */}
+        <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>Tokens</h3>
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={hideComments}
+                onChange={(e) => setHideComments(e.target.checked)}
+              />
+              <span className="small">Hide comments</span>
+            </label>
           </div>
-          <div style={{ marginTop: 8 }}>
-            {errors.length === 0 ? (
-              <div style={{ color: "#666" }}>No lexical errors</div>
-            ) : (
-              <ul style={{ margin: 0, paddingLeft: 16 }}>
-                {errors.map((err, i) => (
-                  <li key={i}>
-                    <strong>{err.message}</strong> — line {err.line}, col {err.column}
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div style={{ flex: "1 1 auto", overflow: "auto" }}>
+            <TokenList tokens={tokens} hideComments={hideComments} />
           </div>
         </div>
       </div>
