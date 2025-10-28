@@ -170,3 +170,9 @@ $RECYCLE.BIN/
 
 # Vite
 .vite/
+
+# ===========================
+# Internal Documentation
+# ===========================
+# Keep internal developer docs out of the repository
+docs-internal/
