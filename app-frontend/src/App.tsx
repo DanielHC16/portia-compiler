@@ -23,7 +23,7 @@ export default function App() {
   return (
     <div className="app">
       <div>
-        <EditorPane onCodeChange={onCodeChange} />
+        <EditorPane onCodeChange={onCodeChange} errors={errors} />
       </div>
       <div>
         <TokenTable tokens={tokens} />

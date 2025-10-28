@@ -1,18 +1,24 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import type { BeforeMount, OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { registerPortiaLanguage } from "../monacoPortia";
+import type { LexError } from "../types";
 
-export const EditorPane: React.FC<{ onCodeChange?: (code: string) => void }> = ({ onCodeChange }) => {
+interface EditorPaneProps {
+  onCodeChange?: (code: string) => void;
+  errors?: LexError[];
+}
+
+export const EditorPane: React.FC<EditorPaneProps> = ({ onCodeChange, errors = [] }) => {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
   const timer = useRef<number | null>(null);
 
-  const setLexerDiagnostics = (errors: any[]) => {
+  const setLexerDiagnostics = (errs: LexError[]) => {
     const model = editorRef.current?.getModel();
     if (!model || !monacoRef.current) return;
-    const markers: Monaco.editor.IMarkerData[] = errors.map((err: any) => ({
+    const markers: Monaco.editor.IMarkerData[] = errs.map((err) => ({
       severity: monacoRef.current!.MarkerSeverity.Error,
       message: err.message,
       startLineNumber: err.line,
@@ -22,6 +28,11 @@ export const EditorPane: React.FC<{ onCodeChange?: (code: string) => void }> = (
     }));
     monacoRef.current!.editor.setModelMarkers(model, "portia", markers);
   };
+
+  // Update diagnostics whenever errors prop changes
+  useEffect(() => {
+    setLexerDiagnostics(errors);
+  }, [errors]);
 
   const beforeMount: BeforeMount = (monaco) => {
     monacoRef.current = monaco;
@@ -41,18 +52,7 @@ export const EditorPane: React.FC<{ onCodeChange?: (code: string) => void }> = (
     timer.current = window.setTimeout(() => {
       const code = value ?? "";
       onCodeChange?.(code);
-
-      fetch("http://localhost:8000/lex", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      })
-        .then((res) => res.json())
-        .then(({ tokens, errors }) => {
-          setLexerDiagnostics(errors);
-        })
-        .catch((err) => console.error("Lexer request failed:", err));
-    }, 250);
+    }, 20); // Reduced from 250ms to 20ms for near-instant response
   };
 
   return (
