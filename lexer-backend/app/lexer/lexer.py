@@ -303,27 +303,41 @@ def lex(code: str) -> Dict[str, Any]:
             buf.append(ch)
             advance()
             closed = False
+            has_invalid_escape = False
+            
             while current_char() is not None:
                 c = current_char()
-                buf.append(c)
                 if c == '\\':
+                    buf.append(c)
                     advance()
                     if current_char() is not None:
-                        buf.append(current_char())
+                        next_ch = current_char()
+                        buf.append(next_ch)
+                        # Validate escape sequence
+                        escape_seq = '\\' + next_ch
+                        if escape_seq not in ('\\n', '\\t', '\\"', "\\'", '\\\\'):
+                            add_error(f'Invalid escape sequence in string literal: {escape_seq}', start_line, start_col)
+                            has_invalid_escape = True
                         advance()
                     continue
                 if c == '"':
+                    buf.append(c)
                     closed = True
                     advance()
                     break
                 if c == _NEWLINE:
                     break
+                buf.append(c)
                 advance()
+                
             lexeme = ''.join(buf)
             end_idx = pos
+            
             if not closed:
                 add_error('Unterminated string literal', start_line, start_col)
-            else:
+                # Do NOT generate token for unterminated strings
+            elif not has_invalid_escape:
+                # Only generate token if string is properly terminated AND has no invalid escapes
                 add_token('STRING_LIT', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
@@ -334,43 +348,56 @@ def lex(code: str) -> Dict[str, Any]:
             buf.append(ch)
             advance()
             closed = False
+            has_error = False
+            
             while current_char() is not None:
                 c = current_char()
-                buf.append(c)
                 if c == '\\':
+                    buf.append(c)
                     advance()
                     if current_char() is not None:
                         buf.append(current_char())
                         advance()
                     continue
                 if c == "'":
+                    buf.append(c)
                     advance()
                     closed = True
                     break
                 if c == _NEWLINE:
                     break
+                buf.append(c)
                 advance()
+                
             lexeme = ''.join(buf)
             end_idx = pos
             
             if not closed:
                 add_error('Unterminated character literal', start_line, start_col)
+                # Do NOT generate token for unterminated char literals
+                continue
+                
+            # Validate character literal content
+            inner = lexeme[1:-1]  # Extract content between quotes
+            
+            if len(inner) == 0:
+                add_error('Empty character literal', start_line, start_col)
+                has_error = True
+            elif len(inner) == 1:
+                # Single character - valid
+                pass
+            elif len(inner) == 2 and inner[0] == '\\':
+                # Escape sequence - validate
+                if inner not in ('\\n', '\\t', "\\'", '\\"', '\\\\'):
+                    add_error(f'Invalid escape sequence in character literal: {inner}', start_line, start_col)
+                    has_error = True
             else:
-                inner = lexeme[1:-1] if lexeme.endswith("'") and len(lexeme) >= 2 else ''
-                valid = False
-                
-                if len(inner) == 1:
-                    valid = True
-                elif len(inner) == 2 and inner[0] == '\\':
-                    if inner in _VALID_ESCAPES:
-                        valid = True
-                    else:
-                        add_error(f'Invalid escape sequence in character literal: {inner}', start_line, start_col)
-                else:
-                    add_error('Character literal must contain exactly one character or escape sequence', start_line, start_col)
-                
-                if valid or not closed:
-                    add_token('CHAR_LIT', lexeme, start_line, start_col, start_idx, end_idx)
+                add_error('Character literal must contain exactly one character or escape sequence', start_line, start_col)
+                has_error = True
+            
+            # Only generate token if no errors
+            if not has_error:
+                add_token('CHAR_LIT', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
         if ch.isdigit():
@@ -400,16 +427,21 @@ def lex(code: str) -> Dict[str, Any]:
             end_idx = pos
             
             if seen_dot:
+                # Fractional literal - must have digit before OR after decimal
                 parts = lexeme.split('.')
                 if len(parts) == 2:
                     before, after = parts
+                    # At least one digit before or after decimal required
                     if (before and before.isdigit()) or (after and after.isdigit()):
                         add_token('FLOAT_LIT', lexeme, start_line, start_col, start_idx, end_idx)
                     else:
-                        add_error('Invalid fractional literal format', start_line, start_col)
+                        add_error('Fractional literal must have at least one digit before or after decimal point', start_line, start_col)
+                        # Do NOT generate token for invalid fractional literals
                 else:
                     add_error('Invalid fractional literal format', start_line, start_col)
+                    # Do NOT generate token
             else:
+                # Whole number literal
                 add_token('INT_LIT', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
@@ -427,10 +459,15 @@ def lex(code: str) -> Dict[str, Any]:
             lexeme = ''.join(buf)
             end_idx = pos
             
-            if len(lexeme) > 25:
+            # Validate identifier length (1-25 characters per spec)
+            if len(lexeme) < 1:
+                add_error('Identifier cannot be empty', start_line, start_col)
+                # Do NOT generate token
+            elif len(lexeme) > 25:
                 add_error(f'Identifier exceeds maximum length of 25 characters: {lexeme}', start_line, start_col)
-            
-            add_token('IDENTIFIER', lexeme, start_line, start_col, start_idx, end_idx)
+                # Do NOT generate token for invalid identifiers
+            else:
+                add_token('IDENTIFIER', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
         start_line, start_col = line, col
@@ -456,9 +493,18 @@ def lex(code: str) -> Dict[str, Any]:
             add_token('OP_AND', '&&', start_line, start_col, start_idx, start_idx + 2)
             advance(2)
             continue
+        if ch == '&':
+            add_error("Invalid operator '&', did you mean '&&'?", line, col)
+            advance()
+            continue
+            
         if ch == '|' and peek() == '|':
             add_token('OP_OR', '||', start_line, start_col, start_idx, start_idx + 2)
             advance(2)
+            continue
+        if ch == '|':
+            add_error("Invalid operator '|', did you mean '||'?", line, col)
+            advance()
             continue
         if ch == '+' and peek() == '+':
             add_token('OP_INC', '++', start_line, start_col, start_idx, start_idx + 2)
