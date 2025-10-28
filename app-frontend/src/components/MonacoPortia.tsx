@@ -91,7 +91,16 @@ export default function MonacoPortia({ value, tokens, language = "cpp", theme = 
   // Map token type to Monaco decoration class (CSS class names below)
   function tokenToClass(type?: string) {
     if (!type) return undefined;
-    if (/^KW_/.test(type)) return "mp-keyword";
+    
+    // Keywords - all PORTIA reserved words
+    const keywords = [
+      "BREAK", "BOOL", "CONST", "CASE", "CHAR", "DEFAULT", "DOUBLE", "DO",
+      "ELSE", "FALSE", "FLOAT", "FUNC", "FOR", "GLOBAL", "INT", "IF",
+      "LOCAL", "LONG", "MAIN", "RETURN", "STRING", "SWITCH", "THREAD",
+      "THREADLN", "TRAP", "TRUE", "USING", "VOID", "VAR", "WHILE", "WEAVE"
+    ];
+    if (keywords.includes(type)) return "mp-keyword";
+    
     if (type === "INT_LIT" || type === "FLOAT_LIT" || /_INTEGER$/.test(type)) return "mp-number";
     if (type === "STRING_LIT") return "mp-string";
     if (type === "CHAR_LIT") return "mp-char";
@@ -99,7 +108,6 @@ export default function MonacoPortia({ value, tokens, language = "cpp", theme = 
     if (type === "IDENTIFIER") return "mp-identifier";
     if (type === "DELIMITER" || /SEMI|COMMA|DELIM|DELIMITER/.test(type)) return "mp-delim";
     if (type === "OPERATOR" || /ASSIGN|OP|OPERATOR/.test(type)) return "mp-operator";
-    if (/^KW_(INT|LONG|FLOAT|DOUBLE|CHAR|BOOL|STRING|VOID|THREAD|FUNC|CONST|VAR|GLOBAL|RETURN|CONST)$/.test(type)) return "mp-type";
     return "mp-identifier";
   }
 

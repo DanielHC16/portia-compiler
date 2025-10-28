@@ -433,14 +433,22 @@ function escapeHtml(s: string) {
 
 function tokenClass(type?: string) {
   if (!type) return undefined;
-  if (/^KW_/.test(type)) return "hl-keyword";
+  
+  // All PORTIA keywords (without KW_ prefix now)
+  const keywords = [
+    "BREAK", "BOOL", "CONST", "CASE", "CHAR", "DEFAULT", "DOUBLE", "DO",
+    "ELSE", "FALSE", "FLOAT", "FUNC", "FOR", "GLOBAL", "INT", "IF",
+    "LOCAL", "LONG", "MAIN", "RETURN", "STRING", "SWITCH", "THREAD",
+    "THREADLN", "TRAP", "TRUE", "USING", "VOID", "VAR", "WHILE", "WEAVE"
+  ];
+  
+  if (keywords.includes(type)) return "hl-keyword";
   if (type === "INT_LIT" || type === "FLOAT_LIT") return "hl-number";
   if (type === "STRING_LIT") return "hl-string";
   if (type === "CHAR_LIT") return "hl-char";
   if (type === "COMMENT" || type === "ML_COMMENT" || /COMMENT$/.test(type)) return "hl-comment";
   if (type === "IDENTIFIER") return "hl-identifier";
-  if (type === "DELIMITER") return "hl-delim";
-  if (type === "OPERATOR") return "hl-operator";
-  if (/^KW_(INT|LONG|FLOAT|DOUBLE|CHAR|BOOL|STRING|VOID|THREAD|FUNC|CONST|VAR|GLOBAL|RETURN)$/.test(type)) return "hl-type";
+  if (/DELIM/.test(type)) return "hl-delim";
+  if (/OP_/.test(type)) return "hl-operator";
   return undefined;
 }
