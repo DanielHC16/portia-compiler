@@ -73,155 +73,155 @@ def lex(code: str) -> Dict[str, Any]:
 
         if ch == 'b':
             if check_word('break'):
-                add_token('KW_BREAK', 'break', start_line, start_col, start_pos, start_pos + 5)
+                add_token('BREAK', 'break', start_line, start_col, start_pos, start_pos + 5)
                 advance(5)
                 return True
             elif check_word('bool'):
-                add_token('KW_BOOL', 'bool', start_line, start_col, start_pos, start_pos + 4)
+                add_token('BOOL', 'bool', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
 
         elif ch == 'c':
             if check_word('const'):
-                add_token('KW_CONST', 'const', start_line, start_col, start_pos, start_pos + 5)
+                add_token('CONST', 'const', start_line, start_col, start_pos, start_pos + 5)
                 advance(5)
                 return True
             elif check_word('case'):
-                add_token('KW_CASE', 'case', start_line, start_col, start_pos, start_pos + 4)
+                add_token('CASE', 'case', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
             elif check_word('char'):
-                add_token('KW_CHAR', 'char', start_line, start_col, start_pos, start_pos + 4)
+                add_token('CHAR', 'char', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
 
         elif ch == 'd':
             if check_word('default'):
-                add_token('KW_DEFAULT', 'default', start_line, start_col, start_pos, start_pos + 7)
+                add_token('DEFAULT', 'default', start_line, start_col, start_pos, start_pos + 7)
                 advance(7)
                 return True
             elif check_word('double'):
-                add_token('KW_DOUBLE', 'double', start_line, start_col, start_pos, start_pos + 6)
+                add_token('DOUBLE', 'double', start_line, start_col, start_pos, start_pos + 6)
                 advance(6)
                 return True
             elif check_word('do'):
-                add_token('KW_DO', 'do', start_line, start_col, start_pos, start_pos + 2)
+                add_token('DO', 'do', start_line, start_col, start_pos, start_pos + 2)
                 advance(2)
                 return True
 
         elif ch == 'e':
             if check_word('else'):
-                add_token('KW_ELSE', 'else', start_line, start_col, start_pos, start_pos + 4)
+                add_token('ELSE', 'else', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
 
         elif ch == 'f':
             if check_word('false'):
-                add_token('KW_FALSE', 'false', start_line, start_col, start_pos, start_pos + 5)
+                add_token('FALSE', 'false', start_line, start_col, start_pos, start_pos + 5)
                 advance(5)
                 return True
             elif check_word('float'):
-                add_token('KW_FLOAT', 'float', start_line, start_col, start_pos, start_pos + 5)
+                add_token('FLOAT', 'float', start_line, start_col, start_pos, start_pos + 5)
                 advance(5)
                 return True
             elif check_word('func'):
-                add_token('KW_FUNC', 'func', start_line, start_col, start_pos, start_pos + 4)
+                add_token('FUNC', 'func', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
             elif check_word('for'):
-                add_token('KW_FOR', 'for', start_line, start_col, start_pos, start_pos + 3)
+                add_token('FOR', 'for', start_line, start_col, start_pos, start_pos + 3)
                 advance(3)
                 return True
 
         elif ch == 'g':
             if check_word('global'):
-                add_token('KW_GLOBAL', 'global', start_line, start_col, start_pos, start_pos + 6)
+                add_token('GLOBAL', 'global', start_line, start_col, start_pos, start_pos + 6)
                 advance(6)
                 return True
 
         elif ch == 'i':
             if check_word('int'):
-                add_token('KW_INT', 'int', start_line, start_col, start_pos, start_pos + 3)
+                add_token('INT', 'int', start_line, start_col, start_pos, start_pos + 3)
                 advance(3)
                 return True
             elif check_word('if'):
-                add_token('KW_IF', 'if', start_line, start_col, start_pos, start_pos + 2)
+                add_token('IF', 'if', start_line, start_col, start_pos, start_pos + 2)
                 advance(2)
                 return True
 
         elif ch == 'l':
             if check_word('local'):
-                add_token('KW_LOCAL', 'local', start_line, start_col, start_pos, start_pos + 5)
+                add_token('LOCAL', 'local', start_line, start_col, start_pos, start_pos + 5)
                 advance(5)
                 return True
             elif check_word('long'):
-                add_token('KW_LONG', 'long', start_line, start_col, start_pos, start_pos + 4)
+                add_token('LONG', 'long', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
 
         elif ch == 'm':
             if check_word('main'):
-                add_token('KW_MAIN', 'main', start_line, start_col, start_pos, start_pos + 4)
+                add_token('MAIN', 'main', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
 
         elif ch == 'r':
             if check_word('return'):
-                add_token('KW_RETURN', 'return', start_line, start_col, start_pos, start_pos + 6)
+                add_token('RETURN', 'return', start_line, start_col, start_pos, start_pos + 6)
                 advance(6)
                 return True
 
         elif ch == 's':
             if check_word('string'):
-                add_token('KW_STRING', 'string', start_line, start_col, start_pos, start_pos + 6)
+                add_token('STRING', 'string', start_line, start_col, start_pos, start_pos + 6)
                 advance(6)
                 return True
             elif check_word('switch'):
-                add_token('KW_SWITCH', 'switch', start_line, start_col, start_pos, start_pos + 6)
+                add_token('SWITCH', 'switch', start_line, start_col, start_pos, start_pos + 6)
                 advance(6)
                 return True
 
         elif ch == 't':
             if check_word('threadln'):
-                add_token('KW_THREADLN', 'threadln', start_line, start_col, start_pos, start_pos + 8)
+                add_token('THREADLN', 'threadln', start_line, start_col, start_pos, start_pos + 8)
                 advance(8)
                 return True
             elif check_word('thread'):
-                add_token('KW_THREAD', 'thread', start_line, start_col, start_pos, start_pos + 6)
+                add_token('THREAD', 'thread', start_line, start_col, start_pos, start_pos + 6)
                 advance(6)
                 return True
             elif check_word('trap'):
-                add_token('KW_TRAP', 'trap', start_line, start_col, start_pos, start_pos + 4)
+                add_token('TRAP', 'trap', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
             elif check_word('true'):
-                add_token('KW_TRUE', 'true', start_line, start_col, start_pos, start_pos + 4)
+                add_token('TRUE', 'true', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
 
         elif ch == 'u':
             if check_word('using'):
-                add_token('KW_USING', 'using', start_line, start_col, start_pos, start_pos + 5)
+                add_token('USING', 'using', start_line, start_col, start_pos, start_pos + 5)
                 advance(5)
                 return True
 
         elif ch == 'v':
             if check_word('void'):
-                add_token('KW_VOID', 'void', start_line, start_col, start_pos, start_pos + 4)
+                add_token('VOID', 'void', start_line, start_col, start_pos, start_pos + 4)
                 advance(4)
                 return True
             elif check_word('var'):
-                add_token('KW_VAR', 'var', start_line, start_col, start_pos, start_pos + 3)
+                add_token('VAR', 'var', start_line, start_col, start_pos, start_pos + 3)
                 advance(3)
                 return True
 
         elif ch == 'w':
             if check_word('while'):
-                add_token('KW_WHILE', 'while', start_line, start_col, start_pos, start_pos + 5)
+                add_token('WHILE', 'while', start_line, start_col, start_pos, start_pos + 5)
                 advance(5)
                 return True
             elif check_word('weave'):
-                add_token('KW_WEAVE', 'weave', start_line, start_col, start_pos, start_pos + 5)
+                add_token('WEAVE', 'weave', start_line, start_col, start_pos, start_pos + 5)
                 advance(5)
                 return True
 
