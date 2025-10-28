@@ -34,6 +34,8 @@ git clone https://github.com/DanielHC16/portia-compiler.git
 cd portia-compiler
 ```
 
+> **Note**: After cloning, the repository includes a comprehensive [`.gitignore`](.gitignore) file that prevents committing unwanted files (virtual environments, build artifacts, etc.). See the [Git Best Practices](#git-best-practices) section below for more information.
+
 ### 2. Backend Setup
 
 #### Lexer Backend
@@ -241,6 +243,77 @@ portia-compiler/
 - **Theme Toggle**: Switch between light and dark modes
 - **Persistent State**: Code persists across tab switches
 - **Error Highlighting**: Visual feedback for lexical errors
+
+---
+
+## 🔧 Git Best Practices
+
+### Understanding `.gitignore`
+The repository includes a comprehensive [`.gitignore`](.gitignore) file that automatically excludes:
+
+- **Python files**: Virtual environments (`venv/`, `.venv/`), compiled files (`__pycache__/`, `*.pyc`)
+- **Node.js files**: Dependencies (`node_modules/`), build outputs (`dist/`)
+- **IDE files**: Editor-specific configurations and caches
+- **OS files**: System-generated files (`.DS_Store`, `Thumbs.db`)
+- **Environment files**: `.env` files containing sensitive data
+
+### Setting Up Git After Cloning
+
+After cloning, you can start contributing:
+
+```bash
+# Check current status
+git status
+
+# Create a new branch for your feature
+git checkout -b feature/your-feature-name
+
+# Make your changes, then stage them
+git add .
+
+# Commit with a descriptive message
+git commit -m "Add: your feature description"
+
+# Push to your branch
+git push origin feature/your-feature-name
+```
+
+### What NOT to Commit
+
+The `.gitignore` file handles this automatically, but be aware:
+
+❌ **Never commit:**
+- Virtual environments (`venv/`, `.venv/`)
+- `node_modules/` directory
+- Build outputs (`dist/`, `__pycache__/`)
+- Environment variables (`.env` files)
+- IDE-specific settings (except shared configurations)
+- Compiled Python files (`*.pyc`, `*.pyo`)
+
+✅ **Always commit:**
+- Source code files (`.py`, `.ts`, `.tsx`)
+- Configuration files (`package.json`, `tsconfig.json`)
+- Documentation (`README.md`, comments)
+- Shared VSCode settings (`.vscode/settings.json`)
+
+### Keeping Your Fork Updated
+
+If you've forked the repository:
+
+```bash
+# Add upstream remote (only needed once)
+git remote add upstream https://github.com/DanielHC16/portia-compiler.git
+
+# Fetch upstream changes
+git fetch upstream
+
+# Merge upstream changes into your main branch
+git checkout main
+git merge upstream/main
+
+# Push updates to your fork
+git push origin main
+```
 
 ---
 
