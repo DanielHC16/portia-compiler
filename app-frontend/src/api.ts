@@ -1,6 +1,12 @@
 // src/api.ts
 export type Token = { type: string; lexeme: string; line: number; column: number };
-export type LexError = { message: string; line: number; column: number };
+export type LexError = { 
+  message: string; 
+  line: number; 
+  column: number;
+  start_index?: number;
+  end_index?: number;
+};
 
 const LEXER_URL = import.meta.env.VITE_LEXER_BACKEND_URL ?? "http://localhost:8000";
 const PARSER_URL = import.meta.env.VITE_PARSER_BACKEND_URL ?? "http://localhost:8001";

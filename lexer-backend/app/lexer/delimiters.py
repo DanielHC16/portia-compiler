@@ -5,6 +5,7 @@ Based on PORTIA language specification - DELIMITERS.md
 
 # Character sets
 WHITESPACE = {' ', '\t', '\n', '\r'}
+WHITESPACE_NO_NEWLINE = {' ', '\t'}  # Whitespace without newlines
 ALPHANUM = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_')
 ALPHABETICS = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_')
 DIGITS = set('0123456789')
@@ -12,13 +13,14 @@ DIGITS = set('0123456789')
 # Delimiter definitions per token type
 DELIMITERS = {
     # Arithmetic operators: +, -, *, /, %
-    'arithmetic_op': WHITESPACE | ALPHANUM | {'('},
+    # NOTE: Newlines NOT allowed - operators must have operand on same line or use explicit continuation
+    'arithmetic_op': WHITESPACE_NO_NEWLINE | ALPHANUM | {'('},
     
     # Relational operators: ==, !=, >=, <=, >, <
-    'relational_op': WHITESPACE | ALPHANUM | {'(', ')'},
+    'relational_op': WHITESPACE_NO_NEWLINE | ALPHANUM | {'(', ')'},
     
     # Logical operators: &&, ||
-    'logical_op': WHITESPACE | ALPHANUM | {'(', ')'},
+    'logical_op': WHITESPACE_NO_NEWLINE | ALPHANUM | {'(', ')'},
     
     # NOT operator: !
     'not_op': ALPHABETICS | WHITESPACE | {'(', '=', '!'},

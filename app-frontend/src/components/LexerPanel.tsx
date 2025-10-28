@@ -14,7 +14,6 @@ export default function LexerPanel() {
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
 
-  const typingRef = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
@@ -23,14 +22,6 @@ export default function LexerPanel() {
     runLex();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  function scheduleLex() {
-    if (typingRef.current !== null) window.clearTimeout(typingRef.current);
-    typingRef.current = window.setTimeout(() => {
-      runLex();
-      typingRef.current = null;
-    }, 0);  // Changed from 20ms to 0ms for instant token generation
-  }
 
   async function runLex() {
     setLoading(true);
@@ -60,6 +51,11 @@ export default function LexerPanel() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleCodeChange(newCode: string) {
+    setCode(newCode);
+    runLexWithCode(newCode);
   }
 
   // Sync scroll between textarea, highlighting overlay, and line numbers
@@ -92,38 +88,43 @@ export default function LexerPanel() {
     if (!src) return [{ text: "", cls: undefined }];
     if (!toks || toks.length === 0) return [{ text: src, cls: undefined }];
 
-    // Build error positions for highlighting
+    // Build error positions for highlighting - prioritize start_index/end_index if available
     const errorRanges: Array<{start: number, end: number}> = [];
     
-    // Calculate line start positions (line numbers are 1-indexed from backend)
-    const lineStarts: number[] = [0];
-    for (let i = 0; i < src.length; i++) {
-      if (src[i] === '\n') {
-        lineStarts.push(i + 1);
-      }
-    }
-    
     for (const err of errs) {
-      // Error line and column are 1-indexed
-      if (err.line > 0 && err.line <= lineStarts.length) {
-        const lineStart = lineStarts[err.line - 1];
-        const colPos = lineStart + Math.max(0, err.column - 1);
-        
-        // Bounds check
-        if (colPos >= src.length) continue;
-        
-        // Find the end of the error token - look for the next whitespace or special char
-        let endPos = colPos + 1;
-        while (endPos < src.length && 
-               src[endPos] !== ' ' && 
-               src[endPos] !== '\t' && 
-               src[endPos] !== '\n' &&
-               src[endPos] !== '\r' &&
-               /[a-zA-Z0-9_]/.test(src[endPos])) {
-          endPos++;
+      // Use start_index and end_index if available (character position based)
+      if (err.start_index !== undefined && err.end_index !== undefined) {
+        errorRanges.push({ start: err.start_index, end: err.end_index });
+      } else {
+        // Fallback to line/column calculation (legacy)
+        // Calculate line start positions (line numbers are 1-indexed from backend)
+        const lineStarts: number[] = [0];
+        for (let i = 0; i < src.length; i++) {
+          if (src[i] === '\n') {
+            lineStarts.push(i + 1);
+          }
         }
         
-        errorRanges.push({ start: colPos, end: endPos });
+        if (err.line > 0 && err.line <= lineStarts.length) {
+          const lineStart = lineStarts[err.line - 1];
+          const colPos = lineStart + Math.max(0, err.column - 1);
+          
+          // Bounds check
+          if (colPos >= src.length) continue;
+          
+          // Find the end of the error token - look for the next whitespace or special char
+          let endPos = colPos + 1;
+          while (endPos < src.length && 
+                 src[endPos] !== ' ' && 
+                 src[endPos] !== '\t' && 
+                 src[endPos] !== '\n' &&
+                 src[endPos] !== '\r' &&
+                 /[a-zA-Z0-9_]/.test(src[endPos])) {
+            endPos++;
+          }
+          
+          errorRanges.push({ start: colPos, end: endPos });
+        }
       }
     }
 
@@ -334,10 +335,7 @@ export default function LexerPanel() {
                 <textarea
                   ref={textareaRef}
                   value={code}
-                  onChange={(e) => {
-                    setCode(e.target.value);
-                    scheduleLex();
-                  }}
+                  onChange={(e) => handleCodeChange(e.target.value)}
                   aria-label="source-input"
                   spellCheck={false}
                   className="source-edit"
