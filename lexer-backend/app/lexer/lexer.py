@@ -3,6 +3,7 @@ from dataclasses import asdict
 
 from .tokens import Token
 from .errors import LexError
+from .delimiters import is_valid_delimiter
 
 # Character sets for PORTIA lexical analysis
 _ALPHA = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -13,7 +14,7 @@ _WHITESPACE = {' ', '\t', '\r'}
 _NEWLINE = '\n'
 
 # Valid escape sequences in PORTIA
-_VALID_ESCAPES = {'\n', '\t', '\"', '\'', '\\'}
+_VALID_ESCAPES = {'\n', '\t', '\"', '\'', '\\\\'}
 
 
 def lex(code: str) -> Dict[str, Any]:
@@ -51,6 +52,22 @@ def lex(code: str) -> Dict[str, Any]:
         d['start'] = start_idx
         d['end'] = end_idx
         tokens.append(d)
+    
+    def add_token_with_validation(t_type: str, lexeme: str, t_line: int, t_col: int, start_idx: int, end_idx: int, next_ch: Optional[str]) -> bool:
+        """
+        Add token with delimiter validation.
+        Returns True if token was added, False if validation failed.
+        """
+        if not is_valid_delimiter(t_type, next_ch):
+            # Invalid delimiter - report error and don't add token
+            if next_ch is None:
+                add_error(f"Unexpected end of input after '{lexeme}'", t_line, t_col)
+            else:
+                add_error(f"Invalid character '{next_ch}' after '{lexeme}'", t_line, t_col)
+            return False
+        
+        add_token(t_type, lexeme, t_line, t_col, start_idx, end_idx)
+        return True
 
     def add_error(msg: str, e_line: int, e_col: int) -> None:
         errors.append(LexError(message=msg, line=e_line, column=e_col))
@@ -540,40 +557,67 @@ def lex(code: str) -> Dict[str, Any]:
             continue
 
         if ch == '=':
-            add_token('OP_ASSIGN', '=', start_line, start_col, start_idx, start_idx + 1)
-            advance()
+            next_ch = peek()
+            if add_token_with_validation('OP_ASSIGN', '=', start_line, start_col, start_idx, start_idx + 1, next_ch):
+                advance()
+            else:
+                advance()  # Skip the invalid token
             continue
         if ch == '+':
-            add_token('OP_ADD', '+', start_line, start_col, start_idx, start_idx + 1)
-            advance()
+            next_ch = peek()
+            if add_token_with_validation('OP_ADD', '+', start_line, start_col, start_idx, start_idx + 1, next_ch):
+                advance()
+            else:
+                advance()  # Skip the invalid token
             continue
         if ch == '-':
-            add_token('OP_SUB', '-', start_line, start_col, start_idx, start_idx + 1)
-            advance()
+            next_ch = peek()
+            if add_token_with_validation('OP_SUB', '-', start_line, start_col, start_idx, start_idx + 1, next_ch):
+                advance()
+            else:
+                advance()  # Skip the invalid token
             continue
         if ch == '*':
-            add_token('OP_MUL', '*', start_line, start_col, start_idx, start_idx + 1)
-            advance()
+            next_ch = peek()
+            if add_token_with_validation('OP_MUL', '*', start_line, start_col, start_idx, start_idx + 1, next_ch):
+                advance()
+            else:
+                advance()  # Skip the invalid token
             continue
         if ch == '/':
-            add_token('OP_DIV', '/', start_line, start_col, start_idx, start_idx + 1)
-            advance()
+            next_ch = peek()
+            if add_token_with_validation('OP_DIV', '/', start_line, start_col, start_idx, start_idx + 1, next_ch):
+                advance()
+            else:
+                advance()  # Skip the invalid token
             continue
         if ch == '%':
-            add_token('OP_MOD', '%', start_line, start_col, start_idx, start_idx + 1)
-            advance()
+            next_ch = peek()
+            if add_token_with_validation('OP_MOD', '%', start_line, start_col, start_idx, start_idx + 1, next_ch):
+                advance()
+            else:
+                advance()  # Skip the invalid token
             continue
         if ch == '>':
-            add_token('OP_GT', '>', start_line, start_col, start_idx, start_idx + 1)
-            advance()
+            next_ch = peek()
+            if add_token_with_validation('OP_GT', '>', start_line, start_col, start_idx, start_idx + 1, next_ch):
+                advance()
+            else:
+                advance()  # Skip the invalid token
             continue
         if ch == '<':
-            add_token('OP_LT', '<', start_line, start_col, start_idx, start_idx + 1)
-            advance()
+            next_ch = peek()
+            if add_token_with_validation('OP_LT', '<', start_line, start_col, start_idx, start_idx + 1, next_ch):
+                advance()
+            else:
+                advance()  # Skip the invalid token
             continue
         if ch == '!':
-            add_token('OP_NOT', '!', start_line, start_col, start_idx, start_idx + 1)
-            advance()
+            next_ch = peek()
+            if add_token_with_validation('OP_NOT', '!', start_line, start_col, start_idx, start_idx + 1, next_ch):
+                advance()
+            else:
+                advance()  # Skip the invalid token
             continue
 
         if ch == '(':
