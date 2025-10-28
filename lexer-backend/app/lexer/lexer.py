@@ -1,45 +1,30 @@
-import re
-from typing import List, Dict, Any, Optional
+﻿from typing import List, Dict, Any, Optional
 from dataclasses import asdict
 
-from .keywords import KEYWORDS
 from .tokens import Token
 from .errors import LexError
 
-# Only these operators are valid in PORTIA
-VALID_OPERATORS = {"==", "!=", "=", "+", "-", "*", "/", "%", ".."}
+# Character sets for PORTIA lexical analysis
+_ALPHA = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+_DIGIT = '0123456789'
+_IDENT_START = set(_ALPHA + '_')
+_IDENT_PART = set(_ALPHA + _DIGIT + '_')
+_WHITESPACE = {' ', '\t', '\r'}
+_NEWLINE = '\n'
 
-_ALPHA = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-_DIGIT = "0123456789"
-_IDENT_START = set(_ALPHA + "_")
-_IDENT_PART = set(_ALPHA + _DIGIT + "_")
-_WHITESPACE = {" ", "\t", "\r"}
-_NEWLINE = "\n"
-_SINGLE_DELIMS = set("{}()[];,")
-_OPERATOR_CHARS = set("+-*/%=&|!<>.")
+# Valid escape sequences in PORTIA
+_VALID_ESCAPES = {'\n', '\t', '\"', '\'', '\\'}
 
 
 def lex(code: str) -> Dict[str, Any]:
-    """
-    Ladderized, character-at-a-time lexer that returns token dicts and errors.
-    Each token dict includes fields: type, lexeme, line, column, start, end
-    where start/end are 0-based character offsets and end is exclusive.
-    """
-
     tokens: List[Dict[str, Any]] = []
     errors: List[LexError] = []
 
-    src = code or ""
+    src = code or ''
     length = len(src)
     pos = 0
     line = 1
-    line_start = 0
     col = 1
-
-    prev_type = None
-    expect_operand = False
-    last_op_line: Optional[int] = None
-    last_op_column: Optional[int] = None
 
     def current_char() -> Optional[str]:
         return src[pos] if pos < length else None
@@ -49,56 +34,216 @@ def lex(code: str) -> Dict[str, Any]:
         return src[p] if p < length else None
 
     def advance(n: int = 1) -> None:
-        nonlocal pos, line, col, line_start
+        nonlocal pos, line, col
         for _ in range(n):
             if pos < length:
                 ch = src[pos]
                 pos += 1
                 if ch == _NEWLINE:
                     line += 1
-                    line_start = pos
                     col = 1
                 else:
                     col += 1
 
-    def add_token_obj(t_type: str, lexeme: str, t_line: int, t_col: int, start_idx: int, end_idx: int) -> None:
+    def add_token(t_type: str, lexeme: str, t_line: int, t_col: int, start_idx: int, end_idx: int) -> None:
         t = Token(type=t_type, lexeme=lexeme, line=t_line, column=t_col)
         d = asdict(t)
-        d["start"] = start_idx
-        d["end"] = end_idx
+        d['start'] = start_idx
+        d['end'] = end_idx
         tokens.append(d)
 
     def add_error(msg: str, e_line: int, e_col: int) -> None:
         errors.append(LexError(message=msg, line=e_line, column=e_col))
 
-    # Main scanner loop
+    def match_keyword(start_pos: int, start_line: int, start_col: int) -> bool:
+        ch = src[start_pos] if start_pos < length else None
+        if ch is None:
+            return False
+
+        def check_word(word: str) -> bool:
+            if start_pos + len(word) > length:
+                return False
+            for i, c in enumerate(word):
+                if src[start_pos + i] != c:
+                    return False
+            next_pos = start_pos + len(word)
+            if next_pos < length and src[next_pos] in _IDENT_PART:
+                return False
+            return True
+
+        if ch == 'b':
+            if check_word('break'):
+                add_token('KW_BREAK', 'break', start_line, start_col, start_pos, start_pos + 5)
+                advance(5)
+                return True
+            elif check_word('bool'):
+                add_token('KW_BOOL', 'bool', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+
+        elif ch == 'c':
+            if check_word('const'):
+                add_token('KW_CONST', 'const', start_line, start_col, start_pos, start_pos + 5)
+                advance(5)
+                return True
+            elif check_word('case'):
+                add_token('KW_CASE', 'case', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+            elif check_word('char'):
+                add_token('KW_CHAR', 'char', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+
+        elif ch == 'd':
+            if check_word('default'):
+                add_token('KW_DEFAULT', 'default', start_line, start_col, start_pos, start_pos + 7)
+                advance(7)
+                return True
+            elif check_word('double'):
+                add_token('KW_DOUBLE', 'double', start_line, start_col, start_pos, start_pos + 6)
+                advance(6)
+                return True
+            elif check_word('do'):
+                add_token('KW_DO', 'do', start_line, start_col, start_pos, start_pos + 2)
+                advance(2)
+                return True
+
+        elif ch == 'e':
+            if check_word('else'):
+                add_token('KW_ELSE', 'else', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+
+        elif ch == 'f':
+            if check_word('false'):
+                add_token('KW_FALSE', 'false', start_line, start_col, start_pos, start_pos + 5)
+                advance(5)
+                return True
+            elif check_word('float'):
+                add_token('KW_FLOAT', 'float', start_line, start_col, start_pos, start_pos + 5)
+                advance(5)
+                return True
+            elif check_word('func'):
+                add_token('KW_FUNC', 'func', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+            elif check_word('for'):
+                add_token('KW_FOR', 'for', start_line, start_col, start_pos, start_pos + 3)
+                advance(3)
+                return True
+
+        elif ch == 'g':
+            if check_word('global'):
+                add_token('KW_GLOBAL', 'global', start_line, start_col, start_pos, start_pos + 6)
+                advance(6)
+                return True
+
+        elif ch == 'i':
+            if check_word('int'):
+                add_token('KW_INT', 'int', start_line, start_col, start_pos, start_pos + 3)
+                advance(3)
+                return True
+            elif check_word('if'):
+                add_token('KW_IF', 'if', start_line, start_col, start_pos, start_pos + 2)
+                advance(2)
+                return True
+
+        elif ch == 'l':
+            if check_word('local'):
+                add_token('KW_LOCAL', 'local', start_line, start_col, start_pos, start_pos + 5)
+                advance(5)
+                return True
+            elif check_word('long'):
+                add_token('KW_LONG', 'long', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+
+        elif ch == 'm':
+            if check_word('main'):
+                add_token('KW_MAIN', 'main', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+
+        elif ch == 'r':
+            if check_word('return'):
+                add_token('KW_RETURN', 'return', start_line, start_col, start_pos, start_pos + 6)
+                advance(6)
+                return True
+
+        elif ch == 's':
+            if check_word('string'):
+                add_token('KW_STRING', 'string', start_line, start_col, start_pos, start_pos + 6)
+                advance(6)
+                return True
+            elif check_word('switch'):
+                add_token('KW_SWITCH', 'switch', start_line, start_col, start_pos, start_pos + 6)
+                advance(6)
+                return True
+
+        elif ch == 't':
+            if check_word('threadln'):
+                add_token('KW_THREADLN', 'threadln', start_line, start_col, start_pos, start_pos + 8)
+                advance(8)
+                return True
+            elif check_word('thread'):
+                add_token('KW_THREAD', 'thread', start_line, start_col, start_pos, start_pos + 6)
+                advance(6)
+                return True
+            elif check_word('trap'):
+                add_token('KW_TRAP', 'trap', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+            elif check_word('true'):
+                add_token('KW_TRUE', 'true', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+
+        elif ch == 'u':
+            if check_word('using'):
+                add_token('KW_USING', 'using', start_line, start_col, start_pos, start_pos + 5)
+                advance(5)
+                return True
+
+        elif ch == 'v':
+            if check_word('void'):
+                add_token('KW_VOID', 'void', start_line, start_col, start_pos, start_pos + 4)
+                advance(4)
+                return True
+            elif check_word('var'):
+                add_token('KW_VAR', 'var', start_line, start_col, start_pos, start_pos + 3)
+                advance(3)
+                return True
+
+        elif ch == 'w':
+            if check_word('while'):
+                add_token('KW_WHILE', 'while', start_line, start_col, start_pos, start_pos + 5)
+                advance(5)
+                return True
+            elif check_word('weave'):
+                add_token('KW_WEAVE', 'weave', start_line, start_col, start_pos, start_pos + 5)
+                advance(5)
+                return True
+
+        return False
+
     while pos < length:
         ch = current_char()
         if ch is None:
             break
 
-        # Skip spaces and tabs and carriage returns
         if ch in _WHITESPACE:
             advance()
             continue
 
-        # Newline handling
         if ch == _NEWLINE:
             start_col = col
-            # NEWLINE token lexeme is the single newline char; compute offsets
             start_idx = pos
-            add_token_obj("NEWLINE", "\\n", line, start_col, start_idx, start_idx + 1)
-            if expect_operand:
-                add_error("Dangling operator at end of line", line, last_op_column or start_col)
+            add_token('NEWLINE', '\\n', line, start_col, start_idx, start_idx + 1)
             advance()
-            prev_type = None
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
             continue
 
-        # Line comment //
-        if ch == "/" and peek() == "/":
+        if ch == '/' and peek() == '/':
             start_line, start_col = line, col
             start_idx = pos
             buf = []
@@ -110,14 +255,12 @@ def lex(code: str) -> Dict[str, Any]:
             while current_char() is not None and current_char() != _NEWLINE:
                 buf.append(current_char())
                 advance()
-            lexeme = "".join(buf)
+            lexeme = ''.join(buf)
             end_idx = pos
-            add_token_obj("COMMENT", lexeme, start_line, start_col, start_idx, end_idx)
-            prev_type = None
+            add_token('COMMENT', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
-        # Block comment /*
-        if ch == "/" and peek() == "*":
+        if ch == '/' and peek() == '*':
             start_line, start_col = line, col
             start_idx = pos
             buf = []
@@ -129,7 +272,7 @@ def lex(code: str) -> Dict[str, Any]:
             closed = False
             while current_char() is not None:
                 c = current_char()
-                if c == "*" and peek() == "/":
+                if c == '*' and peek() == '/':
                     buf.append(c)
                     advance()
                     if current_char() is not None:
@@ -140,28 +283,19 @@ def lex(code: str) -> Dict[str, Any]:
                 else:
                     buf.append(c)
                     advance()
-            lexeme = "".join(buf)
+            lexeme = ''.join(buf)
             end_idx = pos
             if not closed:
-                add_error("Unterminated block comment", start_line, start_col)
-                add_token_obj("ML_COMMENT", lexeme, start_line, start_col, start_idx, end_idx)
-            else:
-                add_token_obj("ML_COMMENT", lexeme, start_line, start_col, start_idx, end_idx)
-            prev_type = None
+                add_error('Unterminated block comment', start_line, start_col)
+            add_token('ML_COMMENT', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
-        # Stray block comment terminator */
-        if ch == "*" and peek() == "/":
+        if ch == '*' and peek() == '/':
             start_col = col
-            add_error("Unmatched block comment terminator", line, start_col)
+            add_error('Unmatched block comment terminator', line, start_col)
             advance(2)
-            prev_type = None
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
             continue
 
-        # Strings: " ... " with backslash escapes
         if ch == '"':
             start_line, start_col = line, col
             start_idx = pos
@@ -172,7 +306,7 @@ def lex(code: str) -> Dict[str, Any]:
             while current_char() is not None:
                 c = current_char()
                 buf.append(c)
-                if c == "\\":
+                if c == '\\':
                     advance()
                     if current_char() is not None:
                         buf.append(current_char())
@@ -185,17 +319,14 @@ def lex(code: str) -> Dict[str, Any]:
                 if c == _NEWLINE:
                     break
                 advance()
-            lexeme = "".join(buf)
+            lexeme = ''.join(buf)
             end_idx = pos
             if not closed:
-                add_error("Unterminated string literal", start_line, start_col)
+                add_error('Unterminated string literal', start_line, start_col)
             else:
-                add_token_obj("STRING_LIT", lexeme, start_line, start_col, start_idx, end_idx)
-            prev_type = "LITERAL"
-            expect_operand = False
+                add_token('STRING_LIT', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
-        # Char literal: 'a' or '\n' ; BAD_CHAR = too many chars
         if ch == "'":
             start_line, start_col = line, col
             start_idx = pos
@@ -206,7 +337,7 @@ def lex(code: str) -> Dict[str, Any]:
             while current_char() is not None:
                 c = current_char()
                 buf.append(c)
-                if c == "\\":
+                if c == '\\':
                     advance()
                     if current_char() is not None:
                         buf.append(current_char())
@@ -216,37 +347,46 @@ def lex(code: str) -> Dict[str, Any]:
                     advance()
                     closed = True
                     break
+                if c == _NEWLINE:
+                    break
                 advance()
-            lexeme = "".join(buf)
+            lexeme = ''.join(buf)
             end_idx = pos
-            inner = lexeme[1:-1] if lexeme.endswith("'") and len(lexeme) >= 2 else ""
-            valid = False
-            if lexeme.endswith("'") and len(inner) > 0 and (len(inner) == 1 or (inner.startswith("\\") and len(inner) == 2)):
-                valid = True
-            if not valid:
-                add_error("Invalid character literal", start_line, start_col)
-                prev_type = None
-                expect_operand = False
+            
+            if not closed:
+                add_error('Unterminated character literal', start_line, start_col)
             else:
-                add_token_obj("CHAR_LIT", lexeme, start_line, start_col, start_idx, end_idx)
-                prev_type = "LITERAL"
-                expect_operand = False
+                inner = lexeme[1:-1] if lexeme.endswith("'") and len(lexeme) >= 2 else ''
+                valid = False
+                
+                if len(inner) == 1:
+                    valid = True
+                elif len(inner) == 2 and inner[0] == '\\':
+                    if inner in _VALID_ESCAPES:
+                        valid = True
+                    else:
+                        add_error(f'Invalid escape sequence in character literal: {inner}', start_line, start_col)
+                else:
+                    add_error('Character literal must contain exactly one character or escape sequence', start_line, start_col)
+                
+                if valid or not closed:
+                    add_token('CHAR_LIT', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
-        # Numbers (INT / FLOAT). Handle '..' operator by stopping before a dot-dot.
         if ch.isdigit():
             start_line, start_col = line, col
             start_idx = pos
             buf = []
             seen_dot = False
+            
             while current_char() is not None:
                 c = current_char()
                 if c.isdigit():
                     buf.append(c)
                     advance()
                     continue
-                if c == ".":
-                    if peek() == ".":
+                if c == '.':
+                    if peek() == '.':
                         break
                     if seen_dot:
                         break
@@ -255,118 +395,186 @@ def lex(code: str) -> Dict[str, Any]:
                     advance()
                     continue
                 break
-            lexeme = "".join(buf)
+            
+            lexeme = ''.join(buf)
             end_idx = pos
+            
             if seen_dot:
-                add_token_obj("FLOAT_LIT", lexeme, start_line, start_col, start_idx, end_idx)
+                parts = lexeme.split('.')
+                if len(parts) == 2:
+                    before, after = parts
+                    if (before and before.isdigit()) or (after and after.isdigit()):
+                        add_token('FLOAT_LIT', lexeme, start_line, start_col, start_idx, end_idx)
+                    else:
+                        add_error('Invalid fractional literal format', start_line, start_col)
+                else:
+                    add_error('Invalid fractional literal format', start_line, start_col)
             else:
-                add_token_obj("INT_LIT", lexeme, start_line, start_col, start_idx, end_idx)
-            prev_type = "LITERAL"
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
+                add_token('INT_LIT', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
-        # Identifiers and keywords
         if ch in _IDENT_START:
             start_line, start_col = line, col
             start_idx = pos
-            candidates = [kw for kw in KEYWORDS if kw and kw[0] == ch]
-            longest = ""
-            for kw in candidates:
-                match = True
-                for i, kch in enumerate(kw):
-                    p = src[pos + i] if (pos + i) < length else None
-                    if p != kch:
-                        match = False
-                        break
-                if not match:
-                    continue
-                after = src[pos + len(kw)] if (pos + len(kw)) < length else None
-                if after is None or (after not in _IDENT_PART):
-                    if len(kw) > len(longest):
-                        longest = kw
-            if longest:
-                lexeme = src[pos: pos + len(longest)]
-                add_token_obj(f"KW_{lexeme.upper()}", lexeme, start_line, start_col, pos, pos + len(lexeme))
-                advance(len(longest))
-                prev_type = "KEYWORD"
-                expect_operand = False
-                last_op_line = None
-                last_op_column = None
+            
+            if match_keyword(pos, start_line, start_col):
                 continue
+            
             buf = []
             while current_char() is not None and current_char() in _IDENT_PART:
                 buf.append(current_char())
                 advance()
-            lexeme = "".join(buf)
+            lexeme = ''.join(buf)
             end_idx = pos
-            add_token_obj("IDENTIFIER", lexeme, start_line, start_col, start_idx, end_idx)
-            prev_type = "IDENTIFIER"
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
+            
+            if len(lexeme) > 25:
+                add_error(f'Identifier exceeds maximum length of 25 characters: {lexeme}', start_line, start_col)
+            
+            add_token('IDENTIFIER', lexeme, start_line, start_col, start_idx, end_idx)
             continue
 
-        # Delimiters (single char)
-        if ch in _SINGLE_DELIMS:
-            start_line, start_col = line, col
-            start_idx = pos
-            add_token_obj("DELIMITER", ch, start_line, start_col, start_idx, start_idx + 1)
-            advance()
-            prev_type = "DELIMITER"
-            expect_operand = False
-            last_op_line = None
-            last_op_column = None
-            continue
-
-        # Operators and punctuation: prefer longest match (two-char) then single
-        if ch in _OPERATOR_CHARS:
-            start_line, start_col = line, col
-            start_idx = pos
-            nxt = peek()
-            two = (ch + nxt) if nxt is not None else None
-            lexeme = ch
-            if two and two in VALID_OPERATORS:
-                lexeme = two
-                advance(2)
-            else:
-                if ch == "." and nxt == ".":
-                    lexeme = ".."
-                    advance(2)
-                else:
-                    advance()
-            end_idx = pos
-            if lexeme not in VALID_OPERATORS:
-                add_error(f"Invalid operator: {lexeme}", start_line, start_col)
-                prev_type = None
-                expect_operand = False
-                last_op_line = None
-                last_op_column = None
-            else:
-                add_token_obj("OPERATOR", lexeme, start_line, start_col, start_idx, end_idx)
-                prev_type = "OPERATOR"
-                expect_operand = True
-                last_op_line = start_line
-                last_op_column = start_col
-            continue
-
-        # If none matched, it's an unexpected character
-        start_col = col
+        start_line, start_col = line, col
         start_idx = pos
-        add_error(f"Unexpected character: {ch}", line, start_col)
+        
+        if ch == '=' and peek() == '=':
+            add_token('OP_EQ', '==', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '!' and peek() == '=':
+            add_token('OP_NE', '!=', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '>' and peek() == '=':
+            add_token('OP_GE', '>=', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '<' and peek() == '=':
+            add_token('OP_LE', '<=', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '&' and peek() == '&':
+            add_token('OP_AND', '&&', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '|' and peek() == '|':
+            add_token('OP_OR', '||', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '+' and peek() == '+':
+            add_token('OP_INC', '++', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '-' and peek() == '-':
+            add_token('OP_DEC', '--', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '+' and peek() == '=':
+            add_token('OP_ADD_ASSIGN', '+=', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '-' and peek() == '=':
+            add_token('OP_SUB_ASSIGN', '-=', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '*' and peek() == '=':
+            add_token('OP_MUL_ASSIGN', '*=', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '/' and peek() == '=':
+            add_token('OP_DIV_ASSIGN', '/=', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '%' and peek() == '=':
+            add_token('OP_MOD_ASSIGN', '%=', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+        if ch == '.' and peek() == '.':
+            add_token('OP_CONCAT', '..', start_line, start_col, start_idx, start_idx + 2)
+            advance(2)
+            continue
+
+        if ch == '=':
+            add_token('OP_ASSIGN', '=', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '+':
+            add_token('OP_ADD', '+', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '-':
+            add_token('OP_SUB', '-', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '*':
+            add_token('OP_MUL', '*', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '/':
+            add_token('OP_DIV', '/', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '%':
+            add_token('OP_MOD', '%', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '>':
+            add_token('OP_GT', '>', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '<':
+            add_token('OP_LT', '<', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '!':
+            add_token('OP_NOT', '!', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+
+        if ch == '(':
+            add_token('DELIM_LPAREN', '(', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == ')':
+            add_token('DELIM_RPAREN', ')', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '{':
+            add_token('DELIM_LBRACE', '{', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '}':
+            add_token('DELIM_RBRACE', '}', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '[':
+            add_token('DELIM_LBRACKET', '[', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == ']':
+            add_token('DELIM_RBRACKET', ']', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == ';':
+            add_token('DELIM_SEMICOLON', ';', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == ',':
+            add_token('DELIM_COMMA', ',', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == ':':
+            add_token('DELIM_COLON', ':', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+        if ch == '.':
+            add_token('DELIM_DOT', '.', start_line, start_col, start_idx, start_idx + 1)
+            advance()
+            continue
+
+        add_error(f'Unexpected character: \'{ch}\'', line, col)
         advance()
-        prev_type = None
-        expect_operand = False
-        last_op_line = None
-        last_op_column = None
 
-    # EOF dangling operator check
-    if expect_operand and last_op_line is not None and last_op_column is not None:
-        add_error("Dangling operator at end of line", last_op_line, last_op_column)
-
-    # Return token dicts and error dicts
     return {
-        "tokens": tokens,
-        "errors": [asdict(e) for e in errors],
+        'tokens': tokens,
+        'errors': [asdict(e) for e in errors],
     }
