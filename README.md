@@ -83,10 +83,11 @@ portia-compiler/
 ## Features
 
 ### Lexical Analysis
-- **Real-time tokenization**: 20ms debounce for instant syntax highlighting
+- **Instant tokenization**: Real-time token generation with zero delay
 - **Character-by-character scanning**: Ladderized keyword matching
 - **38 PORTIA keywords**: All reserved words with boundary checking
 - **Token types**: Keywords, operators, delimiters, literals, identifiers, comments
+- **Error handling**: Strict validation - errors prevent token generation
 - **Error highlighting**: Visual feedback with line/column position
 - **Line numbers**: Synchronized scrolling between editor and display
 - **Comment toggle**: Hide/show comment tokens

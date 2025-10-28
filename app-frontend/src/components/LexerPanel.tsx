@@ -29,7 +29,7 @@ export default function LexerPanel() {
     typingRef.current = window.setTimeout(() => {
       runLex();
       typingRef.current = null;
-    }, 20);
+    }, 0);  // Changed from 20ms to 0ms for instant token generation
   }
 
   async function runLex() {
