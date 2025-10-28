@@ -172,47 +172,47 @@ Critical for understanding how the lexer separates tokens.
 ## Language Features at a Glance
 
 ### Type System
-- ✅ **Static typing** - All identifiers have explicit types
-- ✅ **No implicit conversions** - Explicit casts required
-- ✅ **Range checking** - Overflow detection
-- ✅ **8 primitive types** - int, long, float, double, char, bool, string, void
-- ✅ **2 structured types** - array, weave
+- **Static typing** - All identifiers have explicit types
+- **No implicit conversions** - Explicit casts required
+- **Range checking** - Overflow detection
+- **8 primitive types** - int, long, float, double, char, bool, string, void
+- **2 structured types** - array, weave
 
 ### Variables and Constants
-- ✅ **Mandatory initialization** - No uninitialized variables
-- ✅ **Scope keywords** - `global` and `local` required
-- ✅ **Explicit imports** - Globals use `using` keyword
-- ✅ **Mutable and immutable** - `var` and `const` declarations
+- **Mandatory initialization** - No uninitialized variables
+- **Scope keywords** - `global` and `local` required
+- **Explicit imports** - Globals use `using` keyword
+- **Mutable and immutable** - `var` and `const` declarations
 
 ### Functions
-- ✅ **Explicit return types** - Including `void`
-- ✅ **Typed parameters** - All parameters have types
-- ✅ **Define-before-use** - Functions must be declared before calling
-- ✅ **No nested functions** - Flat function structure
+- **Explicit return types** - Including `void`
+- **Typed parameters** - All parameters have types
+- **Define-before-use** - Functions must be declared before calling
+- **No nested functions** - Flat function structure
 
 ### Control Structures
-- ✅ **Conditionals**: `if`, `if-else`, `if-else-if`, `switch-case`
-- ✅ **Loops**: `for`, `while`, `do-while`
-- ✅ **Loop control**: `break`
-- ✅ **Boolean conditions** - Only bool expressions allowed
+- **Conditionals**: `if`, `if-else`, `if-else-if`, `switch-case`
+- **Loops**: `for`, `while`, `do-while`
+- **Loop control**: `break`
+- **Boolean conditions** - Only bool expressions allowed
 
 ### Operators
-- ✅ **Arithmetic**: `+`, `-`, `*`, `/`, `%`
-- ✅ **Relational**: `==`, `!=`, `<`, `>`, `<=`, `>=`
-- ✅ **Logical**: `&&`, `||`, `!`
-- ✅ **Assignment**: `=`, `+=`, `-=`, `*=`, `/=`, `%=`
-- ✅ **Unary**: `++`, `--`, `-`, `!`
-- ✅ **String concatenation**: `..`
-- ✅ **Type casting**: `(<type>)value`
+- **Arithmetic**: `+`, `-`, `*`, `/`, `%`
+- **Relational**: `==`, `!=`, `<`, `>`, `<=`, `>=`
+- **Logical**: `&&`, `||`, `!`
+- **Assignment**: `=`, `+=`, `-=`, `*=`, `/=`, `%=`
+- **Unary**: `++`, `--`, `-`, `!`
+- **String concatenation**: `..`
+- **Type casting**: `(<type>)value`
 
 ### I/O Operations
-- ✅ **Input**: `trap(variable)`
-- ✅ **Output**: `thread(expression)`, `threadln(expression)`
+- **Input**: `trap(variable)`
+- **Output**: `thread(expression)`, `threadln(expression)`
 
 ### Comments
-- ✅ **Single-line**: `// comment`
-- ✅ **Multi-line**: `/* comment */`
-- ✅ **No nesting** - Nested multi-line comments not allowed
+- **Single-line**: `// comment`
+- **Multi-line**: `/* comment */`
+- **No nesting** - Nested multi-line comments not allowed
 
 ---
 
@@ -474,11 +474,11 @@ Comment syntax and whitespace handling:
 
 ### Code Examples
 ```portia
-// Valid example marked with ✓
-local var int x = 5;  // ✓
+// Valid example marked with checkmark
+local var int x = 5;  // Valid
 
-// Invalid example marked with ❌
-local var int y;      // ❌ Uninitialized
+// Invalid example marked with X
+local var int y;      // Invalid: Uninitialized
 ```
 
 ### Tables
@@ -507,60 +507,6 @@ Examples use consistent formatting:
 3. **Classify token type** (keyword, identifier, literal, operator)
 4. **Emit token** with position information
 5. **Report errors** for invalid tokens
-
----
-
-## Quick Start Examples
-
-### Minimal Program
-```portia
-int main() {
-    thread("Hello, PORTIA!");
-    return 0;
-}
-```
-
-### Using Variables
-```portia
-int main() {
-    local var int x = 10;
-    local var int y = 20;
-    local var int sum = x + y;
-    thread("Sum: " .. sum);
-    return 0;
-}
-```
-
-### Using Functions
-```portia
-func int add(int a, int b) {
-    return a + b;
-}
-
-int main() {
-    local var int result = add(5, 10);
-    thread("Result: " .. result);
-    return 0;
-}
-```
-
-### Using Global Variables
-```portia
-global var int counter = 0;
-
-func void increment() {
-    using counter;
-    counter = counter + 1;
-    return;
-}
-
-int main() {
-    using counter;
-    increment();
-    thread("Counter: " .. counter);
-    return 0;
-}
-```
 
 ---
 

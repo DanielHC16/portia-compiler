@@ -15,12 +15,10 @@ Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 
 ## Documentation
 
-- � **[Language Specification](docs/language-spec/README.md)** - Complete PORTIA language reference
-- �📦 **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
-- 🔧 **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
-- 🐛 **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-
----
+- **[Language Specification](docs/language-spec/README.md)** - Complete PORTIA language reference
+- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ---
 
@@ -28,38 +26,6 @@ Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 
 - **Backend**: Python · FastAPI · Uvicorn  
 - **Frontend**: React · Vite · TypeScript · Monaco Editor  
-
----
-
----
-
-## Quick Start
-
-Get PORTIA up and running in 5 minutes:
-
-```bash
-# 1. Clone and navigate
-git clone https://github.com/DanielHC16/portia-compiler.git
-cd portia-compiler
-
-# 2. Install backend dependencies (in 3 terminals)
-cd lexer-backend && python -m venv venv && venv\Scripts\Activate.ps1 && pip install fastapi uvicorn
-cd parser-backend && python -m venv venv && venv\Scripts\Activate.ps1 && pip install fastapi uvicorn
-cd semantic-backend && python -m venv venv && venv\Scripts\Activate.ps1 && pip install fastapi uvicorn
-
-# 3. Install frontend dependencies
-cd app-frontend && npm install
-
-# 4. Run all services (4 terminals)
-cd lexer-backend && venv\Scripts\Activate.ps1 && uvicorn app.main:app --reload --port 8000
-cd parser-backend && venv\Scripts\Activate.ps1 && uvicorn main:app --reload --port 8001
-cd semantic-backend && venv\Scripts\Activate.ps1 && uvicorn main:app --reload --port 8002
-cd app-frontend && npm run dev
-
-# 5. Open http://localhost:5173 in your browser
-```
-
-> � **Need help?** See the [📦 Installation Guide](docs/INSTALLATION.md) for detailed instructions.
 
 ---
 
@@ -147,6 +113,6 @@ For questions or contributions, please see our [Contributing Guide](docs/CONTRIB
 
 **[⬆ Back to Top](#portia-programming-language)**
 
-Made by Team LoomVI 🕷️
+Made by Team LoomVI
 
 </div>
