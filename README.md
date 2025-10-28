@@ -15,7 +15,8 @@ Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 
 ## Documentation
 
-- 📦 **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
+- � **[Language Specification](docs/language-spec/README.md)** - Complete PORTIA language reference
+- �📦 **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
 - 🔧 **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
 - 🐛 **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
