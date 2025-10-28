@@ -25,7 +25,7 @@ Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 ## Tech Stack
 
 - **Backend**: Python · FastAPI · Uvicorn  
-- **Frontend**: React · Vite · TypeScript · Monaco Editor  
+- **Frontend**: React · Vite · TypeScript  
 
 ---
 
