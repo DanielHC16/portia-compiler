@@ -32,26 +32,47 @@ Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 ## Project Structure
 ```
 portia-compiler/
-├── app-frontend/          # React + TypeScript + Vite frontend
+├── app-frontend/              # React + TypeScript + Vite frontend
 │   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── api.ts        # Backend API calls
-│   │   └── main.tsx      # Entry point
+│   │   ├── api.ts            # Backend API client + type definitions
+│   │   ├── index.css         # Global styles and CSS variables
+│   │   ├── main.tsx          # Application entry point
+│   │   └── components/
+│   │       ├── Layout.css         # Component-specific styles
+│   │       ├── ViewSwitcher.tsx   # Main app with tab navigation
+│   │       ├── LexerPanel.tsx     # Lexical analysis interface
+│   │       ├── TokenList.tsx      # Token display component
+│   │       ├── ParserTBA.tsx      # Syntax parser (TBA)
+│   │       └── SemanticTBA.tsx    # Semantic analyzer (TBA)
 │   └── package.json
-├── lexer-backend/         # Lexical analyzer
+├── lexer-backend/             # Lexical analyzer (FastAPI)
 │   ├── app/
-│   │   ├── lexer/        # Lexer implementation
-│   │   └── main.py       # FastAPI server
+│   │   ├── main.py           # FastAPI server entry point
+│   │   ├── lexer/
+│   │   │   ├── lexer.py           # Character-by-character lexer
+│   │   │   ├── tokens.py          # Token class definition
+│   │   │   ├── errors.py          # Lexical error handling
+│   │   │   ├── keywords.py        # PORTIA keyword definitions
+│   │   │   ├── character_classes.py
+│   │   │   └── utils.py
+│   │   └── tests/            # Lexer test suite
 │   └── package.json
-├── parser-backend/        # Syntax analyzer
+├── parser-backend/            # Syntax analyzer (TBA)
 │   ├── parser/
+│   │   ├── api.py
 │   │   └── syntax_analyzer.py
 │   └── main.py
-├── semantic-backend/      # Semantic analyzer
+├── semantic-backend/          # Semantic analyzer (TBA)
 │   ├── semantic/
+│   │   ├── api.py
 │   │   └── semantic_analyzer.py
 │   └── main.py
-└── scripts/              # Startup scripts
+├── docs/                      # Documentation
+│   ├── language-spec/        # PORTIA language specification
+│   ├── INSTALLATION.md
+│   ├── CONTRIBUTING.md
+│   └── TROUBLESHOOTING.md
+└── scripts/                   # Startup scripts
     ├── start-lexer.ps1
     ├── start-parser.ps1
     └── start-semantic.ps1
@@ -61,14 +82,29 @@ portia-compiler/
 
 ## Features
 
-- **Lexical Analysis**: Real-time tokenization with syntax highlighting
-- **Syntax Analysis**: Parse tree generation (TBA)
-- **Semantic Analysis**: Type checking and validation (TBA)
+### Lexical Analysis
+- **Real-time tokenization**: 20ms debounce for instant syntax highlighting
+- **Character-by-character scanning**: Ladderized keyword matching
+- **38 PORTIA keywords**: All reserved words with boundary checking
+- **Token types**: Keywords, operators, delimiters, literals, identifiers, comments
+- **Error highlighting**: Visual feedback with line/column position
+- **Line numbers**: Synchronized scrolling between editor and display
+- **Comment toggle**: Hide/show comment tokens
+
+### Syntax Analysis (TBA)
+- Parse tree generation
+- AST visualization
+
+### Semantic Analysis (TBA)
+- Type checking and validation
+- Symbol table management
+- Scope analysis
+
+### Frontend Features
 - **Theme Toggle**: Switch between light and dark modes  
 - **Persistent State**: Code persists across tab switches
-- **Error Highlighting**: Visual feedback for lexical errors with pulsing animation
-- **Line Numbers**: Synchronized line numbering with code editor
-- **Fast Updates**: 20ms debounce for near-instant syntax highlighting
+- **Three-panel view**: Lexical, Syntax, and Semantic analyzers
+- **Token display**: Filterable token list with type, lexeme, line, and column
 
 ---
 
