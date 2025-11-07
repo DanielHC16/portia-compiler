@@ -28,3 +28,4 @@ def root():
 @app.post("/lex")
 def lex_code(req: CodeRequest):
     return lex(req.code)
+

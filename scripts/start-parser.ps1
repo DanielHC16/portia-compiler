@@ -1,4 +1,4 @@
 # scripts/start-parser.ps1
-# Activate venv if you use one, then run uvicorn
-# Example: .\.venv\Scripts\Activate.ps1
-uvicorn parser-backend.main:app --reload --port 8001
+# Start the parser backend with Python 3.12 venv
+Set-Location "$PSScriptRoot\..\parser-backend"
+& .\.venv-py312\Scripts\python.exe -m uvicorn main:app --reload --port 8001
