@@ -15,6 +15,7 @@ Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 
 ## Documentation
 
+- **[Quick Reference](QUICK_REFERENCE.md)** - Common commands and workflows
 - **[Language Specification](docs/language-spec/README.md)** - Complete PORTIA language reference
 - **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
 - **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
@@ -24,8 +25,102 @@ Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 
 ## Tech Stack
 
-- **Backend**: Python · FastAPI · Uvicorn  
+- **Backend**: Python 3.12+ · FastAPI · Uvicorn  
 - **Frontend**: React · Vite · TypeScript  
+
+---
+
+## Prerequisites
+
+- **Python 3.12 or higher** (required for `match` statements and modern features)
+- **Node.js 18+** (for frontend)
+- **Git** (for version control)
+
+---
+
+## Setup
+
+### 1. Clone the Repository
+```powershell
+git clone https://github.com/DanielHC16/portia-compiler.git
+cd portia-compiler
+```
+
+### 2. Backend Setup
+
+Create Python 3.12 virtual environments for each backend:
+
+```powershell
+# Lexer Backend
+cd lexer-backend
+py -3.12 -m venv .venv-py312
+.\.venv-py312\Scripts\Activate.ps1
+pip install --upgrade pip fastapi uvicorn pytest
+deactivate
+cd ..
+
+# Parser Backend
+cd parser-backend
+py -3.12 -m venv .venv-py312
+.\.venv-py312\Scripts\Activate.ps1
+pip install --upgrade pip fastapi uvicorn pytest
+deactivate
+cd ..
+
+# Semantic Backend
+cd semantic-backend
+py -3.12 -m venv .venv-py312
+.\.venv-py312\Scripts\Activate.ps1
+pip install --upgrade pip fastapi uvicorn pytest
+deactivate
+cd ..
+```
+
+### 3. Frontend Setup
+```powershell
+cd app-frontend
+npm install
+cd ..
+```
+
+### 4. Running the Application
+
+**Important**: Run all startup scripts from the **project root directory** (`portia-compiler/`)
+
+Start each service in a separate terminal:
+
+```powershell
+# Terminal 1 - Lexer (port 8000)
+# From: portia-compiler/
+.\scripts\start-lexer.ps1
+
+# Terminal 2 - Parser (port 8001)
+# From: portia-compiler/
+.\scripts\start-parser.ps1
+
+# Terminal 3 - Semantic (port 8002)
+# From: portia-compiler/
+.\scripts\start-semantic.ps1
+
+# Terminal 4 - Frontend (port 5173)
+# From: portia-compiler/
+cd app-frontend
+npm run dev
+```
+
+Access the application at `http://localhost:5173`
+
+**Note**: The startup scripts automatically navigate to their respective backend folders and use the correct Python interpreter from `.venv-py312`.
+
+---
+
+## VS Code Setup
+
+After creating virtual environments, configure VS Code to use Python 3.12:
+
+1. Press `Ctrl+Shift+P`
+2. Type "Python: Select Interpreter"
+3. Select `.venv-py312/Scripts/python.exe` for each backend folder
 
 ---
 
@@ -48,15 +143,14 @@ portia-compiler/
 ├── lexer-backend/             # Lexical analyzer (FastAPI)
 │   ├── app/
 │   │   ├── main.py           # FastAPI server entry point
-│   │   ├── lexer/
-│   │   │   ├── lexer.py           # Character-by-character lexer
-│   │   │   ├── tokens.py          # Token class definition
-│   │   │   ├── errors.py          # Lexical error handling
-│   │   │   ├── keywords.py        # PORTIA keyword definitions
-│   │   │   ├── character_classes.py
-│   │   │   └── utils.py
-│   │   └── tests/            # Lexer test suite
-│   └── package.json
+│   │   └── lexer/
+│   │       ├── lexer.py           # Character-by-character lexer
+│   │       ├── tokens.py          # Token class definition
+│   │       ├── errors.py          # Lexical error handling
+│   │       ├── keywords.py        # PORTIA keyword definitions
+│   │       ├── character_classes.py
+│   │       └── utils.py
+│   └── .venv-py312/          # Python 3.12 virtual environment
 ├── parser-backend/            # Syntax analyzer (TBA)
 │   ├── parser/
 │   │   ├── api.py
