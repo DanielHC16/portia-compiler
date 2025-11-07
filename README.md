@@ -18,7 +18,6 @@ Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 - **[Quick Reference](QUICK_REFERENCE.md)** - Common commands and workflows
 - **[Language Specification](docs/language-spec/README.md)** - Complete PORTIA language reference
 - **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
-- **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ---
@@ -164,7 +163,6 @@ portia-compiler/
 ├── docs/                      # Documentation
 │   ├── language-spec/        # PORTIA language specification
 │   ├── INSTALLATION.md
-│   ├── CONTRIBUTING.md
 │   └── TROUBLESHOOTING.md
 └── scripts/                   # Startup scripts
     ├── start-lexer.ps1
@@ -203,28 +201,7 @@ portia-compiler/
 
 ---
 
-## TODO List
-
-### Backend
-- [ ] Verify lexer correctness against full PORTIA spec
-- [ ] Double‑check token classification
-- [ ] Add robust error handling and edge‑case coverage
-- [ ] Implement parser (syntax analyzer)
-- [ ] Implement semantic analyzer
-
-### Frontend
-- [ ] Add syntax tree visualization
-- [ ] Enhanced error messages with suggestions
-- [ ] Code completion support
-- [ ] Export/import code functionality
-
-### General
-- [ ] Complete CFG (Context-Free Grammar) definition
-- [ ] Add comprehensive test suite
-- [ ] Create language specification document
-- [ ] Add example PORTIA programs
-
----
+##
 
 ## License
 
@@ -235,8 +212,6 @@ This project is part of an academic requirement for BSCS 3-3 A.Y. 2025-2026.
 ## Team LoomVI
 
 **BSCS 3-3 | A.Y. 2025-2026**
-
-For questions or contributions, please see our [Contributing Guide](docs/CONTRIBUTING.md) or open an issue.
 
 ---
 
