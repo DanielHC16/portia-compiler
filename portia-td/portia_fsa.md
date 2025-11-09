@@ -537,6 +537,7 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 | 311 | `numbers` | 313 | Continue |
 | 311 | `.` | 312 | **Final: long** (via decimal point path) |
 | 313 | `numbers` | 315 | Continue |
+| 313 | `.` | 314 | **Final: long** (via decimal point path) |
 | 313 | `nbl_delim` | 330 | **Final: long** |
 | 315 | `numbers` | 317 | Continue |
 | 315 | `nbl_delim` | 316 | **Final: long** |
@@ -642,51 +643,98 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 | 362 | `nbl_delim` | 363 | **Final: double** |
 | 362 | `numbers` | 364 | Continue |
 | 364 | `nbl_delim` | 365 | **Final: double** |
-| 364 | `numbers` | 366 | Continue (may connect to Continuation FSA) |
+| 364 | `numbers` | 366 | Continue |
 | 366 | `nbl_delim` | 367 | **Final: double** |
 
 ---
 
-## Numerical Continuation FSA
+## Identifier Literals FSA
 
-**Continuation Literals**: Extended numerical sequences beyond double precision  
-**State Range**: 366-383 (states: 366, 368-383)  
-**Initial State**: 366 (may connect from Double FSA)  
-**Accepts**: 1-8 digits (continues from Double; states 369, 371, 373, 375, 377, 379, 381, 383 are final states for 1-8 additional digits respectively)
+**Identifier Literals**: Sequences of letters, digits, and underscores for variable/function names  
+**State Range**: 0, 220-270 (states: 0, 220-270)  
+**Initial State**: 0  
+**Accepts**: 1-25 characters (maximum 25 characters; first character must be alphabetic, subsequent characters can be alphanumeric or underscore)
 
 ### Final States
 
-| State | Literal Type | Delimiter Type |
-|-------|--------------|----------------|
-| 369 | `continuation` | `num_literal` |
-| 371 | `continuation` | `num_literal` |
-| 373 | `continuation` | `num_literal` |
-| 375 | `continuation` | `num_literal` |
-| 377 | `continuation` | `num_literal` |
-| 379 | `continuation` | `num_literal` |
-| 381 | `continuation` | `num_literal` |
-| 383 | `continuation` | `num_literal` |
+| State | Literal Type | Delimiter Type | Length(s) Accepted |
+|-------|--------------|----------------|-------------------|
+| 221 | `identifier` | `iden_delim` | 1 character |
+| 223 | `identifier` | `iden_delim` | 2 characters |
+| 225 | `identifier` | `iden_delim` | 3 characters |
+| 227 | `identifier` | `iden_delim` | 4 characters |
+| 229 | `identifier` | `iden_delim` | 5 characters |
+| 231 | `identifier` | `iden_delim` | 6-7 characters |
+| 233 | `identifier` | `iden_delim` | 8 characters |
+| 235 | `identifier` | `iden_delim` | 9 characters |
+| 237 | `identifier` | `iden_delim` | 10 characters |
+| 239 | `identifier` | `iden_delim` | 11 characters |
+| 241 | `identifier` | `iden_delim` | 12-13 characters |
+| 243 | `identifier` | `iden_delim` | 14 characters |
+| 245 | `identifier` | `iden_delim` | 15 characters |
+| 247 | `identifier` | `iden_delim` | 16 characters |
+| 249 | `identifier` | `iden_delim` | 17 characters |
+| 251 | `identifier` | `iden_delim` | 18-19 characters |
+| 254 | `identifier` | `iden_delim` | 20 characters |
+| 256 | `identifier` | `iden_delim` | 21 characters |
+| 258 | `identifier` | `iden_delim` | 22 characters |
+| 260 | `identifier` | `iden_delim` | 23 characters |
+| 262 | `identifier` | `iden_delim` | 24-25 characters (maximum) |
 
 ### State Transitions
 
 | From State | Input | To State | Notes |
 |------------|-------|----------|-------|
-| 366 | `numbers` | 368 | Start of continuation |
-| 368 | `nbl_delim` | 369 | **Final: continuation** |
-| 368 | `numbers` | 370 | Continue |
-| 370 | `nbl_delim` | 371 | **Final: continuation** |
-| 370 | `numbers` | 372 | Continue |
-| 372 | `nbl_delim` | 373 | **Final: continuation** |
-| 372 | `numbers` | 374 | Continue |
-| 374 | `nbl_delim` | 375 | **Final: continuation** |
-| 374 | `numbers` | 376 | Continue |
-| 376 | `nbl_delim` | 377 | **Final: continuation** |
-| 376 | `numbers` | 378 | Continue |
-| 378 | `nbl_delim` | 379 | **Final: continuation** |
-| 378 | `numbers` | 380 | Continue |
-| 380 | `nbl_delim` | 381 | **Final: continuation** |
-| 380 | `numbers` | 382 | Continue |
-| 382 | `nbl_delim` | 383 | **Final: continuation** |
+| 0 | `alphabetics` | 220 | Start of identifier (first character must be alphabetic) |
+| 220 | `iden_delim` | 221 | **Final: identifier** (1 character) |
+| 220 | `alphanum/_` | 222 | Continue identifier |
+| 222 | `iden_delim` | 223 | **Final: identifier** (2 characters) |
+| 222 | `alphanum/_` | 224 | Continue identifier |
+| 224 | `iden_delim` | 225 | **Final: identifier** (3 characters) |
+| 224 | `alphanum/_` | 226 | Continue identifier |
+| 226 | `iden_delim` | 227 | **Final: identifier** (4 characters) |
+| 226 | `alphanum/_` | 228 | Continue identifier |
+| 228 | `iden_delim` | 229 | **Final: identifier** (5 characters) |
+| 228 | `alphanum/_` | 229 | Continue identifier |
+| 229 | `iden_delim` | 231 | **Final: identifier** (6 characters) |
+| 229 | `alphanum/_` | 230 | Continue identifier |
+| 230 | `iden_delim` | 231 | **Final: identifier** (7 characters) |
+| 230 | `alphanum/_` | 232 | Continue identifier |
+| 232 | `iden_delim` | 233 | **Final: identifier** (8 characters) |
+| 232 | `alphanum/_` | 234 | Continue identifier |
+| 234 | `iden_delim` | 235 | **Final: identifier** (9 characters) |
+| 234 | `alphanum/_` | 236 | Continue identifier |
+| 236 | `iden_delim` | 237 | **Final: identifier** (10 characters) |
+| 236 | `alphanum/_` | 238 | Continue identifier |
+| 238 | `iden_delim` | 239 | **Final: identifier** (11 characters) |
+| 238 | `alphanum/_` | 239 | Continue identifier |
+| 239 | `iden_delim` | 241 | **Final: identifier** (12 characters) |
+| 239 | `alphanum/_` | 240 | Continue identifier |
+| 240 | `iden_delim` | 241 | **Final: identifier** (13 characters) |
+| 240 | `alphanum/_` | 242 | Continue identifier |
+| 242 | `iden_delim` | 243 | **Final: identifier** (14 characters) |
+| 242 | `alphanum/_` | 244 | Continue identifier |
+| 244 | `iden_delim` | 245 | **Final: identifier** (15 characters) |
+| 244 | `alphanum/_` | 246 | Continue identifier |
+| 246 | `iden_delim` | 247 | **Final: identifier** (16 characters) |
+| 246 | `alphanum/_` | 248 | Continue identifier |
+| 248 | `iden_delim` | 249 | **Final: identifier** (17 characters) |
+| 248 | `alphanum/_` | 249 | Continue identifier |
+| 249 | `iden_delim` | 251 | **Final: identifier** (18 characters) |
+| 249 | `alphanum/_` | 250 | Continue identifier |
+| 250 | `iden_delim` | 251 | **Final: identifier** (19 characters) |
+| 250 | `alphanum/_` | 253 | Continue identifier |
+| 253 | `iden_delim` | 254 | **Final: identifier** (20 characters) |
+| 253 | `alphanum/_` | 255 | Continue identifier |
+| 255 | `iden_delim` | 256 | **Final: identifier** (21 characters) |
+| 255 | `alphanum/_` | 257 | Continue identifier |
+| 257 | `iden_delim` | 258 | **Final: identifier** (22 characters) |
+| 257 | `alphanum/_` | 259 | Continue identifier |
+| 259 | `iden_delim` | 260 | **Final: identifier** (23 characters) |
+| 259 | `alphanum/_` | 260 | Continue identifier |
+| 260 | `iden_delim` | 262 | **Final: identifier** (24 characters) |
+| 260 | `alphanum/_` | 261 | Continue identifier |
+| 261 | `iden_delim` | 262 | **Final: identifier** (25 characters - maximum length) |
 
 ---
 
@@ -696,6 +744,5 @@ The FSAs are connected at specific states:
 
 - **Integer → Long**: State 297 connects integer FSA to long FSA
 - **Float → Double**: State 350 connects float FSA to double FSA
-- **Double → Continuation**: State 366 connects double FSA to continuation FSA
 
-These connections allow the lexer to transition between different numerical literal types based on length and precision requirements.
+**Note**: Identifier FSA starts independently at state 0 and does not connect to numerical literal FSAs. The lexer determines which FSA to use based on the first character encountered (alphabetic for identifiers, digit for numerical literals).

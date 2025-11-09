@@ -18,7 +18,7 @@ All FSAs extracted from PORTIA Transition Diagram images.
 - `PORTIA TD- Final - numlitfloat.jpg` - Float Literals
 - `PORTIA TD- Final - numlitdouble.jpg` - Double Literals (Part 1)
 - `PORTIA TD- Final - numlitdouble2.jpg` - Double Literals (Part 2)
-- `PORTIA TD- Final - idenlit.jpg` - Numerical Continuation
+- `PORTIA TD- Final - idenlit.jpg` - Identifier Literals
 
 ## Extracted FSAs
 
@@ -42,7 +42,7 @@ All FSAs extracted from PORTIA Transition Diagram images.
 4. **Long Literals**: States 297-336
 5. **Float Literals**: States 337-351
 6. **Double Literals**: States 350-367
-7. **Numerical Continuation**: States 366-383
+7. **Identifier Literals**: States 0, 220-270
 
 ## State Statistics
 
@@ -59,15 +59,17 @@ All FSAs extracted from PORTIA Transition Diagram images.
 | Long Literals | 297 | 297-336 | 19 |
 | Float Literals | 337 | 337-351 | 7 |
 | Double Literals | 350 | 350-367 | 8 |
-| Numerical Continuation | 366 | 366-383 | 8 |
+| Identifier Literals | 0 | 0, 220-270 | 21 |
 
-**Total Final States**: 119
+**Total Final States**: 132
+
+**Note**: Identifier Literals has 21 unique final states that accept identifiers of 1-25 characters (some states accept multiple lengths).
 
 ## Connection Points
 
 - State 297: Integer FSA → Long FSA
 - State 350: Float FSA → Double FSA
-- State 366: Double FSA → Continuation FSA
+- Identifier FSA: Starts independently at state 0 (does not connect to numerical literal FSAs)
 
 ## Output Files
 
