@@ -282,37 +282,37 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 | 0 | `\|` | 179 | Start of `\|\|` |
 | 0 | `!` | 182 | Start of `!` or `!=` |
 | 0 | `=` | 186 | Start of `=` or `==` |
-| 152 | `ε` | 153 | **Final: `-`** (immediate acceptance) |
+| 152 | `negative_delim` | 153 | **Final: `-`** |
 | 152 | `-` | 154 | Continue `--` |
 | 152 | `=` | 156 | Continue `-=` |
-| 154 | `ε` | 155 | **Final: `--`** |
-| 156 | `ε` | 157 | **Final: `-=`** |
-| 158 | `ε` | 159 | **Final: `+`** |
+| 154 | `decrement_delim` | 155 | **Final: `--`** |
+| 156 | `sign_delim` | 157 | **Final: `-=`** |
+| 158 | `sign_delim` | 159 | **Final: `+`** |
 | 158 | `+` | 160 | Continue `++` |
 | 158 | `=` | 162 | Continue `+=` |
-| 160 | `ε` | 161 | **Final: `++`** |
-| 162 | `ε` | 163 | **Final: `+=`** |
-| 164 | `ε` | 165 | **Final: `*`** |
+| 160 | `increment_delim` | 161 | **Final: `++`** |
+| 162 | `sign_delim` | 163 | **Final: `+=`** |
+| 164 | `marithmetic_delim` | 165 | **Final: `*`** |
 | 164 | `=` | 166 | Continue `*=` |
-| 166 | `ε` | 167 | **Final: `*=`** |
-| 168 | `ε` | 169 | **Final: `/`** |
+| 166 | `sign_delim` | 167 | **Final: `*=`** |
+| 168 | `slash_delim` | 169 | **Final: `/`** |
 | 168 | `=` | 170 | Continue `/=` |
-| 170 | `ε` | 171 | **Final: `/=`** |
-| 172 | `ε` | 173 | **Final: `%`** |
+| 170 | `sign_delim` | 171 | **Final: `/=`** |
+| 172 | `modulo_delim` | 173 | **Final: `%`** |
 | 172 | `=` | 174 | Continue `%=` |
-| 174 | `ε` | 175 | **Final: `%=`** |
+| 174 | `sign_delim` | 175 | **Final: `%=`** |
 | 176 | `&` | 177 | Continue `&&` |
-| 177 | `ε` | 178 | **Final: `&&`** |
+| 177 | `logical_delim` | 178 | **Final: `&&`** |
 | 179 | `\|` | 180 | Continue `\|\|` |
-| 180 | `ε` | 181 | **Final: `\|\|`** |
-| 182 | `ε` | 183 | **Final: `!`** |
+| 180 | `logical_delim` | 181 | **Final: `\|\|`** |
+| 182 | `exclamation_delim` | 183 | **Final: `!`** |
 | 182 | `=` | 184 | Continue `!=` |
-| 184 | `ε` | 185 | **Final: `!=`** |
-| 186 | `ε` | 187 | **Final: `=`** |
+| 184 | `sign_delim` | 185 | **Final: `!=`** |
+| 186 | `equal_delim` | 187 | **Final: `=`** |
 | 186 | `=` | 188 | Continue `==` |
-| 188 | `ε` | 189 | **Final: `==`** |
+| 188 | `sign_delim` | 189 | **Final: `==`** |
 
-**Note**: `ε` represents epsilon (empty string) transitions for immediate acceptance.
+**Note**: Delimiter types determine when a symbol token is complete. The lexer checks if the next character matches the delimiter type before accepting the symbol.
 
 ---
 
@@ -440,8 +440,9 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 ## Integer Literals FSA
 
 **Integer Literals**: Sequences of digits  
-**State Range**: 0, 279-298  
-**Initial State**: 0
+**State Range**: 0, 279-298 (states: 0, 279-298)  
+**Initial State**: 0  
+**Accepts**: 1-10 digits (states 280, 282, 284, 286, 288, 290, 292, 294, 296, 298 are final states for 1-10 digits respectively)
 
 ### Final States
 
@@ -488,8 +489,9 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 ## Long Literals FSA
 
 **Long Literals**: Extended sequences of digits, optionally with decimal points and fractional parts  
-**State Range**: 297-336  
-**Initial State**: 297 (connects from Integer FSA)
+**State Range**: 297-336 (states: 297, 299-336, including intermediate decimal states 300, 302, 304, 306, 308, 310, 312)  
+**Initial State**: 297 (connects from Integer FSA)  
+**Accepts**: 11-29 digits (continues from Integer's 10 digits; states 300, 302, 304, 306, 308, 310, 312, 314, 316, 318, 320, 322, 324, 326, 328, 330, 332, 334, 336 are final states)
 
 ### Final States
 
@@ -565,8 +567,9 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 ## Float Literals FSA
 
 **Float Literals**: Sequences of digits for float precision  
-**State Range**: 337-351  
-**Initial State**: 337
+**State Range**: 337-351 (states: 337-351)  
+**Initial State**: 337  
+**Accepts**: 1-7 digits (states 339, 341, 343, 345, 347, 349, 351 are final states for 1-7 digits respectively)
 
 ### Final States
 
@@ -604,8 +607,9 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 ## Double Literals FSA
 
 **Double Literals**: Extended sequences of digits for double precision  
-**State Range**: 350-367  
-**Initial State**: 350 (may connect from Float FSA)
+**State Range**: 350-367 (states: 350, 352-367)  
+**Initial State**: 350 (may connect from Float FSA)  
+**Accepts**: 1-8 digits (continues from Float's 7 digits; states 353, 355, 357, 359, 361, 363, 365, 367 are final states for 1-8 additional digits respectively)
 
 ### Final States
 
@@ -646,8 +650,9 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 ## Numerical Continuation FSA
 
 **Continuation Literals**: Extended numerical sequences beyond double precision  
-**State Range**: 366-383  
-**Initial State**: 366 (may connect from Double FSA)
+**State Range**: 366-383 (states: 366, 368-383)  
+**Initial State**: 366 (may connect from Double FSA)  
+**Accepts**: 1-8 digits (continues from Double; states 369, 371, 373, 375, 377, 379, 381, 383 are final states for 1-8 additional digits respectively)
 
 ### Final States
 
@@ -691,6 +696,6 @@ The FSAs are connected at specific states:
 
 - **Integer → Long**: State 297 connects integer FSA to long FSA
 - **Float → Double**: State 350 connects float FSA to double FSA
-- **Double → Continuation**: State 366 connects double FSA to continuation FSAgit add
+- **Double → Continuation**: State 366 connects double FSA to continuation FSA
 
 These connections allow the lexer to transition between different numerical literal types based on length and precision requirements.
