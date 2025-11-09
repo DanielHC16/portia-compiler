@@ -1003,7 +1003,7 @@ class LexicalAnalyzer:
         def check_delimiter(token_type: str, next_char: str) -> bool:
             """
             Validate that the next character is a valid delimiter for this token type
-            Based on FSA delimiter specifications from portia-td/portia_fsa.md
+            Based on FSA delimiter specifications
             
             Returns True only if next_char matches the required delimiter for this token_type
             """

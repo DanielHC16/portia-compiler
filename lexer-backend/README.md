@@ -30,37 +30,37 @@ python test_lexer.py
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        PORTIA COMPILER                           │
+│                        PORTIA COMPILER                          │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  Frontend (React + TypeScript)                                   │
+│                                                                 │
+│  Frontend (React + TypeScript)                                  │
 │  ┌─────────────────────────────────────────────────────┐        │
-│  │  User types code in editor                           │        │
-│  │  → Syntax highlighting                               │        │
-│  │  → Error visualization                               │        │
+│  │  User types code in editor                          │        │
+│  │  → Syntax highlighting                              │        │
+│  │  → Error visualization                              │        │
 │  └──────────────────┬──────────────────────────────────┘        │
-│                     │                                             │
-│                     │ HTTP POST /lex                              │
-│                     │ { "code": "int x = 5;" }                    │
-│                     │                                             │
-│                     ▼                                             │
-│  Backend (FastAPI + Python)                                      │
+│                     │                                           │
+│                     │ HTTP POST /lex                            │
+│                     │ { "code": "int x = 5;" }                  │
+│                     │                                           │
+│                     ▼                                           │
+│  Backend (FastAPI + Python)                                     │
 │  ┌─────────────────────────────────────────────────────┐        │
 │  │  Lexer FSA (LexicalAnalyzer)                        │        │
-│  │  ┌──────────────────────────────────────┐          │        │
-│  │  │  1. scan() - Main loop                │          │        │
-│  │  │  2. transition() - State machine      │          │        │
-│  │  │  3. Delimiter validation              │          │        │
-│  │  └──────────────────────────────────────┘          │        │
+│  │  ┌──────────────────────────────────────┐           │        │
+│  │  │  1. scan() - Main loop               │           │        │
+│  │  │  2. transition() - State machine     │           │        │
+│  │  │  3. Delimiter validation             │           │        │
+│  │  └──────────────────────────────────────┘           │        │
 │  └──────────────────┬──────────────────────────────────┘        │
-│                     │                                             │
-│                     │ JSON Response                               │
-│                     │ { "tokens": [...], "errors": [...] }        │
-│                     │                                             │
-│                     ▼                                             │
-│  Frontend displays results:                                      │
+│                     │                                           │
+│                     │ JSON Response                             │
+│                     │ { "tokens": [...], "errors": [...] }      │
+│                     │                                           │
+│                     ▼                                           │
+│  Frontend displays results:                                     │
 │  ┌─────────────────────────────────────────────────────┐        │
-│  │  Token Table | Error Messages | Syntax Highlighting  │        │
+│  │  Token Table | Error Messages | Syntax Highlighting │        │
 │  └─────────────────────────────────────────────────────┘        │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -134,9 +134,9 @@ Result: Token { type: "int", lexeme: "int", line: 1, col: 1 }
 ```
 ┌──────────┐         'i'         ┌──────────┐
 │          │ ─────────────────→  │          │
-│    s0    │                      │   s68    │  (could be 'if' or 'int')
-│ (Start)  │                      │          │
-└──────────┘                      └────┬─────┘
+│    s0    │                     │   s68    │  (could be 'if' or 'int')
+│ (Start)  │                     │          │
+└──────────┘                     └────┬─────┘
                                        │
                                        │ 'n'
                                        ▼
@@ -550,7 +550,7 @@ The test suite includes 37 test cases covering:
 
 ## FSA Compliance
 
-The lexer is 100% compliant with FSA specifications from `portia-td/portia_fsa.md`:
+The lexer is 100% compliant with FSA specifications:
 - All 140 final states implemented
 - All state transitions verified
 - All delimiter types enforced
@@ -578,10 +578,9 @@ The lexer is 100% compliant with FSA specifications from `portia-td/portia_fsa.m
 
 ## Reference
 
-For complete language specification, see:
-- `docs/language-spec/` - Complete PORTIA specification
-- `portia-td/portia_fsa.md` - FSA documentation (810 lines)
+For more information, see:
 - Main project README - Full compiler overview
+- Lexer Technical Deep-Dive (LEXER_EXPLAINED.md)
 
 ## Status
 
