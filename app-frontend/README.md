@@ -29,44 +29,44 @@ npm run build
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    PORTIA FRONTEND FLOW                          │
+│                    PORTIA FRONTEND FLOW                         │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  1. User Input                                                   │
+│                                                                 │
+│  1. User Input                                                  │
 │  ┌──────────────────────────────────────────────────────┐       │
 │  │  <textarea> - User types PORTIA code                 │       │
 │  │  - Auto-closing pairs: {}, (), [], "", ''            │       │
 │  │  - Line numbers with synchronized scrolling          │       │
-│  │  - Real-time input capture                            │       │
+│  │  - Real-time input capture                           │       │
 │  └────────────────┬─────────────────────────────────────┘       │
-│                   │                                              │
-│                   │ onChange event                               │
-│                   ▼                                              │
-│  2. API Call                                                     │
+│                   │                                             │
+│                   │ onChange event                              │
+│                   ▼                                             │
+│  2. API Call                                                    │
 │  ┌──────────────────────────────────────────────────────┐       │
 │  │  api.ts: lexCode(code)                               │       │
 │  │  - POST http://localhost:8000/lex                    │       │
 │  │  - Send: { "code": "int x = 5;" }                    │       │
 │  │  - Receive & transform token fields                  │       │
 │  └────────────────┬─────────────────────────────────────┘       │
-│                   │                                              │
-│                   │ Response: { tokens, errors }                 │
-│                   ▼                                              │
-│  3. State Update                                                 │
+│                   │                                             │
+│                   │ Response: { tokens, errors }                │
+│                   ▼                                             │
+│  3. State Update                                                │
 │  ┌──────────────────────────────────────────────────────┐       │
-│  │  LexerPanel.tsx                                       │       │
-│  │  - setTokens(tokens)                                  │       │
-│  │  - setErrors(errors)                                  │       │
+│  │  LexerPanel.tsx                                      │       │
+│  │  - setTokens(tokens)                                 │       │
+│  │  - setErrors(errors)                                 │       │
 │  └────────────────┬─────────────────────────────────────┘       │
-│                   │                                              │
+│                   │                                             │
 │                   ├─────────────────┬────────────────────────┐  │
 │                   ▼                 ▼                        ▼  │
-│  4. Render                                                       │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐      │
-│  │ Syntax       │  │ Token List   │  │ Error Display    │      │
-│  │ Highlighting │  │ Table        │  │ with Line/Col    │      │
-│  └──────────────┘  └──────────────┘  └──────────────────┘      │
-│                                                                   │
+│  4. Render                                                      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐       │
+│  │ Syntax       │  │ Token List   │  │ Error Display    │       │
+│  │ Highlighting │  │ Table        │  │ with Line/Col    │       │
+│  └──────────────┘  └──────────────┘  └──────────────────┘       │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

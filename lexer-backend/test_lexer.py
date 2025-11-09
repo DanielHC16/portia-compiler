@@ -1,6 +1,6 @@
 """
 Test script for PORTIA Lexer - Spec Compliance Testing
-Tests all features defined in docs/language-spec/
+Tests all PORTIA language features
 """
 
 from app.lexer.portia_lexer import LexicalAnalyzer

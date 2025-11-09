@@ -576,7 +576,7 @@ The PORTIA lexer is a well-structured FSA-based tokenizer that:
 2. **Enforces strict delimiter rules** to prevent ambiguous tokenization
 3. **Reports comprehensive errors** with precise line and column numbers
 4. **Integrates seamlessly** with the React frontend via FastAPI
-5. **Follows FSA specifications** documented in `portia-td/portia_fsa.md`
+5. **Follows FSA specifications** with explicit state transitions
 
 ### Key Metrics
 
@@ -602,8 +602,7 @@ Error detection: Character-level precision
 
 ## References
 
-- `portia-td/portia_fsa.md` - Complete FSA documentation
 - `lexer-backend/README.md` - Lexer usage guide
 - `app-frontend/README.md` - Frontend integration guide
-- `docs/language-spec/` - PORTIA language specification
+- Main project README - Full compiler overview
 
