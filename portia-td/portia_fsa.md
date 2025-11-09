@@ -263,7 +263,7 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 | 173 | `%` | `modulo_delim` |
 | 175 | `%=` | `sign_delim` |
 | 178 | `&&` | `logical_delim` |
-| 181 | `||` | `logical_delim` |
+| 181 | `\|\|` | `logical_delim` |
 | 183 | `!` | `exclamation_delim` |
 | 185 | `!=` | `sign_delim` |
 | 187 | `=` | `equal_delim` |
@@ -279,7 +279,7 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 | 0 | `/` | 168 | Start of `/` or `/=` |
 | 0 | `%` | 172 | Start of `%` or `%=` |
 | 0 | `&` | 176 | Start of `&&` |
-| 0 | `|` | 179 | Start of `||` |
+| 0 | `\|` | 179 | Start of `\|\|` |
 | 0 | `!` | 182 | Start of `!` or `!=` |
 | 0 | `=` | 186 | Start of `=` or `==` |
 | 152 | `negative_delim` | 153 | **Final: `-`** |
@@ -303,8 +303,8 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 | 174 | `sign_delim` | 175 | **Final: `%=`** |
 | 176 | `&` | 177 | Continue `&&` |
 | 177 | `logical_delim` | 178 | **Final: `&&`** |
-| 179 | `|` | 180 | Continue `||` |
-| 180 | `logical_delim` | 181 | **Final: `||`** |
+| 179 | `\|` | 180 | Continue `\|\|` |
+| 180 | `logical_delim` | 181 | **Final: `\|\|`** |
 | 182 | `exclamation_delim` | 183 | **Final: `!`** |
 | 182 | `=` | 184 | Continue `!=` |
 | 184 | `sign_delim` | 185 | **Final: `!=`** |
