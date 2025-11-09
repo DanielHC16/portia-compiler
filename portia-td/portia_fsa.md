@@ -99,54 +99,6 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 
 ## Keywords FSA - Part 2
 
-**Keywords**: `using`, `var`, `void`, `weave`, `while`  
-**State Range**: 0, 127-151  
-**Initial State**: 0
-
-### Final States
-
-| State | Keyword | Delimiter Type |
-|-------|---------|----------------|
-| 132 | `using` | `whitespace` |
-| 136 | `var` | `whitespace` |
-| 140 | `void` | `whitespace` |
-| 146 | `weave` | `whitespace` |
-| 151 | `while` | `loop_delim` |
-
-### State Transitions
-
-| From State | Input | To State | Notes |
-|------------|-------|----------|-------|
-| 0 | `u` | 127 | Start of `using` |
-| 0 | `v` | 133 | Start of `var` or `void` |
-| 0 | `w` | 141 | Start of `weave` or `while` |
-| 127 | `s` | 128 | Continue `using` |
-| 128 | `i` | 129 | Continue `using` |
-| 129 | `n` | 130 | Continue `using` |
-| 130 | `g` | 131 | Continue `using` |
-| 131 | `whitespace` | 132 | **Final: `using`** |
-| 133 | `a` | 134 | Continue `var` |
-| 133 | `o` | 137 | Continue `void` |
-| 134 | `r` | 135 | Continue `var` |
-| 135 | `whitespace` | 136 | **Final: `var`** |
-| 137 | `i` | 138 | Continue `void` |
-| 138 | `d` | 139 | Continue `void` |
-| 139 | `whitespace` | 140 | **Final: `void`** |
-| 141 | `e` | 142 | Continue `weave` |
-| 141 | `h` | 147 | Continue `while` |
-| 142 | `a` | 143 | Continue `weave` |
-| 143 | `v` | 144 | Continue `weave` |
-| 144 | `e` | 145 | Continue `weave` |
-| 145 | `whitespace` | 146 | **Final: `weave`** |
-| 147 | `i` | 148 | Continue `while` |
-| 148 | `l` | 149 | Continue `while` |
-| 149 | `e` | 150 | Continue `while` |
-| 150 | `loop_delim` | 151 | **Final: `while`** |
-
----
-
-## Keywords FSA - Part 3
-
 **Keywords**: `global`, `if`, `int`, `local`, `long`, `main`, `return`, `string`, `switch`, `thread`, `threadln`, `trap`, `true`  
 **State Range**: 0-126  
 **Initial State**: 0
@@ -237,6 +189,54 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 | 122 | `(` | 123 | **Final: `trap`** |
 | 124 | `e` | 125 | Continue `true` |
 | 125 | `nbl_delim` | 126 | **Final: `true`** |
+
+---
+
+## Keywords FSA - Part 3
+
+**Keywords**: `using`, `var`, `void`, `weave`, `while`  
+**State Range**: 0, 127-151  
+**Initial State**: 0
+
+### Final States
+
+| State | Keyword | Delimiter Type |
+|-------|---------|----------------|
+| 132 | `using` | `whitespace` |
+| 136 | `var` | `whitespace` |
+| 140 | `void` | `whitespace` |
+| 146 | `weave` | `whitespace` |
+| 151 | `while` | `loop_delim` |
+
+### State Transitions
+
+| From State | Input | To State | Notes |
+|------------|-------|----------|-------|
+| 0 | `u` | 127 | Start of `using` |
+| 0 | `v` | 133 | Start of `var` or `void` |
+| 0 | `w` | 141 | Start of `weave` or `while` |
+| 127 | `s` | 128 | Continue `using` |
+| 128 | `i` | 129 | Continue `using` |
+| 129 | `n` | 130 | Continue `using` |
+| 130 | `g` | 131 | Continue `using` |
+| 131 | `whitespace` | 132 | **Final: `using`** |
+| 133 | `a` | 134 | Continue `var` |
+| 133 | `o` | 137 | Continue `void` |
+| 134 | `r` | 135 | Continue `var` |
+| 135 | `whitespace` | 136 | **Final: `var`** |
+| 137 | `i` | 138 | Continue `void` |
+| 138 | `d` | 139 | Continue `void` |
+| 139 | `whitespace` | 140 | **Final: `void`** |
+| 141 | `e` | 142 | Continue `weave` |
+| 141 | `h` | 147 | Continue `while` |
+| 142 | `a` | 143 | Continue `weave` |
+| 143 | `v` | 144 | Continue `weave` |
+| 144 | `e` | 145 | Continue `weave` |
+| 145 | `whitespace` | 146 | **Final: `weave`** |
+| 147 | `i` | 148 | Continue `while` |
+| 148 | `l` | 149 | Continue `while` |
+| 149 | `e` | 150 | Continue `while` |
+| 150 | `loop_delim` | 151 | **Final: `while`** |
 
 ---
 
@@ -440,7 +440,7 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 ## Integer Literals FSA
 
 **Integer Literals**: Sequences of digits  
-**State Range**: 0, 279-298 (states: 0, 279-298)  
+**State Range**: 0, 279-298, 337 (states: 0, 279-298, 337)  
 **Initial State**: 0  
 **Accepts**: 1-10 digits (states 280, 282, 284, 286, 288, 290, 292, 294, 296, 298 are final states for 1-10 digits respectively)
 
@@ -464,34 +464,42 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 | From State | Input | To State | Notes |
 |------------|-------|----------|-------|
 | 0 | `numbers` | 279 | Start of integer literal |
-| 279 | `nbl_delim` | 280 | **Final: int** |
-| 279 | `numbers` | 281 | Continue |
-| 281 | `nbl_delim` | 282 | **Final: int** |
-| 281 | `numbers` | 283 | Continue |
-| 283 | `nbl_delim` | 284 | **Final: int** |
-| 283 | `numbers` | 285 | Continue |
-| 285 | `nbl_delim` | 286 | **Final: int** |
-| 285 | `numbers` | 287 | Continue |
-| 287 | `nbl_delim` | 288 | **Final: int** |
-| 287 | `numbers` | 289 | Continue |
-| 289 | `nbl_delim` | 290 | **Final: int** |
-| 289 | `numbers` | 291 | Continue |
-| 291 | `nbl_delim` | 292 | **Final: int** |
-| 291 | `numbers` | 293 | Continue |
-| 293 | `nbl_delim` | 294 | **Final: int** |
-| 293 | `numbers` | 295 | Continue |
-| 295 | `nbl_delim` | 296 | **Final: int** |
-| 295 | `numbers` | 297 | Continue (may connect to Long FSA) |
-| 297 | `nbl_delim` | 298 | **Final: int** |
+| 279 | `nbl_delim` | 280 | **Final: int** (1 digit) |
+| 279 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 281 | Continue (2nd digit) |
+| 281 | `nbl_delim` | 282 | **Final: int** (2 digits) |
+| 281 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 283 | Continue (3rd digit) |
+| 283 | `nbl_delim` | 284 | **Final: int** (3 digits) |
+| 283 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 285 | Continue (4th digit) |
+| 285 | `nbl_delim` | 286 | **Final: int** (4 digits) |
+| 285 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 287 | Continue (5th digit) |
+| 287 | `nbl_delim` | 288 | **Final: int** (5 digits) |
+| 287 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 289 | Continue (6th digit) |
+| 289 | `nbl_delim` | 290 | **Final: int** (6 digits) |
+| 289 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 291 | Continue (7th digit) |
+| 291 | `nbl_delim` | 292 | **Final: int** (7 digits) |
+| 291 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 293 | Continue (8th digit) |
+| 293 | `nbl_delim` | 294 | **Final: int** (8 digits) |
+| 293 | `numbers` | 295 | Continue (9th digit) |
+| 295 | `nbl_delim` | 296 | **Final: int** (9 digits) |
+| 295 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 297 | Continue (10th digit, may connect to Long FSA) |
+| 297 | `nbl_delim` | 298 | **Final: int** (10 digits) |
 
 ---
 
 ## Long Literals FSA
 
-**Long Literals**: Extended sequences of digits, optionally with decimal points and fractional parts  
-**State Range**: 297-336 (states: 297, 299-336, including intermediate decimal states 300, 302, 304, 306, 308, 310, 312)  
+**Long Literals**: Extended sequences of digits, optionally with decimal points for fractional parts  
+**State Range**: 297-336, 337 (states: 297, 299-336, 337)  
 **Initial State**: 297 (connects from Integer FSA)  
-**Accepts**: 11-29 digits (continues from Integer's 10 digits; states 300, 302, 304, 306, 308, 310, 312, 314, 316, 318, 320, 322, 324, 326, 328, 330, 332, 334, 336 are final states)
+**Accepts**: 11-29 digits (continues from Integer's 10 digits; states 300, 302, 304, 306, 308, 310, 312, 314, 316, 318, 320, 322, 324, 326, 328, 330, 332, 334, 336 are final states for 11-29 digits respectively)
 
 ### Final States
 
@@ -521,56 +529,74 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 
 | From State | Input | To State | Notes |
 |------------|-------|----------|-------|
-| 297 | `numbers` | 299 | Start of long literal |
-| 299 | `numbers` | 301 | Continue |
-| 299 | `.` | 300 | **Final: long** (via decimal point path) |
-| 301 | `numbers` | 303 | Continue |
-| 301 | `.` | 302 | **Final: long** (via decimal point path) |
-| 303 | `numbers` | 305 | Continue |
-| 303 | `.` | 304 | **Final: long** (via decimal point path) |
-| 305 | `numbers` | 307 | Continue |
-| 305 | `.` | 306 | **Final: long** (via decimal point path) |
-| 307 | `numbers` | 309 | Continue |
-| 307 | `.` | 308 | **Final: long** (via decimal point path) |
-| 309 | `numbers` | 311 | Continue |
-| 309 | `.` | 310 | **Final: long** (via decimal point path) |
-| 311 | `numbers` | 313 | Continue |
-| 311 | `.` | 312 | **Final: long** (via decimal point path) |
-| 313 | `numbers` | 315 | Continue |
-| 313 | `.` | 314 | **Final: long** (via decimal point path) |
-| 313 | `nbl_delim` | 330 | **Final: long** |
-| 315 | `numbers` | 317 | Continue |
-| 315 | `nbl_delim` | 316 | **Final: long** |
-| 317 | `numbers` | 319 | Continue |
-| 317 | `nbl_delim` | 318 | **Final: long** |
-| 319 | `numbers` | 321 | Continue |
-| 319 | `nbl_delim` | 320 | **Final: long** |
-| 321 | `numbers` | 323 | Continue |
-| 321 | `nbl_delim` | 322 | **Final: long** |
-| 323 | `numbers` | 325 | Continue |
-| 323 | `nbl_delim` | 324 | **Final: long** |
-| 325 | `numbers` | 327 | Continue |
-| 325 | `nbl_delim` | 326 | **Final: long** |
-| 327 | `numbers` | 329 | Continue |
-| 327 | `nbl_delim` | 328 | **Final: long** |
-| 329 | `numbers` | 331 | Continue |
-| 329 | `nbl_delim` | 330 | **Final: long** |
-| 331 | `numbers` | 333 | Continue |
-| 331 | `nbl_delim` | 332 | **Final: long** |
-| 333 | `numbers` | 335 | Continue |
-| 333 | `nbl_delim` | 334 | **Final: long** |
-| 335 | `nbl_delim` | 336 | **Final: long** |
+| 297 | `numbers` | 299 | Start of long literal (11th digit) |
+| 299 | `nbl_delim` | 300 | **Final: long** (11 digits) |
+| 299 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 301 | Continue (12th digit) |
+| 301 | `nbl_delim` | 302 | **Final: long** (12 digits) |
+| 301 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 303 | Continue (13th digit) |
+| 303 | `nbl_delim` | 304 | **Final: long** (13 digits) |
+| 303 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 305 | Continue (14th digit) |
+| 305 | `nbl_delim` | 306 | **Final: long** (14 digits) |
+| 305 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 307 | Continue (15th digit) |
+| 307 | `nbl_delim` | 308 | **Final: long** (15 digits) |
+| 307 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 309 | Continue (16th digit) |
+| 309 | `nbl_delim` | 310 | **Final: long** (16 digits) |
+| 309 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 311 | Continue (17th digit) |
+| 311 | `nbl_delim` | 312 | **Final: long** (17 digits) |
+| 311 | `numbers` | 337 | Continue to next digit |
+| 337 | `numbers` | 313 | Continue (18th digit) |
+| 313 | `nbl_delim` | 314 | **Final: long** (18 digits) |
+| 313 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 313 | `numbers` | 315 | Continue (19th digit) |
+| 315 | `nbl_delim` | 316 | **Final: long** (19 digits) |
+| 315 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 315 | `numbers` | 317 | Continue (20th digit) |
+| 317 | `nbl_delim` | 318 | **Final: long** (20 digits) |
+| 317 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 317 | `numbers` | 319 | Continue (21st digit) |
+| 319 | `nbl_delim` | 320 | **Final: long** (21 digits) |
+| 319 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 319 | `numbers` | 321 | Continue (22nd digit) |
+| 321 | `nbl_delim` | 322 | **Final: long** (22 digits) |
+| 321 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 321 | `numbers` | 323 | Continue (23rd digit) |
+| 323 | `nbl_delim` | 324 | **Final: long** (23 digits) |
+| 323 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 323 | `numbers` | 325 | Continue (24th digit) |
+| 325 | `nbl_delim` | 326 | **Final: long** (24 digits) |
+| 325 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 325 | `numbers` | 327 | Continue (25th digit) |
+| 327 | `nbl_delim` | 328 | **Final: long** (25 digits) |
+| 327 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 327 | `numbers` | 329 | Continue (26th digit) |
+| 329 | `nbl_delim` | 330 | **Final: long** (26 digits) |
+| 329 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 329 | `numbers` | 331 | Continue (27th digit) |
+| 331 | `nbl_delim` | 332 | **Final: long** (27 digits) |
+| 331 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 331 | `numbers` | 333 | Continue (28th digit) |
+| 333 | `nbl_delim` | 334 | **Final: long** (28 digits) |
+| 333 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
+| 333 | `numbers` | 335 | Continue (29th digit) |
+| 335 | `nbl_delim` | 336 | **Final: long** (29 digits) |
+| 335 | `.` | 337 | Transition to fractional part (connects to Float/Double FSA) |
 
-**Note**: Decimal point paths (299→300, 301→302, etc.) go through intermediate states that handle fractional parts.
+**Note**: Decimal point transitions (`.`) from Long states (313, 315, 317, 319, 321, 323, 325, 327, 329, 331, 333, 335) lead to state 337, which is the entry point for Float/Double FSAs handling the fractional part.
 
 ---
 
 ## Float Literals FSA
 
-**Float Literals**: Sequences of digits for float precision  
+**Float Literals**: Fractional part (digits after decimal point) for float precision  
 **State Range**: 337-351 (states: 337-351)  
-**Initial State**: 337  
-**Accepts**: 1-7 digits (states 339, 341, 343, 345, 347, 349, 351 are final states for 1-7 digits respectively)
+**Initial State**: 337 (connects from Long/Integer FSAs via decimal point transition)  
+**Accepts**: 1-7 digits in fractional part (states 339, 341, 343, 345, 347, 349, 351 are final states for 1-7 fractional digits respectively)
 
 ### Final States
 
@@ -588,29 +614,29 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 
 | From State | Input | To State | Notes |
 |------------|-------|----------|-------|
-| 337 | `numbers` | 338 | Start of float literal |
-| 338 | `nbl_delim` | 339 | **Final: float** |
-| 338 | `numbers` | 340 | Continue |
-| 340 | `nbl_delim` | 341 | **Final: float** |
-| 340 | `numbers` | 342 | Continue |
-| 342 | `nbl_delim` | 343 | **Final: float** |
-| 342 | `numbers` | 344 | Continue |
-| 344 | `nbl_delim` | 345 | **Final: float** |
-| 344 | `numbers` | 346 | Continue |
-| 346 | `nbl_delim` | 347 | **Final: float** |
-| 346 | `numbers` | 348 | Continue |
-| 348 | `nbl_delim` | 349 | **Final: float** |
-| 348 | `numbers` | 350 | Continue (may connect to Double FSA) |
-| 350 | `nbl_delim` | 351 | **Final: float** |
+| 337 | `numbers` | 338 | Start of float fractional part (1st fractional digit) |
+| 338 | `nbl_delim` | 339 | **Final: float** (1 fractional digit) |
+| 338 | `numbers` | 340 | Continue (2nd fractional digit) |
+| 340 | `nbl_delim` | 341 | **Final: float** (2 fractional digits) |
+| 340 | `numbers` | 342 | Continue (3rd fractional digit) |
+| 342 | `nbl_delim` | 343 | **Final: float** (3 fractional digits) |
+| 342 | `numbers` | 344 | Continue (4th fractional digit) |
+| 344 | `nbl_delim` | 345 | **Final: float** (4 fractional digits) |
+| 344 | `numbers` | 346 | Continue (5th fractional digit) |
+| 346 | `nbl_delim` | 347 | **Final: float** (5 fractional digits) |
+| 346 | `numbers` | 348 | Continue (6th fractional digit) |
+| 348 | `nbl_delim` | 349 | **Final: float** (6 fractional digits) |
+| 348 | `numbers` | 350 | Continue (7th fractional digit, may connect to Double FSA) |
+| 350 | `nbl_delim` | 351 | **Final: float** (7 fractional digits) |
 
 ---
 
 ## Double Literals FSA
 
-**Double Literals**: Extended sequences of digits for double precision  
-**State Range**: 350-367 (states: 350, 352-367)  
-**Initial State**: 350 (may connect from Float FSA)  
-**Accepts**: 1-8 digits (continues from Float's 7 digits; states 353, 355, 357, 359, 361, 363, 365, 367 are final states for 1-8 additional digits respectively)
+**Double Literals**: Fractional part (digits after decimal point) for double precision  
+**State Range**: 350-367, 368-383 (states: 350, 352-367, 368-383)  
+**Initial State**: 350 (connects from Float FSA)  
+**Accepts**: 1-16 digits in fractional part (Part 1: states 353, 355, 357, 359, 361, 363, 365, 367 for 1-8 fractional digits; Part 2: states 369, 371, 373, 375, 377, 379, 381, 383 for 9-16 fractional digits)
 
 ### Final States
 
@@ -624,27 +650,58 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 | 363 | `double` | `double_literal` |
 | 365 | `double` | `double_literal` |
 | 367 | `double` | `double_literal` |
+| 369 | `double` | `double_literal` |
+| 371 | `double` | `double_literal` |
+| 373 | `double` | `double_literal` |
+| 375 | `double` | `double_literal` |
+| 377 | `double` | `double_literal` |
+| 379 | `double` | `double_literal` |
+| 381 | `double` | `double_literal` |
+| 383 | `double` | `double_literal` |
 
 ### State Transitions
 
+**Part 1 (states 350-367):**
+
 | From State | Input | To State | Notes |
 |------------|-------|----------|-------|
-| 350 | `numbers` | 352 | Start of double literal |
-| 352 | `nbl_delim` | 353 | **Final: double** |
-| 352 | `numbers` | 354 | Continue |
-| 354 | `nbl_delim` | 355 | **Final: double** |
-| 354 | `numbers` | 356 | Continue |
-| 356 | `nbl_delim` | 357 | **Final: double** |
-| 356 | `numbers` | 358 | Continue |
-| 358 | `nbl_delim` | 359 | **Final: double** |
-| 358 | `numbers` | 360 | Continue |
-| 360 | `nbl_delim` | 361 | **Final: double** |
-| 360 | `numbers` | 362 | Continue |
-| 362 | `nbl_delim` | 363 | **Final: double** |
-| 362 | `numbers` | 364 | Continue |
-| 364 | `nbl_delim` | 365 | **Final: double** |
-| 364 | `numbers` | 366 | Continue |
-| 366 | `nbl_delim` | 367 | **Final: double** |
+| 350 | `numbers` | 352 | Start of double fractional part (1st fractional digit) |
+| 352 | `nbl_delim` | 353 | **Final: double** (1 fractional digit) |
+| 352 | `numbers` | 354 | Continue (2nd fractional digit) |
+| 354 | `nbl_delim` | 355 | **Final: double** (2 fractional digits) |
+| 354 | `numbers` | 356 | Continue (3rd fractional digit) |
+| 356 | `nbl_delim` | 357 | **Final: double** (3 fractional digits) |
+| 356 | `numbers` | 358 | Continue (4th fractional digit) |
+| 358 | `nbl_delim` | 359 | **Final: double** (4 fractional digits) |
+| 358 | `numbers` | 360 | Continue (5th fractional digit) |
+| 360 | `nbl_delim` | 361 | **Final: double** (5 fractional digits) |
+| 360 | `numbers` | 362 | Continue (6th fractional digit) |
+| 362 | `nbl_delim` | 363 | **Final: double** (6 fractional digits) |
+| 362 | `numbers` | 364 | Continue (7th fractional digit) |
+| 364 | `nbl_delim` | 365 | **Final: double** (7 fractional digits) |
+| 364 | `numbers` | 366 | Continue (8th fractional digit, connects to Part 2) |
+| 366 | `nbl_delim` | 367 | **Final: double** (8 fractional digits) |
+
+**Part 2 (states 368-383, continues from Part 1 at state 366):**
+
+| From State | Input | To State | Notes |
+|------------|-------|----------|-------|
+| 366 | `numbers` | 368 | Continue double fractional part (9th fractional digit, from Part 1) |
+| 368 | `nbl_delim` | 369 | **Final: double** (9 fractional digits) |
+| 368 | `numbers` | 370 | Continue (10th fractional digit) |
+| 370 | `nbl_delim` | 371 | **Final: double** (10 fractional digits) |
+| 370 | `numbers` | 372 | Continue (11th fractional digit) |
+| 372 | `nbl_delim` | 373 | **Final: double** (11 fractional digits) |
+| 372 | `numbers` | 374 | Continue (12th fractional digit) |
+| 374 | `nbl_delim` | 375 | **Final: double** (12 fractional digits) |
+| 374 | `numbers` | 376 | Continue (13th fractional digit) |
+| 376 | `nbl_delim` | 377 | **Final: double** (13 fractional digits) |
+| 376 | `numbers` | 378 | Continue (14th fractional digit) |
+| 378 | `nbl_delim` | 379 | **Final: double** (14 fractional digits) |
+| 378 | `numbers` | 380 | Continue (15th fractional digit) |
+| 380 | `nbl_delim` | 381 | **Final: double** (15 fractional digits) |
+| 380 | `numbers` | 382 | Continue (16th fractional digit) |
+| 382 | `nbl_delim` | 383 | **Final: double** (16 fractional digits) |
 
 ---
 
@@ -742,7 +799,11 @@ This document contains all FSAs extracted from the PORTIA Transition Diagrams. E
 
 The FSAs are connected at specific states:
 
-- **Integer → Long**: State 297 connects integer FSA to long FSA
-- **Float → Double**: State 350 connects float FSA to double FSA
+- **Integer → Long**: State 297 connects integer FSA to long FSA (after 10 digits)
+- **Long → Float/Double**: Decimal point transitions (`.`) from Long states (313, 315, 317, 319, 321, 323, 325, 327, 329, 331, 333, 335) lead to state 337, which is the entry point for Float/Double FSAs handling the fractional part
+- **Float → Double**: State 350 connects float FSA to double FSA Part 1 (after 7 fractional digits)
+- **Double Part 1 → Part 2**: State 366 connects double FSA Part 1 to Part 2 (after 8 fractional digits in Part 1)
 
-**Note**: Identifier FSA starts independently at state 0 and does not connect to numerical literal FSAs. The lexer determines which FSA to use based on the first character encountered (alphabetic for identifiers, digit for numerical literals).
+**Note**: 
+- State 337 is shared as an intermediate continuation state in Integer and Long FSAs, and as the entry point for Float/Double FSAs
+- Identifier FSA starts independently at state 0 and does not connect to numerical literal FSAs. The lexer determines which FSA to use based on the first character encountered (alphabetic for identifiers, digit for numerical literals).
