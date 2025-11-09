@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from app.lexer.lexer import lex
+from app.lexer.portia_lexer import LexicalAnalyzer
 
 app = FastAPI()
 
@@ -27,5 +27,6 @@ def root():
 
 @app.post("/lex")
 def lex_code(req: CodeRequest):
-    return lex(req.code)
+    lexer = LexicalAnalyzer()
+    return lexer.scan(req.code)
 

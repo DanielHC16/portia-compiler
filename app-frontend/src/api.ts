@@ -26,7 +26,20 @@ async function postJSON(url: string, body: any) {
 }
 
 export async function lexCode(code: string): Promise<{ tokens: Token[]; errors: LexError[] }> {
-  return postJSON(`${LEXER_URL}/lex`, { code });
+  const response = await postJSON(`${LEXER_URL}/lex`, { code });
+  
+  // Map backend field names to frontend field names
+  const mappedTokens = response.tokens.map((token: any) => ({
+    type: token.tokenType,
+    lexeme: token.tokenName,
+    line: token.tokenLine,
+    column: token.tokenCol
+  }));
+  
+  return {
+    tokens: mappedTokens,
+    errors: response.errors || []
+  };
 }
 
 export async function parseSource(source: string) {
