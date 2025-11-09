@@ -176,6 +176,5 @@ $RECYCLE.BIN/
 # Internal Documentation
 # ===========================
 # Keep internal developer docs out of the repository
-docs-internal/
 inspo-folder
 TODOs.txt

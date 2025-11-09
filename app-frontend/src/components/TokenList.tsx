@@ -7,7 +7,9 @@ type Props = {
 };
 
 export default function TokenList({ tokens, hideComments = false }: Props) {
-  const visible = hideComments ? tokens.filter(t => !(t.type === "COMMENT" || t.type === "ML_COMMENT")) : tokens;
+  const visible = hideComments 
+    ? tokens.filter(t => !(t.type === "single_comment" || t.type === "multi_comment")) 
+    : tokens;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
