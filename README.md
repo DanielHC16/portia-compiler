@@ -1,10 +1,14 @@
-# PORTIA Compiler
+# PORTIA by LoomVI
 
-<div align="center">
-  <img src="app-frontend/public/portia-logo.svg" alt="PORTIA Logo" width="100" height="100">
-  <h3>A Modern Compiler for the PORTIA Programming Language</h3>
-  <p>Full-stack compiler implementation with FSA-based lexical analysis</p>
-</div>
+PORTIA takes its name from the Portia spider — renowned for patience, precision, and calculated strategy. Just as the spider weaves its web with intent, PORTIA weaves rules and logic into a unified and purposeful structure.
+
+PORTIA is a **high‑level, procedural, statically typed programming language** built around clarity and discipline. Programs are written as tightly defined statements, with explicit scoping and language features that emphasize order, readability, and precision.
+
+- **From C** → procedural structure, explicit scoping, disciplined statement design  
+- **From Python** → readability, consistency, avoidance of ambiguity  
+- **From Lua** → intuitive string handling  
+
+Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
 
 ## Overview
 
