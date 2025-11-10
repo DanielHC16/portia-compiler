@@ -10,7 +10,8 @@ A comprehensive technical explanation of the FSA-based lexical analyzer.
 4. [Scanner Algorithm](#scanner-algorithm)
 5. [Delimiter Validation](#delimiter-validation)
 6. [Error Handling](#error-handling)
-7. [Integration](#integration)
+7. [Modular Structure](#modular-structure)
+8. [Integration](#integration)
 
 ---
 
@@ -52,34 +53,45 @@ Becomes 5 tokens:
 
 ### Component Structure
 
+The lexer is modularized into separate files for better organization:
+
 ```
 LexicalAnalyzer (class)
 │
-├── Character Classes
-│   ├── alphabetic_chars = 'a-zA-Z'
-│   ├── numbers = '0-9'
-│   └── alphanum = 'a-zA-Z0-9_'
+├── Character Classes (character_classes.py)
+│   └── CharacterClasses
+│       ├── alphabetic_chars = 'a-zA-Z'
+│       ├── numbers = '0-9'
+│       ├── alphanum = 'a-zA-Z0-9_'
+│       ├── arithmetic_op = ['+', '-', '*', '/', '%']
+│       ├── relational_op = ['>', '<', '=', '!']
+│       └── logical_op = ['!', '&', '|']
 │
-├── Delimiter Sets
-│   ├── whitespace_delim
-│   ├── nbl_delim
-│   ├── iden_delim
-│   ├── block_delim
-│   ├── loop_delim
-│   ├── sign_delim
-│   ├── marithmetic_delim
-│   └── logical_delim
+├── Delimiter Sets (delimiters.py)
+│   └── Delimiters
+│       ├── ESCAPE SEQUENCE DELIMITER
+│       │   └── escape_seq
+│       ├── RESERVED SYMBOLS DELIMITER
+│       │   ├── negative_delim, modulo_delim, marithmetic_delim
+│       │   ├── sign_delim, asign_delim, logical_op_delim
+│       │   └── ... (20+ delimiter types)
+│       ├── CONTROL FLOW DELIMITER
+│       │   ├── loop_delim, block_delim, return_delim
+│       ├── IDENTIFIER DELIMITER
+│       │   └── iden_delim
+│       ├── LITERALS DELIMITER
+│       │   ├── str_lit_delim, nbl_delim
+│       └── OTHER DELIMITER
+│           └── whitespace_delim
 │
-├── Core Methods
+├── Core Methods (portia_lexer.py)
 │   ├── scan(code: str) → Dict          # Main entry point
 │   ├── transition(state, char) → str   # FSA logic
-│   ├── addToken(...)                   # Token creation
-│   └── addError(...)                   # Error reporting
+│   └── check_delimiter(...) → bool     # Delimiter validation
 │
-└── Helper Methods
-    ├── isFinalState(state) → bool
-    ├── getDelimiterType(state) → str
-    └── validDelimiter(...) → bool
+└── Initialization
+    ├── __init__()                      # Initializes CharacterClasses and Delimiters
+    └── Exposes all attributes for backward compatibility
 ```
 
 ### Data Flow
@@ -342,8 +354,10 @@ Bad:  break    → ERROR: 'break' must be followed by ';'
 │ marithmetic_delim   │ alphanumeric, space, (, /, +, -      │
 │                     │ Use: '*', '/', '%'                   │
 ├─────────────────────┼──────────────────────────────────────┤
-│ logical_delim       │ alphabetic, space, (, /, !           │
+│ logical_op_delim    │ alphabetic, space, (, /, !           │
 │                     │ Use: '&&', '||'                      │
+│ asign_delim         │ alphanumeric, space, =, /, (         │
+│                     │ Use: '<', '>', '<=', '>='           │
 └─────────────────────┴──────────────────────────────────────┘
 ```
 
@@ -461,7 +475,83 @@ if nextState == 'se':
 
 ---
 
-## 7. Integration
+## 7. Modular Structure
+
+### File Organization
+
+The lexer is organized into three main files:
+
+```
+app/lexer/
+├── character_classes.py    # Character class definitions
+├── delimiters.py           # Delimiter definitions  
+└── portia_lexer.py         # Main lexer logic
+```
+
+### Initialization Flow
+
+```python
+class LexicalAnalyzer:
+    def __init__(self):
+        # Initialize character classes
+        self.chars = CharacterClasses()
+        
+        # Initialize delimiters (uses character classes)
+        self.delims = Delimiters(self.chars)
+        
+        # Expose all attributes for backward compatibility
+        for attr in dir(self.chars):
+            if not attr.startswith('_'):
+                setattr(self, attr, getattr(self.chars, attr))
+        for attr in dir(self.delims):
+            if not attr.startswith('_') and attr != 'chars':
+                setattr(self, attr, getattr(self.delims, attr))
+```
+
+This design:
+- Separates concerns (character classes vs delimiters)
+- Makes code more maintainable
+- Allows independent testing of components
+- Maintains backward compatibility (all attributes accessible via `self.`)
+
+### Character Classes Module
+
+```python
+# character_classes.py
+class CharacterClasses:
+    alpha_small = list('abcdefghijklmnopqrstuvwxyz')
+    alpha_capital = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    alphabetic_chars = alpha_small + alpha_capital
+    numbers = zero + digit
+    alphanum = alphabetic_chars + numbers
+    # ... operator character classes
+```
+
+### Delimiters Module
+
+```python
+# delimiters.py
+class Delimiters:
+    def __init__(self, chars: CharacterClasses):
+        self.chars = chars
+        # ESCAPE SEQUENCE DELIMITER
+        self.escape_seq = ['\n', '\t', '"', "'"]
+        # RESERVED SYMBOLS DELIMITER
+        self.negative_delim = chars.alphanum + chars.whitespace + ...
+        # ... all delimiter definitions
+```
+
+Delimiters are organized by category according to PORTIA FSA specification:
+- ESCAPE SEQUENCE DELIMITER
+- RESERVED SYMBOLS DELIMITER
+- CONTROL FLOW DELIMITER
+- IDENTIFIER DELIMITER
+- LITERALS DELIMITER
+- OTHER DELIMITER
+
+---
+
+## 8. Integration
 
 ### Backend API Integration
 

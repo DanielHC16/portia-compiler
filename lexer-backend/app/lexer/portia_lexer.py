@@ -5,6 +5,9 @@ PORTIA Lexical Analyzer
 from typing import List, Dict, Any
 from dataclasses import dataclass
 
+from .character_classes import CharacterClasses
+from .delimiters import Delimiters
+
 
 @dataclass
 class Token:
@@ -23,21 +26,7 @@ class Token:
 
 
 class LexicalAnalyzer:
-    # === CHARACTER CLASS DEFINITIONS ===
-    alpha_small = list('abcdefghijklmnopqrstuvwxyz')
-    alpha_capital = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-    alphabetic_chars = alpha_small + alpha_capital
-    
-    zero = ['0']
-    digit = list('123456789')
-    numbers = zero + digit
-    
-    alphanum = alphabetic_chars + numbers
-    
-    whitespace = [' ', '\t']
-    newline = ['\n']
-    
-    ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
+    """PORTIA Lexical Analyzer"""
     
     # Escape sequences
     escape_seq = ['\n']
@@ -1127,12 +1116,12 @@ class LexicalAnalyzer:
                 'assign': self.equal_delim,
                 'equal_equal': self.sign_delim,
                 'not_equal': self.sign_delim,
-                'less_than': self.alphanum + self.whitespace + ['=', '/', '('] + self.newline,  # asign_delim
-                'greater_than': self.alphanum + self.whitespace + ['=', '/', '('] + self.newline,  # asign_delim
-                'less_equal': self.alphanum + self.whitespace + ['/', '('] + self.newline,  # asign_delim
-                'greater_equal': self.alphanum + self.whitespace + ['/', '('] + self.newline,  # asign_delim
-                'logical_and': self.logical_delim,
-                'logical_or': self.logical_delim,
+                'less_than': self.asign_delim,
+                'greater_than': self.asign_delim,
+                'less_equal': self.asign_delim,
+                'greater_equal': self.asign_delim,
+                'logical_and': self.logical_op_delim,
+                'logical_or': self.logical_op_delim,
                 'not': self.exclamation_delim,
                 'increment': self.increment_delim,
                 'decrement': self.decrement_delim,
@@ -1431,14 +1420,14 @@ class LexicalAnalyzer:
             if i + 1 < length:
                 two_char = code[i:i+2]
                 two_char_ops = {
-                    '==': 'equal_equal', '!=': 'not_equal',
-                    '<=': 'less_equal', '>=': 'greater_equal',
-                    '&&': 'logical_and', '||': 'logical_or',
-                    '++': 'increment', '--': 'decrement',
-                    '+=': 'add_assign', '-=': 'minus_assign',
+                        '==': 'equal_equal', '!=': 'not_equal',
+                        '<=': 'less_equal', '>=': 'greater_equal',
+                        '&&': 'logical_and', '||': 'logical_or',
+                        '++': 'increment', '--': 'decrement',
+                        '+=': 'add_assign', '-=': 'minus_assign',
                     '*=': 'mult_assign', '/=': 'div_assign', '%=': 'modulo_assign',
                     '..': 'concat'  # String concatenation operator
-                }
+                    }
                 if two_char in two_char_ops:
                     token_type = two_char_ops[two_char]
                     i += 2
