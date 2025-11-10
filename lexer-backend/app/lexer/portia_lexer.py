@@ -28,19 +28,72 @@ class Token:
 class LexicalAnalyzer:
     """PORTIA Lexical Analyzer"""
     
-    def __init__(self):
-        """Initialize character classes and delimiters"""
-        self.chars = CharacterClasses()
-        self.delims = Delimiters(self.chars)
-        self.multi_line_start_found = False
-        
-        # Expose character classes and delimiters as instance attributes for easy access
-        for attr in dir(self.chars):
-            if not attr.startswith('_'):
-                setattr(self, attr, getattr(self.chars, attr))
-        for attr in dir(self.delims):
-            if not attr.startswith('_') and attr != 'chars':
-                setattr(self, attr, getattr(self.delims, attr))
+    # Escape sequences
+    escape_seq = ['\n']
+    
+    # Operator groups
+    arithmetic_op = ['+', '-', '*', '/', '%']
+    relational_op = ['>', '<', '=', '!']
+    logical_op = ['!', '&', '|']
+    
+    # === DELIMITER DEFINITIONS ===
+    # Organized by category: Escape Sequence, Reserved Symbols, Control Flow, Identifier, Literals, Other
+    
+    # ESCAPE SEQUENCE DELIMITERS
+    # (newline is inherently used in escape sequences)
+    
+    # RESERVED SYMBOLS DELIMITERS
+    negative_delim = newline + ['(', ')']
+    modulo_delim = whitespace + alphanum + ['(']
+    marithmetic_delim = whitespace + alphanum + ['(', '-']
+    relational_op_delim = ['>', '<', '=', '!']
+    logical_op_delim = ['!', '&', '|']
+    default_delim = whitespace + [';', ':']
+    open_paren_delim = alphanum + whitespace + ['"', '!', ')', '+', '-', '('] + newline
+    semicolon_delim = alphanum + whitespace + ['}', '/', '(', ')', '[', '>', '<'] + newline
+    exclamation_delim = alphabetic_chars + whitespace + ['(', '=', '!']
+    type_iden_delim = alphanum + ['}', '/', '(', '[', '>', '<'] + whitespace
+    multi_delim = ascii + newline
+    comma_delim = whitespace + alphanum + newline + ['(', '{', '"']
+    slash_delim = alphanum + whitespace + ['-', '(', '\n']
+    open_bracket_delim = alphanum + whitespace + ['(', ']']
+    open_curly_delim = whitespace + alphanum + newline + ['{', '}', '(', '+', '-', '!', '"', '/']
+    close_curly_delim = whitespace + newline + alphabetic_chars + [';', '}', ',', '+', '-', '/']
+    equal_delim = whitespace + alphanum + ['(', '"', '+', '-', '{', '/', '!'] + newline
+    decrement_delim = alphabetic_chars + [';', ')', '/', '+', '*', '%', '(', ','] + whitespace + newline
+    sign_delim = whitespace + alphanum + ['(', '-', '/', '+', '{', '"', '!'] + newline
+    asign_delim = whitespace + alphanum + ['(', '-', '+', '/'] + newline
+    increment_delim = alphabetic_chars + [')', ';', '-', '*', '%', '(', ',', '/'] + whitespace + newline
+    logical_delim = whitespace + alphanum + ['(', ')', '/', '!'] + newline
+    concat_delim = alphanum + ['"', ')', ']', '}', '(', '{', '+', '-', '/'] + whitespace + newline
+    colon_delim = alphanum + [')', '"', '{', '/'] + whitespace + newline
+    dot_delim = alphanum + whitespace + ['\n', '/']
+    close_paren_delim = alphanum + arithmetic_op + relational_op + ['&', '|', '{', ';', ')', '(', ':', ']', '}', '"', ','] + whitespace + newline
+    close_bracket_delim = arithmetic_op + relational_op + ['&', '|', ')', ']', '}', ':', ';', ','] + whitespace + newline
+    
+    # CONTROL FLOW DELIMITERS
+    loop_delim = whitespace + ['(']
+    block_delim = whitespace + newline + ['{']
+    return_delim = [';'] + whitespace
+    
+    # IDENTIFIER DELIMITERS
+    iden_delim = [',', '+', '-', '*', '/', '%', '>', '<', '!', '=', '.', '|', '&', '(', ')', '[', ']', '{', '}', ':', ';'] + whitespace + newline
+    closing_delim = arithmetic_op + relational_op + ['|', '{', ';', ')', '/', '&'] + whitespace
+    
+    # LITERALS DELIMITERS
+    str_lit_delim = whitespace + newline + ['!', '&', '|', '+', ')', ',', ';', '/', ':', '=', '}', '.']
+    nbl_delim = arithmetic_op + relational_op + logical_op + whitespace + [',', '(', ')', ']', '{', '}', ':', ';'] + newline
+    
+    # OTHER DELIMITERS
+    # (whitespace is already defined above as a character class)
+    
+    # Legacy/backwards compatibility (keeping old names that might be referenced)
+    whitespace_delim = whitespace + newline + ['/']
+    break_ret_cont_delim = whitespace + newline + [';', '/']
+    case_delim = whitespace + newline + ['(', '/']
+    func_delim = whitespace + newline + ['(']
+    
+    multi_line_start_found = False
     
     
     def transition(self, currState: str, currChar: str) -> str:
