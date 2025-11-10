@@ -39,40 +39,64 @@ class LexicalAnalyzer:
     
     ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
     
+    # Escape sequences
+    escape_seq = ['\n', '\t', '"', "'"]
+    
+    # Operator groups
+    arithmetic_op = ['+', '-', '*', '/', '%']
+    relational_op = ['>', '<', '=', '!']
+    logical_op = ['!', '&', '|']
+    
     # === DELIMITER DEFINITIONS ===
-    whitespace_delim = whitespace + newline + ['/'] # add to docs
-    block_delim = whitespace + newline + ['{', '/'] # update
-    loop_delim = whitespace + newline + ['(', '/'] # update
-    break_ret_cont_delim = whitespace + newline + [';', '/']
-    default_delim = whitespace + newline + [':', '/']
-    case_delim = whitespace + newline + ['(', '/']
-    func_delim = whitespace + newline + ['(']
+    # Organized by category: Control Flow, Identifier, Literals, Reserved Symbols, Other
     
-    negative_delim = alphanum + whitespace + ['(', '/', '+', '.'] + newline
-    sign_delim = alphanum + whitespace + ['(', '/', '+', '-', '{', '"', '!'] + newline
-    marithmetic_delim = alphanum + whitespace + ['(', '/', '+', '-'] + newline
-    slash_delim = alphanum + whitespace + ['(', '+', '-', '\n']
-    modulo_delim = alphanum + whitespace + ['(', '+', '-', '/'] + newline
-    logical_delim = alphabetic_chars + whitespace + ['(', '/', '!'] + newline
-    exclamation_delim = alphabetic_chars + whitespace + ['(', '/', '!'] + newline
-    equal_delim = alphanum + whitespace + ['(', '/', '+', '-', '"', '!', '{'] + newline
-    increment_delim = alphabetic_chars + whitespace + [';', ')', '/', '-', '*', '%', '(', ']', ','] + newline
-    decrement_delim = alphabetic_chars + whitespace + [';', ')', '/', '+', '*', '%', '(', ']', ','] + newline
+    # CONTROL FLOW DELIMITERS
+    loop_delim = whitespace + ['(']
+    block_delim = whitespace + newline + ['{']
+    return_delim = [';'] + whitespace
     
-    open_paren_delim = alphanum + whitespace + ['"', '!', ')', '+', '-', '/', '('] + newline
-    close_paren_delim = alphanum + ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', '{', ';', ')', '(', ':', ']', '}', '"', ','] + whitespace + newline
-    semicolon_delim = alphanum + whitespace + ['}', '/', '(', ')'] + newline
-    open_bracket_delim = alphanum + whitespace + ['/', '\n', '(', ']', '+', '-']
-    close_bracket_delim = ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', ')', ']', '}', ':', ';', ','] + whitespace + newline
-    open_curly_delim = alphanum + whitespace + ['{', '}', '/', '"', '(', '+', '-', '!'] + newline
-    close_curly_delim = alphanum + whitespace + [';', '/', ',', '}', '+', '-'] + newline
-    comma_delim = alphanum + whitespace + ['/', '(', '{', '"', '+', '-'] + newline
-    colon_delim = alphanum + whitespace + ['/', '}'] + newline
+    # IDENTIFIER DELIMITERS
+    iden_delim = [',', '+', '-', '*', '/', '%', '>', '<', '!', '=', '.', '|', '&', '(', ')', '[', ']', '{', '}', ':', ';'] + whitespace + newline
+    closing_delim = arithmetic_op + relational_op + ['|', '{', ';', ')', '/', '&']  + whitespace
+    
+    # LITERALS DELIMITERS
+    str_lit_delim = whitespace + newline + ['!', '&', '|', '+', ')', ',', ';', '/', ':', '=', '}', '.']
+    nbl_delim = arithmetic_op + relational_op + logical_op + whitespace + [',', '(', ')', ']', '{', '}', ':', ';'] + newline
+    
+    # RESERVED SYMBOLS DELIMITERS
+    negative_delim = newline + ['(', ')']
+    modulo_delim = whitespace + alphanum + ['(']
+    marithmetic_delim = whitespace + alphanum + ['(', '-']
+    relational_op_delim = ['>', '<', '=', '!']
+    logical_op_delim = ['!', '&', '|']
+    default_delim = whitespace + [';', ':']
+    open_paren_delim = alphanum + whitespace + ['"', '!', ')', '+', '-', '('] + newline
+    semicolon_delim = alphanum + whitespace + ['}', '/', '(', ')', '[', '>', '<'] + newline
+    exclamation_delim = alphabetic_chars + whitespace + ['(', '=', '!']
+    type_iden_delim = alphanum + ['}', '/', '(', '[', '>', '<'] + whitespace
+    multi_delim = ascii + newline
+    comma_delim = whitespace + alphanum + newline + ['(', '{', '"']
+    slash_delim = alphanum + whitespace + ['-', '(', '\n']
+    open_bracket_delim = alphanum + whitespace + ['(', ']']
+    open_curly_delim = whitespace + alphanum + newline + ['{', '}', '(', '+', '-', '!', '"', '/']
+    close_curly_delim = whitespace + newline + alphabetic_chars + [';', '}', ',', '+', '-', '/']
+    equal_delim = whitespace + alphanum + ['(', '"', '+', '-', '{', '/', '!'] + newline
+    decrement_delim = alphabetic_chars + [';', ')', '/', '+', '*', '%', '(', ','] + whitespace + newline
+    sign_delim = whitespace + alphanum + ['(', '-', '/', '+', '{', '"', '!'] + newline
+    asign_delim = whitespace + alphanum + ['(', '-', '+', '/'] + newline
+    increment_delim = alphabetic_chars + [')', ';', '-', '*', '%', '(', ',', '/'] + whitespace + newline
+    logical_delim = whitespace + alphanum + ['(', ')', '/', '!'] + newline
+    concat_delim = alphanum + ['"', ')', ']', '}', '(', '{', '+', '-', '/'] + whitespace + newline
+    colon_delim = alphanum + [')', '"', '{', '/'] + whitespace + newline
     dot_delim = alphanum + whitespace + ['\n', '/']
     
-    iden_delim = [',', '+', '-', '*', '/', '%', '>', '<', '!', '=', '.', '|', '&', '(', ')', '[', ']', '{', '}', ':', ';'] + whitespace + newline
-    nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',', ')', ']', '}', ':', ';'] + whitespace + newline
-    str_lit_delim = whitespace + newline + ['!', '&', '|', '+', ')', ',', ';', '/', ':', '=', '}']
+    # Legacy/backwards compatibility (keeping old names that might be referenced)
+    whitespace_delim = whitespace + newline + ['/']
+    break_ret_cont_delim = whitespace + newline + [';', '/']
+    case_delim = whitespace + newline + ['(', '/']
+    func_delim = whitespace + newline + ['(']
+    close_paren_delim = alphanum + arithmetic_op + relational_op + ['&', '|', '{', ';', ')', '(', ':', ']', '}', '"', ','] + whitespace + newline
+    close_bracket_delim = arithmetic_op + relational_op + ['&', '|', ')', ']', '}', ':', ';', ','] + whitespace + newline
     
     multi_line_start_found = False
     
