@@ -40,9 +40,9 @@ class LexicalAnalyzer:
     ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
     
     # === DELIMITER DEFINITIONS ===
-    whitespace_delim = whitespace + newline + ['/']
-    block_delim = whitespace + newline + ['{', '/']
-    loop_delim = whitespace + newline + ['(', '/']
+    whitespace_delim = whitespace + newline + ['/'] # add to docs
+    block_delim = whitespace + newline + ['{', '/'] # update
+    loop_delim = whitespace + newline + ['(', '/'] # update
     break_ret_cont_delim = whitespace + newline + [';', '/']
     default_delim = whitespace + newline + [':', '/']
     case_delim = whitespace + newline + ['(', '/']
