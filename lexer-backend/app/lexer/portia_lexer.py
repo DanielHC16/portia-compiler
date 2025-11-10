@@ -40,7 +40,7 @@ class LexicalAnalyzer:
     ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
     
     # Escape sequences
-    escape_seq = ['\n', '\t', '"', "'"]
+    escape_seq = ['\n']
     
     # Operator groups
     arithmetic_op = ['+', '-', '*', '/', '%']
@@ -48,20 +48,10 @@ class LexicalAnalyzer:
     logical_op = ['!', '&', '|']
     
     # === DELIMITER DEFINITIONS ===
-    # Organized by category: Control Flow, Identifier, Literals, Reserved Symbols, Other
+    # Organized by category: Escape Sequence, Reserved Symbols, Control Flow, Identifier, Literals, Other
     
-    # CONTROL FLOW DELIMITERS
-    loop_delim = whitespace + ['(']
-    block_delim = whitespace + newline + ['{']
-    return_delim = [';'] + whitespace
-    
-    # IDENTIFIER DELIMITERS
-    iden_delim = [',', '+', '-', '*', '/', '%', '>', '<', '!', '=', '.', '|', '&', '(', ')', '[', ']', '{', '}', ':', ';'] + whitespace + newline
-    closing_delim = arithmetic_op + relational_op + ['|', '{', ';', ')', '/', '&']  + whitespace
-    
-    # LITERALS DELIMITERS
-    str_lit_delim = whitespace + newline + ['!', '&', '|', '+', ')', ',', ';', '/', ':', '=', '}', '.']
-    nbl_delim = arithmetic_op + relational_op + logical_op + whitespace + [',', '(', ')', ']', '{', '}', ':', ';'] + newline
+    # ESCAPE SEQUENCE DELIMITERS
+    # (newline is inherently used in escape sequences)
     
     # RESERVED SYMBOLS DELIMITERS
     negative_delim = newline + ['(', ')']
@@ -89,14 +79,30 @@ class LexicalAnalyzer:
     concat_delim = alphanum + ['"', ')', ']', '}', '(', '{', '+', '-', '/'] + whitespace + newline
     colon_delim = alphanum + [')', '"', '{', '/'] + whitespace + newline
     dot_delim = alphanum + whitespace + ['\n', '/']
+    close_paren_delim = alphanum + arithmetic_op + relational_op + ['&', '|', '{', ';', ')', '(', ':', ']', '}', '"', ','] + whitespace + newline
+    close_bracket_delim = arithmetic_op + relational_op + ['&', '|', ')', ']', '}', ':', ';', ','] + whitespace + newline
+    
+    # CONTROL FLOW DELIMITERS
+    loop_delim = whitespace + ['(']
+    block_delim = whitespace + newline + ['{']
+    return_delim = [';'] + whitespace
+    
+    # IDENTIFIER DELIMITERS
+    iden_delim = [',', '+', '-', '*', '/', '%', '>', '<', '!', '=', '.', '|', '&', '(', ')', '[', ']', '{', '}', ':', ';'] + whitespace + newline
+    closing_delim = arithmetic_op + relational_op + ['|', '{', ';', ')', '/', '&'] + whitespace
+    
+    # LITERALS DELIMITERS
+    str_lit_delim = whitespace + newline + ['!', '&', '|', '+', ')', ',', ';', '/', ':', '=', '}', '.']
+    nbl_delim = arithmetic_op + relational_op + logical_op + whitespace + [',', '(', ')', ']', '{', '}', ':', ';'] + newline
+    
+    # OTHER DELIMITERS
+    # (whitespace is already defined above as a character class)
     
     # Legacy/backwards compatibility (keeping old names that might be referenced)
     whitespace_delim = whitespace + newline + ['/']
     break_ret_cont_delim = whitespace + newline + [';', '/']
     case_delim = whitespace + newline + ['(', '/']
     func_delim = whitespace + newline + ['(']
-    close_paren_delim = alphanum + arithmetic_op + relational_op + ['&', '|', '{', ';', ')', '(', ':', ']', '}', '"', ','] + whitespace + newline
-    close_bracket_delim = arithmetic_op + relational_op + ['&', '|', ')', ']', '}', ':', ';', ','] + whitespace + newline
     
     multi_line_start_found = False
     
