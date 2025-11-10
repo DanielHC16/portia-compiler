@@ -23,7 +23,11 @@ uvicorn app.main:app --reload
 ### Run Tests
 
 ```bash
+# Comprehensive test suite
 python test_lexer.py
+
+# Quick verification script
+python verify_lexer.py
 ```
 
 ## Architecture Overview
@@ -377,29 +381,51 @@ lexer-backend/
 │   ├── main.py                    # FastAPI application
 │   └── lexer/
 │       ├── __init__.py            # Makes 'app.lexer' a Python package
-│       └── portia_lexer.py        # FSA lexer implementation (1185 lines)
-├── test_lexer.py                  # Comprehensive test suite (37 tests)
+│       ├── character_classes.py   # Character class definitions
+│       ├── delimiters.py          # Delimiter definitions
+│       └── portia_lexer.py        # FSA lexer implementation (main logic)
+├── test_lexer.py                  # Comprehensive test suite
+├── verify_lexer.py                # Verification script for testing
+├── LEXER_EXPLAINED.md             # Technical deep-dive documentation
 └── README.md
 ```
 
-### Why Two `__init__.py` Files?
+### Modular Architecture
 
-Both are required by Python's import system:
+The lexer is organized into separate modules for maintainability:
+
+```
+app/lexer/
+├── character_classes.py    # Character class definitions
+│   └── CharacterClasses   # All character sets (alpha, digit, etc.)
+│
+├── delimiters.py           # Delimiter definitions
+│   └── Delimiters          # All delimiter sets (organized by category)
+│
+└── portia_lexer.py         # Main lexer logic
+    └── LexicalAnalyzer     # Uses CharacterClasses and Delimiters
+```
+
+### Why Multiple `__init__.py` Files?
+
+Python's import system requires `__init__.py` files to make directories into packages:
 
 ```
 app/
 ├── __init__.py          ← Makes 'app' a package
 └── lexer/
     ├── __init__.py      ← Makes 'app.lexer' a package
+    ├── character_classes.py
+    ├── delimiters.py
     └── portia_lexer.py
 ```
 
-This allows the import:
+This allows clean imports:
 ```python
 from app.lexer.portia_lexer import LexicalAnalyzer
+from app.lexer.character_classes import CharacterClasses
+from app.lexer.delimiters import Delimiters
 ```
-
-Without both `__init__.py` files, Python would raise `ModuleNotFoundError`.
 
 ## API Endpoints
 
@@ -532,14 +558,14 @@ npm run dev
 
 ## Testing
 
-Run the comprehensive test suite:
+### Comprehensive Test Suite
 
 ```bash
 cd lexer-backend
 .\.venv-py312\Scripts\python.exe test_lexer.py
 ```
 
-The test suite includes 37 test cases covering:
+The test suite includes comprehensive test cases covering:
 - All 38 keywords
 - All operator types
 - All literal types
@@ -547,6 +573,24 @@ The test suite includes 37 test cases covering:
 - Comments (single and multi-line)
 - Complete programs
 - Error cases (unterminated strings, invalid characters, etc.)
+
+### Verification Script
+
+Quick verification of core functionality:
+
+```bash
+cd lexer-backend
+.\.venv-py312\Scripts\python.exe verify_lexer.py
+```
+
+The verification script tests:
+- Basic token recognition
+- Delimiter validation
+- Keyword recognition
+- Operator recognition
+- Literal recognition
+
+All tests should pass for a working lexer.
 
 ## FSA Compliance
 

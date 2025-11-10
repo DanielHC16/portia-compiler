@@ -5,6 +5,9 @@ PORTIA Lexical Analyzer
 from typing import List, Dict, Any
 from dataclasses import dataclass
 
+from .character_classes import CharacterClasses
+from .delimiters import Delimiters
+
 
 @dataclass
 class Token:
@@ -23,58 +26,21 @@ class Token:
 
 
 class LexicalAnalyzer:
-    # === CHARACTER CLASS DEFINITIONS ===
-    alpha_small = list('abcdefghijklmnopqrstuvwxyz')
-    alpha_capital = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-    alphabetic_chars = alpha_small + alpha_capital
+    """PORTIA Lexical Analyzer"""
     
-    zero = ['0']
-    digit = list('123456789')
-    numbers = zero + digit
-    
-    alphanum = alphabetic_chars + numbers
-    
-    whitespace = [' ', '\t']
-    newline = ['\n']
-    
-    ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
-    
-    # === DELIMITER DEFINITIONS ===
-    whitespace_delim = whitespace + newline + ['/']
-    block_delim = whitespace + newline + ['{', '/']
-    loop_delim = whitespace + newline + ['(', '/']
-    break_ret_cont_delim = whitespace + newline + [';', '/']
-    default_delim = whitespace + newline + [':', '/']
-    case_delim = whitespace + newline + ['(', '/']
-    func_delim = whitespace + newline + ['(']
-    
-    negative_delim = alphanum + whitespace + ['(', '/', '+', '.'] + newline
-    sign_delim = alphanum + whitespace + ['(', '/', '+', '-', '{', '"', '!'] + newline
-    marithmetic_delim = alphanum + whitespace + ['(', '/', '+', '-'] + newline
-    slash_delim = alphanum + whitespace + ['(', '+', '-', '\n']
-    modulo_delim = alphanum + whitespace + ['(', '+', '-', '/'] + newline
-    logical_delim = alphabetic_chars + whitespace + ['(', '/', '!'] + newline
-    exclamation_delim = alphabetic_chars + whitespace + ['(', '/', '!'] + newline
-    equal_delim = alphanum + whitespace + ['(', '/', '+', '-', '"', '!', '{'] + newline
-    increment_delim = alphabetic_chars + whitespace + [';', ')', '/', '-', '*', '%', '(', ']', ','] + newline
-    decrement_delim = alphabetic_chars + whitespace + [';', ')', '/', '+', '*', '%', '(', ']', ','] + newline
-    
-    open_paren_delim = alphanum + whitespace + ['"', '!', ')', '+', '-', '/', '('] + newline
-    close_paren_delim = alphanum + ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', '{', ';', ')', '(', ':', ']', '}', '"', ','] + whitespace + newline
-    semicolon_delim = alphanum + whitespace + ['}', '/', '(', ')'] + newline
-    open_bracket_delim = alphanum + whitespace + ['/', '\n', '(', ']', '+', '-']
-    close_bracket_delim = ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', ')', ']', '}', ':', ';', ','] + whitespace + newline
-    open_curly_delim = alphanum + whitespace + ['{', '}', '/', '"', '(', '+', '-', '!'] + newline
-    close_curly_delim = alphanum + whitespace + [';', '/', ',', '}', '+', '-'] + newline
-    comma_delim = alphanum + whitespace + ['/', '(', '{', '"', '+', '-'] + newline
-    colon_delim = alphanum + whitespace + ['/', '}'] + newline
-    dot_delim = alphanum + whitespace + ['\n', '/']
-    
-    iden_delim = [',', '+', '-', '*', '/', '%', '>', '<', '!', '=', '.', '|', '&', '(', ')', '[', ']', '{', '}', ':', ';'] + whitespace + newline
-    nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',', ')', ']', '}', ':', ';'] + whitespace + newline
-    str_lit_delim = whitespace + newline + ['!', '&', '|', '+', ')', ',', ';', '/', ':', '=', '}']
-    
-    multi_line_start_found = False
+    def __init__(self):
+        """Initialize character classes and delimiters"""
+        self.chars = CharacterClasses()
+        self.delims = Delimiters(self.chars)
+        self.multi_line_start_found = False
+        
+        # Expose character classes and delimiters as instance attributes for easy access
+        for attr in dir(self.chars):
+            if not attr.startswith('_'):
+                setattr(self, attr, getattr(self.chars, attr))
+        for attr in dir(self.delims):
+            if not attr.startswith('_') and attr != 'chars':
+                setattr(self, attr, getattr(self.delims, attr))
     
     
     def transition(self, currState: str, currChar: str) -> str:
@@ -1097,12 +1063,12 @@ class LexicalAnalyzer:
                 'assign': self.equal_delim,
                 'equal_equal': self.sign_delim,
                 'not_equal': self.sign_delim,
-                'less_than': self.alphanum + self.whitespace + ['=', '/', '('] + self.newline,  # asign_delim
-                'greater_than': self.alphanum + self.whitespace + ['=', '/', '('] + self.newline,  # asign_delim
-                'less_equal': self.alphanum + self.whitespace + ['/', '('] + self.newline,  # asign_delim
-                'greater_equal': self.alphanum + self.whitespace + ['/', '('] + self.newline,  # asign_delim
-                'logical_and': self.logical_delim,
-                'logical_or': self.logical_delim,
+                'less_than': self.asign_delim,
+                'greater_than': self.asign_delim,
+                'less_equal': self.asign_delim,
+                'greater_equal': self.asign_delim,
+                'logical_and': self.logical_op_delim,
+                'logical_or': self.logical_op_delim,
                 'not': self.exclamation_delim,
                 'increment': self.increment_delim,
                 'decrement': self.decrement_delim,
@@ -1401,14 +1367,14 @@ class LexicalAnalyzer:
             if i + 1 < length:
                 two_char = code[i:i+2]
                 two_char_ops = {
-                    '==': 'equal_equal', '!=': 'not_equal',
-                    '<=': 'less_equal', '>=': 'greater_equal',
-                    '&&': 'logical_and', '||': 'logical_or',
-                    '++': 'increment', '--': 'decrement',
-                    '+=': 'add_assign', '-=': 'minus_assign',
+                        '==': 'equal_equal', '!=': 'not_equal',
+                        '<=': 'less_equal', '>=': 'greater_equal',
+                        '&&': 'logical_and', '||': 'logical_or',
+                        '++': 'increment', '--': 'decrement',
+                        '+=': 'add_assign', '-=': 'minus_assign',
                     '*=': 'mult_assign', '/=': 'div_assign', '%=': 'modulo_assign',
                     '..': 'concat'  # String concatenation operator
-                }
+                    }
                 if two_char in two_char_ops:
                     token_type = two_char_ops[two_char]
                     i += 2
