@@ -1,10 +1,9 @@
-"""
-PORTIA Lexer Character Class Definitions
-"""
-
+# PORTIA Lexer Character Class Definitions
+# Defines character sets used for pattern matching in the FSA state machine
 
 class CharacterClasses:
-    """Character class definitions for PORTIA lexical analyzer"""
+    # Character class definitions used by the lexer for pattern matching
+    # These are used in lex_transition() to match characters to states
     
     # Basic character sets
     alpha_small = list('abcdefghijklmnopqrstuvwxyz')

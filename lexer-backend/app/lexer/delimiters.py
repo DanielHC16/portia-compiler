@@ -1,19 +1,17 @@
-"""
-PORTIA Lexer Delimiter Definitions
-
-Note: Missing delimiters from specification that are not implemented:
-- relational_op (character class, not a delimiter)
-- closing_delim (not defined, close_paren_delim/close_bracket_delim used instead)
-"""
+# PORTIA Lexer Delimiter Definitions
+# Defines valid characters that can follow each token type
+# Used for delimiter validation to ensure tokens are properly separated
 
 from .character_classes import CharacterClasses
 
 
 class Delimiters:
-    """Delimiter definitions according to PORTIA FSA specification"""
+    # Delimiter definitions according to PORTIA FSA specification
+    # Each delimiter set defines what characters can legally follow a token type
     
     def __init__(self, chars: CharacterClasses):
-        """Initialize delimiters using character classes"""
+        # Initialize all delimiter sets using character classes
+        # Delimiters are organized by category for better maintainability
         self.chars = chars
         
         # ESCAPE SEQUENCE DELIMITER
