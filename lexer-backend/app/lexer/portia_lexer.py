@@ -65,13 +65,32 @@ class LexicalAnalyzer:
         lexeme_start_col = 1
         lexeme_start_i = 0
         prev_token_type = None  # Track previous token type to determine unary vs binary minus
+        last_binary_operator = None  # Track last binary operator to validate no newline follows
+        last_binary_operator_pos = None  # Position of last binary operator
         
         def add_token(lexeme: str, token_type: str, tok_line: int, tok_col: int):
             # Creates a token object and adds it to the tokens list
-            nonlocal prev_token_type
+            nonlocal prev_token_type, last_binary_operator, last_binary_operator_pos
             token = Token(tokenName=lexeme, tokenType=token_type, tokenLine=tok_line, tokenCol=tok_col)
             tokens.append(token)
             prev_token_type = token_type  # Update previous token type
+            
+            # Track binary operators to validate they're not followed by newlines
+            binary_ops = ['plus', 'minus', 'multiply', 'divide', 'modulo', 'assign',
+                         'equal_equal', 'not_equal', 'less_than', 'greater_than',
+                         'less_equal', 'greater_equal', 'logical_and', 'logical_or',
+                         'add_assign', 'minus_assign', 'mult_assign',
+                         'div_assign', 'modulo_assign', 'concat']
+            if token_type in binary_ops:
+                last_binary_operator = lexeme
+                last_binary_operator_pos = (tok_line, tok_col)
+            elif token_type in ['identifier', 'int_lit', 'long_lit', 'float_lit', 'double_lit', 
+                               'string_lit', 'char_lit', 'bool_lit', 'close_paren', 'close_bracket', 
+                               'close_curly', 'increment', 'decrement']:
+                # Reset when we see an operand (identifier, literal, or closing delimiter)
+                # These indicate a complete expression, so any previous operator is satisfied
+                last_binary_operator = None
+                last_binary_operator_pos = None
         
         def add_error(message: str, start_idx: int, end_idx: int, err_line: int, err_col: int):
             # Creates an error object with position information and adds it to errors list
@@ -258,6 +277,7 @@ class LexicalAnalyzer:
                     col = 1
                     continue
                 
+                # First, finalize any pending token (this might reset the operator flag)
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, '\n'):
@@ -266,6 +286,15 @@ class LexicalAnalyzer:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
+                
+                # NOW check if last token was a binary operator - if so, error!
+                if last_binary_operator is not None:
+                    op_line, op_col = last_binary_operator_pos
+                    add_error(f"Lexical Error: Binary operator '{last_binary_operator}' cannot be followed by newline", 
+                             i, i + 1, op_line, op_col)
+                    last_binary_operator = None
+                    last_binary_operator_pos = None
+                
                 i += 1
                 line += 1
                 col = 1
@@ -559,8 +588,8 @@ class LexicalAnalyzer:
     def get_token_type(self, state: str, lexeme: str) -> str:
         # Maps a final FSA state to its corresponding token type
         # Handles special cases like numeric literals and identifiers
+        # Only TD-verified final states - no legacy states
         keyword_states = {
-            # TD-aligned finals
             's5': 'bool', 's10': 'break', 's15': 'case', 's19': 'char', 's24': 'const',
             's32': 'default', 's34': 'do', 's39': 'double', 's44': 'else', 's50': 'bool_lit',
             's55': 'float', 's58': 'for', 's62': 'func', 's69': 'global', 's72': 'if',
@@ -568,18 +597,9 @@ class LexicalAnalyzer:
             's103': 'string', 's109': 'switch', 's116': 'thread', 's119': 'threadln',
             's123': 'trap', 's126': 'bool_lit', 's132': 'using', 's136': 'var',
             's140': 'void', 's146': 'weave', 's151': 'while',
-            # Back-compat with prior internal finals
-            's4': 'bool', 's9': 'break', 's14': 'case', 's18': 'char', 's23': 'const',
-            's31': 'default', 's38': 'double', 's43': 'else', 's49': 'bool_lit',
-            's54': 'float', 's57': 'for', 's61': 'func', 's68': 'global', 's70': 'if',
-            's72': 'int', 's79': 'local', 's82': 'long', 's86': 'main', 's92': 'return',
-            's98': 'string', 's103': 'switch', 's109': 'thread', 's110': 'thread', 's112': 'threadln',
-            's115': 'trap', 's117': 'bool_lit', 's122': 'using', 's125': 'var',
-            's128': 'void', 's133': 'weave', 's137': 'while'
         }
         
         operator_states = {
-            # TD-aligned finals
             's153': 'minus', 's155': 'decrement', 's157': 'minus_assign',
             's159': 'plus', 's161': 'increment', 's163': 'add_assign',
             's165': 'multiply', 's167': 'mult_assign',
@@ -590,34 +610,16 @@ class LexicalAnalyzer:
             's187': 'assign', 's189': 'equal_equal',
             's191': 'less_than', 's193': 'less_equal',
             's195': 'greater_than', 's197': 'greater_equal',
-            's217': 'concat',
-            # Back-compat with prior internal finals
-            's152': 'minus', 's154': 'decrement', 's156': 'minus_assign',
-            's158': 'plus', 's160': 'increment', 's162': 'add_assign',
-            's164': 'multiply', 's166': 'mult_assign',
-            's168': 'divide', 's170': 'div_assign',
-            's172': 'modulo', 's174': 'modulo_assign',
-            's176': 'logical_and', 's177': 'logical_and',
-            's179': 'logical_or', 's180': 'logical_or',
-            's182': 'not', 's184': 'not_equal',
-            's186': 'assign', 's188': 'equal_equal',
-            's193': 'less_than', 's195': 'less_equal',
-            's197': 'greater_than',
         }
         
         delimiter_states = {
-            # TD-aligned finals
             's199': 'open_paren', 's201': 'close_paren',
             's207': 'open_bracket', 's209': 'close_bracket',
             's203': 'open_curly', 's205': 'close_curly',
             's211': 'semicolon', 's213': 'comma',
-            's219': 'colon', 's215': 'dot',
-            # Back-compat
-            's190': 'open_paren', 's192': 'close_paren',
-            's194': 'open_bracket', 's196': 'close_bracket',
-            's198': 'open_curly', 's200': 'close_curly',
-            's202': 'semicolon', 's204': 'comma',
-            's206': 'colon', 's208': 'dot',
+            's219': 'colon', 
+            's214': 'dot', 's215': 'dot',  # Single dot
+            's216': 'concat', 's217': 'concat',  # Double dot (..) concatenation
         }
         
         literal_states = {
@@ -696,12 +698,25 @@ class LexicalAnalyzer:
     
     
     def lex_transition(self, currState: str, currChar: str) -> str:
-        # Core FSA state machine - determines next state based on current state and character
-        # Uses character classes from character_classes.py for pattern matching
-        # Returns: next state string, 'DEFINED' (final state), or 'UNDEFINED' (error)
+        """
+        Core FSA state machine - determines next state based on current state and character.
+        
+        States are organized numerically from s0 to s360:
+        - s0: Initial/start state
+        - s1-s151: Keywords FSA (ends at s151 with loop_delim)
+        - s152-s219: Operators and Reserved Symbols FSA (ends at s219 with newline_delim)
+        - s220-s269: Identifiers FSA
+        - s168,s270,s272-s275: Comments FSA (single: s168→s270; multi: s168→s272→s275 with multi_delim)
+        - s276-s277: String Literals FSA (starts s276 with ", ends s277 with str_lit_delim)
+        - s278-s360: Number Literals FSA
+        
+        Returns: next state string, 'DEFINED' (final state), or 'UNDEFINED' (error)
+        """
         
         match currState:
-            # === INITIAL STATE ===
+            # ============================================================
+            # STATE s0 - INITIAL/START STATE
+            # ============================================================
             case 's0':
                 match currChar:
                     # String literal - MUST come before identifier pattern
@@ -730,21 +745,23 @@ class LexicalAnalyzer:
                     case ';': return 's211'
                     case ',': return 's213'
                     case ':': return 's219'
-                    case '.': return 's215'
+                    case '.': return 's214'
                     
-                    # Numbers - check before identifiers
+                     # Numbers - check before identifiers
                     case _ if currChar in self.numbers: return 's280'
                     
-                    # Identifiers and keywords - route to generic identifier FSA (keywords resolved later)
+                    # Identifiers and keywords - route to generic identifier FSA 
                     # MUST be after all specific character matches
                     case _ if currChar in self.alphabetic_chars or currChar == '_': return 's220'
                     
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            # === KEYWORDS FSA - PART 1 (States 1-62) ===
+            # ============================================================
+            # KEYWORDS FSA - States s1 to s151 (ends at s151 with loop_delim)
+            # ============================================================
             
-            # BOOL (s1-s5)
+            # --- s1 to s10: BOOL, BREAK ---
             case 's1':
                 match currChar:
                     case 'o': return 's2'
@@ -1048,9 +1065,11 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            # === KEYWORDS FSA - PART 2 (States 63-126) ===
+            # --- s11 to s62: CASE, CHAR, CONST, DEFAULT, DO, DOUBLE, ELSE, FALSE, FLOAT, FOR, FUNC ---
             
-            # GLOBAL (s63-s68)
+            # --- s63 to s151: GLOBAL, IF, INT, LOCAL, LONG, MAIN, RETURN, STRING, SWITCH, THREAD, THREADLN, TRAP, TRUE, USING, VAR, VOID, WEAVE, WHILE ---
+            
+            # GLOBAL (s63-s69)
             case 's63':
                 match currChar:
                     case 'l': return 's64'
@@ -1368,9 +1387,7 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            # === KEYWORDS FSA - PART 3 (States 115-151) ===
-            
-            # USING (s118-s119)
+            # USING (s118-s132)
             case 's118':
                 match currChar:
                     case 's': return 's119'
@@ -1493,7 +1510,10 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            # === OPERATORS FSA (States 152-189) ===
+            # ============================================================
+            # OPERATORS AND RESERVED SYMBOLS FSA - States s152 to s219 (ends at s219 with newline_delim)
+            # Note: These are NOT strictly delimiters - they are reserved symbols connected with operators
+            # ============================================================
             
             case 's153':  # Minus
                 match currChar:
@@ -1557,28 +1577,18 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            case 's176':  # After &
+            case 's176':  # After & (not a final state)
                 match currChar:
-                    case '&': return 's177'
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's177':  # && legacy final
-                match currChar:
-                    case 'ANY': return 'DEFINED'
+                    case '&': return 's178'  # && final (TD)
                     case _: return 'UNDEFINED'
             case 's178':  # && final (TD)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            case 's179':  # After |
+            case 's179':  # After | (not a final state)
                 match currChar:
-                    case '|': return 's180'
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's180':  # || legacy final
-                match currChar:
-                    case 'ANY': return 'DEFINED'
+                    case '|': return 's181'  # || final (TD)
                     case _: return 'UNDEFINED'
             case 's181':  # || final (TD)
                 match currChar:
@@ -1625,26 +1635,45 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            # === DELIMITERS FSA (States 190-218) ===
-            
-            case 's199' | 's201' | 's203' | 's205' | 's207' | 's209' | 's211' | 's213' | 's219' | 's215':  # Delimiters
+            case 's199' | 's201' | 's203' | 's205' | 's207' | 's209' | 's211' | 's213' | 's219':  # Reserved symbols
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            # dot -> concat
-            case 's215':
+            case 's214':  # After first dot - final state for single dot (.)
                 match currChar:
-                    case '.': return 's217'
+                    case '.': return 's216'  # Second dot for concat
+                    case 'ANY': return 'DEFINED'  # Single dot is final (checked by delimiter validation)
+                    case _: return 'UNDEFINED'
+            case 's215':  # (Reserved for compatibility, but s214 handles single dot)
+                match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's217':
+            case 's216':  # After second dot (..)
+                match currChar:
+                    case 'ANY': return 'DEFINED'  # concat_delim checked at runtime
+                    case _: return 'UNDEFINED'
+            case 's217':  # Concat operator final (kept for compatibility but s216 is the real final per TD)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            # === COMMENTS FSA (States 271-276) ===
+            # ============================================================
+            # IDENTIFIERS FSA - States s220 to s269
+            # ============================================================
             
-            case 's271':  # Single-line comment
+            case 's220':  # Identifier (alphanumeric + underscore)
+                match currChar:
+                    case _ if currChar in self.alphanum or currChar == '_': return 's220'
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # ============================================================
+            # COMMENTS FSA - States s168, s270, s272-s275
+            # Single-line: s168 (/) → s270 (/) → ends at newline
+            # Multi-line: s168 (/) → s272 (*) → s274 (*) → s275 (/) with multi_delim
+            # ============================================================
+            
+            case 's271':  # Single-line comment (legacy state)
                 match currChar:
                     case '\n': return 's272'
                     case _ if currChar in self.ascii: return 's271'
@@ -1671,9 +1700,12 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'  # Treated as end; token recorded as s276
                     case _: return 'UNDEFINED'
             
-            # === STRING LITERALS FSA (States 277-278) ===
+            # ============================================================
+            # STRING LITERALS FSA - States s276 to s277
+            # Starts at s276 with ", ends at s277 with str_lit_delim
+            # ============================================================
             
-            case 's277':  # Inside string (NOT a final state - must reach s278)
+            case 's277':  # Inside string (NOT a final state - must reach s278) (legacy state)
                 match currChar:
                     case '"': return 's278'
                     case '\\': return 's279'
@@ -1690,9 +1722,11 @@ class LexicalAnalyzer:
                     case '"' | '\\' | 'n' | 't': return 's277'
                     case _: return 'UNDEFINED'
             
-            # === NUMBER LITERALS FSA (States 280-338) ===
+            # ============================================================
+            # NUMBER LITERALS FSA - States s278 to s360
+            # ============================================================
             
-            case 's280':  # Integer part (must have at least one digit)
+            case 's280':  # Integer part (must have at least one digit) (legacy state)
                 match currChar:
                     case _ if currChar in self.numbers: return 's280'
                     case '.': return 's338'  # After decimal, must have digit
@@ -1709,13 +1743,9 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            # === IDENTIFIERS FSA (State 220) ===
-            
-            case 's220':  # Identifier
-                match currChar:
-                    case _ if currChar in self.alphanum or currChar == '_': return 's220'
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
+            # ============================================================
+            # DEFAULT CASE - Undefined state
+            # ============================================================
             
             case _:
                 return 'UNDEFINED'

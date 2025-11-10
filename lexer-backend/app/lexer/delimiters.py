@@ -17,11 +17,11 @@ class Delimiters:
         # ESCAPE SEQUENCE DELIMITER
         self.escape_seq = ['\n', '\t', '"', "'"]
         
-        # RESERVED SYMBOLS DELIMITER
-        self.negative_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '.'] + chars.newline
-        self.modulo_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '/'] + chars.newline
-        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '-'] + chars.newline
-        self.sign_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '-', '{', '"', '!'] + chars.newline
+        # RESERVED SYMBOLS DELIMITER (binary operators - NO newlines allowed)
+        self.negative_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '.']
+        self.modulo_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '/']
+        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '-']
+        self.sign_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '-', '{', '"', '!']
         self.default_delim = chars.whitespace + chars.newline + [':', '/']
         self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '+', '-', '/', '('] + chars.newline
         self.semicolon_delim = chars.alphanum + chars.whitespace + ['}', '/', '(', ')'] + chars.newline
@@ -29,16 +29,16 @@ class Delimiters:
         self.type_iden_delim = chars.alphanum + chars.whitespace + chars.newline + ['}', '/', '(', '[', '>', '<', ')']
         self.multi_delim = chars.ascii + chars.newline
         self.comma_delim = chars.alphanum + chars.whitespace + ['/', '(', '{', '"', '+', '-'] + chars.newline
-        self.slash_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '\n']
+        self.slash_delim = chars.alphanum + chars.whitespace + ['(', '+', '-']
         self.open_bracket_delim = chars.alphanum + chars.whitespace + ['/', '\n', '(', ']', '+', '-']
         self.open_curly_delim = chars.alphanum + chars.whitespace + ['{', '}', '/', '"', '(', '+', '-', '!'] + chars.newline
         self.close_curly_delim = chars.alphanum + chars.whitespace + [';', '/', ',', '}', '+', '-'] + chars.newline
-        self.equal_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '-', '"', '!', '{'] + chars.newline
+        self.equal_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '-', '"', '!', '{']
         self.decrement_delim = chars.alphabetic_chars + chars.whitespace + [';', ')', '/', '+', '*', '%', '(', ']', ','] + chars.newline
-        self.asign_delim = chars.alphanum + chars.whitespace + ['=', '/', '('] + chars.newline
+        self.asign_delim = chars.alphanum + chars.whitespace + ['=', '/', '(']
         self.increment_delim = chars.alphabetic_chars + chars.whitespace + [';', ')', '/', '-', '*', '%', '(', ']', ','] + chars.newline
-        self.logical_op_delim = chars.alphabetic_chars + chars.whitespace + ['(', '/', '!'] + chars.newline
-        self.concat_delim = chars.alphanum + chars.whitespace + chars.newline + ['"', ')', ']', '}', '(', '{', '+', '-', "'"]
+        self.logical_op_delim = chars.alphabetic_chars + chars.whitespace + ['(', '/', '!']
+        self.concat_delim = chars.alphanum + chars.whitespace + ['"', ')', ']', '}', '(', '{', '+', '-', "'"]
         self.colon_delim = chars.alphanum + chars.whitespace + ['/', '}'] + chars.newline
         
         # CONTROL FLOW DELIMITER
@@ -62,6 +62,6 @@ class Delimiters:
         self.case_delim = chars.whitespace + chars.newline + ['(', '/']
         self.func_delim = chars.whitespace + chars.newline + ['(']
         self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', '{', ';', ')', '(', ':', ']', '}', '"', ','] + chars.whitespace + chars.newline
-        self.close_bracket_delim = ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', ')', ']', '}', ':', ';', ','] + chars.whitespace + chars.newline
+        self.close_bracket_delim = ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', '(', ')', '[', ']', '}', ':', ';', ',', '.'] + chars.whitespace + chars.newline
         self.dot_delim = chars.alphanum + chars.whitespace + ['\n', '/']
 

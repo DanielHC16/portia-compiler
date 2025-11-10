@@ -1,6 +1,15 @@
 name: PORTIA-FSA
-version: 1.0
+version: 1.1
 description: Canonical, machine-readable summary of tokens, states, and delimiters (exactly transcribed from TD images).
+note: |
+  State organization:
+  - s0: Initial/start state
+  - s1-s151: Keywords FSA (ends at s151 with loop_delim)
+  - s152-s219: Operators and Reserved Symbols FSA (ends at s219 with newline_delim)
+  - s220-s269: Identifiers FSA
+  - s168,s270,s272-s275: Comments FSA (single: s168→s270; multi: s168→s272→s275)
+  - s276-s277: String Literals FSA (starts s276 with ", ends s277 with str_lit_delim)
+  - s278-s360: Number Literals FSA
 
 character_classes:
   alphabetic_chars: A-Z a-z
@@ -11,8 +20,8 @@ character_classes:
 
 dispatch_from_s0:
   letters_or_underscore: s220
-  digits: s280
-  quote_double: s277
+  digits: s278
+  quote_double: s276
   slash: s168
   operators:
     "-": s152
@@ -25,7 +34,7 @@ dispatch_from_s0:
     "|": s179
     "<": s190
     ">": s194
-  punctuation:
+  reserved_symbols:
     "(": s198
     ")": s200
     "[": s206
@@ -38,6 +47,7 @@ dispatch_from_s0:
     ".": s214
 
 keywords:
+  note: "Keywords FSA: s1-s151, ends at s151 with loop_delim"
   bool: s5
   break: s10
   case: s15
@@ -70,7 +80,9 @@ keywords:
   weave: s146
   while: s151
 
-operators:
+operators_and_reserved_symbols:
+  note: "Operators and Reserved Symbols FSA: s152-s219, ends at s219 with newline_delim"
+  note2: "These are NOT strictly delimiters - they are reserved symbols connected with operators"
   minus: s153
   decrement: s155
   minus_assign: s157
@@ -93,8 +105,6 @@ operators:
   less_equal: s193
   greater_than: s195
   greater_equal: s197
-
-punctuation:
   open_paren: s199
   close_paren: s201
   open_bracket: s207
@@ -108,30 +118,31 @@ punctuation:
   concat: s217
 
 comments:
+  note: "Comments FSA: s168, s270, s272-s275"
   single_line:
-    entry: s168
-    loop: s271
-    end: s272
-    note: Starts with '//' and ends at newline; newline not included.
+    start_slash: s168
+    second_slash: s270
+    note: "Single-line: s168 (/) → s270 (/) → ends at newline"
   multi_line:
-    entry: s168
-    start: s273
+    start_slash: s168
+    star: s272
     after_star: s274
     close_slash: s275
-    end: s276
-    note: Starts with '/*' and ends at '*/' (final at s276). Unterminated at EOF is error.
+    note: "Multi-line: s168 (/) → s272 (*) → s274 (*) → s275 (/) with multi_delim"
 
 string_literals:
-  start: s277
-  escape: s279
-  end: s278
+  note: "String Literals FSA: s276-s277"
+  start: s276
+  end: s277
   escapes_allowed: ['\\"', '\\\\', '\\n', '\\t']
   newline_invalid: true
+  delimiter: str_lit_delim
+  note2: "Starts at s276 with \", ends at s277 with str_lit_delim"
 
 numeric_literals:
-  integer_part: s280
-  after_decimal_waiting_digit: s338
-  fractional_part: s337
+  note: "Number Literals FSA: s278-s360"
+  start: s278
+  end: s360
   classify:
     integer:
       int_lit: "<= 10 digits"
@@ -141,20 +152,15 @@ numeric_literals:
       double_lit: "> 7 total digits (max 17)"
   delimiter_set: nbl_delim
   unary_minus_allowed_before: ["number", "("]
-  finals:
-    int: [s280, s282, s284, s286, s288, s290, s292, s294, s296, s298]
-    long: [s300, s302, s304, s306, s308, s310, s312, s314, s316, s318, s320, s322, s324, s326, s328, s330, s332, s334, s336]
-    float: [s339, s341, s343, s345, s347, s349, s351]
-    double: [s353, s355, s357, s359, s361, s363, s365, s367, s369, s371, s373, s375, s377, s379, s381, s383]
 
 identifiers:
-  state: s220
+  note: "Identifiers FSA: s220-s269"
+  start_state: s220
+  end_state: s269
   start: letter_or_underscore
   continue: letter_or_digit_or_underscore
   delimiter_set: iden_delim
   keyword_overrides: true
-  finals:
-    [s221, s223, s225, s227, s229, s231, s233, s235, s237, s239, s241, s243, s245, s247, s249, s251, s254, s256, s258, s260, s262, s264, s266, s268, s270]
 
 delimiters_reference:
   file: app/lexer/delimiters.py
