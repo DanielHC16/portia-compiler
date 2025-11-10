@@ -1,0 +1,526 @@
+﻿            # BOOL, BREAK
+            case 's1':
+                match currChar:
+                    case 'o': return 's2'
+                    case 'r': return 's6'
+                    case _: return 'UNDEFINED'
+            case 's2':
+                match currChar:
+                    case 'o': return 's3'
+                    case _: return 'UNDEFINED'
+            case 's3':
+                match currChar:
+                    case 'l': return 's4'
+                    case _: return 'UNDEFINED'
+            case 's4':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's6':
+                match currChar:
+                    case 'e': return 's7'
+                    case _: return 'UNDEFINED'
+            case 's7':
+                match currChar:
+                    case 'a': return 's8'
+                    case _: return 'UNDEFINED'
+            case 's8':
+                match currChar:
+                    case 'k': return 's9'
+                    case _: return 'UNDEFINED'
+            case 's9':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's11':
+                match currChar:
+                    case 'a': return 's12'
+                    case 'h': return 's16'
+                    case 'o': return 's20'
+                    case _: return 'UNDEFINED'
+            case 's12':
+                match currChar:
+                    case 's': return 's13'
+                    case _: return 'UNDEFINED'
+            case 's13':
+                match currChar:
+                    case 'e': return 's14'
+                    case _: return 'UNDEFINED'
+            case 's14':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's16':
+                match currChar:
+                    case 'a': return 's17'
+                    case _: return 'UNDEFINED'
+            case 's17':
+                match currChar:
+                    case 'r': return 's18'
+                    case _: return 'UNDEFINED'
+            case 's18':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's20':
+                match currChar:
+                    case 'n': return 's21'
+                    case _: return 'UNDEFINED'
+            case 's21':
+                match currChar:
+                    case 's': return 's22'
+                    case _: return 'UNDEFINED'
+            case 's22':
+                match currChar:
+                    case 't': return 's23'
+                    case _: return 'UNDEFINED'
+            case 's23':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's25':
+                match currChar:
+                    case 'e': return 's26'
+                    case 'o': return 's33'
+                    case _: return 'UNDEFINED'
+            case 's26':
+                match currChar:
+                    case 'f': return 's27'
+                    case _: return 'UNDEFINED'
+            case 's27':
+                match currChar:
+                    case 'a': return 's28'
+                    case _: return 'UNDEFINED'
+            case 's28':
+                match currChar:
+                    case 'u': return 's29'
+                    case _: return 'UNDEFINED'
+            case 's29':
+                match currChar:
+                    case 'l': return 's30'
+                    case _: return 'UNDEFINED'
+            case 's30':
+                match currChar:
+                    case 't': return 's31'
+                    case _: return 'UNDEFINED'
+            case 's31':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's33':
+                match currChar:
+                    case 'u': return 's35'
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's35':
+                match currChar:
+                    case 'b': return 's36'
+                    case _: return 'UNDEFINED'
+            case 's36':
+                match currChar:
+                    case 'l': return 's37'
+                    case _: return 'UNDEFINED'
+            case 's37':
+                match currChar:
+                    case 'e': return 's38'
+                    case _: return 'UNDEFINED'
+            case 's38':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's40':
+                match currChar:
+                    case 'l': return 's41'
+                    case _: return 'UNDEFINED'
+            case 's41':
+                match currChar:
+                    case 's': return 's42'
+                    case _: return 'UNDEFINED'
+            case 's42':
+                match currChar:
+                    case 'e': return 's43'
+                    case _: return 'UNDEFINED'
+            case 's43':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's45':
+                match currChar:
+                    case 'a': return 's46'
+                    case 'l': return 's51'
+                    case 'o': return 's56'
+                    case 'u': return 's59'
+                    case _: return 'UNDEFINED'
+            case 's46':
+                match currChar:
+                    case 'l': return 's47'
+                    case _: return 'UNDEFINED'
+            case 's47':
+                match currChar:
+                    case 's': return 's48'
+                    case _: return 'UNDEFINED'
+            case 's48':
+                match currChar:
+                    case 'e': return 's49'
+                    case _: return 'UNDEFINED'
+            case 's49':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's51':
+                match currChar:
+                    case 'o': return 's52'
+                    case _: return 'UNDEFINED'
+            case 's52':
+                match currChar:
+                    case 'a': return 's53'
+                    case _: return 'UNDEFINED'
+            case 's53':
+                match currChar:
+                    case 't': return 's54'
+                    case _: return 'UNDEFINED'
+            case 's54':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's56':
+                match currChar:
+                    case 'r': return 's57'
+                    case _: return 'UNDEFINED'
+            case 's57':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's59':
+                match currChar:
+                    case 'n': return 's60'
+                    case _: return 'UNDEFINED'
+            case 's60':
+                match currChar:
+                    case 'c': return 's61'
+                    case _: return 'UNDEFINED'
+            case 's61':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's63':
+                match currChar:
+                    case 'l': return 's64'
+                    case _: return 'UNDEFINED'
+            case 's64':
+                match currChar:
+                    case 'o': return 's65'
+                    case _: return 'UNDEFINED'
+            case 's65':
+                match currChar:
+                    case 'b': return 's66'
+                    case _: return 'UNDEFINED'
+            case 's66':
+                match currChar:
+                    case 'a': return 's67'
+                    case _: return 'UNDEFINED'
+            case 's67':
+                match currChar:
+                    case 'l': return 's68'
+                    case _: return 'UNDEFINED'
+            case 's68':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's70':
+                match currChar:
+                    case 'f': return 's71'
+                    case 'n': return 's73'
+                    case _: return 'UNDEFINED'
+            case 's71':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's73':
+                match currChar:
+                    case 't': return 's74'
+                    case _: return 'UNDEFINED'
+            case 's74':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's76':
+                match currChar:
+                    case 'o': return 's77'
+                    case _: return 'UNDEFINED'
+            case 's77':
+                match currChar:
+                    case 'c': return 's78'
+                    case 'n': return 's82'
+                    case _: return 'UNDEFINED'
+            case 's78':
+                match currChar:
+                    case 'a': return 's79'
+                    case _: return 'UNDEFINED'
+            case 's79':
+                match currChar:
+                    case 'l': return 's80'
+                    case _: return 'UNDEFINED'
+            case 's80':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's82':
+                match currChar:
+                    case 'g': return 's83'
+                    case _: return 'UNDEFINED'
+            case 's83':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's85':
+                match currChar:
+                    case 'a': return 's86'
+                    case _: return 'UNDEFINED'
+            case 's86':
+                match currChar:
+                    case 'i': return 's87'
+                    case _: return 'UNDEFINED'
+            case 's87':
+                match currChar:
+                    case 'n': return 's88'
+                    case _: return 'UNDEFINED'
+            case 's88':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's90':
+                match currChar:
+                    case 'e': return 's91'
+                    case _: return 'UNDEFINED'
+            case 's91':
+                match currChar:
+                    case 't': return 's92'
+                    case _: return 'UNDEFINED'
+            case 's92':
+                match currChar:
+                    case 'u': return 's93'
+                    case _: return 'UNDEFINED'
+            case 's93':
+                match currChar:
+                    case 'r': return 's94'
+                    case _: return 'UNDEFINED'
+            case 's94':
+                match currChar:
+                    case 'n': return 's95'
+                    case _: return 'UNDEFINED'
+            case 's95':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's97':
+                match currChar:
+                    case 't': return 's98'
+                    case 'w': return 's104'
+                    case _: return 'UNDEFINED'
+            case 's98':
+                match currChar:
+                    case 'r': return 's99'
+                    case _: return 'UNDEFINED'
+            case 's99':
+                match currChar:
+                    case 'i': return 's100'
+                    case _: return 'UNDEFINED'
+            case 's100':
+                match currChar:
+                    case 'n': return 's101'
+                    case _: return 'UNDEFINED'
+            case 's101':
+                match currChar:
+                    case 'g': return 's102'
+                    case _: return 'UNDEFINED'
+            case 's102':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's104':
+                match currChar:
+                    case 'i': return 's105'
+                    case _: return 'UNDEFINED'
+            case 's105':
+                match currChar:
+                    case 't': return 's106'
+                    case _: return 'UNDEFINED'
+            case 's106':
+                match currChar:
+                    case 'c': return 's107'
+                    case _: return 'UNDEFINED'
+            case 's107':
+                match currChar:
+                    case 'h': return 's108'
+                    case _: return 'UNDEFINED'
+            case 's108':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's110':
+                match currChar:
+                    case 'h': return 's111'
+                    case 'r': return 's120'
+                    case _: return 'UNDEFINED'
+            case 's111':
+                match currChar:
+                    case 'r': return 's112'
+                    case _: return 'UNDEFINED'
+            case 's112':
+                match currChar:
+                    case 'e': return 's113'
+                    case _: return 'UNDEFINED'
+            case 's113':
+                match currChar:
+                    case 'a': return 's114'
+                    case _: return 'UNDEFINED'
+            case 's114':
+                match currChar:
+                    case 'd': return 's115'
+                    case _: return 'UNDEFINED'
+            case 's115':
+                match currChar:
+                    case 'l': return 's117'
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's117':
+                match currChar:
+                    case 'n': return 's118'
+                    case _: return 'UNDEFINED'
+            case 's118':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's120':
+                match currChar:
+                    case 'a': return 's121'
+                    case 'u': return 's124'
+                    case _: return 'UNDEFINED'
+            case 's121':
+                match currChar:
+                    case 'p': return 's122'
+                    case _: return 'UNDEFINED'
+            case 's122':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's124':
+                match currChar:
+                    case 'e': return 's125'
+                    case _: return 'UNDEFINED'
+            case 's125':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's127':
+                match currChar:
+                    case 's': return 's128'
+                    case _: return 'UNDEFINED'
+            case 's128':
+                match currChar:
+                    case 'i': return 's129'
+                    case _: return 'UNDEFINED'
+            case 's129':
+                match currChar:
+                    case 'n': return 's130'
+                    case _: return 'UNDEFINED'
+            case 's130':
+                match currChar:
+                    case 'g': return 's131'
+                    case _: return 'UNDEFINED'
+            case 's131':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's133':
+                match currChar:
+                    case 'a': return 's134'
+                    case 'o': return 's137'
+                    case _: return 'UNDEFINED'
+            case 's134':
+                match currChar:
+                    case 'r': return 's135'
+                    case _: return 'UNDEFINED'
+            case 's135':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's137':
+                match currChar:
+                    case 'i': return 's138'
+                    case _: return 'UNDEFINED'
+            case 's138':
+                match currChar:
+                    case 'd': return 's139'
+                    case _: return 'UNDEFINED'
+            case 's139':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's141':
+                match currChar:
+                    case 'e': return 's142'
+                    case 'h': return 's147'
+                    case _: return 'UNDEFINED'
+            case 's142':
+                match currChar:
+                    case 'a': return 's143'
+                    case _: return 'UNDEFINED'
+            case 's143':
+                match currChar:
+                    case 'v': return 's144'
+                    case _: return 'UNDEFINED'
+            case 's144':
+                match currChar:
+                    case 'e': return 's145'
+                    case _: return 'UNDEFINED'
+            case 's145':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's147':
+                match currChar:
+                    case 'i': return 's148'
+                    case _: return 'UNDEFINED'
+            case 's148':
+                match currChar:
+                    case 'l': return 's149'
+                    case _: return 'UNDEFINED'
+            case 's149':
+                match currChar:
+                    case 'e': return 's150'
+                    case _: return 'UNDEFINED'
+            case 's150':
+                # Final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'

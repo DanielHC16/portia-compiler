@@ -74,11 +74,11 @@ keywords:
   threadln: s119
   trap: s123
   true: s126
-  using: s132
-  var: s136
-  void: s140
-  weave: s146
-  while: s151
+  using: s131
+  var: s135
+  void: s139
+  weave: s145
+  while: s150
 
 operators_and_reserved_symbols:
   note: "Operators and Reserved Symbols FSA: s152-s219, ends at s219 with newline_delim"
