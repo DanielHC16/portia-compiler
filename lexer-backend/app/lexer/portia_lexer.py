@@ -252,6 +252,50 @@ class LexicalAnalyzer:
                     col += 1
                     continue
                 
+                # Check if we're in an intermediate state that can transition to final via ANY
+                # This handles keywords where the intermediate state (after last char) transitions to final on delimiters
+                intermediate_to_final_ws = {
+                    # Keywords (s1-s151)
+                    's4': 's5',   's9': 's10',  's14': 's15',  's18': 's19',  's23': 's24',
+                    's31': 's32', 's33': 's34', 's38': 's39',  's43': 's44',  's49': 's50',
+                    's54': 's55', 's57': 's58', 's61': 's62',  's68': 's69',  's71': 's72',
+                    's74': 's75', 's80': 's81', 's83': 's84',  's88': 's89',  's95': 's96',
+                    's102': 's103', 's108': 's109', 's115': 's116', 's118': 's119',
+                    's122': 's123', 's125': 's126', 's131': 's132', 's135': 's136',
+                    's139': 's140', 's145': 's146', 's150': 's151',
+                    # Operators (s152-s197)
+                    's152': 's153', 's154': 's155', 's156': 's157',
+                    's158': 's159', 's160': 's161', 's162': 's163',
+                    's164': 's165', 's166': 's167', 's168': 's169',
+                    's170': 's171', 's172': 's173', 's174': 's175',
+                    's177': 's178', 's180': 's181', 's182': 's183',
+                    's184': 's185', 's186': 's187', 's188': 's189',
+                    's190': 's191', 's192': 's193', 's194': 's195', 's196': 's197',
+                    # Delimiters (s198-s219)
+                    's198': 's199', 's200': 's201', 's202': 's203', 's204': 's205',
+                    's206': 's207', 's208': 's209', 's210': 's211', 's212': 's213',
+                    's214': 's215', 's216': 's217', 's218': 's219',
+                }
+                if currState in intermediate_to_final_ws:
+                    # Transition to final state
+                    currState = intermediate_to_final_ws[currState]
+                    # Now finalize the keyword token
+                    token_type = self.get_token_type(currState, lexeme)
+                    if check_delimiter(token_type, ch):
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        currState = 's0'
+                        lexeme = ''
+                        i += 1
+                        col += 1
+                        continue
+                    else:
+                        add_error(f"Lexical Error: Unexpected character '{ch}' after '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        currState = 's0'
+                        lexeme = ''
+                        i += 1
+                        col += 1
+                        continue
+                
                 # Check if we're in a non-final keyword state - finalize as identifier
                 if currState != 's0' and not self.is_final_state(currState):
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
@@ -288,6 +332,52 @@ class LexicalAnalyzer:
                     line += 1
                     col = 1
                     continue
+                
+                # Check if we're in an intermediate state that can transition to final via ANY
+                # This handles keywords where the intermediate state (after last char) transitions to final on delimiters
+                intermediate_to_final_nl = {
+                    # Keywords (s1-s151)
+                    's4': 's5',   's9': 's10',  's14': 's15',  's18': 's19',  's23': 's24',
+                    's31': 's32', 's33': 's34', 's38': 's39',  's43': 's44',  's49': 's50',
+                    's54': 's55', 's57': 's58', 's61': 's62',  's68': 's69',  's71': 's72',
+                    's74': 's75', 's80': 's81', 's83': 's84',  's88': 's89',  's95': 's96',
+                    's102': 's103', 's108': 's109', 's115': 's116', 's118': 's119',
+                    's122': 's123', 's125': 's126', 's131': 's132', 's135': 's136',
+                    's139': 's140', 's145': 's146', 's150': 's151',
+                    # Operators (s152-s197)
+                    's152': 's153', 's154': 's155', 's156': 's157',
+                    's158': 's159', 's160': 's161', 's162': 's163',
+                    's164': 's165', 's166': 's167', 's168': 's169',
+                    's170': 's171', 's172': 's173', 's174': 's175',
+                    's177': 's178', 's180': 's181', 's182': 's183',
+                    's184': 's185', 's186': 's187', 's188': 's189',
+                    's190': 's191', 's192': 's193', 's194': 's195', 's196': 's197',
+                    # Delimiters (s198-s219)
+                    's198': 's199', 's200': 's201', 's202': 's203', 's204': 's205',
+                    's206': 's207', 's208': 's209', 's210': 's211', 's212': 's213',
+                    's214': 's215', 's216': 's217', 's218': 's219',
+                }
+                if currState in intermediate_to_final_nl:
+                    # Transition to final state
+                    currState = intermediate_to_final_nl[currState]
+                    # Now finalize the keyword token
+                    token_type = self.get_token_type(currState, lexeme)
+                    if check_delimiter(token_type, '\n'):
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        currState = 's0'
+                        lexeme = ''
+                        i += 1
+                        line += 1
+                        col = 1
+                        continue
+                    else:
+                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        currState = 's0'
+                        lexeme = ''
+                        i += 1
+                        line += 1
+                        col = 1
+                        continue
                 
                 # Check if we're in a non-final keyword state - finalize as identifier
                 if currState != 's0' and not self.is_final_state(currState):
@@ -538,15 +628,91 @@ class LexicalAnalyzer:
                 lexeme_start_col = col
                 lexeme_start_i = i
             
-            # Special case: transitioning from s169 (/) to comment states
+            # Special case: transitioning from s168 (/) to comment states
             # Keep the lexeme so we can build the full comment token (includes // or /*)
-            if currState == 's169' and nextState in ['s271', 's273']:
+            if currState == 's168' and nextState in ['s271', 's273']:
                 # Entering comment - add the second / or * to lexeme and transition
                 lexeme += ch
                 currState = nextState
                 i += 1
                 col += 1
                 continue
+            
+            # Special case: intermediate operator states transitioning to final states via 'ANY'
+            # When an intermediate state transitions to a final state via 'ANY',
+            # we should NOT add the character to the lexeme - it's the delimiter
+            intermediate_to_final = {
+                # Keywords (s1-s151)
+                's4': 's5',   's9': 's10',  's14': 's15',  's18': 's19',  's23': 's24',
+                's31': 's32', 's33': 's34', 's38': 's39',  's43': 's44',  's49': 's50',
+                's54': 's55', 's57': 's58', 's61': 's62',  's68': 's69',  's71': 's72',
+                's74': 's75', 's80': 's81', 's83': 's84',  's88': 's89',  's95': 's96',
+                's102': 's103', 's108': 's109', 's115': 's116', 's118': 's119',
+                's122': 's123', 's125': 's126', 's131': 's132', 's135': 's136',
+                's139': 's140', 's145': 's146', 's150': 's151',
+                # Operators (s152-s189)
+                's152': 's153', 's154': 's155', 's156': 's157',
+                's158': 's159', 's160': 's161', 's162': 's163',
+                's164': 's165', 's166': 's167', 's168': 's169',
+                's170': 's171', 's172': 's173', 's174': 's175',
+                's177': 's178', 's180': 's181', 's182': 's183',
+                's184': 's185', 's186': 's187', 's188': 's189',
+                's190': 's191', 's192': 's193', 's194': 's195', 's196': 's197',
+                # Delimiters (s198-s219)
+                's198': 's199', 's200': 's201', 's202': 's203', 's204': 's205',
+                's206': 's207', 's208': 's209', 's210': 's211', 's212': 's213',
+                's214': 's215', 's216': 's217', 's218': 's219',
+            }
+            if currState in intermediate_to_final and nextState == intermediate_to_final[currState]:
+                # Check if we're in a keyword state (s1-s151) and next char is identifier character
+                # Keywords followed by identifier chars should become identifiers (e.g., 'boolx')
+                # But delimiters and operators should finalize regardless of next character
+                state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
+                is_keyword_state = 1 <= state_num <= 151
+                
+                if is_keyword_state and (ch in self.alphanum or ch == '_'):
+                    # Continue building as identifier - transition to s220
+                    lexeme += ch
+                    currState = 's220'
+                    i += 1
+                    col += 1
+                    continue
+                
+                # Transition to final state without consuming the character
+                currState = nextState
+                # Check if delimiter is valid
+                if self.is_final_state(currState):
+                    token_type = self.get_token_type(currState, lexeme)
+                    if check_delimiter(token_type, ch):
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        currState = 's0'
+                        lexeme = ''
+                        # Fast-path: immediately start the next token for common starters
+                        if ch == '"':
+                            lexeme = ch
+                            currState = 's277'
+                            i += 1
+                            col += 1
+                            continue
+                        if ch in self.numbers:
+                            lexeme = ch
+                            currState = 's280'
+                            i += 1
+                            col += 1
+                            continue
+                        if ch in self.alphabetic_chars or ch == '_':
+                            lexeme = ch
+                            currState = 's220'
+                            i += 1
+                            col += 1
+                            continue
+                        # Otherwise reprocess this delimiter in next loop
+                        continue
+                    else:
+                        add_error(f"Lexical Error: Unexpected character '{ch}' after '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        currState = 's0'
+                        lexeme = ''
+                        continue
             
             # Validate numeric literal digit limits before accepting more digits
             # This enforces maximum ranges: long_lit max 19 digits, double_lit max 17 total digits
@@ -589,6 +755,34 @@ class LexicalAnalyzer:
         
         # Handle end of file - finalize any pending token
         if currState != 's0' and lexeme:
+            # First, check if we're in an intermediate state that can transition to final via 'ANY'
+            intermediate_to_final = {
+                # Keywords (s1-s151)
+                's4': 's5',   's9': 's10',  's14': 's15',  's18': 's19',  's23': 's24',
+                's31': 's32', 's33': 's34', 's38': 's39',  's43': 's44',  's49': 's50',
+                's54': 's55', 's57': 's58', 's61': 's62',  's68': 's69',  's71': 's72',
+                's74': 's75', 's80': 's81', 's83': 's84',  's88': 's89',  's95': 's96',
+                's102': 's103', 's108': 's109', 's115': 's116', 's118': 's119',
+                's122': 's123', 's125': 's126', 's131': 's132', 's135': 's136',
+                's139': 's140', 's145': 's146', 's150': 's151',
+                # Operators (s152-s197)
+                's152': 's153', 's154': 's155', 's156': 's157',
+                's158': 's159', 's160': 's161', 's162': 's163',
+                's164': 's165', 's166': 's167', 's168': 's169',
+                's170': 's171', 's172': 's173', 's174': 's175',
+                's177': 's178', 's180': 's181', 's182': 's183',
+                's184': 's185', 's186': 's187', 's188': 's189',
+                's190': 's191', 's192': 's193', 's194': 's195', 's196': 's197',
+                # Delimiters (s198-s219)
+                's198': 's199', 's200': 's201', 's202': 's203', 's204': 's205',
+                's206': 's207', 's208': 's209', 's210': 's211', 's212': 's213',
+                's214': 's215', 's216': 's217', 's218': 's219',
+            }
+            
+            # If we're in an intermediate state, transition to final
+            if currState in intermediate_to_final:
+                currState = intermediate_to_final[currState]
+            
             # Check if we're in a comment state
             if currState in ['s271', 's272', 's273', 's274', 's275', 's276']:
                 # Comment at end of file - finalize it as a token
@@ -675,17 +869,17 @@ class LexicalAnalyzer:
     def get_token_type(self, state: str, lexeme: str) -> str:
         # Maps a final FSA state to its corresponding token type
         # Handles special cases like numeric literals and identifiers
-        # Only TD-verified final states - no legacy states
+        # Only TD-verified final states 
         keyword_states = {
-            's4': 'bool', 's9': 'break', 's14': 'case', 's18': 'char', 's23': 'const',
-            's31': 'default', 's33': 'do', 's38': 'double', 's43': 'else',
-            's49': 'bool_lit',  # false
-            's54': 'float', 's57': 'for', 's61': 'func', 's68': 'global',
-            's71': 'if', 's74': 'int', 's80': 'local', 's83': 'long', 's88': 'main',
-            's95': 'return', 's102': 'string', 's108': 'switch',
-            's115': 'thread', 's118': 'threadln', 's122': 'trap',
-            's125': 'bool_lit',  # true
-            's131': 'using', 's135': 'var', 's139': 'void', 's145': 'weave', 's150': 'while', 's151': 'while',
+            's5': 'bool', 's10': 'break', 's15': 'case', 's19': 'char', 's24': 'const',
+            's32': 'default', 's34': 'do', 's39': 'double', 's44': 'else',
+            's50': 'bool_lit',  # false
+            's55': 'float', 's58': 'for', 's62': 'func', 's69': 'global',
+            's72': 'if', 's75': 'int', 's81': 'local', 's84': 'long', 's89': 'main',
+            's96': 'return', 's103': 'string', 's109': 'switch',
+            's116': 'thread', 's119': 'threadln', 's123': 'trap',
+            's126': 'bool_lit',  # true
+            's132': 'using', 's136': 'var', 's140': 'void', 's146': 'weave', 's151': 'while',
         }
         
         operator_states = {
@@ -703,12 +897,12 @@ class LexicalAnalyzer:
         
         delimiter_states = {
             's199': 'open_paren', 's201': 'close_paren',
-            's207': 'open_bracket', 's209': 'close_bracket',
             's203': 'open_curly', 's205': 'close_curly',
+            's207': 'open_bracket', 's209': 'close_bracket',
             's211': 'semicolon', 's213': 'comma',
             's219': 'colon', 
-            's214': 'dot', 's215': 'dot',  # Single dot
-            's216': 'concat', 's217': 'concat',  # Double dot (..) concatenation
+            's215': 'dot',  # Single dot
+            's217': 'concat',  # Double dot (..) concatenation
         }
         
         literal_states = {
@@ -790,14 +984,12 @@ class LexicalAnalyzer:
         """
         Core FSA state machine - determines next state based on current state and character.
         
-        States are organized numerically from s0 to s360:
+        STRICTLY follows Transition Diagrams (TD):
         - s0: Initial/start state
-        - s1-s151: Keywords FSA (ends at s151 with loop_delim)
-        - s152-s219: Operators and Reserved Symbols FSA (ends at s219 with newline_delim)
-        - s220-s269: Identifiers FSA
-        - s168,s270,s272-s275: Comments FSA (single: s168→s270; multi: s168→s272→s275 with multi_delim)
-        - s276-s277: String Literals FSA (starts s276 with ", ends s277 with str_lit_delim)
-        - s278-s360: Number Literals FSA
+        - s1-s151: Keywords FSA with intermediate→final transitions
+        - s152-s189: Operators FSA with intermediate→final transitions
+        - s190-s219: Reserved Symbols (delimiters) - NOT YET VERIFIED
+        - s220+: Identifiers, Comments, Strings, Numbers - NOT YET VERIFIED
         
         Returns: next state string, 'DEFINED' (final state), or 'UNDEFINED' (error)
         """
@@ -808,32 +1000,35 @@ class LexicalAnalyzer:
             # ============================================================
             case 's0':
                 match currChar:
+                    # Whitespace - ignore and stay in s0
+                    case ' ' | '\t' | '\n' | '\r': return 's0'
+                    
                     # String literal - MUST come before identifier pattern
                     case '"': return 's276'
                     
-                    # Operators
-                    case '-': return 's153'
-                    case '+': return 's159'
-                    case '*': return 's165'
-                    case '/': return 's169'
-                    case '%': return 's173'
-                    case '!': return 's183'
-                    case '=': return 's187'
+                    # Operators - route to first intermediate state per TD
+                    case '-': return 's152'
+                    case '+': return 's158'
+                    case '*': return 's164'
+                    case '/': return 's168'
+                    case '%': return 's172'
+                    case '!': return 's182'
+                    case '=': return 's186'
                     case '&': return 's176'
                     case '|': return 's179'
-                    case '<': return 's191'
-                    case '>': return 's195'
+                    case '<': return 's190'
+                    case '>': return 's194'
                     
                     # Delimiters
-                    case '(': return 's199'
-                    case ')': return 's201'
-                    case '[': return 's207'
-                    case ']': return 's209'
-                    case '{': return 's203'
-                    case '}': return 's205'
-                    case ';': return 's211'
-                    case ',': return 's213'
-                    case ':': return 's219'
+                    case '(': return 's198'
+                    case ')': return 's200'
+                    case '[': return 's206'
+                    case ']': return 's208'
+                    case '{': return 's202'
+                    case '}': return 's204'
+                    case ';': return 's210'
+                    case ',': return 's212'
+                    case ':': return 's218'
                     case '.': return 's214'
                     
                     # Numbers - check before identifiers
@@ -869,7 +1064,7 @@ class LexicalAnalyzer:
             # All final states are the state AFTER consuming the last letter
             # ============================================================
             
-            # BOOL, BREAK
+            # BOOL: s0 →b→ s1 →o→ s2 →o→ s3 →l→ s4 →whitespace→ s5* (final)
             case 's1':
                 match currChar:
                     case 'o': return 's2'
@@ -884,10 +1079,16 @@ class LexicalAnalyzer:
                     case 'l': return 's4'
                     case _: return 'UNDEFINED'
             case 's4':
-                # Final state
+                # After 'l' in 'bool' - intermediate state
+                match currChar:
+                    case 'ANY': return 's5'  # Transition to final state
+                    case _: return 's5'
+            case 's5':
+                # BOOL final state (whitespace delimiter)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
+            # BREAK: s1 →r→ s6 →e→ s7 →a→ s8 →k→ s9 →whitespace→ s10* (final)
             case 's6':
                 match currChar:
                     case 'e': return 's7'
@@ -901,7 +1102,12 @@ class LexicalAnalyzer:
                     case 'k': return 's9'
                     case _: return 'UNDEFINED'
             case 's9':
-                # Final state
+                # After 'k' in 'break' - intermediate state
+                match currChar:
+                    case 'ANY': return 's10'  # Transition to final state
+                    case _: return 's10'
+            case 's10':
+                # BREAK final state (whitespace delimiter)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -920,7 +1126,12 @@ class LexicalAnalyzer:
                     case 'e': return 's14'
                     case _: return 'UNDEFINED'
             case 's14':
-                # Final state
+                # case intermediate (after 'e')
+                match currChar:
+                    case 'ANY': return 's15'
+                    case _: return 's15'
+            case 's15':
+                # case FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -933,7 +1144,12 @@ class LexicalAnalyzer:
                     case 'r': return 's18'
                     case _: return 'UNDEFINED'
             case 's18':
-                # Final state
+                # char intermediate (after 'r')
+                match currChar:
+                    case 'ANY': return 's19'
+                    case _: return 's19'
+            case 's19':
+                # char FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -950,7 +1166,12 @@ class LexicalAnalyzer:
                     case 't': return 's23'
                     case _: return 'UNDEFINED'
             case 's23':
-                # Final state
+                # const intermediate (after 't')
+                match currChar:
+                    case 'ANY': return 's24'
+                    case _: return 's24'
+            case 's24':
+                # const FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -980,13 +1201,23 @@ class LexicalAnalyzer:
                     case 't': return 's31'
                     case _: return 'UNDEFINED'
             case 's31':
-                # Final state
+                # default intermediate (after 't')
+                match currChar:
+                    case 'ANY': return 's32'
+                    case _: return 's32'
+            case 's32':
+                # default FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             case 's33':
                 match currChar:
                     case 'u': return 's35'
+                    case 'ANY': return 's34'
+                    case _: return 's34'
+            case 's34':
+                # do FINAL*
+                match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             case 's35':
@@ -1002,7 +1233,12 @@ class LexicalAnalyzer:
                     case 'e': return 's38'
                     case _: return 'UNDEFINED'
             case 's38':
-                # Final state
+                # double intermediate (after 'e')
+                match currChar:
+                    case 'ANY': return 's39'
+                    case _: return 's39'
+            case 's39':
+                # double FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1019,7 +1255,12 @@ class LexicalAnalyzer:
                     case 'e': return 's43'
                     case _: return 'UNDEFINED'
             case 's43':
-                # Final state
+                # else intermediate (after 'e')
+                match currChar:
+                    case 'ANY': return 's44'
+                    case _: return 's44'
+            case 's44':
+                # else FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1043,7 +1284,12 @@ class LexicalAnalyzer:
                     case 'e': return 's49'
                     case _: return 'UNDEFINED'
             case 's49':
-                # Final state
+                # false intermediate (after 'e')
+                match currChar:
+                    case 'ANY': return 's50'
+                    case _: return 's50'
+            case 's50':
+                # false FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1060,7 +1306,12 @@ class LexicalAnalyzer:
                     case 't': return 's54'
                     case _: return 'UNDEFINED'
             case 's54':
-                # Final state
+                # float intermediate (after 't')
+                match currChar:
+                    case 'ANY': return 's55'
+                    case _: return 's55'
+            case 's55':
+                # float FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1069,7 +1320,12 @@ class LexicalAnalyzer:
                     case 'r': return 's57'
                     case _: return 'UNDEFINED'
             case 's57':
-                # Final state
+                # for intermediate (after 'r')
+                match currChar:
+                    case 'ANY': return 's58'
+                    case _: return 's58'
+            case 's58':
+                # for FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1082,7 +1338,12 @@ class LexicalAnalyzer:
                     case 'c': return 's61'
                     case _: return 'UNDEFINED'
             case 's61':
-                # Final state
+                # func intermediate (after 'c')
+                match currChar:
+                    case 'ANY': return 's62'
+                    case _: return 's62'
+            case 's62':
+                # func FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1107,7 +1368,12 @@ class LexicalAnalyzer:
                     case 'l': return 's68'
                     case _: return 'UNDEFINED'
             case 's68':
-                # Final state
+                # global intermediate (after 'l')
+                match currChar:
+                    case 'ANY': return 's69'
+                    case _: return 's69'
+            case 's69':
+                # global FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1117,7 +1383,12 @@ class LexicalAnalyzer:
                     case 'n': return 's73'
                     case _: return 'UNDEFINED'
             case 's71':
-                # Final state
+                # if intermediate (after 'f')
+                match currChar:
+                    case 'ANY': return 's72'
+                    case _: return 's72'
+            case 's72':
+                # if FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1126,7 +1397,12 @@ class LexicalAnalyzer:
                     case 't': return 's74'
                     case _: return 'UNDEFINED'
             case 's74':
-                # Final state
+                # int intermediate (after 't')
+                match currChar:
+                    case 'ANY': return 's75'
+                    case _: return 's75'
+            case 's75':
+                # int FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1148,7 +1424,12 @@ class LexicalAnalyzer:
                     case 'l': return 's80'
                     case _: return 'UNDEFINED'
             case 's80':
-                # Final state
+                # local intermediate (after 'l')
+                match currChar:
+                    case 'ANY': return 's81'
+                    case _: return 's81'
+            case 's81':
+                # local FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1157,7 +1438,12 @@ class LexicalAnalyzer:
                     case 'g': return 's83'
                     case _: return 'UNDEFINED'
             case 's83':
-                # Final state
+                # long intermediate (after 'g')
+                match currChar:
+                    case 'ANY': return 's84'
+                    case _: return 's84'
+            case 's84':
+                # long FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1174,7 +1460,12 @@ class LexicalAnalyzer:
                     case 'n': return 's88'
                     case _: return 'UNDEFINED'
             case 's88':
-                # Final state
+                # main intermediate (after 'n')
+                match currChar:
+                    case 'ANY': return 's89'
+                    case _: return 's89'
+            case 's89':
+                # main FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1199,7 +1490,12 @@ class LexicalAnalyzer:
                     case 'n': return 's95'
                     case _: return 'UNDEFINED'
             case 's95':
-                # Final state
+                # return intermediate (after 'n')
+                match currChar:
+                    case 'ANY': return 's96'
+                    case _: return 's96'
+            case 's96':
+                # return FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1225,7 +1521,12 @@ class LexicalAnalyzer:
                     case 'g': return 's102'
                     case _: return 'UNDEFINED'
             case 's102':
-                # Final state
+                # string intermediate (after 'g')
+                match currChar:
+                    case 'ANY': return 's103'
+                    case _: return 's103'
+            case 's103':
+                # string FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1246,7 +1547,12 @@ class LexicalAnalyzer:
                     case 'h': return 's108'
                     case _: return 'UNDEFINED'
             case 's108':
-                # Final state
+                # switch intermediate (after 'h')
+                match currChar:
+                    case 'ANY': return 's109'
+                    case _: return 's109'
+            case 's109':
+                # switch FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1272,8 +1578,14 @@ class LexicalAnalyzer:
                     case 'd': return 's115'
                     case _: return 'UNDEFINED'
             case 's115':
+                # thread intermediate (after 'd')
                 match currChar:
                     case 'l': return 's117'
+                    case 'ANY': return 's116'
+                    case _: return 's116'
+            case 's116':
+                # thread FINAL*
+                match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             case 's117':
@@ -1281,7 +1593,12 @@ class LexicalAnalyzer:
                     case 'n': return 's118'
                     case _: return 'UNDEFINED'
             case 's118':
-                # Final state
+                # threadln intermediate (after 'n')
+                match currChar:
+                    case 'ANY': return 's119'
+                    case _: return 's119'
+            case 's119':
+                # threadln FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1295,7 +1612,12 @@ class LexicalAnalyzer:
                     case 'p': return 's122'
                     case _: return 'UNDEFINED'
             case 's122':
-                # Final state
+                # trap intermediate (after 'p')
+                match currChar:
+                    case 'ANY': return 's123'
+                    case _: return 's123'
+            case 's123':
+                # trap FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1304,7 +1626,12 @@ class LexicalAnalyzer:
                     case 'e': return 's125'
                     case _: return 'UNDEFINED'
             case 's125':
-                # Final state
+                # true intermediate (after 'e')
+                match currChar:
+                    case 'ANY': return 's126'
+                    case _: return 's126'
+            case 's126':
+                # true FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1325,7 +1652,12 @@ class LexicalAnalyzer:
                     case 'g': return 's131'
                     case _: return 'UNDEFINED'
             case 's131':
-                # Final state
+                # using intermediate (after 'g')
+                match currChar:
+                    case 'ANY': return 's132'
+                    case _: return 's132'
+            case 's132':
+                # using FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1339,7 +1671,12 @@ class LexicalAnalyzer:
                     case 'r': return 's135'
                     case _: return 'UNDEFINED'
             case 's135':
-                # Final state
+                # var intermediate (after 'r')
+                match currChar:
+                    case 'ANY': return 's136'
+                    case _: return 's136'
+            case 's136':
+                # var FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1352,7 +1689,12 @@ class LexicalAnalyzer:
                     case 'd': return 's139'
                     case _: return 'UNDEFINED'
             case 's139':
-                # Final state
+                # void intermediate (after 'd')
+                match currChar:
+                    case 'ANY': return 's140'
+                    case _: return 's140'
+            case 's140':
+                # void FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1374,7 +1716,12 @@ class LexicalAnalyzer:
                     case 'e': return 's145'
                     case _: return 'UNDEFINED'
             case 's145':
-                # Final state
+                # weave intermediate (after 'e')
+                match currChar:
+                    case 'ANY': return 's146'
+                    case _: return 's146'
+            case 's146':
+                # weave FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1390,160 +1737,340 @@ class LexicalAnalyzer:
                 match currChar:
                     case 'e': return 's150'
                     case _: return 'UNDEFINED'
-            case 's150':  # WHILE (after 'e') - implementation final state
-                # Final state
+            case 's150':
+                # while intermediate (after 'e')
                 match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's151':  # WHILE final (TD: after loop_delim transition from s150)
-                # Final state
+                    case 'ANY': return 's151'
+                    case _: return 's151'
+            case 's151':
+                # while FINAL*
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # OPERATORS AND RESERVED SYMBOLS FSA - States s152 to s219 (ends at s219 with newline_delim)
-            # Note: These are NOT strictly delimiters - they are reserved symbols connected with operators
+            # OPERATORS AND RESERVED SYMBOLS FSA - States s152 to s189 (strictly from TD)
+            # Note: These are reserved symbols connected with operators
             # ============================================================
             
-            case 's153':  # Minus
+            # Minus (-): s0 → '-' → s152
+            case 's152':  # After '-' (intermediate state)
                 match currChar:
-                    case '-': return 's155'
-                    case '=': return 's157'
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's155':  # -- final
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's157':  # -= final
+                    case '-': return 's154'  # -- path
+                    case '=': return 's156'  # -= path
+                    case 'ANY': return 's153'  # Single - final (negative_delim) - for is_final_state check
+                    case _: return 's153'  # Any other character transitions to final state
+            case 's153':  # Single - final (negative_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            
-            case 's159':  # Plus
+            case 's154':  # After '--' (intermediate state)
                 match currChar:
-                    case '+': return 's161'
-                    case '=': return 's163'
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's161':  # ++ final
+                    case 'ANY': return 's155'  # -- final (decrement_delim) - for is_final_state check
+                    case _: return 's155'  # Any character transitions to final state
+            case 's155':  # -- final (decrement_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's163':  # += final
+            case 's156':  # After '-=' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's157'  # -= final (sign_delim) - for is_final_state check
+                    case _: return 's157'  # Any character transitions to final state
+            case 's157':  # -= final (sign_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            case 's165':  # Multiply
+            # Plus (+): s0 → '+' → s158
+            case 's158':  # After '+' (intermediate state)
                 match currChar:
-                    case '=': return 's167'
+                    case '+': return 's160'  # ++ path
+                    case '=': return 's162'  # += path
+                    case 'ANY': return 's159'  # Single + final (sign_delim) - for is_final_state check
+                    case _: return 's159'  # Any other character transitions to final state
+            case 's159':  # Single + final (sign_delim)
+                match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's167':  # *= final
+            case 's160':  # After '++' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's161'  # ++ final (increment_delim) - for is_final_state check
+                    case _: return 's161'  # Any character transitions to final state
+            case 's161':  # ++ final (increment_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's162':  # After '+=' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's163'  # += final (sign_delim) - for is_final_state check
+                    case _: return 's163'  # Any character transitions to final state
+            case 's163':  # += final (sign_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            case 's169':  # Slash
+            # Multiply (*): s0 → '*' → s164
+            case 's164':  # After '*' (intermediate state)
+                match currChar:
+                    case '=': return 's166'  # *= path
+                    case 'ANY': return 's165'  # Single * final (marithmetic_delim) - for is_final_state check
+                    case _: return 's165'  # Any other character transitions to final state
+            case 's165':  # Single * final (marithmetic_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's166':  # After '*=' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's167'  # *= final (sign_delim) - for is_final_state check
+                    case _: return 's167'  # Any character transitions to final state
+            case 's167':  # *= final (sign_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Slash (/): s0 → '/' → s168
+            case 's168':  # After '/' (intermediate state)
                 match currChar:
                     case '/': return 's271'  # Single-line comment
                     case '*': return 's273'  # Multi-line comment
-                    case '=': return 's171'
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's171':  # /= final
+                    case '=': return 's170'  # /= path
+                    case 'ANY': return 's169'  # Single / final (slash_delim) - for is_final_state check
+                    case _: return 's169'  # Any other character transitions to final state
+            case 's169':  # Single / final (slash_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            
-            case 's173':  # Modulo
+            case 's170':  # After '/=' (intermediate state)
                 match currChar:
-                    case '=': return 's175'
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's175':  # %= final
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            
-            case 's176':  # After & (not a final state)
-                match currChar:
-                    case '&': return 's178'  # && final (TD)
-                    case _: return 'UNDEFINED'
-            case 's178':  # && final (TD)
+                    case 'ANY': return 's171'  # /= final (sign_delim) - for is_final_state check
+                    case _: return 's171'  # Any character transitions to final state
+            case 's171':  # /= final (sign_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            case 's179':  # After | (not a final state)
+            # Modulo (%): s0 → '%' → s172
+            case 's172':  # After '%' (intermediate state)
                 match currChar:
-                    case '|': return 's181'  # || final (TD)
+                    case '=': return 's174'  # %= path
+                    case 'ANY': return 's173'  # Single % final (modulo_delim) - for is_final_state check
+                    case _: return 's173'  # Any other character transitions to final state
+            case 's173':  # Single % final (modulo_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's181':  # || final (TD)
+            case 's174':  # After '%=' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's175'  # %= final (sign_delim) - for is_final_state check
+                    case _: return 's175'  # Any character transitions to final state
+            case 's175':  # %= final (sign_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            case 's183':  # Not
+            # Ampersand (&): s0 → '&' → s176
+            case 's176':  # After '&' (intermediate state)
                 match currChar:
-                    case '=': return 's185'
-                    case 'ANY': return 'DEFINED'
+                    case '&': return 's177'  # && path
                     case _: return 'UNDEFINED'
-            case 's185':  # != final
+            case 's177':  # After '&&' (intermediate state)
                 match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            
-            case 's187':  # Assign
-                match currChar:
-                    case '=': return 's189'
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's189':  # == final
+                    case 'ANY': return 's178'  # && final (logical_delim) - for is_final_state check
+                    case _: return 's178'  # Any character transitions to final state
+            case 's178':  # && final (logical_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            case 's191':  # Less-than
+            # Pipe (|): s0 → '|' → s179
+            case 's179':  # After '|' (intermediate state)
                 match currChar:
-                    case '=': return 's193'
-                    case 'ANY': return 'DEFINED'
+                    case '|': return 's180'  # || path
                     case _: return 'UNDEFINED'
-            case 's193':  # <= final
+            case 's180':  # After '||' (intermediate state)
                 match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            
-            case 's195':  # Greater-than
-                match currChar:
-                    case '=': return 's197'
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's197':  # >= final
+                    case 'ANY': return 's181'  # || final (logical_delim) - for is_final_state check
+                    case _: return 's181'  # Any character transitions to final state
+            case 's181':  # || final (logical_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            case 's199' | 's201' | 's203' | 's205' | 's207' | 's209' | 's211' | 's213' | 's219':  # Reserved symbols
+            # Exclamation (!): s0 → '!' → s182
+            case 's182':  # After '!' (intermediate state)
+                match currChar:
+                    case '=': return 's184'  # != path
+                    case 'ANY': return 's183'  # Single ! final (exclamation_delim) - for is_final_state check
+                    case _: return 's183'  # Any other character transitions to final state
+            case 's183':  # Single ! final (exclamation_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's214':  # After first dot - final state for single dot (.)
+            case 's184':  # After '!=' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's185'  # != final (sign_delim) - for is_final_state check
+                    case _: return 's185'  # Any character transitions to final state
+            case 's185':  # != final (sign_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Equals (=): s0 → '=' → s186
+            case 's186':  # After '=' (intermediate state)
+                match currChar:
+                    case '=': return 's188'  # == path
+                    case 'ANY': return 's187'  # Single = final (equal_delim) - for is_final_state check
+                    case _: return 's187'  # Any other character transitions to final state
+            case 's187':  # Single = final (equal_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's188':  # After '==' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's189'  # == final (sign_delim) - for is_final_state check
+                    case _: return 's189'  # Any character transitions to final state
+            case 's189':  # == final (sign_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Less-than (<): s0 → '<' → s190
+            case 's190':  # After '<' (intermediate state)
+                match currChar:
+                    case '=': return 's192'  # <= path
+                    case 'ANY': return 's191'  # Single < final (asign_delim)
+                    case _: return 's191'  # Any other character transitions to final state
+            case 's191':  # Single < final (asign_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's192':  # After '<=' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's193'  # <= final (asign_delim)
+                    case _: return 's193'  # Any character transitions to final state
+            case 's193':  # <= final (asign_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Greater-than (>): s0 → '>' → s194
+            case 's194':  # After '>' (intermediate state)
+                match currChar:
+                    case '=': return 's196'  # >= path
+                    case 'ANY': return 's195'  # Single > final (asign_delim)
+                    case _: return 's195'  # Any other character transitions to final state
+            case 's195':  # Single > final (asign_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's196':  # After '>=' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's197'  # >= final (asign_delim)
+                    case _: return 's197'  # Any character transitions to final state
+            case 's197':  # >= final (asign_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Parentheses: s0 → '(' → s198, s0 → ')' → s200
+            case 's198':  # After '(' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's199'  # ( final (open_paren_delim)
+                    case _: return 's199'  # Any character transitions to final state
+            case 's199':  # ( final (open_paren_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's200':  # After ')' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's201'  # ) final (closing_delim)
+                    case _: return 's201'  # Any character transitions to final state
+            case 's201':  # ) final (closing_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Curly braces: s0 → '{' → s202, s0 → '}' → s204
+            case 's202':  # After '{' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's203'  # { final (open_curly_delim)
+                    case _: return 's203'  # Any character transitions to final state
+            case 's203':  # { final (open_curly_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's204':  # After '}' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's205'  # } final (close_curly_delim)
+                    case _: return 's205'  # Any character transitions to final state
+            case 's205':  # } final (close_curly_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Brackets: s0 → '[' → s206, s0 → ']' → s208
+            case 's206':  # After '[' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's207'  # [ final (open_bracket_delim)
+                    case _: return 's207'  # Any character transitions to final state
+            case 's207':  # [ final (open_bracket_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            case 's208':  # After ']' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's209'  # ] final (iden_delim)
+                    case _: return 's209'  # Any character transitions to final state
+            case 's209':  # ] final (iden_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Semicolon: s0 → ';' → s210
+            case 's210':  # After ';' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's211'  # ; final (semicolon_delim)
+                    case _: return 's211'  # Any character transitions to final state
+            case 's211':  # ; final (semicolon_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Comma: s0 → ',' → s212
+            case 's212':  # After ',' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's213'  # , final (comma_delim)
+                    case _: return 's213'  # Any character transitions to final state
+            case 's213':  # , final (comma_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+            
+            # Dot/Concat: s0 → '.' → s214
+            case 's214':  # After first dot (intermediate state)
                 match currChar:
                     case '.': return 's216'  # Second dot for concat
-                    case 'ANY': return 'DEFINED'  # Single dot is final (checked by delimiter validation)
-                    case _: return 'UNDEFINED'
-            case 's215':  # (Reserved for compatibility, but s214 handles single dot)
+                    case 'ANY': return 's215'  # Single dot final (alphanum)
+                    case _: return 's215'  # Any other character transitions to final state
+            case 's215':  # Single dot final (alphanum)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's216':  # After second dot (..)
+            case 's216':  # After second dot (..) (intermediate state)
                 match currChar:
-                    case 'ANY': return 'DEFINED'  # concat_delim checked at runtime
+                    case 'ANY': return 's217'  # .. final (concat_delim)
+                    case _: return 's217'  # Any character transitions to final state
+            case 's217':  # Concat operator final (concat_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's217':  # Concat operator final (kept for compatibility but s216 is the real final per TD)
+            
+            # Colon: s0 → ':' → s218
+            case 's218':  # After ':' (intermediate state)
+                match currChar:
+                    case 'ANY': return 's219'  # : final (newline_delim)
+                    case _: return 's219'  # Any character transitions to final state
+            case 's219':  # : final (newline_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
