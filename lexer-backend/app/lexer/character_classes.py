@@ -4,25 +4,23 @@
 class CharacterClasses:
     # Character class definitions used by the lexer for pattern matching
     # These are used in lex_transition() to match characters to states
-    
-    # Basic character sets
-    alpha_small = list('abcdefghijklmnopqrstuvwxyz')
-    alpha_capital = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-    alphabetic_chars = alpha_small + alpha_capital
-    
-    zero = ['0']
-    digit = list('123456789')
-    numbers = zero + digit
-    
+
+    # Basic character sets - alphabetic
+    alphabetic_chars = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+
+    # Basic character sets - numeric
+    numbers = list('0123456789')
+
+    # Basic character sets - alphanumeric
     alphanum = alphabetic_chars + numbers
-    
+
+    # Whitespace characters
     whitespace = [' ', '\t']
     newline = ['\n']
-    
+
+    # ASCII printable characters
     ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
-    
-    # Operator character classes
-    arithmetic_op = ['+', '-', '*', '/', '%']
-    relational_op = ['>', '<', '=', '!']  # Character class (not a delimiter)
-    logical_op = ['!', '&', '|']  # Character class (not a delimiter)
+
+    # Logical operators (used for lookahead in lexer)
+    logical_op = ['!', '&', '|']
 
