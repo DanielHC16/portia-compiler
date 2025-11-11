@@ -109,8 +109,8 @@ class LexicalAnalyzer:
                 must_have_delimiter = ['break', 'return', 'main', 'trap', 'thread', 'threadln', 'default']
                 return token_type not in must_have_delimiter
             
-            binary_operators = ['plus', 'minus', 'multiply', 'divide', 'modulo', 'assign',
-                               'equal_equal', 'not_equal', 'less_than', 'greater_than',
+            binary_operators = ['add', 'subtract', 'multiply', 'divide', 'modulo', 'assign',
+                               'equal', 'not_equal', 'less_than', 'greater_than',
                                'less_equal', 'greater_equal', 'logical_and', 'logical_or',
                                'add_assign', 'minus_assign', 'mult_assign',
                                'div_assign', 'modulo_assign', 'concat']
@@ -155,14 +155,14 @@ class LexicalAnalyzer:
                 return next_char in self.nbl_delim
             
             operator_delims = {
-                'plus': self.sign_delim, 'minus': self.negative_delim,
+                'add': self.sign_delim, 'subtract': self.negative_delim,
                 'multiply': self.marithmetic_delim, 'divide': self.slash_delim,
                 'modulo': self.modulo_delim, 'assign': self.equal_delim,
-                'equal_equal': self.sign_delim, 'not_equal': self.sign_delim,
+                'equal': self.sign_delim, 'not_equal': self.sign_delim,
                 'less_than': self.asign_delim, 'greater_than': self.asign_delim,
                 'less_equal': self.asign_delim, 'greater_equal': self.asign_delim,
                 'logical_and': self.logical_op_delim, 'logical_or': self.logical_op_delim,
-                'not': self.exclamation_delim, 'increment': self.increment_delim,
+                'logical_not': self.exclamation_delim, 'increment': self.increment_delim,
                 'decrement': self.decrement_delim, 'add_assign': self.sign_delim,
                 'minus_assign': self.sign_delim, 'mult_assign': self.sign_delim,
                 'div_assign': self.sign_delim, 'modulo_assign': self.sign_delim,
@@ -174,7 +174,7 @@ class LexicalAnalyzer:
             delimiter_delims = {
                 'open_paren': self.open_paren_delim, 'close_paren': self.close_paren_delim,
                 'open_bracket': self.open_bracket_delim, 'close_bracket': self.close_bracket_delim,
-                'open_curly': self.open_curly_delim, 'close_curly': self.close_curly_delim,
+                'open_brace': self.open_curly_delim, 'close_brace': self.close_curly_delim,
                 'semicolon': self.semicolon_delim, 'comma': self.comma_delim,
                 'colon': self.colon_delim, 'dot': self.dot_delim,
             }
@@ -188,16 +188,16 @@ class LexicalAnalyzer:
             ch = code[i]
             
             # Handle comments - comments should be tokenized for syntax highlighting
-            # Single-line comment: // ... ends at newline
-            # Multi-line comment: /* ... */ ends at */
-            if currState in ['s271', 's272', 's273', 's274', 's275', 's276']:
+            # Single-line comment: // ... ends at newline (s270 → s271)
+            # Multi-line comment: /* ... */ ends at */ (s272 → s273 → s274 → s275)
+            if currState in ['s270', 's271', 's272', 's273', 's274', 's275']:
                 # We're inside a comment - build lexeme for highlighting
                 nextState = self.lex_transition(currState, ch)
                 
-                # Single-line comment ends at newline (s272 is final)
-                if currState == 's271' and ch == '\n':
+                # Single-line comment ends at newline (s271 is final)
+                if currState == 's270' and ch == '\n':
                     # Finalize single-line comment token (don't include newline)
-                    token_type = self.get_token_type('s272', lexeme)
+                    token_type = self.get_token_type('s271', lexeme)
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
@@ -206,11 +206,11 @@ class LexicalAnalyzer:
                     col = 1
                     continue
                 
-                # Multi-line comment ends at */ (s276 is final per TD)
-                if nextState == 's275':
+                # Multi-line comment ends at */ (s275 is final per TD)
+                if nextState == 's275' or currState == 's274':
                     # Add the closing / to lexeme and finalize multi-line comment token
                     lexeme += ch
-                    token_type = self.get_token_type('s276', lexeme)
+                    token_type = self.get_token_type('s275', lexeme)
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
@@ -241,8 +241,8 @@ class LexicalAnalyzer:
                     continue
             
             # Handle whitespace characters - they act as token terminators
-            # NOTE: Do NOT treat whitespace specially while inside a string literal (s277/s279)
-            if ch in self.whitespace and currState not in ['s277', 's279']:
+            # NOTE: Do NOT treat whitespace specially while inside a string literal (s276)
+            if ch in self.whitespace and currState not in ['s276']:
                 # Special case: s338 (decimal point without fractional digits) is invalid
                 if currState == 's338':
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -330,7 +330,7 @@ class LexicalAnalyzer:
             
             # Handle newline characters - similar to whitespace but also updates line counter
             # NOTE: Do NOT short-circuit newline inside string literal; let FSA raise an error
-            if ch == '\n' and currState not in ['s277']:
+            if ch == '\n' and currState not in ['s276']:
                 # Special case: s338 (decimal point without fractional digits) is invalid
                 if currState == 's338':
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -460,6 +460,32 @@ class LexicalAnalyzer:
             # UNDEFINED means no valid transition exists for this character
             # This could mean we've hit a delimiter (if we're in a final state) or an error
             if nextState == 'UNDEFINED':
+                # First, check if we're in an intermediate identifier state that can finalize via ANY
+                # Identifier states: s220, s222, s224, ... (even numbers from 220-268)
+                state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
+                if 220 <= state_num <= 268 and state_num % 2 == 0:
+                    # We're in an identifier building state - try to finalize with ANY
+                    anyState = self.lex_transition(currState, 'ANY')
+                    if anyState != 'UNDEFINED' and self.is_final_state(anyState):
+                        # Can finalize - check delimiter
+                        token_type = self.get_token_type(anyState, lexeme)
+                        if token_type == 'identifier_too_long':
+                            add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            currState = 's0'
+                            lexeme = ''
+                            continue
+                        elif check_delimiter(token_type, ch):
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                            currState = 's0'
+                            lexeme = ''
+                            # Reprocess this character
+                            continue
+                        else:
+                            add_error(f"Lexical Error: Unexpected character '{ch}' after '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            currState = 's0'
+                            lexeme = ''
+                            continue
+                
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
                     # Comments are always valid - they don't need delimiter checking
@@ -830,23 +856,23 @@ class LexicalAnalyzer:
                 currState = identifier_intermediate_to_final[currState]
             
             # Check if we're in a comment state
-            if currState in ['s271', 's272', 's273', 's274', 's275', 's276']:
+            if currState in ['s270', 's271', 's272', 's273', 's274', 's275']:
                 # Comment at end of file - finalize it as a token
-                # Single-line comments (s271) are valid at EOF (no newline needed)
+                # Single-line comments (s270) are valid at EOF (no newline needed)
                 # Multi-line comments need to be properly closed
-                if currState == 's271':
+                if currState == 's270':
                     # Single-line comment at EOF - treat as complete
-                    token_type = self.get_token_type('s272', lexeme)
+                    token_type = self.get_token_type('s271', lexeme)
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
-                elif currState == 's272':
+                elif currState == 's271':
                     # Already finalized single-line comment
                     token_type = self.get_token_type(currState, lexeme)
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
-                elif currState in ['s275', 's276']:
-                    # Multi-line comment properly closed
-                    token_type = self.get_token_type('s276', lexeme)
+                elif currState in ['s274', 's275']:
+                    # Multi-line comment properly closed (s274 after */, s275 is final)
+                    token_type = self.get_token_type('s275', lexeme)
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
-                elif currState in ['s273', 's274']:
+                elif currState in ['s272', 's273']:
                     # Incomplete multi-line comment - report error
                     add_error(f"Lexical Error: Unterminated multi-line comment at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
             elif currState == 's338':
@@ -932,21 +958,21 @@ class LexicalAnalyzer:
         }
         
         operator_states = {
-            's153': 'minus', 's155': 'decrement', 's157': 'minus_assign',
-            's159': 'plus', 's161': 'increment', 's163': 'add_assign',
+            's153': 'subtract', 's155': 'decrement', 's157': 'minus_assign',
+            's159': 'add', 's161': 'increment', 's163': 'add_assign',
             's165': 'multiply', 's167': 'mult_assign',
             's169': 'divide', 's171': 'div_assign',
             's173': 'modulo', 's175': 'modulo_assign',
             's178': 'logical_and', 's181': 'logical_or',
-            's183': 'not', 's185': 'not_equal',
-            's187': 'assign', 's189': 'equal_equal',
+            's183': 'logical_not', 's185': 'not_equal',
+            's187': 'assign', 's189': 'equal',
             's191': 'less_than', 's193': 'less_equal',
             's195': 'greater_than', 's197': 'greater_equal',
         }
         
         delimiter_states = {
             's199': 'open_paren', 's201': 'close_paren',
-            's203': 'open_curly', 's205': 'close_curly',
+            's203': 'open_brace', 's205': 'close_brace',
             's207': 'open_bracket', 's209': 'close_bracket',
             's211': 'semicolon', 's213': 'comma',
             's219': 'colon', 
@@ -955,10 +981,9 @@ class LexicalAnalyzer:
         }
         
         literal_states = {
-            's278': 'string_lit',
-            's272': 'single_comment',
+            's277': 'string_lit',
+            's271': 'single_comment',
             's275': 'multi_comment',
-            's276': 'multi_comment',
         }
         
         if state in keyword_states:
@@ -1896,8 +1921,8 @@ class LexicalAnalyzer:
             # Slash (/): s0 → '/' → s168
             case 's168':  # After '/' (intermediate state)
                 match currChar:
-                    case '/': return 's271'  # Single-line comment
-                    case '*': return 's273'  # Multi-line comment
+                    case '/': return 's270'  # Single-line comment start
+                    case '*': return 's272'  # Multi-line comment start
                     case '=': return 's170'  # /= path
                     case 'ANY': return 's169'  # Single / final (slash_delim) - for is_final_state check
                     case _: return 's169'  # Any other character transitions to final state
@@ -2449,58 +2474,80 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
             
             # ============================================================
-            # COMMENTS FSA - States s168, s270, s272-s275
-            # Single-line: s168 (/) → s270 (/) → ends at newline
-            # Multi-line: s168 (/) → s272 (*) → s274 (*) → s275 (/) with multi_delim
+            # COMMENTS FSA - States s270-s275
+            # Single-line: s168 (/) → s270 → s271* (ends at newline)
+            # Multi-line: s168 (/) → s272 → s273 (*) → s274 (/) → s275* (multi_delim)
             # ============================================================
             
-            case 's271':  # Single-line comment 
+            # Single-line comment
+            case 's270':  # Building single-line comment (after //)
                 match currChar:
-                    case '\n': return 's272'
-                    case _ if currChar in self.ascii: return 's271'
-                    case 'ANY': return 'DEFINED'
+                    case '\n': return 's271'  # Newline ends single-line comment
+                    case _ if currChar in self.ascii: return 's270'  # Continue consuming ASCII chars
+                    case 'ANY': return 's270'  # Continue on any other character (λ)
                     case _: return 'UNDEFINED'
-            case 's272':  # Single comment end
+            
+            case 's271':  # Single-line comment final state (newline_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
-            case 's273':  # Multi-line comment
+            # Multi-line comment
+            case 's272':  # Building multi-line comment (after /*)
                 match currChar:
-                    case '*': return 's274'
-                    case _ if currChar in self.ascii or currChar == '\n': return 's273'
-                    case 'ANY': return 'DEFINED'
+                    case '*': return 's273'  # Potential end of multi-line comment
+                    case '\n': return 's272'  # Continue on newline
+                    case _ if currChar in self.ascii: return 's272'  # Continue consuming ASCII chars
+                    case 'ANY': return 's272'  # Continue on any other character (λ)
                     case _: return 'UNDEFINED'
-            case 's274':  # After * in multi-line
+            
+            case 's273':  # After * in multi-line comment
                 match currChar:
-                    case '/': return 's275'
-                    case '*': return 's274'
-                    case _: return 's273'
-            case 's275':  # Multi comment end ('*/'), finalizes as s276
+                    case '/': return 's274'  # Complete the */ sequence
+                    case '*': return 's273'  # Stay in case of multiple *
+                    case '\n': return 's272'  # Back to consuming if not /
+                    case _ if currChar in self.ascii: return 's272'  # Back to consuming
+                    case 'ANY': return 's272'  # Back to consuming
+                    case _: return 'UNDEFINED'
+            
+            case 's274':  # After */ sequence - transition to final
                 match currChar:
-                    case 'ANY': return 'DEFINED'  # Treated as end; token recorded as s276
+                    case 'ANY': return 's275'  # Transition to final state
+                    case _: return 's275'  # Transition to final state
+            
+            case 's275':  # Multi-line comment final state (multi_delim)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
             
             # ============================================================
-            # STRING LITERALS FSA - States s276 to s277
-            # Starts at s276 with ", ends at s277 with str_lit_delim
+            # STRING LITERALS FSA - States s276-s277
+            # s0 → " → s276 (building) → " → s277* (str_lit_delim)
             # ============================================================
             
-            case 's277':  # Inside string (NOT a final state - must reach s278) (legacy state)
+            case 's276':  # Building string literal (after opening ")
                 match currChar:
-                    case '"': return 's278'
-                    case '\\': return 's279'
-                    case '\n': return 'UNDEFINED'
-                    case _ if currChar in self.ascii: return 's277'
-                    case 'ANY': return 'UNDEFINED'  # NOT FINAL - only s278 is final
+                    case '"': return 's277'  # Closing quote - end string
+                    case '\\': return 's279'  # Escape sequence - next char is escaped
+                    case '\n': return 'UNDEFINED'  # Newline in string is invalid
+                    case _ if currChar in self.ascii: return 's276'  # Continue consuming ASCII chars
+                    case _ if currChar in self.whitespace: return 's276'  # Allow whitespace in strings
+                    case 'ANY': return 's276'  # Continue on any other character (λ)
                     case _: return 'UNDEFINED'
-            case 's278':  # String end
+            
+            case 's277':  # String literal final state (str_lit_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's279':  # After backslash
+            
+            case 's279':  # Escape sequence in string - consume next character
                 match currChar:
-                    case '"' | '\\' | 'n' | 't': return 's277'
+                    case '"': return 's276'  # Escaped quote
+                    case '\\': return 's276'  # Escaped backslash
+                    case 'n': return 's276'  # Newline escape
+                    case 't': return 's276'  # Tab escape
+                    case 'r': return 's276'  # Carriage return escape
+                    case _ if currChar in self.ascii: return 's276'  # Any other escaped char
                     case _: return 'UNDEFINED'
             
             # ============================================================

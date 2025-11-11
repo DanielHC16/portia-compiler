@@ -17,7 +17,7 @@ class Delimiters:
         # ESCAPE SEQUENCE DELIMITER
         self.escape_seq = ['\n', '\t', '"', "'"]
         
-        # RESERVED SYMBOLS DELIMITER (binary operators - NO newlines allowed)
+        # RESERVED SYMBOLS DELIMITER 
         self.negative_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '.']
         self.modulo_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '/']
         self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '-']
