@@ -39,12 +39,28 @@ Every character is processed through the FSA state machine defined in `lex_trans
 
 ## Documentation
 
-For detailed explanations, see the `docs/` folder:
+For comprehensive technical documentation, see the `docs/` folder:
 
-- **[LEXER_EXPLAINED.md](docs/LEXER_EXPLAINED.md)** - Complete technical explanation of how the lexer works, including function descriptions, architecture, and examples
-- **[LEXER_FLOW_DIAGRAM.md](docs/LEXER_FLOW_DIAGRAM.md)** - Visual diagrams showing the internal flow, state transitions, and data flow
+### Core Documentation
+
+- **[LEXER_EXPLAINED.md](docs/LEXER_EXPLAINED.md)** - Complete technical reference explaining **EVERYTHING** about how the lexer works
+  - Every function with parameters, return types, and line numbers
+  - Intermediate vs final state concepts
+  - The 'ANY' pseudo-character mechanism
+  - Complete workflow examples with character-by-character traces
+  - All 374 states explained with categories
+
+- **[LEXER_ARCHITECTURE.md](docs/LEXER_ARCHITECTURE.md)** - Visual architecture and flow diagrams
+  - High-level system architecture
+  - Data flow diagrams
+  - FSA state organization
+  - Processing and error handling flows
+  - Token recognition examples with step-by-step state transitions
+
+### Additional References
+
 - **[DELIMITER_REFERENCE.md](docs/DELIMITER_REFERENCE.md)** - Complete reference for all delimiter types and their usage
-- **[FRONTEND_INTEGRATION.md](docs/FRONTEND_INTEGRATION.md)** - Complete guide on how data flows from the lexer backend to the React frontend, including API calls, field mapping, and visual rendering
+- **[FRONTEND_INTEGRATION.md](docs/FRONTEND_INTEGRATION.md)** - Guide on how data flows from the lexer backend to the React frontend, including API calls, field mapping, and visual rendering
 
 
 
