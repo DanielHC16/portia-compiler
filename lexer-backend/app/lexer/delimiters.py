@@ -42,10 +42,10 @@ class Delimiters:
         # ============================================================
         # LOGICAL & COMPARISON OPERATOR DELIMITERS
         # ============================================================
-        self.exclamation_delim = chars.alphabetic_chars + chars.whitespace + ['(', '/', '!'] + chars.newline
+        self.exclamation_delim = chars.alphabetics + chars.whitespace + ['(', '/', '!'] + chars.newline
         self.equal_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '-', '"', '!', '{']
         self.asign_delim = chars.alphanum + chars.whitespace + ['=', '/', '(']
-        self.logical_op_delim = chars.alphabetic_chars + chars.whitespace + ['(', '/', '!']
+        self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '/', '!']
 
         # ============================================================
         # INCREMENT/DECREMENT DELIMITERS

@@ -6,13 +6,13 @@ class CharacterClasses:
     # These are used in lex_transition() to match characters to states
 
     # Basic character sets - alphabetic
-    alphabetic_chars = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    alphabetics = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
     # Basic character sets - numeric
     numbers = list('0123456789')
 
     # Basic character sets - alphanumeric
-    alphanum = alphabetic_chars + numbers
+    alphanum = alphabetics + numbers
 
     # Whitespace characters
     whitespace = [' ', '\t']
