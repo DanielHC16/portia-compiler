@@ -111,23 +111,37 @@ class LexicalAnalyzer:
         prev_token_type = None  # Track previous token type to determine unary vs binary minus
         last_binary_operator = None  # Track last binary operator to validate no newline follows
         last_binary_operator_pos = None  # Position of last binary operator
+        last_binary_operator_indices = None  # Character indices of last binary operator (start, end)
 
-        def add_token(lexeme: str, token_type: str, tok_line: int, tok_col: int):
+        def add_token(lexeme: str, token_type: str, tok_line: int, tok_col: int, start_idx: int, end_idx: int):
             # Creates a token object and adds it to the tokens list
-            nonlocal prev_token_type, last_binary_operator, last_binary_operator_pos
+            nonlocal prev_token_type, last_binary_operator, last_binary_operator_pos, last_binary_operator_indices
             token = Token(tokenName=lexeme, tokenType=token_type, tokenLine=tok_line, tokenCol=tok_col)
             tokens.append(token)
             prev_token_type = token_type  # Update previous token type
 
-            # Track binary operators to validate they're not followed by newlines
-            binary_ops = ['plus', 'minus', 'multiply', 'divide', 'modulo', 'assign',
+            # Track binary operators AND assignment operators to validate they're not followed by newlines
+            # Special handling for subtract: only track as binary if it appears after an operand
+            # (unary minus appears after operators/delimiters and doesn't need newline validation)
+            binary_ops = ['add', 'multiply', 'divide', 'modulo',
                          'equal_equal', 'not_equal', 'less_than', 'greater_than',
                          'less_equal', 'greater_equal', 'logical_and', 'logical_or',
-                         'add_assign', 'minus_assign', 'mult_assign',
-                         'div_assign', 'modulo_assign', 'concat']
-            if token_type in binary_ops:
+                         'concat']
+            
+            # Assignment operators must also be tracked - they cannot span lines
+            assignment_ops = ['assign', 'add_assign', 'minus_assign', 'mult_assign',
+                            'div_assign', 'modulo_assign']
+            
+            # Determine if subtract is binary or unary based on context
+            is_binary_subtract = (token_type == 'subtract' and 
+                             prev_token_type in ['identifier', 'int_lit', 'long_lit', 'float_lit', 'double_lit',
+                                                'string_lit', 'char_lit', 'bool_lit', 'close_paren', 'close_bracket',
+                                                'close_curly', 'increment', 'decrement'])
+            
+            if token_type in binary_ops or token_type in assignment_ops or is_binary_subtract:
                 last_binary_operator = lexeme
                 last_binary_operator_pos = (tok_line, tok_col)
+                last_binary_operator_indices = (start_idx, end_idx)
             elif token_type in ['identifier', 'int_lit', 'long_lit', 'float_lit', 'double_lit',
                                'string_lit', 'char_lit', 'bool_lit', 'close_paren', 'close_bracket',
                                'close_curly', 'increment', 'decrement']:
@@ -135,6 +149,7 @@ class LexicalAnalyzer:
                 # These indicate a complete expression, so any previous operator is satisfied
                 last_binary_operator = None
                 last_binary_operator_pos = None
+                last_binary_operator_indices = None
 
         def add_error(message: str, start_idx: int, end_idx: int, err_line: int, err_col: int):
             # Creates an error object with position information and adds it to errors list
@@ -153,11 +168,12 @@ class LexicalAnalyzer:
                 must_have_delimiter = ['break', 'return', 'main', 'trap', 'thread', 'threadln', 'default']
                 return token_type not in must_have_delimiter
 
-            binary_operators = ['add', 'subtract', 'multiply', 'divide', 'modulo', 'assign',
-                               'equal', 'not_equal', 'less_than', 'greater_than',
+            # Binary operators (excluding assignment) cannot be followed by newlines
+            # Assignment operators are tracked separately via last_binary_operator
+            binary_operators = ['add', 'subtract', 'multiply', 'divide', 'modulo',
+                               'equal_equal', 'not_equal', 'less_than', 'greater_than',
                                'less_equal', 'greater_equal', 'logical_and', 'logical_or',
-                               'add_assign', 'minus_assign', 'mult_assign',
-                               'div_assign', 'modulo_assign', 'concat']
+                               'concat']
             if token_type in binary_operators and (next_char is None or next_char == '\n'):
                 return False
 
@@ -242,7 +258,7 @@ class LexicalAnalyzer:
                 if currState == 's270' and ch == '\n':
                     # Finalize single-line comment token (don't include newline)
                     token_type = self.get_token_type('s271', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     i += 1
@@ -255,7 +271,7 @@ class LexicalAnalyzer:
                     # Add the closing / to lexeme and finalize multi-line comment token
                     lexeme += ch
                     token_type = self.get_token_type('s275', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     i += 1
@@ -304,7 +320,7 @@ class LexicalAnalyzer:
                     # Now finalize the keyword token
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, ch):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -323,7 +339,7 @@ class LexicalAnalyzer:
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151:
                         # We're in a keyword state but not final - finalize as identifier
-                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -333,7 +349,7 @@ class LexicalAnalyzer:
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, ch):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
@@ -372,7 +388,7 @@ class LexicalAnalyzer:
                         col = 1
                         continue
                     elif check_delimiter(token_type, '\n'):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -393,7 +409,7 @@ class LexicalAnalyzer:
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151:
                         # We're in a keyword state but not final - finalize as identifier
-                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -405,7 +421,7 @@ class LexicalAnalyzer:
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, '\n'):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
@@ -414,10 +430,16 @@ class LexicalAnalyzer:
                 # NOW check if last token was a binary operator - if so, error!
                 if last_binary_operator is not None:
                     op_line, op_col = last_binary_operator_pos
+                    op_start, op_end = last_binary_operator_indices
                     add_error(f"Lexical Error: Binary operator '{last_binary_operator}' cannot be followed by newline",
-                             i, i + 1, op_line, op_col)
+                             op_start, op_end, op_line, op_col)
+                    # Remove the invalid operator token from the token list
+                    # The last token should be the operator that we just flagged
+                    if tokens and tokens[-1].tokenName == last_binary_operator:
+                        tokens.pop()
                     last_binary_operator = None
                     last_binary_operator_pos = None
+                    last_binary_operator_indices = None
 
                 i += 1
                 line += 1
@@ -450,7 +472,7 @@ class LexicalAnalyzer:
                         token_type = self.get_token_type(anyState, lexeme)
                         if check_delimiter(token_type, ch):
                             # Valid delimiter - finalize the numeric token
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                             # Reprocess this character as start of next token
@@ -487,7 +509,7 @@ class LexicalAnalyzer:
                             lexeme = ''
                             continue
                         elif check_delimiter(token_type, ch):
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                             # Reprocess this character
@@ -508,7 +530,7 @@ class LexicalAnalyzer:
                         # Can finalize as single-letter identifier
                         token_type = self.get_token_type(anyState, lexeme)
                         if check_delimiter(token_type, ch):
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                             # Reprocess this character
@@ -518,7 +540,7 @@ class LexicalAnalyzer:
                     token_type = self.get_token_type(currState, lexeme)
                     # Comments are always valid - they don't need delimiter checking
                     if token_type in ['single_comment', 'multi_comment']:
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         continue
@@ -555,7 +577,7 @@ class LexicalAnalyzer:
                     # This handles unary minus before parenthesized expressions like -(-4 - 4)
                     if token_type == 'minus' and ch == '(':
                         # Finalize minus operator - it's valid before (
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         # Don't advance i - reprocess ( as new token
@@ -565,7 +587,7 @@ class LexicalAnalyzer:
                     # This handles cases like -4-4 or 4-4 where we need to separate the number from the minus
                     if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit'] and ch == '-':
                         # Finalize the number token
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         # Don't advance i - reprocess - as new token
@@ -588,7 +610,7 @@ class LexicalAnalyzer:
 
                     # Use the current character as the delimiter to validate (e.g., '(' after 'main')
                     if check_delimiter(token_type, ch):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         continue
@@ -622,7 +644,7 @@ class LexicalAnalyzer:
 
                 # Comments are always valid - they don't need delimiter checking
                 if token_type in ['single_comment', 'multi_comment']:
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     # Don't advance i - reprocess this character (it's the delimiter)
@@ -634,7 +656,7 @@ class LexicalAnalyzer:
                 if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit'] and ch == '-':
                     # Any number (positive or negative) followed by - is subtraction
                     # Finalize the number token
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     # Don't advance i - reprocess - as new token
@@ -656,7 +678,7 @@ class LexicalAnalyzer:
 
                 # Current character is the delimiter for the finished token
                 if check_delimiter(token_type, ch):
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     # Fast-path: immediately start the next token for common starters
@@ -754,7 +776,7 @@ class LexicalAnalyzer:
                         lexeme = ''
                         continue
                     elif check_delimiter(token_type, ch):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         # Fast-path: immediately start the next token for common starters
@@ -816,15 +838,15 @@ class LexicalAnalyzer:
                 if currState == 's270':
                     # Single-line comment at EOF - treat as complete
                     token_type = self.get_token_type('s271', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 elif currState == 's271':
                     # Already finalized single-line comment
                     token_type = self.get_token_type(currState, lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 elif currState in ['s274', 's275']:
                     # Multi-line comment properly closed (s274 after */, s275 is final)
                     token_type = self.get_token_type('s275', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 elif currState in ['s272', 's273']:
                     # Incomplete multi-line comment - report error
                     add_error(f"Lexical Error: Unterminated multi-line comment at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -836,7 +858,7 @@ class LexicalAnalyzer:
                 state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                 if 1 <= state_num <= 151:
                     # We're in a keyword state but not final - finalize as identifier
-                    add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 else:
                     # Other non-final states - report incomplete token
                     add_error(f"Lexical Error: Incomplete token '{lexeme}' at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -847,16 +869,16 @@ class LexicalAnalyzer:
                     add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 # Comments are always valid
                 elif token_type in ['single_comment', 'multi_comment']:
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 elif token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
                     # Numeric literals - FSA already validated through state transitions
                     # No additional validation needed; just add the token
                     if check_delimiter(token_type, None):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 elif check_delimiter(token_type, None):
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 else:
                     add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
             else:
