@@ -823,7 +823,7 @@ class LexicalAnalyzer:
                         # Fast-path: immediately start the next token for common starters
                         if ch == '"':
                             lexeme = ch
-                            currState = 's277'
+                            currState = 's276'  # Start in building state, not final state
                             i += 1
                             col += 1
                             continue
