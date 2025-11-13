@@ -42,15 +42,15 @@ class Delimiters:
         # ============================================================
         # LOGICAL & COMPARISON OPERATOR DELIMITERS
         # ============================================================
-        self.exclamation_delim = chars.alphabetic_chars + chars.whitespace + ['(', '/', '!'] + chars.newline
+        self.exclamation_delim = chars.alphabetics + chars.whitespace + ['(', '/', '!'] + chars.newline
         self.equal_delim = chars.alphanum + chars.whitespace + ['(', '/', '+', '-', '"', '!', '{']
         self.asign_delim = chars.alphanum + chars.whitespace + ['=', '/', '(']
-        self.logical_op_delim = chars.alphabetic_chars + chars.whitespace + ['(', '/', '!']
+        self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '/', '!']
 
         # ============================================================
         # INCREMENT/DECREMENT DELIMITERS
         # ============================================================
-        # Increment/decrement can be followed by identifiers OR numeric literals
+        # Increment/decrement can be followed by identifiers OR numeric literals // PENDING CHANGE - VERIFY w/ TEAM IF WE INCLUDE NUMERIC LITERALS
         # Examples: ++x, x++, --5, 3++
         self.increment_delim = chars.alphanum + chars.whitespace + [';', ')', '/', '-', '*', '%', '(', ']', ','] + chars.newline
         self.decrement_delim = chars.alphanum + chars.whitespace + [';', ')', '/', '+', '*', '%', '(', ']', ','] + chars.newline

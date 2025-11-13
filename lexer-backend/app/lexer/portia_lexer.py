@@ -67,11 +67,11 @@ class LexicalAnalyzer:
         # Float literals (s315-s327)
         's315': 's316', 's317': 's318', 's319': 's320', 's321': 's322',
         's323': 's324', 's325': 's326', 's327': 's328',
-        # Double literals (s329-s359)
+        # Double literals (s329-s360) - 8 to 23 fractional digits
         's329': 's330', 's331': 's332', 's333': 's334', 's335': 's336',
         's337': 's338', 's339': 's340', 's341': 's342', 's343': 's344',
         's345': 's346', 's347': 's348', 's349': 's350', 's351': 's352',
-        's353': 's354', 's355': 's356', 's357': 's358', 's359': 's360',
+        's353': 's354', 's355': 's356', 's357': 's358', 's359': 's360'
     }
 
     def __init__(self):
@@ -111,23 +111,38 @@ class LexicalAnalyzer:
         prev_token_type = None  # Track previous token type to determine unary vs binary minus
         last_binary_operator = None  # Track last binary operator to validate no newline follows
         last_binary_operator_pos = None  # Position of last binary operator
+        last_binary_operator_indices = None  # Character indices of last binary operator (start, end)
 
-        def add_token(lexeme: str, token_type: str, tok_line: int, tok_col: int):
+        def add_token(lexeme: str, token_type: str, tok_line: int, tok_col: int, start_idx: int, end_idx: int):
             # Creates a token object and adds it to the tokens list
-            nonlocal prev_token_type, last_binary_operator, last_binary_operator_pos
+            nonlocal prev_token_type, last_binary_operator, last_binary_operator_pos, last_binary_operator_indices
+            
             token = Token(tokenName=lexeme, tokenType=token_type, tokenLine=tok_line, tokenCol=tok_col)
             tokens.append(token)
             prev_token_type = token_type  # Update previous token type
 
-            # Track binary operators to validate they're not followed by newlines
-            binary_ops = ['plus', 'minus', 'multiply', 'divide', 'modulo', 'assign',
+            # Track binary operators AND assignment operators to validate they're not followed by newlines
+            # Special handling for subtract: only track as binary if it appears after an operand
+            # (unary minus appears after operators/delimiters and doesn't need newline validation)
+            binary_ops = ['add', 'multiply', 'divide', 'modulo',
                          'equal_equal', 'not_equal', 'less_than', 'greater_than',
                          'less_equal', 'greater_equal', 'logical_and', 'logical_or',
-                         'add_assign', 'minus_assign', 'mult_assign',
-                         'div_assign', 'modulo_assign', 'concat']
-            if token_type in binary_ops:
+                         'concat']
+            
+            # Assignment operators must also be tracked - they cannot span lines
+            assignment_ops = ['assign', 'add_assign', 'minus_assign', 'mult_assign',
+                            'div_assign', 'modulo_assign']
+            
+            # Determine if subtract is binary or unary based on context
+            is_binary_subtract = (token_type == 'subtract' and 
+                             prev_token_type in ['identifier', 'int_lit', 'long_lit', 'float_lit', 'double_lit',
+                                                'string_lit', 'char_lit', 'bool_lit', 'close_paren', 'close_bracket',
+                                                'close_curly', 'increment', 'decrement'])
+            
+            if token_type in binary_ops or token_type in assignment_ops or is_binary_subtract:
                 last_binary_operator = lexeme
                 last_binary_operator_pos = (tok_line, tok_col)
+                last_binary_operator_indices = (start_idx, end_idx)
             elif token_type in ['identifier', 'int_lit', 'long_lit', 'float_lit', 'double_lit',
                                'string_lit', 'char_lit', 'bool_lit', 'close_paren', 'close_bracket',
                                'close_curly', 'increment', 'decrement']:
@@ -135,6 +150,7 @@ class LexicalAnalyzer:
                 # These indicate a complete expression, so any previous operator is satisfied
                 last_binary_operator = None
                 last_binary_operator_pos = None
+                last_binary_operator_indices = None
 
         def add_error(message: str, start_idx: int, end_idx: int, err_line: int, err_col: int):
             # Creates an error object with position information and adds it to errors list
@@ -153,11 +169,12 @@ class LexicalAnalyzer:
                 must_have_delimiter = ['break', 'return', 'main', 'trap', 'thread', 'threadln', 'default']
                 return token_type not in must_have_delimiter
 
-            binary_operators = ['add', 'subtract', 'multiply', 'divide', 'modulo', 'assign',
-                               'equal', 'not_equal', 'less_than', 'greater_than',
+            # Binary operators (excluding assignment) cannot be followed by newlines
+            # Assignment operators are tracked separately via last_binary_operator
+            binary_operators = ['add', 'subtract', 'multiply', 'divide', 'modulo',
+                               'equal_equal', 'not_equal', 'less_than', 'greater_than',
                                'less_equal', 'greater_equal', 'logical_and', 'logical_or',
-                               'add_assign', 'minus_assign', 'mult_assign',
-                               'div_assign', 'modulo_assign', 'concat']
+                               'concat']
             if token_type in binary_operators and (next_char is None or next_char == '\n'):
                 return False
 
@@ -242,7 +259,7 @@ class LexicalAnalyzer:
                 if currState == 's270' and ch == '\n':
                     # Finalize single-line comment token (don't include newline)
                     token_type = self.get_token_type('s271', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     i += 1
@@ -255,7 +272,7 @@ class LexicalAnalyzer:
                     # Add the closing / to lexeme and finalize multi-line comment token
                     lexeme += ch
                     token_type = self.get_token_type('s275', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     i += 1
@@ -304,7 +321,7 @@ class LexicalAnalyzer:
                     # Now finalize the keyword token
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, ch):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -323,7 +340,7 @@ class LexicalAnalyzer:
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151:
                         # We're in a keyword state but not final - finalize as identifier
-                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -333,7 +350,7 @@ class LexicalAnalyzer:
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, ch):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
@@ -372,7 +389,7 @@ class LexicalAnalyzer:
                         col = 1
                         continue
                     elif check_delimiter(token_type, '\n'):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -393,7 +410,7 @@ class LexicalAnalyzer:
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151:
                         # We're in a keyword state but not final - finalize as identifier
-                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -405,7 +422,7 @@ class LexicalAnalyzer:
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, '\n'):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
@@ -414,10 +431,16 @@ class LexicalAnalyzer:
                 # NOW check if last token was a binary operator - if so, error!
                 if last_binary_operator is not None:
                     op_line, op_col = last_binary_operator_pos
+                    op_start, op_end = last_binary_operator_indices
                     add_error(f"Lexical Error: Binary operator '{last_binary_operator}' cannot be followed by newline",
-                             i, i + 1, op_line, op_col)
+                             op_start, op_end, op_line, op_col)
+                    # Remove the invalid operator token from the token list
+                    # The last token should be the operator that we just flagged
+                    if tokens and tokens[-1].tokenName == last_binary_operator:
+                        tokens.pop()
                     last_binary_operator = None
                     last_binary_operator_pos = None
+                    last_binary_operator_indices = None
 
                 i += 1
                 line += 1
@@ -450,7 +473,7 @@ class LexicalAnalyzer:
                         token_type = self.get_token_type(anyState, lexeme)
                         if check_delimiter(token_type, ch):
                             # Valid delimiter - finalize the numeric token
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                             # Reprocess this character as start of next token
@@ -487,7 +510,7 @@ class LexicalAnalyzer:
                             lexeme = ''
                             continue
                         elif check_delimiter(token_type, ch):
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                             # Reprocess this character
@@ -508,7 +531,7 @@ class LexicalAnalyzer:
                         # Can finalize as single-letter identifier
                         token_type = self.get_token_type(anyState, lexeme)
                         if check_delimiter(token_type, ch):
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                             # Reprocess this character
@@ -518,7 +541,7 @@ class LexicalAnalyzer:
                     token_type = self.get_token_type(currState, lexeme)
                     # Comments are always valid - they don't need delimiter checking
                     if token_type in ['single_comment', 'multi_comment']:
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         continue
@@ -555,7 +578,7 @@ class LexicalAnalyzer:
                     # This handles unary minus before parenthesized expressions like -(-4 - 4)
                     if token_type == 'minus' and ch == '(':
                         # Finalize minus operator - it's valid before (
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         # Don't advance i - reprocess ( as new token
@@ -565,7 +588,7 @@ class LexicalAnalyzer:
                     # This handles cases like -4-4 or 4-4 where we need to separate the number from the minus
                     if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit'] and ch == '-':
                         # Finalize the number token
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         # Don't advance i - reprocess - as new token
@@ -588,7 +611,7 @@ class LexicalAnalyzer:
 
                     # Use the current character as the delimiter to validate (e.g., '(' after 'main')
                     if check_delimiter(token_type, ch):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         continue
@@ -597,10 +620,40 @@ class LexicalAnalyzer:
                     # Decimal point without fractional digits - invalid
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 else:
+                    # Special case: numeric literal exceeds maximum length
+                    # Check if we're in a numeric state and hit a digit (number too long)
+                    state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
+                    
+                    # s296 = 10-digit int (final), s315 = 19-digit long (building - max)
+                    # s328 = 7-digit float (final - max), s359 = 22-digit double (building)
+                    # Note: s360 (23-digit double final) rejects 24th digit via UNDEFINED, not this check
+                    if (state_num == 315 or state_num == 296 or state_num == 328 or state_num == 359) and ch in self.numbers:
+                        # Number exceeds maximum length - consume all remaining digits
+                        lexeme += ch
+                        i += 1
+                        col += 1
+                        while i < len(code) and code[i] in self.numbers:
+                            lexeme += code[i]
+                            i += 1
+                            col += 1
+                        
+                        # Determine the type of number that was too long
+                        if state_num == 296 or state_num == 315:
+                            add_error(f"Lexical Error: Integer literal '{lexeme}' exceeds maximum length of 19 digits", 
+                                    lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        elif state_num == 328:
+                            add_error(f"Lexical Error: Float literal '{lexeme}' exceeds maximum of 7 fractional digits", 
+                                    lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        else:  # state_num == 359
+                            add_error(f"Lexical Error: Double literal '{lexeme}' exceeds maximum of 23 fractional digits", 
+                                    lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        
+                        currState = 's0'
+                        lexeme = ''
+                        continue
+                    
                     # Special case: keyword state followed by identifier character - continue as identifier
                     # This handles cases like 'boolx' (at s1, s2, s3, etc.) or 'breakpoint' (at s9)
-                    # Check if we're in a keyword state (s1-s151) and see a valid identifier character
-                    state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151 and (ch in self.alphanum or ch == '_'):
                         # Continue building as identifier - transition to s220
                         lexeme += ch
@@ -622,7 +675,7 @@ class LexicalAnalyzer:
 
                 # Comments are always valid - they don't need delimiter checking
                 if token_type in ['single_comment', 'multi_comment']:
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     # Don't advance i - reprocess this character (it's the delimiter)
@@ -634,7 +687,7 @@ class LexicalAnalyzer:
                 if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit'] and ch == '-':
                     # Any number (positive or negative) followed by - is subtraction
                     # Finalize the number token
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     # Don't advance i - reprocess - as new token
@@ -656,7 +709,7 @@ class LexicalAnalyzer:
 
                 # Current character is the delimiter for the finished token
                 if check_delimiter(token_type, ch):
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
                     # Fast-path: immediately start the next token for common starters
@@ -680,7 +733,7 @@ class LexicalAnalyzer:
                         i += 1
                         col += 1
                         continue
-                    if ch in self.alphabetic_chars or ch == '_':
+                    if ch in self.alphabetics or ch == '_':
                         lexeme = ch
                         currState = 's220'
                         i += 1
@@ -742,6 +795,17 @@ class LexicalAnalyzer:
                     col += 1
                     continue
 
+                # Special case for s359: 22-digit double building state
+                # Don't finalize if we're seeing a digit (the 23rd fractional digit)
+                # This prevents premature finalization when both digit AND 'ANY' transitions go to s360
+                if currState == 's359' and ch in self.numbers:
+                    # Continue to consume the 23rd digit normally
+                    lexeme += ch
+                    currState = nextState
+                    i += 1
+                    col += 1
+                    continue
+
                 # Transition to final state without consuming the character
                 currState = nextState
                 # Check if delimiter is valid
@@ -754,13 +818,13 @@ class LexicalAnalyzer:
                         lexeme = ''
                         continue
                     elif check_delimiter(token_type, ch):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         # Fast-path: immediately start the next token for common starters
                         if ch == '"':
                             lexeme = ch
-                            currState = 's277'
+                            currState = 's276'  # Start in building state, not final state
                             i += 1
                             col += 1
                             continue
@@ -776,7 +840,7 @@ class LexicalAnalyzer:
                             i += 1
                             col += 1
                             continue
-                        if ch in self.alphabetic_chars or ch == '_':
+                        if ch in self.alphabetics or ch == '_':
                             lexeme = ch
                             currState = 's220'
                             i += 1
@@ -816,15 +880,15 @@ class LexicalAnalyzer:
                 if currState == 's270':
                     # Single-line comment at EOF - treat as complete
                     token_type = self.get_token_type('s271', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 elif currState == 's271':
                     # Already finalized single-line comment
                     token_type = self.get_token_type(currState, lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 elif currState in ['s274', 's275']:
                     # Multi-line comment properly closed (s274 after */, s275 is final)
                     token_type = self.get_token_type('s275', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 elif currState in ['s272', 's273']:
                     # Incomplete multi-line comment - report error
                     add_error(f"Lexical Error: Unterminated multi-line comment at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -836,7 +900,7 @@ class LexicalAnalyzer:
                 state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                 if 1 <= state_num <= 151:
                     # We're in a keyword state but not final - finalize as identifier
-                    add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 else:
                     # Other non-final states - report incomplete token
                     add_error(f"Lexical Error: Incomplete token '{lexeme}' at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -847,16 +911,16 @@ class LexicalAnalyzer:
                     add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 # Comments are always valid
                 elif token_type in ['single_comment', 'multi_comment']:
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 elif token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
                     # Numeric literals - FSA already validated through state transitions
                     # No additional validation needed; just add the token
                     if check_delimiter(token_type, None):
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 elif check_delimiter(token_type, None):
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 else:
                     add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
             else:
@@ -921,17 +985,17 @@ class LexicalAnalyzer:
             's279': 'int_lit', 's281': 'int_lit', 's283': 'int_lit', 's285': 'int_lit',
             's287': 'int_lit', 's289': 'int_lit', 's291': 'int_lit', 's293': 'int_lit',
             's295': 'int_lit', 's297': 'int_lit',
-            # Long integer literals (11-17 digits) - all map to long_lit
+            # Long integer literals (11-19 digits) - all map to long_lit
             's299': 'long_lit', 's301': 'long_lit', 's303': 'long_lit', 's305': 'long_lit',
-            's307': 'long_lit', 's309': 'long_lit', 's311': 'long_lit', 's313': 'long_lit',
+            's307': 'long_lit', 's309': 'long_lit', 's311': 'long_lit', 's313': 'long_lit', 's316': 'long_lit',
             # Float literals (1-7 fractional digits) - all map to float_lit
-            's316': 'float_lit', 's318': 'float_lit', 's320': 'float_lit', 's322': 'float_lit',
-            's324': 'float_lit', 's326': 'float_lit', 's328': 'float_lit',
-            # Double literals (8-23 fractional digits) - all map to double_lit
-            's330': 'double_lit', 's332': 'double_lit', 's334': 'double_lit', 's336': 'double_lit',
-            's338': 'double_lit', 's340': 'double_lit', 's342': 'double_lit', 's344': 'double_lit',
-            's346': 'double_lit', 's348': 'double_lit', 's350': 'double_lit', 's352': 'double_lit',
-            's354': 'double_lit', 's356': 'double_lit', 's358': 'double_lit', 's360': 'double_lit',
+            's318': 'float_lit', 's320': 'float_lit', 's322': 'float_lit', 's324': 'float_lit',
+            's326': 'float_lit', 's328': 'float_lit', 's330': 'float_lit',
+            # Double literals (8-23 fractional digits) - all EVEN final states map to double_lit
+            's332': 'double_lit', 's334': 'double_lit', 's336': 'double_lit', 's338': 'double_lit',
+            's340': 'double_lit', 's342': 'double_lit', 's344': 'double_lit', 's346': 'double_lit',
+            's348': 'double_lit', 's350': 'double_lit', 's352': 'double_lit', 's354': 'double_lit',
+            's356': 'double_lit', 's358': 'double_lit', 's360': 'double_lit',
         }
 
         if state in keyword_states:
@@ -1061,7 +1125,7 @@ class LexicalAnalyzer:
 
                     # Identifiers - route to generic identifier FSA
                     # MUST be after all specific character matches (including keywords)
-                    case _ if currChar in self.alphabetic_chars or currChar == '_': return 's220'
+                    case _ if currChar in self.alphabetics or currChar == '_': return 's220'
 
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -2709,47 +2773,60 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's312':  # Long: Maximum reached - can only add decimal or finalize
+            case 's312':  # Long: 18 digits (building)
                 match currChar:
+                    case _ if currChar in self.numbers: return 's315'  # 19th digit
                     case '.': return 's314'  # Decimal point → float/double
                     case 'ANY': return 's313'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
-            case 's313':  # Long: 17 digits maximum (final)
+            case 's313':  # Long: 18 digits (final)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            case 's315':  # Long: 19 digits (building) - Maximum for long
+                match currChar:
+                    case '.': return 's314'  # Decimal point → float/double
+                    case 'ANY': return 's316'  # nbl_delim → finalize as long_lit
+                    case _: return 'UNDEFINED'
+
+            case 's316':  # Long: 19 digits (final) - Maximum for long
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # FLOAT LITERALS - States s314-s328 (1-7 fractional digits)
-            # Entry point: s314 (after decimal point from int/long states)
+            # FLOAT LITERALS - States s314, s317-s328 (1-7 fractional digits)
+            # DOUBLE LITERALS - States s314, s317(double starts at s329)-360 (1-23 fractional digits)
             # Pattern: Building states (odd) consume digits or transition to final
             # Final states (even) return DEFINED on ANY (nbl_delim)
             # ============================================================
 
             case 's314':  # Float: After decimal point, expecting 1st fractional digit
                 match currChar:
-                    case _ if currChar in self.numbers: return 's315'  # 1st fractional digit
+                    case _ if currChar in self.numbers: return 's317'  # 1st fractional digit
                     case _: return 'UNDEFINED'  # Decimal must be followed by digit
 
-            case 's315':  # Float: 1 fractional digit (building)
+            case 's317':  # Float: 1 fractional digit (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's317'  # 2nd fractional digit
-                    case 'ANY': return 's316'  # nbl_delim → finalize as float_lit
-                    case _: return 'UNDEFINED'
-
-            case 's316':  # Float: 1 fractional digit (final)
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-
-            case 's317':  # Float: 2 fractional digits (building)
-                match currChar:
-                    case _ if currChar in self.numbers: return 's319'  # 3rd fractional digit
+                    case _ if currChar in self.numbers: return 's319'  # 2nd fractional digit
                     case 'ANY': return 's318'  # nbl_delim → finalize as float_lit
                     case _: return 'UNDEFINED'
 
-            case 's318':  # Float: 2 fractional digits (final)
+            case 's318':  # Float: 1 fractional digit (final) OR decimal entry from s315
+                match currChar:
+                    case _ if currChar in self.numbers: return 's319'  # Accept digit (for s315 path)
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            case 's319':  # Float: 2 fractional digits (building)
+                match currChar:
+                    case _ if currChar in self.numbers: return 's321'  # 3rd fractional digit
+                    case 'ANY': return 's320'  # nbl_delim → finalize as float_lit
+                    case _: return 'UNDEFINED'
+
+            case 's320':  # Float: 2 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -2971,24 +3048,26 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's357':  # Double: 22 fractional digits (building)
+            case 's357':  # Double: 21 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's359'  # 23rd fractional digit
+                    case _ if currChar in self.numbers: return 's359'  # 22nd fractional digit
                     case 'ANY': return 's358'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's358':  # Double: 22 fractional digits (final)
+            case 's358':  # Double: 21 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's359':  # Double: 23 fractional digits (building - maximum)
+            case 's359':  # Double: 22 fractional digits (building)
                 match currChar:
+                    case _ if currChar in self.numbers: return 's360'  # 23rd fractional digit (MAXIMUM)
                     case 'ANY': return 's360'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's360':  # Double: 23 fractional digits (final - maximum)
+            case 's360':  # Double: 23 fractional digits (final - MAXIMUM)
                 match currChar:
+                    case _ if currChar in self.numbers: return 'UNDEFINED'  # 24+ digits - will trigger error
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 

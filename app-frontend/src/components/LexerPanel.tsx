@@ -13,7 +13,6 @@ export default function LexerPanel() {
   const [errors, setErrors] = useState<LexError[]>([]);
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
-
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
@@ -25,7 +24,7 @@ export default function LexerPanel() {
 
   async function runLex() {
     setLoading(true);
-    // Keep existing tokens/errors until new results arrive for smooth highlighting
+    setErrors([]);
     try {
       const resp = await lexCode(code);
       setTokens(resp.tokens as SimpleToken[]);
@@ -40,7 +39,7 @@ export default function LexerPanel() {
 
   async function runLexWithCode(sourceCode: string) {
     setLoading(true);
-    // Don't clear errors/tokens immediately - keep old highlighting until new results arrive
+    setErrors([]);
     try {
       const resp = await lexCode(sourceCode);
       setTokens(resp.tokens as SimpleToken[]);
@@ -111,9 +110,16 @@ export default function LexerPanel() {
     return () => ta.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Build deterministic highlighting with persistent error highlighting
+  // Build deterministic non-overlapping matches using only lexeme and type.
+  // Strategy:
+  //  - Collect token lexemes and types.
+  //  - Deduplicate identical lexeme/type by counting occurrences (we allow multiple matches up to occurrence count).
+  //  - Sort lexemes by length desc to prefer longest matches first.
+  //  - Search source for each lexeme, record matches that don't overlap previous matches, stop when occurrence count reached.
+  //  - After collecting matches, sort them by start and render segments.
   function buildHighlightsFromTokens(src: string, toks: SimpleToken[], errs: LexError[]) {
     if (!src) return [{ text: "", cls: undefined }];
+    if (!toks || toks.length === 0) return [{ text: src, cls: undefined }];
 
     // Build error positions for highlighting - prioritize start_index/end_index if available
     const errorRanges: Array<{start: number, end: number}> = [];
@@ -123,7 +129,8 @@ export default function LexerPanel() {
       if (err.start_index !== undefined && err.end_index !== undefined) {
         errorRanges.push({ start: err.start_index, end: err.end_index });
       } else {
-        // Fallback to line/column calculation
+        // Fallback to line/column calculation (
+        // Calculate line start positions (line numbers are 1-indexed from backend)
         const lineStarts: number[] = [0];
         for (let i = 0; i < src.length; i++) {
           if (src[i] === '\n') {
@@ -135,55 +142,23 @@ export default function LexerPanel() {
           const lineStart = lineStarts[err.line - 1];
           const colPos = lineStart + Math.max(0, err.column - 1);
           
-          if (colPos < src.length) {
-            // Find the end of the error token
-            let endPos = colPos + 1;
-            while (endPos < src.length && 
-                   src[endPos] !== ' ' && 
-                   src[endPos] !== '\t' && 
-                   src[endPos] !== '\n' &&
-                   src[endPos] !== '\r' &&
-                   /[a-zA-Z0-9_]/.test(src[endPos])) {
-              endPos++;
-            }
-            
-            errorRanges.push({ start: colPos, end: endPos });
+          // Bounds check
+          if (colPos >= src.length) continue;
+          
+          // Find the end of the error token - look for the next whitespace or special char
+          let endPos = colPos + 1;
+          while (endPos < src.length && 
+                 src[endPos] !== ' ' && 
+                 src[endPos] !== '\t' && 
+                 src[endPos] !== '\n' &&
+                 src[endPos] !== '\r' &&
+                 /[a-zA-Z0-9_]/.test(src[endPos])) {
+            endPos++;
           }
+          
+          errorRanges.push({ start: colPos, end: endPos });
         }
       }
-    }
-
-    // Mark error positions in a boolean array for fast lookup
-    const isError: boolean[] = new Array(src.length).fill(false);
-    for (const errRange of errorRanges) {
-      for (let i = errRange.start; i < errRange.end && i < src.length; i++) {
-        isError[i] = true;
-      }
-    }
-
-    // If no tokens, just highlight errors in plain text
-    if (!toks || toks.length === 0) {
-      if (errorRanges.length === 0) {
-        return [{ text: src, cls: undefined }];
-      }
-      
-      // Build segments with error highlighting only
-      const segments: { text: string; cls?: string }[] = [];
-      let pos = 0;
-      for (const errRange of errorRanges) {
-        if (errRange.start > pos) {
-          segments.push({ text: src.slice(pos, errRange.start) });
-        }
-        segments.push({ 
-          text: src.slice(errRange.start, errRange.end), 
-          cls: 'hl-error' 
-        });
-        pos = errRange.end;
-      }
-      if (pos < src.length) {
-        segments.push({ text: src.slice(pos) });
-      }
-      return segments;
     }
 
     // Prepare token lexeme -> { type, count }
@@ -209,13 +184,13 @@ export default function LexerPanel() {
 
     const matches: Match[] = [];
 
-    // Match tokens
     for (const info of lexList) {
       const lex = info.lexeme;
       const typ = info.type;
       const maxCount = info.count;
       if (!lex) continue;
       
+      // Use literal string search for better performance and accuracy
       let searchPos = 0;
       let found = 0;
       
@@ -225,7 +200,7 @@ export default function LexerPanel() {
         
         const e = s + lex.length;
         
-        // Check overlap with existing used ranges
+        // check overlap with existing used ranges
         let overlap = false;
         for (let i = s; i < e; i++) {
           if (used[i]) {
@@ -235,15 +210,14 @@ export default function LexerPanel() {
         }
         
         if (!overlap) {
-          // Check if this token has any error positions
-          let hasError = false;
-          for (let i = s; i < e; i++) {
-            if (isError[i]) {
-              hasError = true;
-              break;
-            }
-          }
+          // Check if this token overlaps with any error range
+          const hasError = errorRanges.some(errRange => 
+            (s >= errRange.start && s < errRange.end) ||
+            (e > errRange.start && e <= errRange.end) ||
+            (s <= errRange.start && e >= errRange.end)
+          );
           
+          // accept match
           const cls = tokenClass(typ);
           matches.push({ start: s, end: e, cls, lexeme: lex, hasError });
           for (let i = s; i < e; i++) used[i] = true;
@@ -254,40 +228,34 @@ export default function LexerPanel() {
       }
     }
 
-    // CRITICAL: Add ALL error positions that aren't covered by tokens
-    // This ensures error highlighting never disappears
-    for (let i = 0; i < src.length; i++) {
-      if (isError[i] && !used[i]) {
-        // Find the continuous error range starting at i
-        const start = i;
-        let end = i + 1;
-        while (end < src.length && isError[end] && !used[end]) {
-          end++;
+    // Add error ranges that weren't covered by tokens
+    for (const errRange of errorRanges) {
+      let overlap = false;
+      for (let i = errRange.start; i < errRange.end; i++) {
+        if (used[i]) {
+          overlap = true;
+          break;
         }
-        
+      }
+      
+      if (!overlap) {
         matches.push({ 
-          start, 
-          end, 
+          start: errRange.start, 
+          end: errRange.end, 
           cls: undefined, 
-          lexeme: src.slice(start, end),
+          lexeme: src.slice(errRange.start, errRange.end),
           hasError: true 
         });
-        
-        // Mark as used
-        for (let j = start; j < end; j++) {
-          used[j] = true;
-        }
-        
-        i = end - 1; // Skip to end of error range
+        for (let i = errRange.start; i < errRange.end; i++) used[i] = true;
       }
     }
 
     if (matches.length === 0) return [{ text: src, cls: undefined }];
 
-    // Sort matches by start position
+    // Sort matches by start
     matches.sort((a, b) => a.start - b.start || b.end - a.end);
 
-    // Build segments with error highlighting
+    // Build segments: non-matching gaps + matched spans
     const segments: { text: string; cls?: string }[] = [];
     let pos = 0;
     for (const m of matches) {
