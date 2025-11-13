@@ -438,7 +438,7 @@ export default function LexerPanel() {
         {/* Right Column: Tokens Panel */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ margin: 0 }}>Tokens</h3>
+            <h3 style={{ margin: 0 }}>Lexer Table</h3>
             <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <input
                 type="checkbox"
