@@ -50,7 +50,7 @@ class Delimiters:
         # ============================================================
         # INCREMENT/DECREMENT DELIMITERS
         # ============================================================
-        # Increment/decrement can be followed by identifiers OR numeric literals
+        # Increment/decrement can be followed by identifiers OR numeric literals // PENDING CHANGE - VERIFY w/ TEAM IF WE INCLUDE NUMERIC LITERALS
         # Examples: ++x, x++, --5, 3++
         self.increment_delim = chars.alphanum + chars.whitespace + [';', ')', '/', '-', '*', '%', '(', ']', ','] + chars.newline
         self.decrement_delim = chars.alphanum + chars.whitespace + [';', ')', '/', '+', '*', '%', '(', ']', ','] + chars.newline

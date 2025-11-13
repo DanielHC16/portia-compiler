@@ -117,23 +117,6 @@ class LexicalAnalyzer:
             # Creates a token object and adds it to the tokens list
             nonlocal prev_token_type, last_binary_operator, last_binary_operator_pos, last_binary_operator_indices
             
-            # Validate postfix increment/decrement operators (e.g., y++, arr[0]--)
-            # Postfix: must follow an identifier or close_bracket
-            # Prefix (e.g., ++y, --x) will be validated by checking what follows
-            if token_type in ['increment', 'decrement']:
-                if prev_token_type in ['identifier', 'close_bracket']:
-                    # This is postfix (y++, arr[i]++) - valid position
-                    pass
-                elif prev_token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit', 
-                                        'string_lit', 'char_lit', 'bool_lit']:
-                    # Postfix on literal (2++, "hello"++) - invalid
-                    operator_name = 'increment' if token_type == 'increment' else 'decrement'
-                    add_error(f"Lexical Error: {operator_name.capitalize()} operator '{lexeme}' can only be applied to variables, not literals",
-                             start_idx, end_idx, tok_line, tok_col)
-                    return  # Don't add the token if it's invalid
-                # If prev_token_type is something else (assign, open_paren, etc.), this is likely prefix (++y)
-                # which is valid - we'll let it through
-            
             token = Token(tokenName=lexeme, tokenType=token_type, tokenLine=tok_line, tokenCol=tok_col)
             tokens.append(token)
             prev_token_type = token_type  # Update previous token type
