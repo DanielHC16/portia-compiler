@@ -222,7 +222,7 @@ class LexicalAnalyzer:
                 'equal': self.sign_delim, 'not_equal': self.sign_delim,
                 'less_than': self.asign_delim, 'greater_than': self.asign_delim,
                 'less_equal': self.asign_delim, 'greater_equal': self.asign_delim,
-                'logical_and': self.logical_op_delim, 'logical_or': self.logical_op_delim,
+                'logical_and': self.and_delim, 'logical_or': self.or_delim,
                 'logical_not': self.exclamation_delim, 'increment': self.increment_delim,
                 'decrement': self.decrement_delim, 'add_assign': self.sign_delim,
                 'minus_assign': self.sign_delim, 'mult_assign': self.sign_delim,
