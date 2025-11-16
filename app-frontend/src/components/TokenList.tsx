@@ -25,7 +25,7 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
           <table className="token-table">
             <thead>
               <tr>
-                <th className="token-type">Type</th>
+                <th className="token-type">Token</th>
                 <th className="token-lexeme">Lexeme</th>
                 <th className="token-pos">Line</th>
                 <th className="token-pos">Col</th>

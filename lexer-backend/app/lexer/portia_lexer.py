@@ -418,7 +418,7 @@ class LexicalAnalyzer:
                         col = 1
                         continue
 
-                # First, finalize any pending token (this might reset the operator flag)
+                # First, finalize any pending token 
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, '\n'):
@@ -428,7 +428,7 @@ class LexicalAnalyzer:
                     currState = 's0'
                     lexeme = ''
 
-                # NOW check if last token was a binary operator - if so, error!
+                # NOW check if last token was a binary operator - if so, error WAHAHAHAHAHA
                 if last_binary_operator is not None:
                     op_line, op_col = last_binary_operator_pos
                     op_start, op_end = last_binary_operator_indices
@@ -460,9 +460,9 @@ class LexicalAnalyzer:
                 # Long building states: s298, s300, s302, ..., s312 (even from 298-312)
                 # Float building states: s315, s317, s319, ..., s327 (odd from 315-327)
                 # Double building states: s329, s331, s333, ..., s359 (odd from 329-359)
-                is_int_building = (278 <= state_num <= 296 and state_num % 2 == 0)
-                is_long_building = (298 <= state_num <= 312 and state_num % 2 == 0)
-                is_float_building = (315 <= state_num <= 327 and state_num % 2 == 1)
+                is_int_building = (278 <= state_num <= 296 and state_num % 2 == 0) # building = even
+                is_long_building = (298 <= state_num <= 312 and state_num % 2 == 0) 
+                is_float_building = (315 <= state_num <= 327 and state_num % 2 == 1) # final = odd
                 is_double_building = (329 <= state_num <= 359 and state_num % 2 == 1)
 
                 if is_int_building or is_long_building or is_float_building or is_double_building:
@@ -855,10 +855,6 @@ class LexicalAnalyzer:
                         continue
 
             # Numeric literal digit limits are enforced by FSA states:
-            # - int_lit: 1-10 digits (s278-s297)
-            # - long_lit: 11-17 digits (s298-s313)
-            # - float_lit: 1-7 fractional digits (s314-s328)
-            # - double_lit: 8-23 fractional digits (s329-s360)
 
             # Add character to lexeme and update state
             lexeme += ch
@@ -1044,7 +1040,7 @@ class LexicalAnalyzer:
 
     def lex_transition(self, currState: str, currChar: str) -> str:
         """
-        Core FSA state machine - determines next state based on current state and character.
+       FSA state machine - determines next state based on current state and character.
 
         STRICTLY follows Transition Diagrams (TD):
         - s0: Initial/start state
