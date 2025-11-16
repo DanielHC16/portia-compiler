@@ -1040,7 +1040,7 @@ class LexicalAnalyzer:
 
     def lex_transition(self, currState: str, currChar: str) -> str:
         """
-        Core FSA state machine - determines next state based on current state and character.
+       FSA state machine - determines next state based on current state and character.
 
         STRICTLY follows Transition Diagrams (TD):
         - s0: Initial/start state
