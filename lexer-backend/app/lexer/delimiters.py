@@ -25,10 +25,10 @@ class Delimiters:
         # GROUPING SYMBOL DELIMITERS
         # ============================================================
         self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '+', '-', '/', '('] + chars.newline
-        self.open_bracket_delim = chars.alphanum + chars.whitespace + [';', '/', ',', '+', '-'] + chars.newline
+        self.open_bracket_delim = chars.alphanum + chars.whitespace + [';', '/', ',', '+', '-', ']'] + chars.newline
         self.open_curly_delim = chars.alphanum + chars.whitespace + ['{', '}', '/', '"', '(', '+', '-', '!'] + chars.newline
         self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', '{', ';', ')', '(', ':', ']', '}', '"', ','] + chars.whitespace + chars.newline
-        self.close_bracket_delim = ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', ')', ']', '}', ':', ';', ','] + chars.whitespace + chars.newline
+        self.close_bracket_delim = ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', ')', ']', '}', ':', ';', ',', '['] + chars.whitespace + chars.newline
         self.close_curly_delim = chars.whitespace + chars.newline + chars.alphabetics + [';', '}']
 
         # ============================================================
@@ -51,7 +51,7 @@ class Delimiters:
         # ============================================================
         # INCREMENT/DECREMENT DELIMITERS
         # ============================================================
-        # Increment/decrement can be followed by identifiers OR numeric literals
+        # Increment/decrement can be followed by identifiers
         # Examples: ++x, x++, --5, 3++
         self.increment_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '-', '*', '%', '(', ']', ',', '}'] + chars.newline
         self.decrement_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '+', '*', '%', '(', ']', ',', '}'] + chars.newline
