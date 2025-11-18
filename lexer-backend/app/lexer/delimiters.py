@@ -45,8 +45,8 @@ class Delimiters:
         self.exclamation_delim = chars.alphabetics + chars.whitespace + ['(', '!'] + chars.newline
         self.equal_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '"', '!'] + chars.newline
         self.asign_delim = chars.alphanum + chars.whitespace + ['('] + chars.newline
-        self.and_delim = chars.alphabetics + chars.whitespace + ['(', '!'] + chars.newline
-        self.or_delim = chars.whitespace + chars.alphanum + ['(', ')']
+        self.and_delim = chars.alphabetics + chars.whitespace + ['(', '!', None] + chars.newline
+        self.or_delim = chars.whitespace + chars.alphanum + ['(', ')', None]
 
         # ============================================================
         # INCREMENT/DECREMENT DELIMITERS

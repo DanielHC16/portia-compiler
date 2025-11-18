@@ -264,6 +264,15 @@ class LexicalAnalyzer:
             # Handle whitespace characters - they act as token terminators
             # NOTE: Do NOT treat whitespace specially while inside a string literal (s276) or character literal (s370-s372)
             if ch in self.whitespace and currState not in ['s276', 's370', 's371', 's372']:
+                # Special case: s176 (single &) and s179 (single |) are not valid - they must be && and ||
+                if currState in ['s176', 's179']:
+                    add_error(f"Lexical Error: Invalid token '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
+                    i += 1
+                    col += 1
+                    continue
+                
                 # Special case: s314 (decimal point without fractional digits) is invalid
                 if currState == 's314':
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -322,6 +331,16 @@ class LexicalAnalyzer:
             # Handle newline characters - similar to whitespace but also updates line counter
             # NOTE: Do NOT short-circuit newline inside string literal; let FSA raise an error
             if ch == '\n' and currState not in ['s276']:
+                # Special case: s176 (single &) and s179 (single |) are not valid - they must be && and ||
+                if currState in ['s176', 's179']:
+                    add_error(f"Lexical Error: Invalid token '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
+                    i += 1
+                    line += 1
+                    col = 1
+                    continue
+                
                 # Special case: s314 (decimal point without fractional digits) is invalid
                 if currState == 's314':
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -853,6 +872,9 @@ class LexicalAnalyzer:
             elif currState == 's314':
                 # Decimal point without fractional digits - invalid
                 add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+            elif currState in ['s176', 's179']:
+                # Single & or | at EOF - invalid (must be && or ||)
+                add_error(f"Lexical Error: Invalid token '{lexeme}' at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
             elif not self.is_final_state(currState):
                 # Check if we're in a non-final keyword state - finalize as identifier
                 state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
