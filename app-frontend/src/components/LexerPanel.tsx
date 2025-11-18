@@ -466,13 +466,15 @@ function tokenClass(type?: string) {
     // Loops
     "while", "do", "for",
     // Loop control
-    "break"
+    "break",
+    // Boolean literals
+    "true", "false"
   ];
   
   // Check if it's a keyword (case-insensitive comparison)
   if (keywords.includes(type.toLowerCase())) return "hl-keyword";
   
-  // Boolean literals
+  // Boolean literals (kept for backward compatibility if needed)
   if (type === "bool_lit") return "hl-keyword";
   
   // Numeric literals

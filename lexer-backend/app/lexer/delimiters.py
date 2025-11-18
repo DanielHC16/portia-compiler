@@ -72,8 +72,8 @@ class Delimiters:
         # ============================================================
         # LITERAL DELIMITERS
         # ============================================================
-        # nbl_delim: Used for numerical literals (int, long, float, double)
-        self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',','(',')', ']', '}', ':', ';'] + chars.whitespace + chars.newline
+        # nbl_delim: Used for numerical literals (int, long, float, double) and boolean literals (true, false)
+        self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',','(',')', ']', '}', ':', ';', None] + chars.whitespace + chars.newline
 
         # bool_lit_delim: Used for boolean literals
         self.bool_lit_delim = ['=', '!', '&', '|', ',', ')', '}', ':', ';'] + chars.whitespace

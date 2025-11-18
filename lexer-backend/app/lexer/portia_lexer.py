@@ -153,10 +153,11 @@ class LexicalAnalyzer:
             special_delimiters = {
                 'break': [';', ' ', '\t', '\n', '/'],
                 'case': [' ', '\t', '\n', '/', '('],
-                'default': [':', ' ', '\t', '\n', '/'],
+                'default': [':'],
                 'main': ['('], 'trap': ['('], 'thread': ['('], 'threadln': ['('],
                 'return': [';', ' ', '\t', '\n', '/'],
-                'bool_lit': self.nbl_delim,
+                'false': self.nbl_delim,
+                'true': self.nbl_delim,
             }
             if token_type in special_delimiters:
                 return next_char in special_delimiters[token_type]
@@ -900,12 +901,12 @@ class LexicalAnalyzer:
         keyword_states = {
             's5': 'bool', 's10': 'break', 's15': 'case', 's19': 'char', 's24': 'const',
             's32': 'default', 's34': 'do', 's39': 'double', 's44': 'else',
-            's50': 'bool_lit',  # false
+            's50': 'false',
             's55': 'float', 's58': 'for', 's62': 'func', 's69': 'global',
             's72': 'if', 's75': 'int', 's81': 'local', 's84': 'long', 's89': 'main',
             's96': 'return', 's103': 'string', 's109': 'switch',
             's116': 'thread', 's119': 'threadln', 's123': 'trap',
-            's126': 'bool_lit',  # true
+            's126': 'true',
             's132': 'using', 's136': 'var', 's140': 'void', 's146': 'weave', 's151': 'while',
         }
 
