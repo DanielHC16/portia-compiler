@@ -156,8 +156,8 @@ class LexicalAnalyzer:
                 'default': [':'],
                 'main': ['('], 'trap': ['('], 'thread': ['('], 'threadln': ['('],
                 'return': [';', ' ', '\t', '\n', '/'],
-                'false': self.nbl_delim,
-                'true': self.nbl_delim,
+                'false': self.bool_lit_delim,
+                'true': self.bool_lit_delim,
             }
             if token_type in special_delimiters:
                 return next_char in special_delimiters[token_type]
