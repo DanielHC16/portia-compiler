@@ -121,37 +121,6 @@ class LexicalAnalyzer:
             tokens.append(token)
             prev_token_type = token_type  # Update previous token type
 
-            # Track binary operators AND assignment operators to validate they're not followed by newlines
-            # Special handling for subtract: only track as binary if it appears after an operand
-            # (unary minus appears after operators/delimiters and doesn't need newline validation)
-            binary_ops = ['add', 'multiply', 'divide', 'modulo',
-                         'equal_equal', 'not_equal', 'less_than', 'greater_than',
-                         'less_equal', 'greater_equal', 'logical_and', 'logical_or',
-                         'concat']
-            
-            # Assignment operators must also be tracked - they cannot span lines
-            assignment_ops = ['assign', 'add_assign', 'minus_assign', 'mult_assign',
-                            'div_assign', 'modulo_assign']
-            
-            # Determine if subtract is binary or unary based on context
-            is_binary_subtract = (token_type == 'subtract' and 
-                             prev_token_type in ['identifier', 'int_lit', 'long_lit', 'float_lit', 'double_lit',
-                                                'string_lit', 'char_lit', 'bool_lit', 'close_paren', 'close_bracket',
-                                                'close_curly', 'increment', 'decrement'])
-            
-            if token_type in binary_ops or token_type in assignment_ops or is_binary_subtract:
-                last_binary_operator = lexeme
-                last_binary_operator_pos = (tok_line, tok_col)
-                last_binary_operator_indices = (start_idx, end_idx)
-            elif token_type in ['identifier', 'int_lit', 'long_lit', 'float_lit', 'double_lit',
-                               'string_lit', 'char_lit', 'bool_lit', 'close_paren', 'close_bracket',
-                               'close_curly', 'increment', 'decrement']:
-                # Reset when we see an operand (identifier, literal, or closing delimiter)
-                # These indicate a complete expression, so any previous operator is satisfied
-                last_binary_operator = None
-                last_binary_operator_pos = None
-                last_binary_operator_indices = None
-
         def add_error(message: str, start_idx: int, end_idx: int, err_line: int, err_col: int):
             # Creates an error object with position information and adds it to errors list
             errors.append({
@@ -168,15 +137,6 @@ class LexicalAnalyzer:
             if next_char is None:
                 must_have_delimiter = ['break', 'return', 'main', 'trap', 'thread', 'threadln', 'default']
                 return token_type not in must_have_delimiter
-
-            # Binary operators (excluding assignment) cannot be followed by newlines
-            # Assignment operators are tracked separately via last_binary_operator
-            binary_operators = ['add', 'subtract', 'multiply', 'divide', 'modulo',
-                               'equal_equal', 'not_equal', 'less_than', 'greater_than',
-                               'less_equal', 'greater_equal', 'logical_and', 'logical_or',
-                               'concat']
-            if token_type in binary_operators and (next_char is None or next_char == '\n'):
-                return False
 
             whitespace_keywords = ['bool', 'char', 'const', 'double', 'float', 'func',
                                    'global', 'int', 'local', 'long', 'string', 'using',
@@ -427,20 +387,6 @@ class LexicalAnalyzer:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
-
-                # NOW check if last token was a binary operator - if so, error WAHAHAHAHAHA
-                if last_binary_operator is not None:
-                    op_line, op_col = last_binary_operator_pos
-                    op_start, op_end = last_binary_operator_indices
-                    add_error(f"Lexical Error: Binary operator '{last_binary_operator}' cannot be followed by newline",
-                             op_start, op_end, op_line, op_col)
-                    # Remove the invalid operator token from the token list
-                    # The last token should be the operator that we just flagged
-                    if tokens and tokens[-1].tokenName == last_binary_operator:
-                        tokens.pop()
-                    last_binary_operator = None
-                    last_binary_operator_pos = None
-                    last_binary_operator_indices = None
 
                 i += 1
                 line += 1
