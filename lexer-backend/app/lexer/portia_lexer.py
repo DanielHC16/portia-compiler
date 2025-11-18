@@ -400,14 +400,42 @@ class LexicalAnalyzer:
             # check if current character is a valid delimiter. If so, use 'ANY' to transition to final state
             if nextState == 'UNDEFINED' and currState != 's0':
                 state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
+                
+                # First check if this is a numeric overflow (seeing digit at max length)
+                # s296 = 10-digit int, s315 = 19-digit long, s328 = 7-digit float, s359 = 22-digit double
+                if (state_num == 315 or state_num == 296 or state_num == 328 or state_num == 359) and ch in self.numbers:
+                    # Number exceeds maximum length - consume all remaining digits
+                    lexeme += ch
+                    i += 1
+                    col += 1
+                    while i < len(code) and code[i] in self.numbers:
+                        lexeme += code[i]
+                        i += 1
+                        col += 1
+                    
+                    # Determine the type of number that was too long
+                    if state_num == 296 or state_num == 315:
+                        add_error(f"Lexical Error: Integer literal '{lexeme}' exceeds maximum length of 19 digits", 
+                                lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    elif state_num == 328:
+                        add_error(f"Lexical Error: Float literal '{lexeme}' exceeds maximum of 7 fractional digits", 
+                                lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    else:  # state_num == 359
+                        add_error(f"Lexical Error: Double literal '{lexeme}' exceeds maximum of 23 fractional digits", 
+                                lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    
+                    currState = 's0'
+                    lexeme = ''
+                    continue
+                
                 # Check if we're in a numerical building state
                 # Integer building states: s278, s280, s282, ..., s296 (even from 278-296)
-                # Long building states: s298, s300, s302, ..., s312 (even from 298-312)
-                # Float building states: s315, s317, s319, ..., s327 (odd from 315-327)
+                # Long building states: s298, s300, s302, ..., s312, s315 (even from 298-312, plus s315)
+                # Float building states: s317, s319, s321, ..., s327 (odd from 317-327)
                 # Double building states: s329, s331, s333, ..., s359 (odd from 329-359)
                 is_int_building = (278 <= state_num <= 296 and state_num % 2 == 0) # building = even
-                is_long_building = (298 <= state_num <= 312 and state_num % 2 == 0) 
-                is_float_building = (315 <= state_num <= 327 and state_num % 2 == 1) # final = odd
+                is_long_building = ((298 <= state_num <= 312 and state_num % 2 == 0) or state_num == 315) 
+                is_float_building = (317 <= state_num <= 327 and state_num % 2 == 1)
                 is_double_building = (329 <= state_num <= 359 and state_num % 2 == 1)
 
                 if is_int_building or is_long_building or is_float_building or is_double_building:
@@ -584,40 +612,9 @@ class LexicalAnalyzer:
                     # Decimal point without fractional digits - invalid
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 else:
-                    # Special case: numeric literal exceeds maximum length
-                    # Check if we're in a numeric state and hit a digit (number too long)
-                    state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
-                    
-                    # s296 = 10-digit int (final), s315 = 19-digit long (building - max)
-                    # s328 = 7-digit float (final - max), s359 = 22-digit double (building)
-                    # Note: s360 (23-digit double final) rejects 24th digit via UNDEFINED, not this check
-                    if (state_num == 315 or state_num == 296 or state_num == 328 or state_num == 359) and ch in self.numbers:
-                        # Number exceeds maximum length - consume all remaining digits
-                        lexeme += ch
-                        i += 1
-                        col += 1
-                        while i < len(code) and code[i] in self.numbers:
-                            lexeme += code[i]
-                            i += 1
-                            col += 1
-                        
-                        # Determine the type of number that was too long
-                        if state_num == 296 or state_num == 315:
-                            add_error(f"Lexical Error: Integer literal '{lexeme}' exceeds maximum length of 19 digits", 
-                                    lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                        elif state_num == 328:
-                            add_error(f"Lexical Error: Float literal '{lexeme}' exceeds maximum of 7 fractional digits", 
-                                    lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                        else:  # state_num == 359
-                            add_error(f"Lexical Error: Double literal '{lexeme}' exceeds maximum of 23 fractional digits", 
-                                    lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                        
-                        currState = 's0'
-                        lexeme = ''
-                        continue
-                    
                     # Special case: keyword state followed by identifier character - continue as identifier
                     # This handles cases like 'boolx' (at s1, s2, s3, etc.) or 'breakpoint' (at s9)
+                    state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151 and (ch in self.alphanum or ch == '_'):
                         # Continue building as identifier - transition to s220
                         lexeme += ch
