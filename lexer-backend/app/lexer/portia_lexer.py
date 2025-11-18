@@ -151,7 +151,7 @@ class LexicalAnalyzer:
                 return next_char in self.block_delim
 
             special_delimiters = {
-                'break': [';', ' ', '\t', '\n', '/'],
+                'break': [';'],
                 'case': [' ', '\t', '\n', '/', '('],
                 'default': [':'],
                 'main': ['('], 'trap': ['('], 'thread': ['('], 'threadln': ['('],
