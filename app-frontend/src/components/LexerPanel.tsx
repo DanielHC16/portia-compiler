@@ -119,7 +119,14 @@ export default function LexerPanel() {
   //  - After collecting matches, sort them by start and render segments.
   function buildHighlightsFromTokens(src: string, toks: SimpleToken[], errs: LexError[]) {
     if (!src) return [{ text: "", cls: undefined }];
-    if (!toks || toks.length === 0) return [{ text: src, cls: undefined }];
+
+    // Calculate character positions from line/column for tokens
+    const lineStarts: number[] = [0];
+    for (let i = 0; i < src.length; i++) {
+      if (src[i] === '\n') {
+        lineStarts.push(i + 1);
+      }
+    }
 
     // Build error positions for highlighting - prioritize start_index/end_index if available
     const errorRanges: Array<{start: number, end: number}> = [];
@@ -129,15 +136,7 @@ export default function LexerPanel() {
       if (err.start_index !== undefined && err.end_index !== undefined) {
         errorRanges.push({ start: err.start_index, end: err.end_index });
       } else {
-        // Fallback to line/column calculation (
-        // Calculate line start positions (line numbers are 1-indexed from backend)
-        const lineStarts: number[] = [0];
-        for (let i = 0; i < src.length; i++) {
-          if (src[i] === '\n') {
-            lineStarts.push(i + 1);
-          }
-        }
-        
+        // Fallback to line/column calculation
         if (err.line > 0 && err.line <= lineStarts.length) {
           const lineStart = lineStarts[err.line - 1];
           const colPos = lineStart + Math.max(0, err.column - 1);
@@ -161,22 +160,6 @@ export default function LexerPanel() {
       }
     }
 
-    // Prepare token lexeme -> { type, count }
-    type LexInfo = { lexeme: string; type: string; count: number };
-    const map = new Map<string, LexInfo>();
-
-    for (const t of toks) {
-      const lex = t.lexeme ?? "";
-      if (!lex) continue;
-      const key = `${lex}\u0000${t.type ?? "UNKNOWN"}`;
-      const existing = map.get(key);
-      if (existing) existing.count += 1;
-      else map.set(key, { lexeme: lex, type: t.type ?? "UNKNOWN", count: 1 });
-    }
-
-    // Convert map to array and sort by lexeme length desc (longer first)
-    const lexList = Array.from(map.values()).sort((a, b) => b.lexeme.length - a.lexeme.length);
-
     // Track used ranges
     const used: boolean[] = new Array(src.length).fill(false);
 
@@ -184,47 +167,45 @@ export default function LexerPanel() {
 
     const matches: Match[] = [];
 
-    for (const info of lexList) {
-      const lex = info.lexeme;
-      const typ = info.type;
-      const maxCount = info.count;
-      if (!lex) continue;
-      
-      // Use literal string search for better performance and accuracy
-      let searchPos = 0;
-      let found = 0;
-      
-      while (searchPos < src.length && found < maxCount) {
-        const s = src.indexOf(lex, searchPos);
-        if (s === -1) break;
+    // Add tokens using their line/column positions
+    if (toks && toks.length > 0) {
+      for (const tok of toks) {
+        if (!tok.lexeme || tok.line === undefined || tok.column === undefined) continue;
         
-        const e = s + lex.length;
-        
-        // check overlap with existing used ranges
-        let overlap = false;
-        for (let i = s; i < e; i++) {
-          if (used[i]) {
-            overlap = true;
-            break;
+        // Calculate character position from line/column
+        if (tok.line > 0 && tok.line <= lineStarts.length) {
+          const lineStart = lineStarts[tok.line - 1];
+          const start = lineStart + Math.max(0, tok.column - 1);
+          const end = start + tok.lexeme.length;
+          
+          // Bounds check
+          if (start >= src.length || end > src.length) continue;
+          
+          // Verify the lexeme actually matches at this position
+          if (src.slice(start, end) !== tok.lexeme) continue;
+          
+          // Check for overlap
+          let overlap = false;
+          for (let i = start; i < end; i++) {
+            if (used[i]) {
+              overlap = true;
+              break;
+            }
+          }
+          
+          if (!overlap) {
+            // Check if this token overlaps with any error range
+            const hasError = errorRanges.some(errRange => 
+              (start >= errRange.start && start < errRange.end) ||
+              (end > errRange.start && end <= errRange.end) ||
+              (start <= errRange.start && end >= errRange.end)
+            );
+            
+            const cls = tokenClass(tok.type);
+            matches.push({ start, end, cls, lexeme: tok.lexeme, hasError });
+            for (let i = start; i < end; i++) used[i] = true;
           }
         }
-        
-        if (!overlap) {
-          // Check if this token overlaps with any error range
-          const hasError = errorRanges.some(errRange => 
-            (s >= errRange.start && s < errRange.end) ||
-            (e > errRange.start && e <= errRange.end) ||
-            (s <= errRange.start && e >= errRange.end)
-          );
-          
-          // accept match
-          const cls = tokenClass(typ);
-          matches.push({ start: s, end: e, cls, lexeme: lex, hasError });
-          for (let i = s; i < e; i++) used[i] = true;
-          found += 1;
-        }
-        
-        searchPos = s + 1;
       }
     }
 
@@ -485,13 +466,15 @@ function tokenClass(type?: string) {
     // Loops
     "while", "do", "for",
     // Loop control
-    "break"
+    "break",
+    // Boolean literals
+    "true", "false"
   ];
   
   // Check if it's a keyword (case-insensitive comparison)
   if (keywords.includes(type.toLowerCase())) return "hl-keyword";
   
-  // Boolean literals
+  // Boolean literals (kept for backward compatibility if needed)
   if (type === "bool_lit") return "hl-keyword";
   
   // Numeric literals

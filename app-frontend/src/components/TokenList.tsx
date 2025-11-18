@@ -25,8 +25,8 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
           <table className="token-table">
             <thead>
               <tr>
-                <th className="token-type">Token</th>
                 <th className="token-lexeme">Lexeme</th>
+                <th className="token-type">Token</th>
                 <th className="token-pos">Line</th>
                 <th className="token-pos">Col</th>
               </tr>
@@ -34,8 +34,8 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
             <tbody>
               {visible.map((t, i) => (
                 <tr key={i}>
-                  <td className="token-type">{t.type}</td>
                   <td className="token-lexeme">{t.lexeme}</td>
+                  <td className="token-type">{t.type}</td>
                   <td className="token-pos">{t.line}</td>
                   <td className="token-pos">{t.column}</td>
                 </tr>
