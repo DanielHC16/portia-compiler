@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Error Highlighting</title>
+    <style>
+        .hl-error { 
+            background-color: rgba(255, 0, 0, 0.3); 
+            border-bottom: 2px solid red;
+        }
+        pre {
+            font-family: monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Test Case: '++++ '</h2>
+    <p>Expected: First two '+' characters should be highlighted in red</p>
+    <p>Error range: start_index=0, end_index=2</p>
+    
+    <h3>Test 1: Direct slice</h3>
+    <pre id="test1"></pre>
+    
+    <h3>Test 2: Character by character</h3>
+    <pre id="test2"></pre>
+
+    <script>
+        const code = '++++ ';
+        const errorRange = { start: 0, end: 2 };
+        
+        // Test 1: Using slice (like the frontend does)
+        const errorText = code.slice(errorRange.start, errorRange.end);
+        console.log('Error text from slice:', JSON.stringify(errorText), 'length:', errorText.length);
+        
+        const html1 = `<span class="hl-error">${errorText}</span>${code.slice(errorRange.end)}`;
+        document.getElementById('test1').innerHTML = html1;
+        
+        // Test 2: Character by character to verify range
+        let html2 = '';
+        for (let i = 0; i < code.length; i++) {
+            if (i >= errorRange.start && i < errorRange.end) {
+                html2 += `<span class="hl-error">${code[i]}</span>`;
+            } else {
+                html2 += code[i];
+            }
+        }
+        document.getElementById('test2').innerHTML = html2;
+        
+        console.log('Code:', JSON.stringify(code));
+        console.log('Error range:', errorRange);
+        console.log('Characters in range:');
+        for (let i = errorRange.start; i < errorRange.end; i++) {
+            console.log(`  [${i}]: '${code[i]}'`);
+        }
+    </script>
+</body>
+</html>
