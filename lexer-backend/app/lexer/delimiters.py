@@ -29,7 +29,7 @@ class Delimiters:
         self.open_curly_delim = chars.alphanum + chars.whitespace + ['{', '}', '"', '(', '+', '-', '!'] + chars.newline
         self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', '{', ';', ')', '(', ':', ']', '}', '"', ','] + chars.whitespace + chars.newline
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', ')', ']', '}', ':', ';', ',', '['] + chars.whitespace + chars.newline
-        self.close_curly_delim = chars.whitespace + chars.newline + chars.alphabetics + [';', '}']
+        self.close_curly_delim = chars.whitespace + chars.newline + chars.alphabetics + [';', '}', ","]
 
         # ============================================================
         # PUNCTUATION DELIMITERS
