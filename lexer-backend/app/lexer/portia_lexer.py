@@ -228,15 +228,13 @@ class LexicalAnalyzer:
                     continue
 
                 # Multi-line comment ends at */ (s275 is final per TD)
-                if nextState == 's275' or currState == 's274':
-                    # Add the closing / to lexeme and finalize multi-line comment token
-                    lexeme += ch
+                if currState == 's274':
+                    # We're at s274 (after */), don't consume next character - it's the delimiter
                     token_type = self.get_token_type('s275', lexeme)
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
-                    i += 1
-                    col += 1
+                    # Don't increment i - reprocess this character
                     continue
 
                 # Continue processing comment - build lexeme for highlighting
