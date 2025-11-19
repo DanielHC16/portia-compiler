@@ -1,5 +1,5 @@
 // src/components/LexerPanel.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { lexCode, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
 
@@ -13,6 +13,9 @@ export default function LexerPanel() {
   const [errors, setErrors] = useState<LexError[]>([]);
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
+  const [autoLexDisabled, setAutoLexDisabled] = useState(false);
+  const [lexTime, setLexTime] = useState<number | null>(null);
+  const [highlightTime, setHighlightTime] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
@@ -22,40 +25,90 @@ export default function LexerPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<number | null>(null);
+  const pendingScrollRef = useRef<number | null>(null);
+  const highlightStartRef = useRef<number | null>(null);
+
   async function runLex() {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const start = performance.now();
     setLoading(true);
     setErrors([]);
     try {
-      const resp = await lexCode(code);
+      const resp = await lexCode(code, { signal: controller.signal });
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
+      setLexTime(performance.now() - start);
     } catch (err: any) {
+      if (err?.name === 'AbortError') return; 
       setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
       setTokens([]);
+      setLexTime(null);
     } finally {
       setLoading(false);
     }
   }
 
   async function runLexWithCode(sourceCode: string) {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const start = performance.now();
     setLoading(true);
     setErrors([]);
     try {
-      const resp = await lexCode(sourceCode);
+      const resp = await lexCode(sourceCode, { signal: controller.signal });
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
+      setLexTime(performance.now() - start);
     } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
       setTokens([]);
+      setLexTime(null);
     } finally {
       setLoading(false);
     }
   }
 
+  const LINE_DISABLE_THRESHOLD = 80; // disable auto lex at or above this line count
+
   function handleCodeChange(newCode: string) {
+    const ta = textareaRef.current;
+    const prevScroll = ta ? ta.scrollTop : 0;
+    pendingScrollRef.current = prevScroll;
     setCode(newCode);
-    runLexWithCode(newCode);
+    // Disable auto lex for large line counts; manual run required
+    const lineCount = newCode.split('\n').length;
+    if (lineCount >= LINE_DISABLE_THRESHOLD) {
+      setAutoLexDisabled(true);
+      return;
+    } else if (autoLexDisabled && lineCount < LINE_DISABLE_THRESHOLD) {
+      // Re-enable if user shrinks code
+      setAutoLexDisabled(false);
+    }
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      runLexWithCode(newCode);
+    }, 350);
   }
+
+  // Use layout effect to restore scroll before paint to prevent visible jump
+  useLayoutEffect(() => {
+    if (pendingScrollRef.current !== null) {
+      const ta = textareaRef.current;
+      const pre = preRef.current;
+      const lines = lineNumbersRef.current;
+      if (ta) ta.scrollTop = pendingScrollRef.current;
+      if (pre) pre.scrollTop = pendingScrollRef.current;
+      if (lines) lines.scrollTop = pendingScrollRef.current;
+      pendingScrollRef.current = null;
+    }
+  }, [code]);
+  
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     const textarea = e.currentTarget;
@@ -110,13 +163,7 @@ export default function LexerPanel() {
     return () => ta.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Build deterministic non-overlapping matches using only lexeme and type.
-  // Strategy:
-  //  - Collect token lexemes and types.
-  //  - Deduplicate identical lexeme/type by counting occurrences (we allow multiple matches up to occurrence count).
-  //  - Sort lexemes by length desc to prefer longest matches first.
-  //  - Search source for each lexeme, record matches that don't overlap previous matches, stop when occurrence count reached.
-  //  - After collecting matches, sort them by start and render segments.
+  // Build highlight segments from tokens + errors (line/column -> char positions)
   function buildHighlightsFromTokens(src: string, toks: SimpleToken[], errs: LexError[]) {
     if (!src) return [{ text: "", cls: undefined }];
 
@@ -249,8 +296,28 @@ export default function LexerPanel() {
     return segments;
   }
 
-  const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
-  const highlightedHTML = rawSegments.map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text)).join("");
+  const [highlightedHTML, setHighlightedHTML] = useState<string>("");
+
+  useEffect(() => {
+    let active = true;
+    highlightStartRef.current = performance.now();
+    const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
+    const html = rawSegments.map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text)).join("");
+    // Schedule highlight application on idle or next frame to reduce jank
+    const apply = () => {
+      if (!active) return;
+      setHighlightedHTML(html);
+      if (highlightStartRef.current !== null) {
+        setHighlightTime(performance.now() - highlightStartRef.current);
+      }
+    };
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(apply, { timeout: 100 });
+    } else {
+      requestAnimationFrame(apply);
+    }
+    return () => { active = false; };
+  }, [code, tokens, errors]);
   
   // Calculate line numbers - ensure we count correctly even without trailing newline
   const lines = code.split('\n');
@@ -262,10 +329,13 @@ export default function LexerPanel() {
       {/* Header with actions */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <h2 style={{ margin: 0 }}>Lexical Analyzer</h2>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: 'center' }}>
           <button className="btn" onClick={runLex} disabled={loading}>
             {loading ? "Lexing..." : "Run Lexer"}
           </button>
+          {autoLexDisabled && (
+            <button className="btn warning" onClick={() => { setAutoLexDisabled(false); runLex(); }} title="Re-enable auto lexing (currently disabled due to line count)">Enable Auto</button>
+          )}
           <button
             className="btn ghost"
             onClick={async () => {
@@ -278,6 +348,10 @@ export default function LexerPanel() {
           >
             Reset
           </button>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column' }}>
+            <span>Lex: {lexTime !== null ? `${lexTime.toFixed(1)}ms` : '--'}</span>
+            <span>HL: {highlightTime !== null ? `${highlightTime.toFixed(1)}ms` : '--'}</span>
+          </div>
         </div>
       </div>
 
@@ -289,6 +363,11 @@ export default function LexerPanel() {
           <div className="panel" style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
             <h3 style={{ marginTop: 0, marginBottom: 8 }}>Source Code</h3>
             <div style={{ position: "relative", flex: "1 1 auto", minHeight: 300, display: "flex" }}>
+              {autoLexDisabled && (
+                <div style={{ position: 'absolute', top: 8, right: 8, left: 60, zIndex: 2, background: 'var(--warn-bg, #442)', color: 'var(--warn-text, #f7d774)', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12 }}>
+                  Auto lex disabled (≥ {LINE_DISABLE_THRESHOLD} lines). Use "Run Lexer" manually or reduce lines below {LINE_DISABLE_THRESHOLD}.
+                </div>
+              )}
               {/* Line Numbers */}
               <div
                 ref={lineNumbersRef}

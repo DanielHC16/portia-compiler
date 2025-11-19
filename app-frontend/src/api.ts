@@ -12,11 +12,12 @@ const LEXER_URL = import.meta.env.VITE_LEXER_BACKEND_URL ?? "http://localhost:80
 const PARSER_URL = import.meta.env.VITE_PARSER_BACKEND_URL ?? "http://localhost:8001";
 const SEMANTIC_URL = import.meta.env.VITE_SEMANTIC_BACKEND_URL ?? "http://localhost:8002";
 
-async function postJSON(url: string, body: any) {
+async function postJSON(url: string, body: any, opts?: { signal?: AbortSignal }) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: opts?.signal
   });
   if (!res.ok) {
     const text = await res.text();
@@ -25,8 +26,8 @@ async function postJSON(url: string, body: any) {
   return res.json();
 }
 
-export async function lexCode(code: string): Promise<{ tokens: Token[]; errors: LexError[] }> {
-  const response = await postJSON(`${LEXER_URL}/lex`, { code });
+export async function lexCode(code: string, opts?: { signal?: AbortSignal }): Promise<{ tokens: Token[]; errors: LexError[] }> {
+  const response = await postJSON(`${LEXER_URL}/lex`, { code }, opts);
   
   // Map backend field names to frontend field names
   const mappedTokens = response.tokens.map((token: any) => ({
@@ -42,18 +43,18 @@ export async function lexCode(code: string): Promise<{ tokens: Token[]; errors: 
   };
 }
 
-export async function parseSource(source: string) {
-  return postJSON(`${PARSER_URL}/parse/source`, { source });
+export async function parseSource(source: string, opts?: { signal?: AbortSignal }) {
+  return postJSON(`${PARSER_URL}/parse/source`, { source }, opts);
 }
 
-export async function parseTokens(tokens: Token[], source?: string) {
-  return postJSON(`${PARSER_URL}/parse`, { tokens, source });
+export async function parseTokens(tokens: Token[], source?: string, opts?: { signal?: AbortSignal }) {
+  return postJSON(`${PARSER_URL}/parse`, { tokens, source }, opts);
 }
 
-export async function analyzeTokens(tokens: Token[]) {
-  return postJSON(`${SEMANTIC_URL}/analyze`, { tokens });
+export async function analyzeTokens(tokens: Token[], opts?: { signal?: AbortSignal }) {
+  return postJSON(`${SEMANTIC_URL}/analyze`, { tokens }, opts);
 }
 
-export async function analyzeAst(ast: any) {
-  return postJSON(`${SEMANTIC_URL}/analyze/ast`, { ast });
+export async function analyzeAst(ast: any, opts?: { signal?: AbortSignal }) {
+  return postJSON(`${SEMANTIC_URL}/analyze/ast`, { ast }, opts);
 }

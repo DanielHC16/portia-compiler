@@ -32,17 +32,7 @@ export default function SemanticTBA() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <h2 style={{ margin: 0 }}>Semantic Analyzer</h2>
-        <span style={{ 
-          fontSize: 12, 
-          color: "var(--text-muted)", 
-          fontStyle: "italic",
-          padding: "4px 8px",
-          background: "var(--bg-secondary)",
-          borderRadius: 4,
-          border: "1px solid var(--border)"
-        }}>
-          TBA
-        </span>
+        <span style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>Preview</span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button className="btn" onClick={runAnalyze} disabled={loading}>
             {loading ? "Analyzing..." : "Run Analyzer"}
