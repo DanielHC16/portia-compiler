@@ -348,10 +348,7 @@ export default function LexerPanel() {
           >
             Reset
           </button>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column' }}>
-            <span>Lex: {lexTime !== null ? `${lexTime.toFixed(1)}ms` : '--'}</span>
-            <span>HL: {highlightTime !== null ? `${highlightTime.toFixed(1)}ms` : '--'}</span>
-          </div>
+          {/* Performance metrics hidden per request */}
         </div>
       </div>
 
