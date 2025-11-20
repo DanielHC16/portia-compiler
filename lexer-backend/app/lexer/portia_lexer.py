@@ -132,9 +132,15 @@ class LexicalAnalyzer:
             # Uses delimiter definitions from delimiters.py
             # For strict delimiter enforcement, EOF (None) must be explicitly in delimiter set
             
+            # Keywords that require whitespace delimiter (default behavior)
             whitespace_keywords = ['bool', 'char', 'const', 'double', 'float', 'func',
                                    'global', 'int', 'local', 'long', 'string', 'using',
                                    'var', 'void', 'weave']
+            # Castable data types (exclude 'void') use dtype_delim which allows immediate ')'
+            # Castable primitive data types (exclude 'void' and 'weave')
+            dtype_keywords = ['bool', 'char', 'double', 'float', 'int', 'long', 'string']
+            if token_type in dtype_keywords:
+                return next_char in self.dtype_delim
             if token_type in whitespace_keywords:
                 return next_char in self.whitespace_delim
 

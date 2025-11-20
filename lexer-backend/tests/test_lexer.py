@@ -105,6 +105,25 @@ class TestPortiaLexer(unittest.TestCase):
         self.assertEqual(toks, [])
         self.assertTrue(any("Token '\'a\'' not properly delimited" in e['message'] for e in errs))
 
+    # Casting delimiters
+    def test_cast_float(self):
+        toks, errs = self.tokens("(float)x;\n")
+        self.assertEqual([t[1] for t in toks], ['open_paren', 'float', 'close_paren', 'identifier', 'semicolon'])
+        self.assertEqual(errs, [])
+
+    def test_cast_void_invalid(self):
+        toks, errs = self.tokens("(void)x;\n")
+        # void should not allow immediate ')' delimiter for casting
+        self.assertTrue(any('void' in e['message'] for e in errs))
+        # Ensure '(' token recognized then error occurs before others maybe
+        self.assertTrue(any(t[1] == 'open_paren' for t in toks))
+
+    def test_cast_weave_invalid(self):
+        toks, errs = self.tokens("(weave)x;\n")
+        # weave should behave like a keyword requiring whitespace, so ')' triggers delimiter error
+        self.assertTrue(any('weave' in e['message'] for e in errs))
+        self.assertTrue(any(t[1] == 'open_paren' for t in toks))
+
 
 if __name__ == '__main__':
     unittest.main()

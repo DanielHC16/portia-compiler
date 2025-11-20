@@ -91,6 +91,10 @@ class Delimiters:
         # ============================================================
         self.slash_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
         self.whitespace_delim = chars.whitespace + chars.newline + ['/']
+        # Data type casting delimiter: allows ')' immediately after castable primitive type keyword
+        # Patterns: (int)x; (float)identifier  -- NO whitespace required between type and ')'
+        # Excludes 'void' and 'weave' (not valid cast targets)
+        self.dtype_delim = chars.whitespace + chars.newline + [')']
         
         # ============================================================
         # ESCAPE SEQUENCE & COMMENT DELIMITERS
