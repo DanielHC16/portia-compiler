@@ -1,26 +1,29 @@
-# PORTIA Lexer Character Class Definitions
-# Defines character sets used for pattern matching in the FSA state machine
+# Character class definitions for the PORTIA lexer.
+# Centralize all low-level character categories used by the FSA.
+# Lists are plain containers; no mutation occurs at runtime.
+# Carriage returns are normalized before scanning.
 
 class CharacterClasses:
-    # Character class definitions used by the lexer for pattern matching
-    # These are used in lex_transition() to match characters to states
+    # Namespace container for character category lists.
+    # The lexer copies these onto its own instance for direct attribute access.
+    # No mutation should occur at runtime.
 
-    # Basic character sets - alphabetic
+    # Alphabetic characters (A–Z a–z)
     alphabetics = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
-    # Basic character sets - numeric
+    # Decimal digits
     numbers = list('0123456789')
 
-    # Basic character sets - alphanumeric
+    # Alphanumeric = letters + digits
     alphanum = alphabetics + numbers
 
-    # Whitespace characters
+    # Horizontal whitespace considered generic separators
     whitespace = [' ', '\t']
     newline = ['\n']
 
-    # ASCII printable characters
+    # Printable ASCII subset (used for escape / comment permissive matching)
     ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
 
-    # Logical operators (used for lookahead in lexer)
+    # Logical operator leading characters (for lookahead)
     logical_op = ['!', '&', '|']
 

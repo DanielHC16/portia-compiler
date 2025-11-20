@@ -179,6 +179,33 @@ The 374 states are organized into logical categories:
 │ s370-s373  │ 4            │ Character Literals 'c'         │
 │            │              │ • Supports escape sequences    │
 └────────────┴──────────────┴────────────────────────────────┘
+
+### Casting Delimiter Mechanism
+
+Primitive type keywords used inside parentheses for casting have a specialized delimiter pathway enabling immediate closure `)` without intervening whitespace. The lexer distinguishes these via a dedicated delimiter set (`dtype_delim`) consulted in `check_delimiter()`.
+
+Primitive types supporting immediate `)`:
+`bool, char, double, float, int, long, string`
+
+Types disallowing immediate `)` (must have whitespace before `)`):
+`void, weave`
+
+Flow excerpt (simplified):
+```
+( int ) x
+   │ │ │
+   │ │ └─► after ')' normal delimiter validation continues
+   │ └─► 'int' final state → check_delimiter('int', ')') → True via dtype_delim
+   └─► '(' token already finalized
+```
+
+Invalid example:
+```
+(void)x
+            ^ error: 'void' not properly delimited (')' not in whitespace_delim for void)
+```
+
+Rationale: Separating casting closure logic prevents false delimiter errors for canonical casts while preserving strictness for non-castable or meta types.
 ```
 
 ---

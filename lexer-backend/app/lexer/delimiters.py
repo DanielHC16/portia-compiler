@@ -1,29 +1,28 @@
-# PORTIA Lexer Delimiter Definitions
-# Defines valid characters that can follow each token type
-# Used for delimiter validation to ensure tokens are properly separated
+# Delimiter sets for the PORTIA lexer.
+# Each attribute lists characters (and sometimes None for EOF) that may follow
+# a recognized token. Validation occurs after a token reaches a final state.
+#   Design notes:
+# Whitespace/newline often appended for simplicity.
+# Operators may allow opening delimiters or more operators.
+# Casting delimiter (dtype_delim) enables immediate ')' after primitive types.
 
 from .character_classes import CharacterClasses
 
 class Delimiters:
-    # Delimiter definitions according to PORTIA FSA specification
-    # Each delimiter set defines what characters can legally follow a token type
+    # Container for delimiter category lists.
+    # Lists reused by the lexer; no mutation should occur at runtime.
 
     def __init__(self, chars: CharacterClasses):
-        # Initialize all delimiter sets using character classes
-        # Delimiters are organized by category for better maintainability
+        # Build all delimiter sets using provided character classes.
         self.chars = chars
 
-        # ============================================================
-        # ARITHMETIC OPERATOR DELIMITERS
-        # ============================================================
+        # Arithmetic operator delimiters
         self.negative_delim = chars.alphanum + chars.whitespace + ['(', '+', '.'] + chars.newline
         self.modulo_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
         self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
         self.sign_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '{', '"', '!'] + chars.newline
 
-        # ============================================================
-        # GROUPING SYMBOL DELIMITERS
-        # ============================================================
+        # Grouping symbol delimiters
         self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '+', '-', '/', '(', ';'] + chars.newline
         self.open_bracket_delim = chars.alphanum + chars.whitespace + [';', ',', '+', '-'] + chars.newline
         self.open_curly_delim = chars.alphanum + chars.whitespace + ['{', '}', '"', '(', '+', '-', '!', ','] + chars.newline
@@ -31,70 +30,54 @@ class Delimiters:
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', ')', ']', '}', ':', ';', ',', '['] + chars.whitespace + chars.newline
         self.close_curly_delim = chars.whitespace + chars.newline + chars.alphabetics + [';', '}', ","]
 
-        # ============================================================
-        # PUNCTUATION DELIMITERS
-        # ============================================================
+        # Punctuation delimiters
         self.semicolon_delim = chars.alphabetics + chars.whitespace + ['}', '(', ')'] + chars.newline
         self.comma_delim = chars.alphanum + chars.whitespace + ['(', '{', '"', '+', '-'] + chars.newline
         self.colon_delim = chars.alphanum + chars.whitespace + ['}'] + chars.newline
         self.dot_delim = chars.alphabetics + chars.whitespace + chars.newline
 
-        # ============================================================
-        # LOGICAL & COMPARISON OPERATOR DELIMITERS
-        # ============================================================
+        # Logical & comparison operator delimiters
         self.exclamation_delim = chars.alphabetics + chars.whitespace + ['(', '!'] + chars.newline
         self.equal_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '"', '!'] + chars.newline
         self.asign_delim = chars.alphanum + chars.whitespace + ['('] + chars.newline
         self.and_delim = chars.alphabetics + chars.whitespace + ['(', '!', None] + chars.newline
         self.or_delim = chars.whitespace + chars.alphanum + ['(', ')', None]
 
-        # ============================================================
-        # INCREMENT/DECREMENT DELIMITERS
-        # ============================================================
-        # Increment/decrement can be followed by identifiers
-        # Examples: ++x, x++, --5, 3++
+        # Increment/decrement delimiters (allow identifiers or expressions)
         self.increment_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
         self.decrement_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
 
-        # ============================================================
-        # STRING & CONCATENATION DELIMITERS
-        # ============================================================
+        # String & concatenation delimiters
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', ')', ']', '}', '(', '{', '+', '-', "'"] + chars.newline
         self.str_lit_delim = chars.whitespace + chars.newline + ['!', '&', '|', '+', ')', ',', ';', '/', ':', '=', '}']
 
-        # ============================================================
-        # CONTROL FLOW DELIMITERS
-        # ============================================================
+        # Control flow delimiters
         self.loop_delim = chars.whitespace + ['(']
         self.block_delim = chars.whitespace + ['{']
         self.return_delim = [';'] + chars.whitespace
 
-        # ============================================================
-        # LITERAL DELIMITERS
-        # ============================================================
-        # nbl_delim: Used for numerical literals (int, long, float, double)
+        # Literal delimiters
+        # nbl_delim: numerical literals (int, long, float, double)
         self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',','(',')', ']', '}', ':', ';', None] + chars.whitespace + chars.newline
 
-        # bool_lit_delim: Used for boolean literals (true, false) - excludes comparison operators
+        # bool_lit_delim: boolean literals (true, false)
         self.bool_lit_delim = ['=', '!', '&', '|', ',', ')', ']', '}', ':', ';', None] + chars.whitespace + chars.newline
 
-        # char_lit_delim: Used for character literals 'c'
+        # char_lit_delim: character literals 'c'
         self.char_lit_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',', ')', ']', '}', ':', ';', '.'] + chars.whitespace + chars.newline
 
-        # ============================================================
-        # IDENTIFIER DELIMITERS
-        # ============================================================
+        # Identifier delimiters
         self.iden_delim = [',', '+', '-', '*', '/', '%', '>', '<', '!', '=', '.', '|', '&', '(', ')', '[', ']', '{', '}', ':', ';', None] + chars.whitespace + chars.newline
 
-        # ============================================================
-        # OTHER DELIMITERS
-        # ============================================================
+        # Other / misc delimiters
         self.slash_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
         self.whitespace_delim = chars.whitespace + chars.newline + ['/']
+        # Data type casting delimiter: allows ')' immediately after castable primitive type keyword
+        # Patterns: (int)x; (float)identifier  -- NO whitespace required between type and ')'
+        # Excludes 'void' and 'weave' (not valid cast targets)
+        self.dtype_delim = chars.whitespace + chars.newline + [')']
         
-        # ============================================================
-        # ESCAPE SEQUENCE & COMMENT DELIMITERS
-        # ============================================================
+        # Escape sequence & comment delimiters
         self.escape_delim = chars.ascii + ['"'] + ['\\', "\'", '\"', '\t', '\n']
         self.multi_delim = chars.ascii + chars.newline
 

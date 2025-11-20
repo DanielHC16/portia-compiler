@@ -1,6 +1,6 @@
-# PORTIA Lexer - Complete Technical Documentation
+# PORTIA Lexer - Technical Reference (Updated)
 
-A comprehensive technical explanation of the FSA-based lexical analyzer.
+A comprehensive technical explanation of the FSA-based lexical analyzer with updated casting rules, delimiter enforcement clarifications, numeric literal limits, and strict error surfaces.
 
 ---
 
@@ -23,19 +23,19 @@ The PORTIA lexer is implemented as a single transition-based function that uses 
 
 ### `transition(code: str) -> Dict[str, Any]`
 
-**Main entry point** - The primary lexer function that processes source code.
+**Main entry point** — Processes normalized source and produces token/error arrays.
 
-**How it works:**
+**Core Steps:**
 
 1. Normalizes line endings (converts `\r\n` and `\r` to `\n`)
 2. Initializes FSA state tracking variables (`currState = 's0'`, `lexeme = ''`, position tracking)
 3. Iterates through code character-by-character
 4. For each character:
-   - Calls `lex_transition(currState, ch)` to get the next FSA state
-   - Handles three possible outcomes:
-     - `UNDEFINED`: Invalid transition or delimiter found (finalize token if in final state)
-     - `DEFINED`: Final state reached (check delimiter and add token)
-     - Normal state: Continue building the token
+   - Invoke `lex_transition(currState, ch)` → nextState
+   - Branch:
+     - `UNDEFINED`: attempt finalize via intermediate→final or report error
+     - `DEFINED`: accept lexeme (final), then validate delimiter
+     - Regular state: accumulate and advance
 5. Handles whitespace and newlines as token terminators
 6. Validates delimiters using `check_delimiter()` before adding tokens
 7. Returns dictionary with `tokens` and `errors` lists
@@ -52,10 +52,10 @@ The PORTIA lexer is implemented as a single transition-based function that uses 
 
 1. Takes current state (e.g., `'s0'`, `'s69'`, `'s220'`) and current character
 2. Uses `match-case` to pattern match on current state
-3. Within each state, matches on character:
-   - Literal characters: `case 'i': return 's69'`
-   - Character classes: `case _ if currChar in self.numbers: return 's280'`
-   - Special cases: `case 'ANY': return 'DEFINED'` (for final state detection)
+3. Inside each state pattern:
+  - Literal branches: `case 'i': return 's69'`
+  - Character class guards: `case _ if currChar in self.numbers: return 's278'`
+  - `'ANY'` sentinel: tests final acceptance without consuming a delimiter
 4. Returns:
    - Next state string (e.g., `'s70'`, `'s220'`)
    - `'DEFINED'` if current state is final and character is valid delimiter
@@ -88,7 +88,7 @@ lex_transition('s72', 'ANY') → 'DEFINED'  # Final state
 
 ### `is_final_state(state: str) -> bool`
 
-**Helper function** - Checks if a given state is a final (accepting) state.
+Determines if a state is accepting by probing transition with `'ANY'`.
 
 **How it works:**
 
@@ -108,7 +108,7 @@ is_final_state('s69') → False  # Intermediate state
 
 ### `get_token_type(state: str, lexeme: str) -> str`
 
-**Token type mapper** - Maps final FSA states to their corresponding token types.
+Maps final states to semantic token categories; distinguishes numeric tiers.
 
 **How it works:**
 
@@ -117,9 +117,9 @@ is_final_state('s69') → False  # Intermediate state
    - Operator states: `'s158'` → `'plus'`, `'s186'` → `'assign'`, etc.
    - Delimiter states: `'s190'` → `'open_paren'`, `'s202'` → `'semicolon'`, etc.
    - Literal states: `'s278'` → `'string_lit'`, `'s280'` → numeric literal
-2. For numeric literals (`s280`, `s337`):
-   - Checks if contains decimal point → `'float_lit'` or `'double_lit'`
-   - Otherwise → `'int_lit'` or `'long_lit'` (based on digit count)
+3. Numeric classification logic:
+  - Integer path: digit count ≤10 → `int_lit`; 11–19 → `long_lit`; overflow >19 triggers error.
+  - Fractional path: fractional digits ≤7 → `float_lit`; 8–23 → `double_lit`; overflow beyond max triggers error.
 3. For identifiers (`s220`):
    - Checks if lexeme matches a keyword → returns keyword type
    - Otherwise → `'identifier'`
@@ -138,13 +138,11 @@ get_token_type('s337', '3.14') → 'float_lit'
 
 ### `check_delimiter(token_type: str, next_char: str) -> bool`
 
-**Delimiter validator** - Validates that the next character is a legal delimiter for the token type.
+Validates post‑lexeme separation; enforces casting delimiters for primitive type keywords in cast context.
 
 **How it works:**
 
-1. Checks EOF cases (next_char is None):
-   - Some tokens require delimiters (e.g., `'break'`, `'return'`)
-   - Binary operators cannot be at EOF
+1. EOF semantics: certain tokens (e.g., binary operators, incomplete strings/comments) cannot terminate at EOF; primitives in casts may end if `dtype_delim` satisfied before EOF.
 2. Maps token type to appropriate delimiter set from `delimiters.py`:
    - Keywords → `self.whitespace_delim`, `self.loop_delim`, `self.block_delim`
    - Identifiers → `self.iden_delim`
@@ -159,7 +157,7 @@ get_token_type('s337', '3.14') → 'float_lit'
 - All delimiter definitions are imported and exposed as instance attributes
 - Examples: `self.whitespace_delim`, `self.iden_delim`, `self.sign_delim`, etc.
 
-**Example:**
+**Quick Examples:**
 
 ```python
 check_delimiter('int', ' ') → True      # Space is valid after keyword
@@ -261,14 +259,14 @@ Output: {'tokens': [...], 'errors': [...]}
 
 ## 3. State Machine
 
-### State Categories
+### State Categories (Overview)
 
 The FSA has 374 explicit states organized into categories:
 
 **Initial State:**
 - `s0` - Starting state, transitions to specific token paths
 
-**Keyword States (s4-s137):**
+**Keyword States (s1–s151):** dispatcher roots + intermediate + finals (e.g., `bool`, `for`, `threadln`).
 - `s4` → `'bool'`, `s9` → `'break'`, `s14` → `'case'`, `s18` → `'char'`
 - `s23` → `'const'`, `s31` → `'default'`, `s34` → `'do'`, `s38` → `'double'`
 - `s43` → `'else'`, `s49` → `'bool_lit'` (true), `s54` → `'float'`
@@ -279,20 +277,20 @@ The FSA has 374 explicit states organized into categories:
 - `s117` → `'bool_lit'` (false), `s122` → `'using'`, `s125` → `'var'`
 - `s128` → `'void'`, `s133` → `'weave'`, `s137` → `'while'`
 
-**Operator States (s152-s199):**
+**Operator States (s152–s197):** arithmetic, assignment variants, logical, relational; intermediate→final pattern with `'ANY'` sentinel.
 - Arithmetic: `s152` → `'minus'`, `s158` → `'plus'`, `s164` → `'multiply'`
 - Assignment: `s154` → `'decrement'`, `s156` → `'minus_assign'`, `s160` → `'increment'`
 - Logical: `s176` → `'logical_and'`, `s179` → `'logical_or'`, `s182` → `'not'`
 - Relational: `s186` → `'assign'`, `s188` → `'equal_equal'`, `s193` → `'less_than'`
 
-**Delimiter States (s190-s208):**
+**Delimiter States (s198–s219):** punctuation and structural grouping.
 - `s190` → `'open_paren'`, `s192` → `'close_paren'`
 - `s194` → `'open_bracket'`, `s196` → `'close_bracket'`
 - `s198` → `'open_curly'`, `s200` → `'close_curly'`
 - `s202` → `'semicolon'`, `s204` → `'comma'`
 - `s206` → `'colon'`, `s208` → `'dot'`
 
-**Literal States:**
+**Literal & Comment States:** strings (`s276`–`s277`), comments (`s270` etc.), numeric sequences (int/long/float/double), escape sequences (`s383`+), character literals (`s395`–`s398`).
 - `s220` → `'identifier'` (or keyword if matches)
 - `s272` → `'single_comment'`
 - `s275` → `'multi_comment'`
@@ -300,7 +298,7 @@ The FSA has 374 explicit states organized into categories:
 - `s280` → numeric literal (`int_lit` or `long_lit`)
 - `s337` → fractional literal (`float_lit` or `double_lit`)
 
-### State Transition Example
+### State Transition Example (Keyword + Identifier)
 
 ```
 Code: "int x = 5"
@@ -357,50 +355,25 @@ EOF
 
 The scanning algorithm in `transition()` follows this pattern:
 
+Pseudocode sketch (condensed):
 ```python
-currState = 's0'
-lexeme = ''
-position = 0
+while i < len(code):
+  ch = code[i]
+  if is_whitespace(ch) and not in_string_or_char(currState):
+    finalize_if_pending(ch)
+    advance_whitespace()
+    continue
+  nextState = lex_transition(currState, ch)
+  if nextState == 'UNDEFINED':
+    attempt_numeric_or_identifier_any_finalize(ch)
+    error_or_finalize(ch)
+    continue
+  if nextState == 'DEFINED':
+    finalize_with_delimiter_validation(ch)
+    continue
+  accumulate(ch, nextState)
 
-while position < len(code):
-    ch = code[position]
-    
-    # Handle whitespace/newline
-    if ch is whitespace/newline:
-        if currState is final:
-            finalize_token()
-        skip_whitespace()
-        continue
-    
-    # Get next state via FSA
-    nextState = lex_transition(currState, ch)
-    
-    if nextState == 'UNDEFINED':
-        if currState is final:
-            finalize_token()  # Delimiter found
-        else:
-            report_error()
-        reset_to_s0()
-    
-    elif nextState == 'DEFINED':
-        token_type = get_token_type(currState, lexeme)
-        if check_delimiter(token_type, next_char):
-            add_token()
-        else:
-            report_error()
-        reset_to_s0()
-    
-    else:
-        # Normal transition
-        if currState == 's0':
-            mark_token_start()
-        lexeme += ch
-        currState = nextState
-        position += 1
-
-# Handle EOF
-if currState is final:
-    finalize_token()
+finalize_at_eof_if_possible()
 ```
 
 ---
@@ -409,7 +382,7 @@ if currState is final:
 
 Delimiters ensure tokens are properly separated. The `check_delimiter()` function validates that each token is followed by a legal character.
 
-### Delimiter Categories
+### Delimiter Categories (Highlights)
 
 **Keyword Delimiters:**
 - `whitespace_delim` - For type keywords (`int`, `bool`, `string`, etc.)
@@ -459,19 +432,25 @@ check_delimiter(token_type, next_char)
 
 The lexer detects and reports several types of errors:
 
-**1. Unexpected Character:**
+**1. Unexpected Character / Transition:**
 - Character that doesn't match any valid transition
 - Example: `int@x` → Error: Unexpected character '@'
 
-**2. Invalid Delimiter:**
+**2. Invalid Delimiter:** token final followed by disallowed character.
 - Token not followed by valid delimiter
 - Example: `intx` → Error: Token 'int' not properly delimited
 
-**3. Incomplete Token:**
+**3. Incomplete Token:** non‑final state at EOF (or unterminated comment/string).
 - Token not completed before EOF
 - Example: `"unclosed string` → Error: Incomplete token
 
-**4. Binary Operator at EOF:**
+**4. Binary Operator at EOF / Trailing Operator:** cannot terminate input.
+
+**5. Numeric Overflow:** digit count beyond max limits triggers explicit overflow error and consumes remaining contiguous digits.
+
+**6. Lone Decimal Point:** decimal without fractional digits.
+
+**7. Identifier Too Long:** >25 characters returns special `identifier_too_long` token type and error.
 - Operator without right operand
 - Example: `x =` → Error: Token '=' not properly delimited
 
@@ -522,7 +501,12 @@ This allows the lexer to use `self.numbers`, `self.whitespace_delim`, etc., dire
 
 ---
 
-## 8. Integration
+## 8. Casting Behavior & Primitive Delimiters
+Primitive castable types: `bool, char, double, float, int, long, string` adopt `dtype_delim`, permitting immediate `)` after keyword inside a cast expression: `(int)`, `(float)`, `(char)`. Non‑castable or whitespace‑required keywords (`void`, `weave`, storage qualifiers like `global`, `local`, `using`, declaration keywords `var`, `const`) require a whitespace delimiter before `)`.
+
+Parsing Implication: Parser can distinguish `(int)` vs `(identifier)` by checking token sequence: `'open_paren'` → castable type → `'close_paren'` with no intervening whitespace token boundary error.
+
+## 9. Integration
 
 ### Frontend Integration
 
@@ -578,16 +562,16 @@ for token in result['tokens']:
 
 ---
 
-## Summary
+## Summary (Key Guarantees)
 
 The PORTIA lexer is a pure FSA-based implementation that:
 
-1. **Uses `transition()` as the main entry point** - Single function handles entire lexing process
-2. **Relies on `lex_transition()` for all state changes** - No direct pattern matching, pure FSA
-3. **Uses modular character classes** - From `character_classes.py` for pattern matching
-4. **Uses modular delimiters** - From `delimiters.py` for validation
-5. **Tracks position accurately** - Line and column numbers for error reporting
-6. **Validates delimiters strictly** - Ensures tokens are properly separated
-7. **Reports errors comprehensively** - Detailed error messages with positions
+1. Single entry (`transition`) and single transition engine (`lex_transition`) guarantee consistency.
+2. Strict delimiter enforcement prevents ambiguous splits (e.g., `intx` becomes identifier not keyword + id).
+3. Casting delimiter set (`dtype_delim`) isolates primitive casts without parser guesswork.
+4. Numeric overflow and fractional length limits enforced early, preserving deterministic error reporting.
+5. No backtracking; linear time over input length.
+6. All errors annotated with absolute indices and line/column for downstream mapping.
+7. Architecture segmentation (character classes vs delimiters vs FSA) enables isolated evolution.
 
-The entire lexer is transition-based, meaning every character is processed through the FSA state machine defined in `lex_transition()`.
+This reference should be updated synchronously with any FSA or delimiter change.

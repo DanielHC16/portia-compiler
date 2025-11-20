@@ -897,3 +897,34 @@ The data flow from lexer backend to frontend follows these steps:
 
 The entire process happens in real-time as the user types, providing immediate feedback through syntax highlighting and error visualization.
 
+---
+
+## Primitive Casting Behavior (Frontend Perspective)
+
+When the user types a cast such as `(int)x` the backend leverages a specialized delimiter (`dtype_delim`) allowing the primitive type to be immediately followed by `)`. The frontend will receive tokens in this sequence:
+
+```
+(  → open_paren
+int → int (keyword)
+)  → close_paren
+x  → identifier
+```
+
+Valid immediate-close primitive types: `bool, char, double, float, int, long, string`
+
+Invalid immediate-close types (must have whitespace before `)`): `void, weave`
+
+Error Example:
+```
+(void)x
+  ^ backend returns error: Token 'void' not properly delimited
+```
+
+Frontend handling:
+- Error arrives with precise `start_index`/`end_index` covering the type token.
+- Highlight logic marks only the problematic keyword; the closing `)` still tokenizes normally.
+- No special casing needed client-side; delimiter logic is fully backend-driven.
+
+UI Recommendation:
+- Optionally surface a tooltip on the error highlight explaining: "'void' cannot be used in an immediate cast—insert whitespace or remove the cast." (Same for `weave`).
+

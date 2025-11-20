@@ -24,8 +24,14 @@ class Token:
         }
 
 class LexicalAnalyzer:
-    # Main lexer class that processes PORTIA source code into tokens
-    # Uses FSA-based state machine for token recognition
+    # FSA based lexer for PORTIA.
+    # Public API: transition(code: str) -> dict producing {'tokens': [...], 'errors': [...]}.
+    # Internal helpers: add_token, add_error, check_delimiter, lex_transition.
+    # Design notes:
+    # * CR/LF normalized to '\n'.
+    # * State names follow TD diagrams (sN); INTERMEDIATE_TO_FINAL maps intermediates.
+    # * Unary minus handled via prev_token_type.
+    # * Strict delimiter enforcement; EOF represented by None.
 
     # FSA intermediate-to-final state mappings (used for whitespace, newline, EOF, and ANY transitions)
     INTERMEDIATE_TO_FINAL = {
@@ -57,20 +63,40 @@ class LexicalAnalyzer:
         's252': 's253', 's254': 's255', 's256': 's257', 's258': 's259',
         's260': 's261', 's262': 's263', 's264': 's265', 's266': 's267',
         's268': 's269',
-        # Integer literals (s278-s297)
+        # Integer literals (s278-s297) 1-10 digits
         's278': 's279', 's280': 's281', 's282': 's283', 's284': 's285',
         's286': 's287', 's288': 's289', 's290': 's291', 's292': 's293',
         's294': 's295', 's296': 's297',
-        # Long integer literals (s298-s316)
+        # Long integer literals (s298-s316) 1-19 digits
         's298': 's299', 's300': 's301', 's302': 's303', 's304': 's305',
         's306': 's307', 's308': 's309', 's310': 's311', 's312': 's313', 's315': 's316',
-        # Float literals (s336-s350) - 1 to 7 fractional digits (per updated TD)
+        # Float literals (s336-s350) - 1 to 7 fractional digits 
         's337': 's338', 's339': 's340', 's341': 's342', 's343': 's344',
         's345': 's346', 's347': 's348',
         # Double literals (s349-s382) - bridge from float at s349
         's349': 's350', 's351': 's352', 's353': 's354', 's355': 's356', 's357': 's358', 's359': 's360',
         's361': 's362', 's363': 's364', 's365': 's366', 's367': 's368', 's369': 's370', 's371': 's372',
         's373': 's374', 's375': 's376', 's377': 's378', 's379': 's380', 's381': 's382'
+    }
+
+    # Centralized keyword & delimiter classification (reduces repeated literal lists)
+    KEYWORD_TYPES = {
+        'bool','break','case','char','const','default','do','double','else','false','float','for','func','global',
+        'if','int','local','long','main','return','string','switch','thread','threadln','trap','true','using','var',
+        'void','weave','while'
+    }
+    WHITESPACE_KEYWORDS = {
+        'bool','char','const','double','float','func','global','int','local','long','string','using','var','void','weave'
+    }
+    CASTABLE_TYPES = {'bool','char','double','float','int','long','string'}
+    LOOP_KEYWORDS = {'if','switch','for','while'}
+    BLOCK_KEYWORDS = {'do','else'}
+    SPECIAL_KEYWORD_DELIMS = {
+        'break': [';'],
+        'case': [' ', '\t', '\n', '/', '('],
+        'default': [':'],
+        'main': ['('], 'trap': ['('], 'thread': ['('], 'threadln': ['('],
+        'return': [';', ' ', '\t', '\n', '/']
     }
 
     def __init__(self):
@@ -110,7 +136,7 @@ class LexicalAnalyzer:
         prev_token_type = None  # Track previous token type to determine unary vs binary minus
 
         def add_token(lexeme: str, token_type: str, tok_line: int, tok_col: int, start_idx: int, end_idx: int):
-            # Creates a token object and adds it to the tokens list
+            # Append a token to results; indices are absolute offsets in normalized source
             nonlocal prev_token_type
             
             token = Token(tokenName=lexeme, tokenType=token_type, tokenLine=tok_line, tokenCol=tok_col)
@@ -118,7 +144,7 @@ class LexicalAnalyzer:
             prev_token_type = token_type  # Update previous token type
 
         def add_error(message: str, start_idx: int, end_idx: int, err_line: int, err_col: int):
-            # Creates an error object with position information and adds it to errors list
+            # Record a lexical error with positional metadata
             errors.append({
                 'message': message,
                 'line': err_line,
@@ -128,35 +154,26 @@ class LexicalAnalyzer:
             })
 
         def check_delimiter(token_type: str, next_char: str) -> bool:
-            # Validates that the next character is a legal delimiter for this token type
-            # Uses delimiter definitions from delimiters.py
-            # For strict delimiter enforcement, EOF (None) must be explicitly in delimiter set
-            
-            whitespace_keywords = ['bool', 'char', 'const', 'double', 'float', 'func',
-                                   'global', 'int', 'local', 'long', 'string', 'using',
-                                   'var', 'void', 'weave']
-            if token_type in whitespace_keywords:
+            # Return True if following character legally terminates token_type.
+            # next_char may be None (EOF). Castable types allow immediate ')'.
+            # Primitive castable types allow immediate ')'
+            if token_type in self.CASTABLE_TYPES:
+                return next_char in self.dtype_delim
+            # Whitespace-delimited type/specifier keywords
+            if token_type in self.WHITESPACE_KEYWORDS:
                 return next_char in self.whitespace_delim
-
-            loop_delimiters = ['if', 'switch', 'for', 'while']
-            if token_type in loop_delimiters:
+            # Loop keywords
+            if token_type in self.LOOP_KEYWORDS:
                 return next_char in self.loop_delim
-
-            block_delimiters = ['do', 'else']
-            if token_type in block_delimiters:
+            # Block keywords
+            if token_type in self.BLOCK_KEYWORDS:
                 return next_char in self.block_delim
-
-            special_delimiters = {
-                'break': [';'],
-                'case': [' ', '\t', '\n', '/', '('],
-                'default': [':'],
-                'main': ['('], 'trap': ['('], 'thread': ['('], 'threadln': ['('],
-                'return': [';', ' ', '\t', '\n', '/'],
-                'false': self.bool_lit_delim,
-                'true': self.bool_lit_delim,
-            }
-            if token_type in special_delimiters:
-                return next_char in special_delimiters[token_type]
+            # Special keyword explicit delimiter mappings
+            if token_type in self.SPECIAL_KEYWORD_DELIMS:
+                return next_char in self.SPECIAL_KEYWORD_DELIMS[token_type]
+            # Boolean literals (true/false) use bool_lit_delim
+            if token_type in ['true','false']:
+                return next_char in self.bool_lit_delim
 
             if token_type == 'identifier':
                 return next_char in self.iden_delim
@@ -607,10 +624,7 @@ class LexicalAnalyzer:
                     # Special case: keyword followed by identifier character - continue as identifier
                     # This handles cases like 'boolx' (should be identifier, not 'bool' + 'x')
                     # Keywords are not valid if followed by identifier characters
-                    if token_type in ['bool', 'break', 'case', 'char', 'const', 'default', 'do', 'double',
-                                     'else', 'false', 'float', 'for', 'func', 'global', 'if', 'int',
-                                     'local', 'long', 'main', 'return', 'string', 'switch', 'thread',
-                                     'threadln', 'trap', 'true', 'using', 'var', 'void', 'weave', 'while']:
+                    if token_type in self.KEYWORD_TYPES:
                         if ch in self.alphanum or ch == '_':
                             # Continue building as identifier - transition to s220
                             lexeme += ch
@@ -674,10 +688,7 @@ class LexicalAnalyzer:
 
                 # Special case: keyword followed by identifier character - continue as identifier
                 # This handles cases like 'boolx' (should be identifier, not 'bool' + 'x')
-                if token_type in ['bool', 'break', 'case', 'char', 'const', 'default', 'do', 'double',
-                                 'else', 'false', 'float', 'for', 'func', 'global', 'if', 'int',
-                                 'local', 'long', 'main', 'return', 'string', 'switch', 'thread',
-                                 'threadln', 'trap', 'true', 'using', 'var', 'void', 'weave', 'while']:
+                if token_type in self.KEYWORD_TYPES:
                     if ch in self.alphanum or ch == '_':
                         # Continue building as identifier - transition to s220
                         lexeme += ch
@@ -723,10 +734,7 @@ class LexicalAnalyzer:
                 else:
                     # Special case: keyword followed by identifier character - continue as identifier
                     # This handles cases like 'boolx' (should be identifier, not 'bool' + 'x')
-                    if token_type in ['bool', 'break', 'case', 'char', 'const', 'default', 'do', 'double',
-                                     'else', 'false', 'float', 'for', 'func', 'global', 'if', 'int',
-                                     'local', 'long', 'main', 'return', 'string', 'switch', 'thread',
-                                     'threadln', 'trap', 'true', 'using', 'var', 'void', 'weave', 'while']:
+                    if token_type in self.KEYWORD_TYPES:
                         if ch in self.alphanum or ch == '_':
                             # Continue building as identifier - transition to s220
                             lexeme += ch
@@ -1013,24 +1021,10 @@ class LexicalAnalyzer:
         return 'identifier' if lexeme else 'unknown'
 
     def lex_transition(self, currState: str, currChar: str) -> str:
-        """
-       FSA state machine - determines next state based on current state and character.
-
-        STRICTLY follows Transition Diagrams (TD):
-        - s0: Initial/start state
-        - s1-s151: Keywords FSA with intermediate→final transitions
-        - s152-s197: Operators FSA with intermediate→final transitions
-        - s198-s219: Delimiters FSA with intermediate→final transitions
-        - s220-s269: Identifiers FSA (max 25 characters)
-        - s270-s277: Comments and string literals
-        - s278-s297: Integer literals (1-10 digits)
-        - s298-s316: Long integer literals (11-19 digits)
-        - s336-s350: Float literals (1-7 fractional digits)
-        - s351-s382: Double literals (8-23 fractional digits)
-        - s383-s394: String escape sequences
-
-        Returns: next state string, 'DEFINED' (final state), or 'UNDEFINED' (error)
-        """
+        # FSA state machine: returns next state, 'DEFINED' (final), or 'UNDEFINED'.
+        # TD coverage: keywords s1-s151, operators s152-s197, delimiters s198-s219,
+        # identifiers s220-s269, comments/string s270-s277, ints s278-s297,
+        # longs s298-s316, floats s336-s350, doubles s351-s382, escapes s383-s394.
 
         match currState:
             # ============================================================
