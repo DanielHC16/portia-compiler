@@ -1,4 +1,5 @@
 // src/components/TokenList.tsx
+import { useRef, useEffect, useState } from 'react';
 export type Token = { type: string; lexeme: string; line: number; column: number };
 
 type Props = {
@@ -38,7 +39,7 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
   const endIndex = Math.min(total, startIndex + visibleCount);
   const slice = filtered.slice(startIndex, endIndex);
   const topSpacer = startIndex * ROW_HEIGHT;
-  const bottomSpacer = (total - endIndex) * ROW_HEIGHT;
+  // bottomSpacer no longer needed since table absolute height manages spacing
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
