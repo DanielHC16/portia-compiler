@@ -89,6 +89,7 @@ All delimiters are defined in `delimiters.py` and used by `check_delimiter()` in
 | | `nbl_delim` | `['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',', ')', ']', '}', ':', ';'] + whitespace + newline` | After numeric/boolean literals |
 | **OTHER DELIMITER** | | | |
 | | `whitespace_delim` | `whitespace + newline + ['/']` | After type keywords (`int`, `bool`, `string`, etc.) |
+| | `dtype_delim` | `whitespace + newline + [')']` | After primitive type keywords inside casts (allows immediate `)`) |
 
 ---
 
@@ -203,6 +204,33 @@ These delimiters ensure operators are properly separated:
 **`whitespace_delim`** - After type keywords (`int`, `bool`, `string`, `float`, etc.):
 - Allows: space, tab, newline, `/`
 - Example: `int x`, `bool\n`, `string /`
+
+### CASTING DELIMITER (`dtype_delim`)
+
+Primitive casting permits an immediate closing parenthesis after certain data type keywords when they appear inside parentheses (e.g. `(int)`, `(float)`, `(char)`). This is enabled by the dedicated `dtype_delim` which adds `')'` as a valid delimiter alongside normal whitespace.
+
+Allowed primitive cast types (immediate `)` permitted):
+- `bool`
+- `char`
+- `double`
+- `float`
+- `int`
+- `long`
+- `string`
+
+Disallowed (must be followed by whitespace before `)` or will raise an invalid delimiter error):
+- `void`
+- `weave`
+
+Examples:
+```portia
+(int)x       // Valid: 'int' followed by ')' allowed via dtype_delim
+(float) y    // Valid: space after ')' normal delimiter; cast primitive accepted
+(void)z      // Invalid: 'void' requires whitespace, ')' not in its delimiter set
+(weave) a    // Invalid: same rule as void
+```
+
+Error messaging for invalid casts will surface as a delimiter error on the type keyword token (e.g. "Token 'void' not properly delimited").
 
 ---
 

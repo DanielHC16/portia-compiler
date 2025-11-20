@@ -1,8 +1,8 @@
-## PORTIA FSA Specification (Lexer-Oriented, exact TD alignment)
+## PORTIA Lexer FSA Specification (Canonical)
 
-This file converts the transition diagrams into a readable, ordered specification to serve as the authoritative basis for the FSA implemented in `app/lexer/portia_lexer.py`.
+This document is the canonical textual specification of the finite‑state automaton used by the PORTIA lexer (`app/lexer/portia_lexer.py`). It mirrors the transition diagrams (TD) but focuses on practical implementation details: state ranges, acceptance rules, delimiter enforcement, numeric limits, casting behavior, and error surfaces.
 
-### Character classes
+### Character Classes (source of pattern matching)
 - alphabetic_chars: `A-Z a-z`
 - numbers: `0-9`
 - alphanum: `A-Z a-z 0-9`
@@ -10,7 +10,7 @@ This file converts the transition diagrams into a readable, ordered specificatio
 - newline: LF (`\n`)
 - ascii: printable ASCII and tab (newline excluded)
 
-### Token categories (high-level)
+### High-Level Token Categories
 1) Keywords and boolean literals
 2) Reserved operators
 3) Punctuation/Delimiters
@@ -19,23 +19,24 @@ This file converts the transition diagrams into a readable, ordered specificatio
 6) Numeric literals
 7) Identifiers
 
-The FSA dispatches from `s0` by the first character (letter, digit, quote, operator, delimiter, etc.). Longest-viable-lexeme applies. Token validity is additionally checked by per-token delimiter sets (see `docs/DELIMITER_REFERENCE.md`). State numbers, finals, and delimiter labels below are transcribed from the provided transition diagrams.
+The start state `s0` dispatches solely by first character class (or exact symbol). The lexer applies longest viable lexeme by continuing along valid transitions until a final state is reached and the following character validates as a delimiter. Delimiter validation is strict and performed after every candidate final via `check_delimiter()`. See `DELIMITER_REFERENCE.md` for detailed delimiter sets.
 
 ---
 
-## s0 dispatch
-- Letters or underscore → Identifier/Keyword path `s220` (or one of the keyword stems listed below)
-- Digits → Number path `s280`
-- `"` → String path `s277`
-- `/` → Divide/comment path `s168`
-- Operators `- + * % ! = & | < >` → operator paths
-- Punctuation `()[]{},:.;` and braces `{}` → delimiter paths
-- Whitespace/newline → token terminators
+## Start State (`s0`) Dispatch Summary
+- Alphabetic / `_` → keyword dispatcher state (b,c,d,...) or generic identifier FSA (`s220`)
+- Digit → numeric literal path (`s278` entry)
+- `"` → string literal path (`s276` entry state)
+- `'` → character literal path (`s395` entry state)
+- `/` → division operator or comment prefix (`s168`)
+- Operator prefix: `- + * % ! = & | < >` → respective operator FSA segment
+- Delimiter symbols: `()[]{},:.;{}` → delimiter states (`s198`+)
+- Whitespace/newline → ignored unless terminating a token under intermediate→final mapping
 
 ---
 
-## Keywords and boolean literals
-Final states below map to token types. Any continued alphanumeric/underscore transitions from keyword finals are invalid; identifiers continue from `s220`.
+## Keywords & Boolean Literals
+Intermediate→final mapping allows keywords to finalize when a delimiter appears (whitespace, newline, punctuation, operator, EOF). If an alphanumeric or underscore immediately follows what would otherwise be a keyword final, the sequence switches into identifier continuation (`s220`).
 
 - bool: `s5` (whitespace)
 - break: `s10` (`;`)
@@ -69,12 +70,12 @@ Final states below map to token types. Any continued alphanumeric/underscore tra
 - weave: `s146` (whitespace)
 - while: `s151` (`loop_delim`)
 
-Notes: The delimiter in parentheses is the exact label shown on the TD for the final state.
+Notes: Parenthetical delimiter annotations reflect TD labels; actual acceptance uses the mapped delimiter sets in `delimiters.py`. Boolean literals (`true`, `false`) map internally to `bool_lit` and use `nbl_delim`.
 
 ---
 
-## Reserved operators
-Final states → token type:
+## Operators (Reserved Symbols)
+Each operator segment uses intermediate states with explicit `'ANY'` acceptance to permit delimiter testing without consuming delimiter characters. Unary minus context is resolved post‑token by examining the previous token type (see implementation notes below).
 - `-` → `s153` (`minus`, `negative_delim`)
 - `--` → `s155` (`decrement`, `decrement_delim`)
 - `-=` → `s157` (`minus_assign`, `sign_delim`)
@@ -98,11 +99,11 @@ Final states → token type:
 - `>` → `s195` (`greater_than`, `asign_delim`)
 - `>=` → `s197` (`greater_equal`, `asign_delim`)
 
-Unary `-` is allowed immediately before numbers or `(`. Binary `-` is otherwise produced between expressions. See delimiter rules in `portia_lexer.py::check_delimiter`.
+Unary `-` is permitted at start of input or after another operator / opening delimiter. Otherwise `-` is binary subtraction. Negative numbers absorb the `-` into the numeric lexeme only in unary contexts.
 
 ---
 
-## Punctuation/Delimiters
+## Punctuation / Structural Delimiters
 Final states → token type:
 - `(` → `s199` (`open_paren`, `open_paren_delim`)
 - `)` → `s201` (`close_paren`, `closing_delim`)
@@ -116,7 +117,9 @@ Final states → token type:
 - `..` → `s217` (`concat`, `concat_delim`)
 - `:` → `s219` (`colon`, `newline`)
 
-Note: Single dot uses `alphanum` delimiter (member access). Double dot `..` is the string concatenation operator with `concat_delim`.
+Notes:
+- Single `.` uses `dot_delim` which permits alphanum for member access chains.
+- `..` is the concatenation operator token (`concat`).
 
 ---
 
@@ -129,45 +132,39 @@ Note: Single dot uses `alphanum` delimiter (member access). Double dot `..` is t
   Path: `s168` (`/`) → `s273`, loops on ASCII/newline → `*` → `s274` → `/` → `s275` → `multi_delim` → `s276` (final).  
   Token type: `multi_comment`. Unterminated at EOF is an error (not reaching `s276`).
 
-Comments are tokenized (useful for highlighting) and otherwise ignored by parsers.
+Single and multi‑line comments are tokenized for highlighting continuity. Unterminated multi‑line comments yield a lexical error at EOF.
 
 ---
 
-## String literals
+## String Literals
 - Begin `"` → `s277`
 - Body: any ASCII except `"` and newline; backslash escape `\\` transitions to `s279`
 - Allowed escapes: `\"`, `\\`, `\n`, `\t`
-- Closing `"` → `s278` (final) → token type `string_lit`
+- Closing `"` → final (`s277` in implementation; spec earlier referenced `s278` before consolidation) → token type `string_lit`
 - Newline inside a string is invalid (lexical error)
 - Delimiter set: `str_lit_delim`
 
 ---
 
-## Numeric literals
-Unified number path:
-- Integer part: `s280` (one or more digits)
-- Decimal point without fractional digits: `s338` (NOT final; must be followed by a digit)
-- Fractional part: `s337` (one or more digits after the decimal)
+## Numeric Literals
+Unified progression handles integer, long, float, and double via state ranges and overflow detection.
 
-Classification at acceptance:
-- If the lexeme has no decimal point:
-  - `int_lit` when total digits ≤ 10
-  - `long_lit` when total digits > 10 (up to 19 enforced)
-- If the lexeme has a decimal point:
-  - `float_lit` when total digits (integer + fractional) ≤ 7
-  - `double_lit` when total digits > 7 (up to 17 enforced)
+Length Constraints (enforced via state ceilings):
+- int_lit: 1–10 digits
+- long_lit: 11–19 digits
+- float_lit: up to 7 fractional digits (post decimal)
+- double_lit: 8–23 fractional digits (post decimal)
 
-Additional rules:
-- A leading unary `-` is considered part of a numeric literal in unary context (start of input, after another operator, or after an opening delimiter).
-- Numbers must have at least one digit; a lone `.` or `-.` is invalid.
-- A decimal point must be followed by at least one digit (errors raised from `s338`).
-- Delimiter set for numeric literals: `nbl_delim`.
+Overflow Reporting:
+- Int >10 digits → error: exceeds maximum length of 10 digits
+- Long >19 digits → error: reached maximum of 19 digits
+- Float >7 fractional digits → error with precise message
+- Double >23 fractional digits → error similarly
 
-Final states per TD (nbl_delim):
-- Integers: `s280,s282,s284,s286,s288,s290,s292,s294,s296,s298`
-- Longs: `s300,s302,s304,s306,s308,s310,s312,s314,s316,s318,s320,s322,s324,s326,s328,s330,s332,s334,s336`
-- Floats (fractional digits 1–7): `s339,s341,s343,s345,s347,s349,s351`
-- Doubles (total digits continuing): `s353,s355,s357,s359,s361,s363,s365,s367,s369,s371,s373,s375,s377,s379,s381,s383`
+Rules:
+- A decimal point must be followed by ≥1 digit (state for lone decimal produces error).
+- Negative numeric literal only forms in unary minus context (not after identifiers or numeric finals).
+- Delimiter for numeric & boolean literals: `nbl_delim`.
 
 ---
 
@@ -181,7 +178,7 @@ Final states per TD (nbl_delim):
 
 ---
 
-## Delimiter validation (summary)
+## Delimiter Validation (Summary)
 Each token type must be followed by a valid delimiter character (or EOF) based on its category. These sets are defined in `app/lexer/delimiters.py`:
 - Operator delimiter sets: `negative_delim`, `modulo_delim`, `marithmetic_delim`, `sign_delim`, `asign_delim`, `logical_op_delim`, `increment_delim`, `decrement_delim`, `concat_delim`
 - Punctuation delimiter sets: `open_paren_delim`, `close_paren_delim`, `open_bracket_delim`, `close_bracket_delim`, `open_curly_delim`, `close_curly_delim`, `semicolon_delim`, `comma_delim`, `colon_delim`, `dot_delim`
@@ -191,7 +188,7 @@ Each token type must be followed by a valid delimiter character (or EOF) based o
 
 ---
 
-## Error conditions
+## Error Conditions
 - String contains a newline or invalid escape
 - Multi-line comment not closed at EOF
 - Decimal point without a following digit
@@ -200,13 +197,16 @@ Each token type must be followed by a valid delimiter character (or EOF) based o
 
 ---
 
-## Implementation notes
+## Casting Delimiters
+Primitive data types that allow casting without intervening whitespace: `bool`, `char`, `double`, `float`, `int`, `long`, `string`. These use `dtype_delim` which permits immediate `)` after the keyword inside a cast expression: `(int)`, `(float)`, etc. Non‑castable or whitespace‑required types (`void`, `weave`, and all storage specifiers) must be followed by a standard whitespace delimiter before `)`.
+
+## Implementation Notes
 - The above states and rules are implemented in:
   - `app/lexer/portia_lexer.py` (`lex_transition`, `get_token_type`, `transition`)
   - `app/lexer/delimiters.py` (delimiter sets)
   - `app/lexer/character_classes.py` (character classes)
 - The FSA uses `'ANY'` as a meta-character to ask if a state is final.
 
-This document is the canonical text version of the transition diagrams for use by contributors and for validation against future changes.
+This specification should be treated as authoritative for contributor onboarding, regression audits, and parser integration planning. Any deviation in the FSA implementation must be reflected here concurrently.
 
 
