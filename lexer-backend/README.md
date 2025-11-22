@@ -9,7 +9,7 @@ Core concepts:
 - Deterministic FSA: keywords, operators, delimiters, identifiers, comments, strings, numerics, escapes, character literals each occupy explicit state ranges.
 - Delimiter Enforcement: `check_delimiter()` maps token types to category sets (see `docs/DELIMITER_REFERENCE.md`) preventing ambiguous splits (e.g., `intx` becomes identifier not `int` + `x`).
 - Primitive Casting: Castable types (`bool, char, double, float, int, long, string`) allow immediate `)` via `dtype_delim`. Non‑castable keywords (`void`, `weave`) require whitespace before `)`.
-- Numeric Limits: Int (≤10 digits), Long (≤19), Float (≤7 fractional), Double (≤23 fractional). Overflow triggers a targeted error and consumes remaining contiguous digits.
+- Numeric Limits: Int (≤10 digits), Long (≤19), Float (≤7 fractional), Double (≤16 fractional). Overflow triggers a targeted error and consumes remaining contiguous digits.
 - Error Surfaces: unexpected character, invalid delimiter, unterminated comment/string, lone decimal point, numeric overflow, identifier too long, trailing operator at EOF.
 
 ## Quick Start (Library Use)

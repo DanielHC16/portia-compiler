@@ -153,13 +153,13 @@ Length Constraints (enforced via state ceilings):
 - int_lit: 1–10 digits
 - long_lit: 11–19 digits
 - float_lit: up to 7 fractional digits (post decimal)
-- double_lit: 8–23 fractional digits (post decimal)
+- double_lit: 8–16 fractional digits (post decimal)
 
 Overflow Reporting:
 - Int >10 digits → error: exceeds maximum length of 10 digits
 - Long >19 digits → error: reached maximum of 19 digits
 - Float >7 fractional digits → error with precise message
-- Double >23 fractional digits → error similarly
+- Double >16 fractional digits → error similarly
 
 Rules:
 - A decimal point must be followed by ≥1 digit (state for lone decimal produces error).
