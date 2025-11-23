@@ -39,7 +39,7 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
   const endIndex = Math.min(total, startIndex + visibleCount);
   const slice = filtered.slice(startIndex, endIndex);
   const topSpacer = startIndex * ROW_HEIGHT;
-  // bottomSpacer previously used for explicit spacer row; kept logic simple now
+  // bottomSpacer no longer needed since table absolute height manages spacing
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

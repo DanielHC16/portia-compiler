@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { lexCode, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
 
-const EXAMPLE = `// PORTIA by LoomVI`;
+const EXAMPLE = `// PORTIA by LoomVI`; // Removed performance timing state (lexTime, highlightTime) per request
 
 type SimpleToken = Token & { start?: number; end?: number };
 
@@ -14,8 +14,7 @@ export default function LexerPanel() {
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
   const [autoLexDisabled, setAutoLexDisabled] = useState(false);
-  const [lexTime, setLexTime] = useState<number | null>(null);
-  const [highlightTime, setHighlightTime] = useState<number | null>(null);
+  // Removed performance timing state (lexTime, highlightTime) per request
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
@@ -34,19 +33,19 @@ export default function LexerPanel() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    const start = performance.now();
+    // timing removed
     setLoading(true);
     setErrors([]);
     try {
       const resp = await lexCode(code, { signal: controller.signal });
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
-      setLexTime(performance.now() - start);
+      // timing removed
     } catch (err: any) {
       if (err?.name === 'AbortError') return; 
       setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
       setTokens([]);
-      setLexTime(null);
+      // timing removed
     } finally {
       setLoading(false);
     }
@@ -56,19 +55,19 @@ export default function LexerPanel() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    const start = performance.now();
+    // timing removed
     setLoading(true);
     setErrors([]);
     try {
       const resp = await lexCode(sourceCode, { signal: controller.signal });
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
-      setLexTime(performance.now() - start);
+      // timing removed
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
       setTokens([]);
-      setLexTime(null);
+      // timing removed
     } finally {
       setLoading(false);
     }
@@ -275,9 +274,7 @@ export default function LexerPanel() {
     const apply = () => {
       if (!active) return;
       setHighlightedHTML(html);
-      if (highlightStartRef.current !== null) {
-        setHighlightTime(performance.now() - highlightStartRef.current);
-      }
+      // timing removed
     };
     if ('requestIdleCallback' in window) {
       (window as any).requestIdleCallback(apply, { timeout: 100 });
@@ -316,7 +313,7 @@ export default function LexerPanel() {
           >
             Reset
           </button>
-          {/* Performance metrics hidden per request */}
+          {/* Performance metrics removed per request */}
         </div>
       </div>
 
