@@ -119,7 +119,7 @@ Maps final states to semantic token categories; distinguishes numeric tiers.
    - Literal states: `'s278'` → `'string_lit'`, `'s280'` → numeric literal
 3. Numeric classification logic:
   - Integer path: digit count ≤10 → `int_lit`; 11–19 → `long_lit`; overflow >19 triggers error.
-  - Fractional path: fractional digits ≤7 → `float_lit`; 8–23 → `double_lit`; overflow beyond max triggers error.
+  - Fractional path: fractional digits ≤7 → `float_lit`; 8–16 → `double_lit`; overflow beyond max triggers error.
 3. For identifiers (`s220`):
    - Checks if lexeme matches a keyword → returns keyword type
    - Otherwise → `'identifier'`

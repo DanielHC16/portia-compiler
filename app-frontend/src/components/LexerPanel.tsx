@@ -109,39 +109,7 @@ export default function LexerPanel() {
   }, [code]);
   
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const textarea = e.currentTarget;
-    const { selectionStart, selectionEnd, value } = textarea;
-    
-    // Auto-closing pairs
-    const pairs: Record<string, string> = {
-      '{': '}',
-      '(': ')',
-      '[': ']',
-      '"': '"',
-      "'": "'"
-    };
-
-    const openChar = e.key;
-    const closeChar = pairs[openChar];
-
-    if (closeChar && selectionStart === selectionEnd) {
-      e.preventDefault();
-      
-      // Insert opening and closing characters
-      const newValue = value.slice(0, selectionStart) + openChar + closeChar + value.slice(selectionEnd);
-      
-      // Update code
-      setCode(newValue);
-      runLexWithCode(newValue);
-      
-      // Set cursor position between the pair
-      setTimeout(() => {
-        textarea.selectionStart = selectionStart + 1;
-        textarea.selectionEnd = selectionStart + 1;
-      }, 0);
-    }
-  }
+  // Removed auto-closing pairs feature per user request
 
   // Sync scroll between textarea, highlighting overlay, and line numbers
   useEffect(() => {
@@ -423,7 +391,6 @@ export default function LexerPanel() {
                   ref={textareaRef}
                   value={code}
                   onChange={(e) => handleCodeChange(e.target.value)}
-                  onKeyDown={handleKeyDown}
                   aria-label="source-input"
                   spellCheck={false}
                   className="source-edit"

@@ -29,7 +29,7 @@ This document provides visual representations and architectural diagrams showing
 │    POST /lex          ┌──────────────────────────────┐         │
 │    {"code": "..."}    │   FSA State Machine          │         │
 │         │             │   lex_transition()           │         │
-│         ▼             │   374 states (s0-s373)       │         │
+│         ▼             │   385 states (s0-s384)       │         │
 │  {tokens, errors}     └──────────────────────────────┘         │
 │                                      │                          │
 │                       ┌──────────────┴──────────────┐          │
@@ -168,15 +168,15 @@ The 374 states are organized into logical categories:
 │ s315-s328  │ 14           │ Float Literals (1-7 frac)      │
 │            │              │ • Building + Final pairs       │
 │            │              │ • 1-7 fractional digits        │
-├────────────┼──────────────┼────────────────────────────────┤
-│ s329-s360  │ 32           │ Double Literals (8-23 frac)    │
+├────────────┼──────────────┼──────────────────────────────────┤
+│ s329-s348  │ 20           │ Double Literals (8-16 frac)    │
 │            │              │ • Building + Final pairs       │
-│            │              │ • 8-23 fractional digits       │
+│            │              │ • 8-16 fractional digits       │
 ├────────────┼──────────────┼────────────────────────────────┤
-│ s361       │ 1            │ String Escape Sequences        │
-│            │              │ • Handles \\, \', \", \t, \n   │
+│ s369-s380  │ 12           │ String Escape Sequences (res.) │
+│            │              │ • Reserved for escapes         │
 ├────────────┼──────────────┼────────────────────────────────┤
-│ s370-s373  │ 4            │ Character Literals 'c'         │
+│ s381-s384  │ 4            │ Character Literals 'c'         │
 │            │              │ • Supports escape sequences    │
 └────────────┴──────────────┴────────────────────────────────┘
 
@@ -652,12 +652,12 @@ Character-by-Character:
 ┌────┬────┬───────────┬──────────┬─────────────┬────────────┐
 │ i  │ ch │ currState │ lexeme   │ nextState   │ Action     │
 ├────┼────┼───────────┼──────────┼─────────────┼────────────┤
-│ 0  │ '  │ s0        │ ''       │ s370        │ Open quote │
-│ 1  │ \  │ s370      │ "'"      │ s371        │ Escape seq │
-│ 2  │ n  │ s371      │ "'\\"    │ s372        │ Valid \n   │
-│ 3  │ '  │ s372      │ "'\\n"   │ s373        │ Close quote│
-│ 4  │EOF │ s373      │ "'\\n'"  │ (check)     │ EOFCheck   │
-│    │    │           │          │ s373 final  │ Already    │
+│ 0  │ '  │ s0        │ ''       │ s381        │ Open quote │
+│ 1  │ \  │ s381      │ "'"      │ s382        │ Escape seq │
+│ 2  │ n  │ s382      │ "'\\"    │ s383        │ Valid \n   │
+│ 3  │ '  │ s383      │ "'\\n"   │ s384        │ Close quote│
+│ 4  │EOF │ s384      │ "'\\n'"  │ (check)     │ EOFCheck   │
+│    │    │           │          │ s384 final  │ Already    │
 │    │    │           │          │type='char'  │ Finalize   │
 └────┴────┴───────────┴──────────┴─────────────┴────────────┘
 
