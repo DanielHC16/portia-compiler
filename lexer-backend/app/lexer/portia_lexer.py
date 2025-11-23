@@ -57,20 +57,21 @@ class LexicalAnalyzer:
         's252': 's253', 's254': 's255', 's256': 's257', 's258': 's259',
         's260': 's261', 's262': 's263', 's264': 's265', 's266': 's267',
         's268': 's269',
-        # Integer literals (s278-s297)
+        # Integer literals (s278-s297) - 10 digits
         's278': 's279', 's280': 's281', 's282': 's283', 's284': 's285',
         's286': 's287', 's288': 's289', 's290': 's291', 's292': 's293',
         's294': 's295', 's296': 's297',
-        # Long integer literals (s298-s313)
+        # Long integer literals (s298-s315) - 18 states for 11-19 digits (9 building + 9 final)
         's298': 's299', 's300': 's301', 's302': 's303', 's304': 's305',
         's306': 's307', 's308': 's309', 's310': 's311', 's312': 's313',
-        # Float literals (s315-s327)
-        's315': 's316', 's317': 's318', 's319': 's320', 's321': 's322',
-        's323': 's324', 's325': 's326', 's327': 's328',
-        # Double literals (s329-s348) - 8 to 16 fractional digits
-        's329': 's330', 's331': 's332', 's333': 's334', 's335': 's336',
-        's337': 's338', 's339': 's340', 's341': 's342', 's343': 's344',
-        's345': 's346', 's347': 's348'
+        's314': 's315',
+        # Float literals (s317-s330) - 7 fractional digits
+        's317': 's318', 's319': 's320', 's321': 's322', 's323': 's324',
+        's325': 's326', 's327': 's328', 's329': 's330',
+        # Double literals (s331-s348) - 9 more fractional digits (8-16 total)
+        's331': 's332', 's333': 's334', 's335': 's336', 's337': 's338',
+        's339': 's340', 's341': 's342', 's343': 's344', 's345': 's346',
+        's347': 's348'
     }
 
     def __init__(self):
@@ -301,10 +302,10 @@ class LexicalAnalyzer:
                     continue
 
             # Handle whitespace characters - they act as token terminators
-            # NOTE: Do NOT treat whitespace specially while inside a string literal (s276) or character literal (s381-s383)
-            if ch in self.whitespace and currState not in ['s276', 's381', 's382', 's383']:
-                # Special case: s314 (decimal point without fractional digits) is invalid
-                if currState == 's314':
+            # NOTE: Do NOT treat whitespace specially while inside a string literal (s276) or character literal (s361-s363)
+            if ch in self.whitespace and currState not in ['s276', 's361', 's362', 's363']:
+                # Special case: s336 (decimal point without fractional digits) is invalid
+                if currState == 's336':
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
@@ -361,8 +362,8 @@ class LexicalAnalyzer:
             # Handle newline characters - similar to whitespace but also updates line counter
             # NOTE: Do NOT short-circuit newline inside string literal; let FSA raise an error
             if ch == '\n' and currState not in ['s276']:
-                # Special case: s314 (decimal point without fractional digits) is invalid
-                if currState == 's314':
+                # Special case: s336 (decimal point without fractional digits) is invalid
+                if currState == 's336':
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
@@ -456,13 +457,13 @@ class LexicalAnalyzer:
                 state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                 # Check if we're in a numerical building state
                 # Integer building states: s278, s280, s282, ..., s296 (even from 278-296)
-                # Long building states: s298, s300, s302, ..., s312 (even from 298-312)
-                # Float building states: s315, s317, s319, ..., s327 (odd from 315-327)
-                # Double building states: s329, s331, s333, ..., s359 (odd from 329-359)
-                is_int_building = (278 <= state_num <= 296 and state_num % 2 == 0) # building = even
-                is_long_building = (298 <= state_num <= 312 and state_num % 2 == 0) 
-                is_float_building = (315 <= state_num <= 327 and state_num % 2 == 1) # final = odd
-                is_double_building = (329 <= state_num <= 359 and state_num % 2 == 1)
+                # Long building states: s298, s300, s302, ..., s314 (even from 298-314)
+                # Float building states: s317, s319, s321, ..., s329 (odd from 317-329)
+                # Double building states: s331, s333, s335, ..., s347 (odd from 331-347)
+                is_int_building = (278 <= state_num <= 296 and state_num % 2 == 0)
+                is_long_building = (298 <= state_num <= 314 and state_num % 2 == 0)
+                is_float_building = (317 <= state_num <= 329 and state_num % 2 == 1)
+                is_double_building = (331 <= state_num <= 347 and state_num % 2 == 1)
 
                 if is_int_building or is_long_building or is_float_building or is_double_building:
                     # Try to finalize with 'ANY' (which represents valid delimiters)
@@ -615,7 +616,7 @@ class LexicalAnalyzer:
                         lexeme = ''
                         continue
                 # Handle non-final states that hit invalid characters
-                if currState == 's314':
+                if currState == 's336':
                     # Decimal point without fractional digits - invalid
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 else:
@@ -623,10 +624,9 @@ class LexicalAnalyzer:
                     # Check if we're in a numeric state and hit a digit (number too long)
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     
-                    # s296 = 10-digit int (final), s315 = 19-digit long (building - max)
-                    # s328 = 7-digit float (final - max), s359 = 22-digit double (building)
-                    # Note: s360 (23-digit double final) rejects 24th digit via UNDEFINED, not this check
-                    if (state_num == 315 or state_num == 296 or state_num == 328 or state_num == 347) and ch in self.numbers:
+                    # s296 = 10-digit int (building - max), s314 = 19-digit long (building - max)
+                    # s329 = 7-frac float (building - max), s347 = 16-frac double (building - max)
+                    if (state_num == 296 or state_num == 314 or state_num == 329 or state_num == 347) and ch in self.numbers:
                         # Number exceeds maximum length - consume all remaining digits
                         lexeme += ch
                         i += 1
@@ -637,10 +637,13 @@ class LexicalAnalyzer:
                             col += 1
                         
                         # Determine the type of number that was too long
-                        if state_num == 296 or state_num == 315:
-                            add_error(f"Lexical Error: Integer literal '{lexeme}' exceeds maximum length of 19 digits", 
+                        if state_num == 296:
+                            add_error(f"Lexical Error: Integer literal '{lexeme}' exceeds maximum length of 10 digits", 
                                     lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                        elif state_num == 328:
+                        elif state_num == 314:
+                            add_error(f"Lexical Error: Long literal '{lexeme}' exceeds maximum length of 19 digits", 
+                                    lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        elif state_num == 329:
                             add_error(f"Lexical Error: Float literal '{lexeme}' exceeds maximum of 7 fractional digits", 
                                     lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         else:  # state_num == 347
@@ -727,7 +730,7 @@ class LexicalAnalyzer:
                     if ch == "'":
                         # Begin character literal immediately
                         lexeme = ch
-                        currState = 's381'
+                        currState = 's361'
                         i += 1
                         col += 1
                         continue
@@ -834,7 +837,7 @@ class LexicalAnalyzer:
                             continue
                         if ch == "'":
                             lexeme = ch
-                            currState = 's381'
+                            currState = 's361'
                             i += 1
                             col += 1
                             continue
@@ -892,7 +895,7 @@ class LexicalAnalyzer:
                 elif currState in ['s272', 's273']:
                     # Incomplete multi-line comment - report error
                     add_error(f"Lexical Error: Unterminated multi-line comment at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-            elif currState == 's314':
+            elif currState == 's336':
                 # Decimal point without fractional digits - invalid
                 add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
             elif not self.is_final_state(currState):
@@ -980,14 +983,15 @@ class LexicalAnalyzer:
             's271': 'single_comment',
             's275': 'multi_comment',
             # Character literal
-            's384': 'char_lit',
+            's363': 'char_lit',
             # Integer literals (1-10 digits) - all map to int_lit
             's279': 'int_lit', 's281': 'int_lit', 's283': 'int_lit', 's285': 'int_lit',
             's287': 'int_lit', 's289': 'int_lit', 's291': 'int_lit', 's293': 'int_lit',
             's295': 'int_lit', 's297': 'int_lit',
             # Long integer literals (11-19 digits) - all map to long_lit
             's299': 'long_lit', 's301': 'long_lit', 's303': 'long_lit', 's305': 'long_lit',
-            's307': 'long_lit', 's309': 'long_lit', 's311': 'long_lit', 's313': 'long_lit', 's316': 'long_lit',
+            's307': 'long_lit', 's309': 'long_lit', 's311': 'long_lit', 's313': 'long_lit', 
+            's315': 'long_lit',
             # Float literals (1-7 fractional digits) - all map to float_lit
             's318': 'float_lit', 's320': 'float_lit', 's322': 'float_lit', 's324': 'float_lit',
             's326': 'float_lit', 's328': 'float_lit', 's330': 'float_lit',
@@ -1006,8 +1010,8 @@ class LexicalAnalyzer:
         if state in literal_states:
             return literal_states[state]
 
-        # s314 is the decimal point state (not a final state)
-        if state == 's314':
+        # s316 is the decimal point state (not a final state)
+        if state == 's316':
             return 'unknown'  # Invalid: decimal point without fractional digits
 
         # Handle all identifier states (s220-s269)
@@ -1053,10 +1057,12 @@ class LexicalAnalyzer:
         - s220-s269: Identifiers FSA (max 25 characters)
         - s270-s277: Comments and string literals
         - s278-s297: Integer literals (1-10 digits)
-        - s298-s313: Long integer literals (11-17 digits)
-        - s314-s328: Float literals (1-7 fractional digits)
-        - s329-s360: Double literals (8-23 fractional digits)
-        - s361+: String escape sequences
+        - s298-s315: Long integer literals (11-19 digits)
+        - s316: Decimal point
+        - s317-s330: Float literals (1-7 fractional digits)
+        - s331-s348: Double literals (8-16 fractional digits)
+        - s349-s360: Escape sequences in strings
+        - s361-s363: Character literals
 
         Returns: next state string, 'DEFINED' (final state), or 'UNDEFINED' (error)
         """
@@ -1074,7 +1080,7 @@ class LexicalAnalyzer:
                     case '"': return 's276'
 
                     # Character literal - single quoted character
-                    case "'": return 's381'
+                    case "'": return 's361'
 
                     # Operators - route to first intermediate state per TD
                     case '-': return 's152'
@@ -2541,11 +2547,11 @@ class LexicalAnalyzer:
             case 's276':  # Building string literal (after opening ")
                 match currChar:
                     case '"': return 's277'  # Closing quote - end string
-                    case '\\': return 's361'  # Escape sequence - supported: \', \", \t, \n
-                    case '\n': return 'UNDEFINED'  # Newline in string is invalid, as in, yung literal na space. Hindi yung escape sequence na pwede sa loob ng string.
+                    case '\\': return 's349'  # Escape sequence
+                    case '\n': return 'UNDEFINED'  # Literal newline in string is invalid
                     case _ if currChar in self.ascii: return 's276'  # Continue consuming ASCII chars
                     case _ if currChar in self.whitespace: return 's276'  # Allow whitespace in strings
-                    case 'ANY': return 's276'  # Continue on any other character (λ)
+                    case 'ANY': return 's276'  # Continue on any other character
                     case _: return 'UNDEFINED'
 
             case 's277':  # String literal final state (str_lit_delim)
@@ -2554,17 +2560,21 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # NUMBER LITERALS FSA - States s278 to s360
+            # ============================================================
+            # NUMBER LITERALS FSA - States s278 to s348
             # ============================================================
             # INTEGER LITERALS - States s278-s297 (1-10 digits)
-            # s0 → numbers → s278 → s280 → s282 → s284 → s286 → s288 → s290 → s292 → s294 → s296
-            # Each building state transitions to final state via nbl_delim
+            # Entry: s0 + digit → s278 (1st digit)
+            # Pattern: Building states (even) consume digits or transition to final
+            # Final states (odd) return DEFINED on ANY (nbl_delim)
+            # Maximum: s296 (10th digit) + digit → s298 (transitions to long)
+            # Any int state + '.' → s316 (decimal point)
             # ============================================================
 
             case 's278':  # Building - 1st digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's280'  # 2nd digit
-                    case '.': return 's314'  # Decimal point after 1 digit
+                    case '.': return 's316'  # Decimal point after 1 digit
                     case 'ANY': return 's279'  # Finalize as 1-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2576,7 +2586,7 @@ class LexicalAnalyzer:
             case 's280':  # Building - 2nd digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's282'  # 3rd digit
-                    case '.': return 's314'  # Decimal point after 2 digits
+                    case '.': return 's316'  # Decimal point after 2 digits
                     case 'ANY': return 's281'  # Finalize as 2-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2588,7 +2598,7 @@ class LexicalAnalyzer:
             case 's282':  # Building - 3rd digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's284'  # 4th digit
-                    case '.': return 's314'  # Decimal point after 3 digits
+                    case '.': return 's316'  # Decimal point after 3 digits
                     case 'ANY': return 's283'  # Finalize as 3-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2600,7 +2610,7 @@ class LexicalAnalyzer:
             case 's284':  # Building - 4th digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's286'  # 5th digit
-                    case '.': return 's314'  # Decimal point after 4 digits
+                    case '.': return 's316'  # Decimal point after 4 digits
                     case 'ANY': return 's285'  # Finalize as 4-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2612,7 +2622,7 @@ class LexicalAnalyzer:
             case 's286':  # Building - 5th digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's288'  # 6th digit
-                    case '.': return 's314'  # Decimal point after 5 digits
+                    case '.': return 's316'  # Decimal point after 5 digits
                     case 'ANY': return 's287'  # Finalize as 5-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2624,7 +2634,7 @@ class LexicalAnalyzer:
             case 's288':  # Building - 6th digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's290'  # 7th digit
-                    case '.': return 's314'  # Decimal point after 6 digits
+                    case '.': return 's316'  # Decimal point after 6 digits
                     case 'ANY': return 's289'  # Finalize as 6-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2636,7 +2646,7 @@ class LexicalAnalyzer:
             case 's290':  # Building - 7th digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's292'  # 8th digit
-                    case '.': return 's314'  # Decimal point after 7 digits
+                    case '.': return 's316'  # Decimal point after 7 digits
                     case 'ANY': return 's291'  # Finalize as 7-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2648,7 +2658,7 @@ class LexicalAnalyzer:
             case 's292':  # Building - 8th digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's294'  # 9th digit
-                    case '.': return 's314'  # Decimal point after 8 digits
+                    case '.': return 's316'  # Decimal point after 8 digits
                     case 'ANY': return 's293'  # Finalize as 8-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2660,7 +2670,7 @@ class LexicalAnalyzer:
             case 's294':  # Building - 9th digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's296'  # 10th digit
-                    case '.': return 's314'  # Decimal point after 9 digits
+                    case '.': return 's316'  # Decimal point after 9 digits
                     case 'ANY': return 's295'  # Finalize as 9-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2672,7 +2682,7 @@ class LexicalAnalyzer:
             case 's296':  # Building - 10th digit (maximum for int_lit)
                 match currChar:
                     case _ if currChar in self.numbers: return 's298'  # 11th digit → long_lit
-                    case '.': return 's314'  # Decimal point after 10 digits
+                    case '.': return 's316'  # Decimal point after 10 digits
                     case 'ANY': return 's297'  # Finalize as 10-digit integer
                     case _: return 'UNDEFINED'
 
@@ -2682,16 +2692,18 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # LONG INTEGER LITERALS - States s298-s313 (11-17 digits)
-            # Pattern: Building states (even) consume digits or transition to final/decimal
+            # LONG INTEGER LITERALS - States s298-s315 (11-19 digits)
+            # Entry: s296 (10-digit int) + 1 more digit → s298 (11 digits = long)
+            # Pattern: Building states (even) consume digits or transition to final
             # Final states (odd) return DEFINED on ANY (nbl_delim)
-            # All building states can transition to s314 for decimal point (float/double)
+            # All building states can transition to s316 for decimal point (float/double)
+            # Maximum: s314 (19th digit) + digit → UNDEFINED (overflow)
             # ============================================================
 
             case 's298':  # Long: 11 digits (building)
                 match currChar:
                     case _ if currChar in self.numbers: return 's300'  # 12th digit
-                    case '.': return 's314'  # Decimal point → float/double
+                    case '.': return 's316'  # Decimal point → float/double
                     case 'ANY': return 's299'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
@@ -2703,7 +2715,7 @@ class LexicalAnalyzer:
             case 's300':  # Long: 12 digits (building)
                 match currChar:
                     case _ if currChar in self.numbers: return 's302'  # 13th digit
-                    case '.': return 's314'  # Decimal point → float/double
+                    case '.': return 's316'  # Decimal point → float/double
                     case 'ANY': return 's301'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
@@ -2715,7 +2727,7 @@ class LexicalAnalyzer:
             case 's302':  # Long: 13 digits (building)
                 match currChar:
                     case _ if currChar in self.numbers: return 's304'  # 14th digit
-                    case '.': return 's314'  # Decimal point → float/double
+                    case '.': return 's316'  # Decimal point → float/double
                     case 'ANY': return 's303'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
@@ -2727,7 +2739,7 @@ class LexicalAnalyzer:
             case 's304':  # Long: 14 digits (building)
                 match currChar:
                     case _ if currChar in self.numbers: return 's306'  # 15th digit
-                    case '.': return 's314'  # Decimal point → float/double
+                    case '.': return 's316'  # Decimal point → float/double
                     case 'ANY': return 's305'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
@@ -2739,7 +2751,7 @@ class LexicalAnalyzer:
             case 's306':  # Long: 15 digits (building)
                 match currChar:
                     case _ if currChar in self.numbers: return 's308'  # 16th digit
-                    case '.': return 's314'  # Decimal point → float/double
+                    case '.': return 's316'  # Decimal point → float/double
                     case 'ANY': return 's307'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
@@ -2751,7 +2763,7 @@ class LexicalAnalyzer:
             case 's308':  # Long: 16 digits (building)
                 match currChar:
                     case _ if currChar in self.numbers: return 's310'  # 17th digit
-                    case '.': return 's314'  # Decimal point → float/double
+                    case '.': return 's316'  # Decimal point → float/double
                     case 'ANY': return 's309'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
@@ -2762,8 +2774,8 @@ class LexicalAnalyzer:
 
             case 's310':  # Long: 17 digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's312'  # Continue to s312
-                    case '.': return 's314'  # Decimal point → float/double
+                    case _ if currChar in self.numbers: return 's312'  # 18th digit
+                    case '.': return 's316'  # Decimal point → float/double
                     case 'ANY': return 's311'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
@@ -2774,8 +2786,8 @@ class LexicalAnalyzer:
 
             case 's312':  # Long: 18 digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's315'  # 19th digit
-                    case '.': return 's314'  # Decimal point → float/double
+                    case _ if currChar in self.numbers: return 's314'  # 19th digit
+                    case '.': return 's316'  # Decimal point → float/double
                     case 'ANY': return 's313'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
@@ -2784,28 +2796,35 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's315':  # Long: 19 digits (building) - Maximum for long
+            case 's314':  # Long: 19 digits (building) - Maximum for long
                 match currChar:
-                    case '.': return 's314'  # Decimal point → float/double
-                    case 'ANY': return 's316'  # nbl_delim → finalize as long_lit
+                    case _ if currChar in self.numbers: return 'UNDEFINED'  # 20+ digits - overflow
+                    case '.': return 's316'  # Decimal point → float/double
+                    case 'ANY': return 's315'  # nbl_delim → finalize as long_lit
                     case _: return 'UNDEFINED'
 
-            case 's316':  # Long: 19 digits (final) - Maximum for long
+            case 's315':  # Long: 19 digits (final) - Maximum for long
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # FLOAT LITERALS - States s314, s317-s328 (1-7 fractional digits)
-            # DOUBLE LITERALS - States s314, s317(double starts at s329)-360 (1-23 fractional digits)
-            # Pattern: Building states (odd) consume digits or transition to final
-            # Final states (even) return DEFINED on ANY (nbl_delim)
+            # DECIMAL POINT - State s316
+            # Entry: Any integer/long state (s278-s314) + '.'
+            # Must be followed by at least one digit to form float/double
             # ============================================================
 
-            case 's314':  # Float: After decimal point, expecting 1st fractional digit
+            case 's316':  # Decimal point, expecting 1st fractional digit
                 match currChar:
                     case _ if currChar in self.numbers: return 's317'  # 1st fractional digit
                     case _: return 'UNDEFINED'  # Decimal must be followed by digit
+
+            # ============================================================
+            # FLOAT LITERALS - States s317-s330 (1-7 fractional digits)
+            # Entry: s316 (decimal) + digit → s317 (1st fractional)
+            # Pattern: Building states (odd) consume digits or transition to final
+            # Final states (even) return DEFINED on ANY (nbl_delim)
+            # ============================================================
 
             case 's317':  # Float: 1 fractional digit (building)
                 match currChar:
@@ -2813,9 +2832,8 @@ class LexicalAnalyzer:
                     case 'ANY': return 's318'  # nbl_delim → finalize as float_lit
                     case _: return 'UNDEFINED'
 
-            case 's318':  # Float: 1 fractional digit (final) OR decimal entry from s315
+            case 's318':  # Float: 1 fractional digit (final)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's319'  # Accept digit (for s315 path)
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
@@ -2830,153 +2848,141 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's319':  # Float: 3 fractional digits (building)
+            case 's321':  # Float: 3 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's321'  # 4th fractional digit
-                    case 'ANY': return 's320'  # nbl_delim → finalize as float_lit
-                    case _: return 'UNDEFINED'
-
-            case 's320':  # Float: 3 fractional digits (final)
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-
-            case 's321':  # Float: 4 fractional digits (building)
-                match currChar:
-                    case _ if currChar in self.numbers: return 's323'  # 5th fractional digit
+                    case _ if currChar in self.numbers: return 's323'  # 4th fractional digit
                     case 'ANY': return 's322'  # nbl_delim → finalize as float_lit
                     case _: return 'UNDEFINED'
 
-            case 's322':  # Float: 4 fractional digits (final)
+            case 's322':  # Float: 3 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's323':  # Float: 5 fractional digits (building)
+            case 's323':  # Float: 4 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's325'  # 6th fractional digit
+                    case _ if currChar in self.numbers: return 's325'  # 5th fractional digit
                     case 'ANY': return 's324'  # nbl_delim → finalize as float_lit
                     case _: return 'UNDEFINED'
 
-            case 's324':  # Float: 5 fractional digits (final)
+            case 's324':  # Float: 4 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's325':  # Float: 6 fractional digits (building)
+            case 's325':  # Float: 5 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's327'  # 7th fractional digit
+                    case _ if currChar in self.numbers: return 's327'  # 6th fractional digit
                     case 'ANY': return 's326'  # nbl_delim → finalize as float_lit
                     case _: return 'UNDEFINED'
 
-            case 's326':  # Float: 6 fractional digits (final)
+            case 's326':  # Float: 5 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's327':  # Float/Double: 7 fractional digits (building - max for float, transition to double)
+            case 's327':  # Float: 6 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's329'  # 8th fractional digit → becomes double
-                    case 'ANY': return 's328'  # nbl_delim → finalize as float_lit (7 digits)
+                    case _ if currChar in self.numbers: return 's329'  # 7th fractional digit
+                    case 'ANY': return 's328'  # nbl_delim → finalize as float_lit
                     case _: return 'UNDEFINED'
 
-            case 's328':  # Float: 7 fractional digits (final - maximum for float)
+            case 's328':  # Float: 6 fractional digits (final)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            case 's329':  # Float: 7 fractional digits (building) - max for float, transition to double
+                match currChar:
+                    case _ if currChar in self.numbers: return 's331'  # 8th fractional digit → double
+                    case 'ANY': return 's330'  # nbl_delim → finalize as float_lit
+                    case _: return 'UNDEFINED'
+
+            case 's330':  # Float: 7 fractional digits (final) - Maximum for float
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # DOUBLE LITERALS - States s329-s360 (8-17 fractional digits)
-            # Entry: s327 (7 fractional) + 1 more digit → s329 (8 fractional = double)
+            # DOUBLE LITERALS - States s331-s348 (8-16 fractional digits)
+            # Entry: s329 (7 frac) + digit → s331 (8th fractional)
             # Pattern: Building states (odd) consume digits or transition to final
             # Final states (even) return DEFINED on ANY (nbl_delim)
-            # All final states map to double_lit token type
             # ============================================================
 
-            case 's329':  # Double: 8 fractional digits (building)
+            case 's331':  # Double: 8 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's331'  # 9th fractional digit
-                    case 'ANY': return 's330'  # nbl_delim → finalize as double_lit
-                    case _: return 'UNDEFINED'
-
-            case 's330':  # Double: 8 fractional digits (final)
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-
-            case 's331':  # Double: 9 fractional digits (building)
-                match currChar:
-                    case _ if currChar in self.numbers: return 's333'  # 10th fractional digit
+                    case _ if currChar in self.numbers: return 's333'  # 9th fractional digit
                     case 'ANY': return 's332'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's332':  # Double: 9 fractional digits (final)
+            case 's332':  # Double: 8 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's333':  # Double: 10 fractional digits (building)
+            case 's333':  # Double: 9 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's335'  # 11th fractional digit
+                    case _ if currChar in self.numbers: return 's335'  # 10th fractional digit
                     case 'ANY': return 's334'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's334':  # Double: 10 fractional digits (final)
+            case 's334':  # Double: 9 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's335':  # Double: 11 fractional digits (building)
+            case 's335':  # Double: 10 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's337'  # 12th fractional digit
+                    case _ if currChar in self.numbers: return 's337'  # 11th fractional digit
                     case 'ANY': return 's336'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's336':  # Double: 11 fractional digits (final)
+            case 's336':  # Double: 10 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's337':  # Double: 12 fractional digits (building)
+            case 's337':  # Double: 11 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's339'  # 13th fractional digit
+                    case _ if currChar in self.numbers: return 's339'  # 12th fractional digit
                     case 'ANY': return 's338'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's338':  # Double: 12 fractional digits (final)
+            case 's338':  # Double: 11 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's339':  # Double: 13 fractional digits (building)
+            case 's339':  # Double: 12 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's341'  # 14th fractional digit
+                    case _ if currChar in self.numbers: return 's341'  # 13th fractional digit
                     case 'ANY': return 's340'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's340':  # Double: 13 fractional digits (final)
+            case 's340':  # Double: 12 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's341':  # Double: 14 fractional digits (building)
+            case 's341':  # Double: 13 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's343'  # 15th fractional digit
+                    case _ if currChar in self.numbers: return 's343'  # 14th fractional digit
                     case 'ANY': return 's342'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's342':  # Double: 14 fractional digits (final)
+            case 's342':  # Double: 13 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's343':  # Double: 15 fractional digits (building)
+            case 's343':  # Double: 14 fractional digits (building)
                 match currChar:
-                    case _ if currChar in self.numbers: return 's345'  # 16th fractional digit
+                    case _ if currChar in self.numbers: return 's345'  # 15th fractional digit
                     case 'ANY': return 's344'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's344':  # Double: 15 fractional digits (final)
+            case 's344':  # Double: 14 fractional digits (final)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -2992,70 +2998,134 @@ class LexicalAnalyzer:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
-            case 's347':  # Double: 16 fractional digits (building - MAXIMUM)
+            case 's347':  # Double: 16 fractional digits (building) - Maximum for double
                 match currChar:
-                    case _ if currChar in self.numbers: return 'UNDEFINED'  # 17+ digits - will trigger overflow error
+                    case _ if currChar in self.numbers: return 'UNDEFINED'  # 17+ digits - overflow
                     case 'ANY': return 's348'  # nbl_delim → finalize as double_lit
                     case _: return 'UNDEFINED'
 
-            case 's348':  # Double: 16 fractional digits (final - MAXIMUM)
+            case 's348':  # Double: 16 fractional digits (final) - Maximum for double
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # ESCAPE SEQUENCES FOR STRING LITERALS - State s369+
-            # Supports: \\ \' \" \t \n
-            # Kept at s369+ to maintain clean state organization:
-            #   s270-s277: Comments and strings
-            #   s278-s297: Integer literals (1-10 digits)
-            #   s298-s313: Long integer literals (11-17 digits)
-            #   s314-s328: Float literals (1-7 fractional digits)
-            #   s329-s348: Double literals (8-16 fractional digits)
-            #   s369-s380: String escape sequences (reserved)
-            #   s381-s384: Character literals
+            # ESCAPE SEQUENCES - States s349-s360
+            # Entry: s276 (string building) + '\' → s349
+            # Supports: \\ \' \" \t \n \
+            # Pattern: s349 recognizes escape char → s350-s360 (finals)
             # ============================================================
-            case 's369':  # Escape sequence in string - consume next character
+
+            case 's349':  # Escape sequence - expect escape character
                 match currChar:
-                    case '\\': return 's276'  # Escaped backslash: \\
-                    case "'": return 's276'   # Escaped single quote: \'
-                    case '"': return 's276'   # Escaped double quote: \"
-                    case 't': return 's276'   # Tab escape: \t
-                    case 'n': return 's276'   # Newline escape: \n
+                    case '\\': return 's350'  # Escaped backslash: \\
+                    case "'": return 's352'   # Escaped single quote: \'
+                    case '"': return 's354'   # Escaped double quote: \"
+                    case 't': return 's356'   # Tab escape: \t
+                    case 'n': return 's358'   # Newline escape: \n
+                    case '\\': return 's360'  # Backslash escape: \\
                     case _: return 'UNDEFINED'  # Invalid escape sequence
 
+            case 's350':  # Escaped backslash processed - continue string
+                match currChar:
+                    case '"': return 's277'  # Closing quote
+                    case '\\': return 's349'  # Another escape sequence
+                    case '\n': return 'UNDEFINED'  # Literal newline invalid
+                    case _: return 's276'  # Continue building string
+
+            case 's351':  # (reserved for future use)
+                match currChar:
+                    case _: return 'UNDEFINED'
+
+            case 's352':  # Escaped single quote processed - continue string
+                match currChar:
+                    case '"': return 's277'  # Closing quote
+                    case '\\': return 's349'  # Another escape sequence
+                    case '\n': return 'UNDEFINED'  # Literal newline invalid
+                    case _: return 's276'  # Continue building string
+
+            case 's353':  # (reserved for future use)
+                match currChar:
+                    case _: return 'UNDEFINED'
+
+            case 's354':  # Escaped double quote processed - continue string
+                match currChar:
+                    case '"': return 's277'  # Closing quote
+                    case '\\': return 's349'  # Another escape sequence
+                    case '\n': return 'UNDEFINED'  # Literal newline invalid
+                    case _: return 's276'  # Continue building string
+
+            case 's355':  # (reserved for future use)
+                match currChar:
+                    case _: return 'UNDEFINED'
+
+            case 's356':  # Escaped tab processed - continue string
+                match currChar:
+                    case '"': return 's277'  # Closing quote
+                    case '\\': return 's349'  # Another escape sequence
+                    case '\n': return 'UNDEFINED'  # Literal newline invalid
+                    case _: return 's276'  # Continue building string
+
+            case 's357':  # (reserved for future use)
+                match currChar:
+                    case _: return 'UNDEFINED'
+
+            case 's358':  # Escaped newline processed - continue string
+                match currChar:
+                    case '"': return 's277'  # Closing quote
+                    case '\\': return 's349'  # Another escape sequence
+                    case '\n': return 'UNDEFINED'  # Literal newline invalid
+                    case _: return 's276'  # Continue building string
+
+            case 's359':  # (reserved for future use)
+                match currChar:
+                    case _: return 'UNDEFINED'
+
+            case 's360':  # Escaped backslash processed - continue string
+                match currChar:
+                    case '"': return 's277'  # Closing quote
+                    case '\\': return 's349'  # Another escape sequence
+                    case '\n': return 'UNDEFINED'  # Literal newline invalid
+                    case _: return 's276'  # Continue building string
+
             # ============================================================
-            # CHARACTER LITERALS - States s381-s384
+            # CHARACTER LITERALS - States s361-s363
+            # Entry: s0 + ' → s361
             # Format: 'c' or '\n' (single character or escape sequence)
             # Escape sequences: \\ \' \" \t \n
             # ============================================================
-            case 's381':  # Opening single quote consumed, expect character or backslash
+
+            # CHARACTER LITERALS - States s361-s363
+            # Entry: s0 + ' → s361
+            # Pattern: 'c' or '\X' where X is escape char
+            # Since we only have 3 states, we compact the logic:
+            # s361: opening ', next is char or \
+            # s362: after \, consume escape char, then expect '
+            # s363: after regular char OR after escape, expect ' then finalize
+            # ============================================================
+
+            case 's361':  # Opening single quote, expect character or backslash
                 match currChar:
-                    case '\\': return 's382'  # Escape sequence in char literal
-                    case "'": return 'UNDEFINED'  # Empty char literal '' is invalid
-                    case '\n': return 'UNDEFINED'  # Literal newline in char literal is invalid, as in, yung pag space talaga xD
-                    case '\r': return 'UNDEFINED'  # Literal carriage return is invalid
-                    case _ if currChar in self.ascii or currChar in self.whitespace: return 's383'  # Regular character or whitespace (space, tab)
+                    case '\\': return 's362'  # Escape sequence
+                    case "'": return 'UNDEFINED'  # Empty char literal invalid
+                    case '\n' | '\r': return 'UNDEFINED'  # Literal newline invalid
+                    case _ if currChar in self.ascii or currChar in self.whitespace:
+                        # Regular char - go directly to s363 which expects closing '
+                        return 's363'
                     case _: return 'UNDEFINED'
 
-            case 's382':  # Backslash in char literal - expect escape character
+            case 's362':  # After backslash, expect escape char then transition to expect closing '
                 match currChar:
-                    case '\\': return 's383'  # Escaped backslash: \\
-                    case "'": return 's383'   # Escaped single quote: \'
-                    case '"': return 's383'   # Escaped double quote: \"
-                    case 't': return 's383'   # Tab escape: \t
-                    case 'n': return 's383'   # Newline escape: \n
-                    case _: return 'UNDEFINED'  # Invalid escape sequence
+                    case '\\' | "'" | '"' | 't' | 'n':
+                        # Valid escape char consumed, now expect closing ' (go to s363)
+                        return 's363'
+                    case _: return 'UNDEFINED'  # Invalid escape
 
-            case 's383':  # Character consumed, expect closing single quote
+            case 's363':  # Character consumed (regular or escape), expect closing ' then finalize
                 match currChar:
-                    case "'": return 's384'  # Closing single quote
-                    case _: return 'UNDEFINED'  # Only one character allowed
-
-            case 's384':  # Character literal complete (final state)
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
+                    case "'": return 's363'  # Consume closing ', stay in s363 (now final)
+                    case 'ANY': return 'DEFINED'  # After closing ' consumed, any delimiter completes token
+                    case _: return 'UNDEFINED'  # Must close with '
 
             # ============================================================
             # DEFAULT CASE - Undefined state
