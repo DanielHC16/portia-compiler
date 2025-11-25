@@ -109,19 +109,26 @@ portia-compiler/
 ## Features
 
 ### Lexical Analyzer
-- FSA-based tokenization with 130+ states
-- 38 keywords
-- Comprehensive operators and delimiters
-- Multiple literal types (integer, long, float, double, string, character, boolean)
-- Character-level error detection
-- Comment support (single-line and multi-line)
+- **364-state FSA** (s0 initial + s1-s363 operational)
+- **31 keywords** (int, bool, if, while, void, weave, etc.)
+- **23 operators** (arithmetic, logical, relational, assignment)
+- **11 delimiters** (parentheses, braces, brackets, semicolons, etc.)
+- **6 literal types** (int, long, float, double, string, char)
+- **2 comment types** (single-line `//`, multi-line `/* */`)
+- **Strict delimiter validation** preventing ambiguous splits
+- **Numeric overflow detection** (Int ≤10 digits, Long ≤19, Float ≤7 fractional, Double ≤16)
+- **Character-level error reporting** with precise start/end indices
+- **Primitive casting delimiter rules** (`(int)x` valid, `(void)x` invalid)
 
 ### Frontend Interface
-- Real-time syntax highlighting
-- Token visualization
-- Error highlighting with line/column display
-- Auto-closing pairs
-- Theme support (dark/light)
+- **Real-time syntax highlighting** with One Dark theme
+- **Token-based coloring** (keywords, literals, operators, delimiters)
+- **Virtual scrolling** for efficient rendering of large token lists (10,000+ tokens)
+- **Error highlighting** with precise character-level positioning
+- **Auto-lex with debouncing** (350ms delay, disables at ≥80 lines)
+- **Request cancellation** (AbortController prevents race conditions)
+- **Line numbers** with synchronized scrolling
+- **Performance optimizations** (O(1) token rendering, non-blocking highlighting)
 
 ## Technology Stack
 
@@ -138,9 +145,20 @@ cd lexer-backend
 
 ## Documentation
 
-- [Lexer Backend Documentation](lexer-backend/README.md)
-- [Lexer Technical Deep-Dive](lexer-backend/LEXER_EXPLAINED.md)
-- [Frontend Documentation](app-frontend/README.md)
+### Core Documentation
+- **[Complete Lexer Technical Reference](lexer-backend/docs/COMPLETE_LEXER_REFERENCE.md)** — Comprehensive 6000+ line reference with all functions, parameters, algorithms, state machine design, token types, error handling, performance analysis, testing, and troubleshooting.
+- **[Complete Frontend Technical Reference](app-frontend/docs/COMPLETE_FRONTEND_REFERENCE.md)** — Full React component documentation, state management, API integration, syntax highlighting algorithm, virtual scrolling, performance optimizations, and UI architecture.
+
+### Quick References
+- [Lexer Backend README](lexer-backend/README.md) — Quick start and API overview
+- [Frontend Overview](app-frontend/FRONTEND_OVERVIEW.md) — Quick start with architecture diagrams and configuration guide
+
+### Specialized Documentation
+- [FSA Specification](lexer-backend/docs/PORTIA_FSA_SPEC.md) — State range & casting delimiter specification
+- [Lexer Deep Dive](lexer-backend/docs/LEXER_EXPLAINED.md) — Function-level technical details
+- [Delimiter Reference](lexer-backend/docs/DELIMITER_REFERENCE.md) — Complete delimiter catalog
+- [Lexer Architecture](lexer-backend/docs/LEXER_ARCHITECTURE.md) — Flow diagrams and architecture patterns
+- [Frontend Integration Guide](lexer-backend/docs/FRONTEND_INTEGRATION.md) — End-to-end request/response flow with UI mapping
 
 ## Team
 
