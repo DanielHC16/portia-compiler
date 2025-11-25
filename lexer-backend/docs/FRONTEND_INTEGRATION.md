@@ -2,6 +2,11 @@
 
 Complete explanation of how data flows from the PORTIA lexer backend to the React frontend, including request handling, data transformation, and visual rendering.
 
+> **Related Documentation**:
+> - Backend: [COMPLETE_LEXER_REFERENCE.md](./COMPLETE_LEXER_REFERENCE.md) - Complete lexer technical reference
+> - Frontend: [../../app-frontend/docs/COMPLETE_FRONTEND_REFERENCE.md](../../app-frontend/docs/COMPLETE_FRONTEND_REFERENCE.md) - Complete frontend technical reference
+> - Frontend Overview: [../../app-frontend/FRONTEND_OVERVIEW.md](../../app-frontend/FRONTEND_OVERVIEW.md) - Quick start with flow diagrams
+
 ## Overview
 
 The PORTIA lexer uses a REST API architecture where the React frontend sends source code to the FastAPI backend, receives tokens and errors, and displays them with real-time syntax highlighting.
@@ -11,16 +16,16 @@ The PORTIA lexer uses a REST API architecture where the React frontend sends sou
 │                    FRONTEND-BACKEND ARCHITECTURE                │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  React Frontend (Port 5173)                             │  │
-│  │  ┌────────────────────────────────────────────────────┐  │  │
-│  │  │  LexerPanel.tsx                                    │  │  │
-│  │  │  - User types code                                 │  │  │
-│  │  │  - Calls lexCode()                                │  │  │
-│  │  │  - Updates state                                  │  │  │
-│  │  │  - Renders tokens & errors                        │  │  │
-│  │  └──────────────────┬───────────────────────────────┘  │  │
-│  │                     │                                   │  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  React Frontend (Port 5173)                             │    │
+│  │  ┌────────────────────────────────────────────────────┐  │   │
+│  │  │  LexerPanel.tsx                                    │  │   │
+│  │  │  - User types code                                 │  │   │
+│  │  │  - Calls lexCode()                                │  │    │
+│  │  │  - Updates state                                  │  │    │
+│  │  │  - Renders tokens & errors                        │  │    │
+│  │  └──────────────────┬───────────────────────────────┘  │     │
+│  │                     │                                   │    │
 │  │  ┌──────────────────▼───────────────────────────────┐  │  │
 │  │  │  api.ts                                          │  │  │
 │  │  │  - HTTP POST request                             │  │  │

@@ -2,6 +2,8 @@
 
 A comprehensive technical explanation of the FSA-based lexical analyzer with updated casting rules, delimiter enforcement clarifications, numeric literal limits, and strict error surfaces.
 
+> **Note**: For the most complete and up-to-date technical documentation including all functions, parameters, algorithms, token types, error handling, performance analysis, testing, and troubleshooting, see [COMPLETE_LEXER_REFERENCE.md](./COMPLETE_LEXER_REFERENCE.md).
+
 ---
 
 ## Table of Contents

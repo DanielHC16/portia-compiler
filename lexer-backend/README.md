@@ -74,11 +74,16 @@ Response structure:
 | `identifier_with_excessive_length_over_25_chars` | Identifier exceeds maximum length |
 
 ## Documentation Index
+- **`docs/COMPLETE_LEXER_REFERENCE.md`** — **NEW** Comprehensive technical reference (6000+ lines): complete API documentation, all functions with signatures/parameters/examples, state machine design, token types, error handling, performance analysis, testing guide, troubleshooting, glossary.
 - `docs/PORTIA_FSA_SPEC.md` — Canonical state range & casting delimiter spec.
 - `docs/LEXER_EXPLAINED.md` — Function‑level deep dive, updated numeric & casting details.
 - `docs/DELIMITER_REFERENCE.md` — Full delimiter catalog with category semantics.
 - `docs/LEXER_ARCHITECTURE.md` — Flow & diagrams (processing, error, state organization).
 - `docs/FRONTEND_INTEGRATION.md` — End‑to‑end request/response + UI mapping.
+
+**Frontend Documentation**:
+- `../app-frontend/docs/COMPLETE_FRONTEND_REFERENCE.md` — Complete frontend technical reference with React components, algorithms, performance optimizations.
+- `../app-frontend/FRONTEND_OVERVIEW.md` — Quick start guide with architecture flow diagrams and configuration tips.
 
 ## Testing
 Run unit tests (17 currently):

@@ -2,6 +2,8 @@
 
 Complete reference for all delimiter types used in the PORTIA lexical analyzer.
 
+> **Note**: For complete technical documentation including all functions, parameters, algorithms, and troubleshooting, see [COMPLETE_LEXER_REFERENCE.md](./COMPLETE_LEXER_REFERENCE.md).
+
 ---
 
 ## What Are Delimiters?

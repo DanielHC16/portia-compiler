@@ -2,6 +2,8 @@
 
 This document is the canonical textual specification of the finite‑state automaton used by the PORTIA lexer (`app/lexer/portia_lexer.py`). It mirrors the transition diagrams (TD) but focuses on practical implementation details: state ranges, acceptance rules, delimiter enforcement, numeric limits, casting behavior, and error surfaces.
 
+> **Note**: For complete technical documentation including all functions, parameters, algorithms, and troubleshooting, see [COMPLETE_LEXER_REFERENCE.md](./COMPLETE_LEXER_REFERENCE.md).
+
 ### Character Classes (source of pattern matching)
 - alphabetic_chars: `A-Z a-z`
 - numbers: `0-9`
