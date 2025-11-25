@@ -2,6 +2,8 @@
 
 This document provides visual representations and architectural diagrams showing how the PORTIA lexer processes code internally.
 
+> **Note**: For complete technical documentation including all functions, parameters, algorithms, and troubleshooting, see [COMPLETE_LEXER_REFERENCE.md](./COMPLETE_LEXER_REFERENCE.md).
+
 ## Table of Contents
 1. [High-Level Architecture](#high-level-architecture)
 2. [Data Flow Overview](#data-flow-overview)
@@ -29,7 +31,7 @@ This document provides visual representations and architectural diagrams showing
 │    POST /lex          ┌──────────────────────────────┐         │
 │    {"code": "..."}    │   FSA State Machine          │         │
 │         │             │   lex_transition()           │         │
-│         ▼             │   385 states (s0-s384)       │         │
+│         ▼             │   364 states (s0-s363)       │         │
 │  {tokens, errors}     └──────────────────────────────┘         │
 │                                      │                          │
 │                       ┌──────────────┴──────────────┐          │

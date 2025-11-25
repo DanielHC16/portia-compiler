@@ -2,6 +2,8 @@
 
 Visual representation of how the PORTIA lexer processes source code internally.
 
+> **Note**: For complete technical documentation including all functions, parameters, algorithms, and troubleshooting, see [COMPLETE_LEXER_REFERENCE.md](./COMPLETE_LEXER_REFERENCE.md).
+
 ---
 
 ## High-Level Architecture
@@ -170,7 +172,7 @@ Visual representation of how the PORTIA lexer processes source code internally.
         │   case 's69': (after 'i')           │
         │   case 's158': (after '+')          │
         │   case 's220': (identifier)         │
-        │   ... (130+ states)                 │
+        │   ... (364 states: s0-s363)          │
         └──────────────┬──────────────────────┘
                        │
         ┌──────────────┴──────────────┐
