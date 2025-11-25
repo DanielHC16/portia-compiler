@@ -831,24 +831,36 @@ class LexicalAnalyzer:
                         # Fast-path: immediately start the next token for common starters
                         if ch == '"':
                             lexeme = ch
+                            lexeme_start_i = i
+                            lexeme_start_line = line
+                            lexeme_start_col = col
                             currState = 's276'  # Start in building state, not final state
                             i += 1
                             col += 1
                             continue
                         if ch == "'":
                             lexeme = ch
+                            lexeme_start_i = i
+                            lexeme_start_line = line
+                            lexeme_start_col = col
                             currState = 's361'
                             i += 1
                             col += 1
                             continue
                         if ch in self.numbers:
                             lexeme = ch
+                            lexeme_start_i = i
+                            lexeme_start_line = line
+                            lexeme_start_col = col
                             currState = 's280'
                             i += 1
                             col += 1
                             continue
                         if ch in self.alphabetics or ch == '_':
                             lexeme = ch
+                            lexeme_start_i = i
+                            lexeme_start_line = line
+                            lexeme_start_col = col
                             currState = 's220'
                             i += 1
                             col += 1

@@ -27,7 +27,6 @@ export default function LexerPanel() {
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<number | null>(null);
   const pendingScrollRef = useRef<number | null>(null);
-  const highlightStartRef = useRef<number | null>(null);
 
   async function runLex() {
     if (abortRef.current) abortRef.current.abort();
@@ -134,154 +133,97 @@ export default function LexerPanel() {
   function buildHighlightsFromTokens(src: string, toks: SimpleToken[], errs: LexError[]) {
     if (!src) return [{ text: "", cls: undefined }];
 
-    // Calculate character positions from line/column for tokens
+    // Calculate line start positions
     const lineStarts: number[] = [0];
     for (let i = 0; i < src.length; i++) {
-      if (src[i] === '\n') {
-        lineStarts.push(i + 1);
-      }
+      if (src[i] === '\n') lineStarts.push(i + 1);
     }
 
-    // Build error positions for highlighting - prioritize start_index/end_index if available
+    // Build error ranges
     const errorRanges: Array<{start: number, end: number}> = [];
-    
     for (const err of errs) {
-      // Use start_index and end_index if available (character position based)
       if (err.start_index !== undefined && err.end_index !== undefined) {
+        // Use backend-provided indices (most accurate)
         errorRanges.push({ start: err.start_index, end: err.end_index });
-      } else {
-        // Fallback to line/column calculation
-        if (err.line > 0 && err.line <= lineStarts.length) {
-          const lineStart = lineStarts[err.line - 1];
-          const colPos = lineStart + Math.max(0, err.column - 1);
-          
-          // Bounds check
-          if (colPos >= src.length) continue;
-          
-          // Find the end of the error token - look for the next whitespace or special char
-          let endPos = colPos + 1;
-          while (endPos < src.length && 
-                 src[endPos] !== ' ' && 
-                 src[endPos] !== '\t' && 
-                 src[endPos] !== '\n' &&
-                 src[endPos] !== '\r' &&
-                 /[a-zA-Z0-9_]/.test(src[endPos])) {
-            endPos++;
-          }
-          
-          errorRanges.push({ start: colPos, end: endPos });
+      } else if (err.line > 0 && err.line <= lineStarts.length) {
+        // Fallback: calculate from line/column
+        const lineStart = lineStarts[err.line - 1];
+        const start = lineStart + Math.max(0, err.column - 1);
+        if (start < src.length) {
+          let end = start + 1;
+          while (end < src.length && /[a-zA-Z0-9_]/.test(src[end])) end++;
+          errorRanges.push({ start, end });
         }
       }
     }
 
-    // Track used ranges
-    const used: boolean[] = new Array(src.length).fill(false);
-
-    type Match = { start: number; end: number; cls?: string; lexeme: string; hasError?: boolean };
-
+    type Match = { start: number; end: number; cls?: string; hasError?: boolean };
     const matches: Match[] = [];
 
-    // Add tokens using their line/column positions
-    if (toks && toks.length > 0) {
-      for (const tok of toks) {
-        if (!tok.lexeme || tok.line === undefined || tok.column === undefined) continue;
-        
-        // Calculate character position from line/column
-        if (tok.line > 0 && tok.line <= lineStarts.length) {
-          const lineStart = lineStarts[tok.line - 1];
-          const start = lineStart + Math.max(0, tok.column - 1);
-          const end = start + tok.lexeme.length;
-          
-          // Bounds check
-          if (start >= src.length || end > src.length) continue;
-          
-          // Verify the lexeme actually matches at this position
-          if (src.slice(start, end) !== tok.lexeme) continue;
-          
-          // Check for overlap
-          let overlap = false;
-          for (let i = start; i < end; i++) {
-            if (used[i]) {
-              overlap = true;
-              break;
-            }
-          }
-          
-          if (!overlap) {
-            // Check if this token overlaps with any error range
-            const hasError = errorRanges.some(errRange => 
-              (start >= errRange.start && start < errRange.end) ||
-              (end > errRange.start && end <= errRange.end) ||
-              (start <= errRange.start && end >= errRange.end)
-            );
-            
-            const cls = tokenClass(tok.type);
-            matches.push({ start, end, cls, lexeme: tok.lexeme, hasError });
-            for (let i = start; i < end; i++) used[i] = true;
-          }
-        }
-      }
-    }
-
-    // Add error ranges that weren't covered by tokens
-    for (const errRange of errorRanges) {
-      let overlap = false;
-      for (let i = errRange.start; i < errRange.end; i++) {
-        if (used[i]) {
-          overlap = true;
-          break;
-        }
+    // Add tokens - check both column and column-1 for backend inconsistency
+    for (const tok of toks) {
+      if (!tok.lexeme || tok.line === undefined || tok.column === undefined) continue;
+      if (tok.line < 1 || tok.line > lineStarts.length) continue;
+      
+      const lineStart = lineStarts[tok.line - 1];
+      
+      // Try column-1 first (1-indexed from backend)
+      let start = lineStart + tok.column - 1;
+      let end = start + tok.lexeme.length;
+      
+      // If verification fails, try 0-indexed
+      if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
+        start = lineStart + tok.column;
+        end = start + tok.lexeme.length;
       }
       
-      if (!overlap) {
-        matches.push({ 
-          start: errRange.start, 
-          end: errRange.end, 
-          cls: undefined, 
-          lexeme: src.slice(errRange.start, errRange.end),
-          hasError: true 
-        });
-        for (let i = errRange.start; i < errRange.end; i++) used[i] = true;
+      // Final verification
+      if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
+        console.warn(`Token position mismatch: "${tok.lexeme}" at line ${tok.line} col ${tok.column}, expected at ${start}-${end}, found "${src.slice(start, end)}"`);
+        continue;
+      }
+      
+      const hasError = errorRanges.some(er => 
+        (start < er.end && end > er.start)
+      );
+      
+      matches.push({ start, end, cls: tokenClass(tok.type), hasError });
+    }
+
+    // Add standalone error ranges
+    for (const er of errorRanges) {
+      if (!matches.some(m => m.start < er.end && m.end > er.start)) {
+        matches.push({ start: er.start, end: er.end, cls: undefined, hasError: true });
       }
     }
 
     if (matches.length === 0) return [{ text: src, cls: undefined }];
 
-    // Sort matches by start
-    matches.sort((a, b) => a.start - b.start || b.end - a.end);
-
-    // Build segments: non-matching gaps + matched spans
+    // Sort and build segments
+    matches.sort((a, b) => a.start - b.start);
+    
     const segments: { text: string; cls?: string }[] = [];
     let pos = 0;
+    
     for (const m of matches) {
-      if (m.start > pos) segments.push({ text: src.slice(pos, m.start) });
-      const classNames = [m.cls, m.hasError ? 'hl-error' : ''].filter(Boolean).join(' ');
-      segments.push({ text: src.slice(m.start, m.end), cls: classNames || undefined });
+      if (m.start > pos) segments.push({ text: src.slice(pos, m.start), cls: undefined });
+      const classes = [m.cls, m.hasError ? 'hl-error' : ''].filter(Boolean).join(' ');
+      segments.push({ text: src.slice(m.start, m.end), cls: classes || undefined });
       pos = m.end;
     }
-    if (pos < src.length) segments.push({ text: src.slice(pos) });
+    
+    if (pos < src.length) segments.push({ text: src.slice(pos), cls: undefined });
+    
     return segments;
   }
 
   const [highlightedHTML, setHighlightedHTML] = useState<string>("");
 
+  // Apply syntax highlighting immediately - no delays
   useEffect(() => {
-    let active = true;
-    highlightStartRef.current = performance.now();
     const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
     const html = rawSegments.map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text)).join("");
-    // Schedule highlight application on idle or next frame to reduce jank
-    const apply = () => {
-      if (!active) return;
-      setHighlightedHTML(html);
-      // timing removed
-    };
-    if ('requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(apply, { timeout: 100 });
-    } else {
-      requestAnimationFrame(apply);
-    }
-    return () => { active = false; };
+    setHighlightedHTML(html);
   }, [code, tokens, errors]);
   
   // Calculate line numbers - ensure we count correctly even without trailing newline

@@ -286,7 +286,7 @@ app-frontend/
 |--------------|-----------|--------|
 | **API Calls** | Debouncing (350ms) + AbortController | ~95% reduction in requests |
 | **Large Files** | Auto-lex disable (≥80 lines) | Prevents UI lockup |
-| **Highlighting** | `requestIdleCallback` / `requestAnimationFrame` | Non-blocking rendering |
+| **Highlighting** | Instant synchronous rendering | Immediate visual feedback, no delays |
 | **Token Table** | Virtual scrolling (ROW_HEIGHT=21px) | O(1) rendering regardless of token count |
 | **Scroll Stability** | `useLayoutEffect` scroll restoration | Prevents jarring jumps |
 | **Race Conditions** | Request cancellation | Eliminates stale data bugs |
@@ -298,10 +298,13 @@ app-frontend/
 - Row height constant: `ROW_HEIGHT = 21px`
 
 ### Syntax Highlighting (LexerPanel.tsx)
-- Token-based segment building with overlap detection
+- Simplified algorithm (85 lines, down from 120+)
+- Token-based segment building with efficient overlap detection
+- Fallback column indexing for backend compatibility (1-indexed vs 0-indexed)
 - Error prioritization: `start_index`/`end_index` over line/column
 - CSS classes: `.hl-keyword`, `.hl-number`, `.hl-string`, `.hl-error`, etc.
 - One Dark color scheme (CSS variables)
+- Simple error highlighting: 2px solid red underline
 
 ---
 
@@ -313,7 +316,7 @@ app-frontend/
 |-----------|---------|-------|--------------|
 | **main.tsx** | Application entry point | ~10 | React root, StrictMode |
 | **ViewSwitcher.tsx** | Tab navigation | ~50 | Lexer/Parser/Semantic tabs |
-| **LexerPanel.tsx** | Main lexer interface | 558 | Editor, highlighting, tokens, errors |
+| **LexerPanel.tsx** | Main lexer interface | 504 | Editor, highlighting, tokens, errors |
 | **TokenList.tsx** | Token table | 85 | Virtual scrolling, comment filtering |
 | **api.ts** | Backend integration | 60 | Type-safe API calls, field mapping |
 

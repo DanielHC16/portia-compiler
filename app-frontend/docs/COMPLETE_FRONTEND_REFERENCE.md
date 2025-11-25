@@ -45,7 +45,7 @@ app-frontend/
 │   └── components/
 │       ├── Layout.css          # Component-specific styles
 │       ├── ViewSwitcher.tsx    # Tab navigation (Lexer/Parser/Semantic)
-│       ├── LexerPanel.tsx      # Main lexer interface (558 lines)
+│       ├── LexerPanel.tsx      # Main lexer interface (504 lines)
 │       ├── TokenList.tsx       # Virtualized token table
 │       ├── ParserTBA.tsx       # Parser placeholder
 │       └── SemanticTBA.tsx     # Semantic analyzer placeholder
@@ -210,20 +210,29 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 **Purpose**: Generate syntax highlighting segments from tokens and errors.
 
-**Algorithm**:
+**Algorithm** (Simplified as of recent update):
 1. Calculate line start positions for line/column → character index conversion
 2. Build error ranges (prioritize `start_index`/`end_index` if available, fallback to line/column)
-3. Initialize character usage tracking array
-4. Convert tokens to character ranges using line/column positions
-5. Verify token lexemes match source at calculated positions
-6. Mark token ranges as used
-7. Add error ranges that don't overlap with tokens
-8. Sort all ranges by start position
-9. Build segment array:
+3. Convert tokens to character ranges:
+   - Try 1-indexed column (backend default): `lineStart + tok.column - 1`
+   - Verify lexeme matches source at calculated position
+   - If mismatch, fallback to 0-indexed: `lineStart + tok.column`
+   - Log warning and skip if still mismatched
+4. Check each token for error overlap using range comparison
+5. Add standalone error ranges that don't overlap with tokens
+6. Sort all ranges by start position
+7. Build segment array:
    - Non-matching gaps (no highlighting)
-   - Token spans (with CSS class)
+   - Token spans (with CSS class + error flag)
    - Error spans (with 'hl-error' class)
-10. Return segments for HTML rendering
+8. Return segments for HTML rendering
+
+**Key Changes** (from 120+ to 85 lines):
+- Removed: `used` boolean array for overlap tracking
+- Removed: Lexeme storage in Match type (redundant)
+- Simplified: Error overlap detection using direct range comparison
+- Added: Fallback column indexing for backend compatibility
+- Added: Debug logging for position mismatches
 
 **Example**:
 ```
@@ -245,9 +254,10 @@ Output: [
 ```
 
 **Edge Cases**:
-- Overlapping tokens: First token wins
-- Tokens at wrong positions: Skipped
+- Column indexing mismatch: Tries both 1-indexed and 0-indexed
+- Tokens at wrong positions: Logs warning and skips
 - Errors without tokens: Highlighted independently
+- Overlapping ranges: Simple comparison detects overlap
 
 ##### `tokenClass(type: string) -> string | undefined`
 
@@ -342,10 +352,11 @@ useEffect(() => {
    - AbortController cancels stale requests
    - Prevents race conditions with rapid typing
 
-3. **Incremental Highlight Rendering**:
-   - Uses `requestIdleCallback` or `requestAnimationFrame`
-   - Non-blocking highlight calculation
-   - Prevents UI jank during typing
+3. **Instant Syntax Highlighting**:
+   - Direct synchronous rendering (no async delays)
+   - Simplified algorithm (85 lines vs 120+ previously)
+   - Immediate visual feedback on token/error changes
+   - No requestIdleCallback/requestAnimationFrame overhead
 
 4. **Scroll Preservation**:
    - `useLayoutEffect` restores scroll before paint
@@ -615,8 +626,7 @@ Defined in `index.css`:
 .hl-operator { color: #abb2bf; }                        /* Operators */
 .hl-delim { color: #abb2bf; }                           /* Delimiters */
 .hl-error { 
-  background: rgba(255, 0, 0, 0.2); 
-  border-bottom: 2px wavy red; 
+  border-bottom: 2px solid red; 
 }                                                         /* Errors */
 ```
 
@@ -630,7 +640,7 @@ Based on One Dark theme:
 - **Gray** (#5c6370): Comments (// comment)
 - **Red** (#e06c75): Identifiers (x, myVar)
 - **Light Gray** (#abb2bf): Operators/Delimiters (+, ;, {)
-- **Red Background**: Lexical errors
+- **Red Underline**: Lexical errors (simple 2px solid border)
 
 ### Dark Mode Support
 
@@ -705,22 +715,33 @@ const resp = await lexCode(code, { signal: controller.signal });
 - 1,000 tokens: 50% faster
 - 10,000 tokens: 95% faster
 
-### 4. Incremental Syntax Highlighting
+### 4. Simplified Syntax Highlighting Algorithm
 
-**Problem**: Re-highlighting entire file on every change causes jank.
+**Problem**: Complex 120+ line algorithm with overlap tracking was hard to maintain.
 
-**Solution**: Use `requestIdleCallback` to defer non-critical work.
+**Solution**: Simplified to 85 lines with direct rendering and fallback column indexing.
 
-**Code**:
+**Key Improvements**:
+- Removed `used` boolean array tracking (O(n) space overhead)
+- Simplified error range overlap detection using range comparison
+- Added fallback column indexing (tries column-1, then column if verification fails)
+- Direct synchronous state updates (no async scheduling)
+- Added debug logging for position mismatches
+
+**Code Pattern**:
 ```tsx
-if ('requestIdleCallback' in window) {
-  (window as any).requestIdleCallback(apply, { timeout: 100 });
-} else {
-  requestAnimationFrame(apply);
+// Try 1-indexed first (backend default)
+let start = lineStart + tok.column - 1;
+let end = start + tok.lexeme.length;
+
+// Fallback to 0-indexed if verification fails
+if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
+  start = lineStart + tok.column;
+  end = start + tok.lexeme.length;
 }
 ```
 
-**Impact**: Keeps UI responsive while typing.
+**Impact**: Simpler code, easier debugging, instant rendering, better accuracy.
 
 ### 5. Scroll Preservation
 
@@ -758,6 +779,32 @@ if (lineCount >= LINE_DISABLE_THRESHOLD) {
 ```
 
 **Impact**: Prevents slowdowns on large files.
+
+### 7. Error Highlighting Simplification
+
+**Problem**: Complex glow/pulse animations obscured error accuracy and added CSS overhead.
+
+**Solution**: Simple 2px solid red underline only.
+
+**Before**:
+```css
+.hl-error {
+  background: rgba(248, 113, 113, 0.2);
+  border-bottom: 2px solid #f87171;
+  border-radius: 2px;
+  position: relative;
+  animation: error-pulse 1.5s ease-in-out infinite;
+}
+```
+
+**After**:
+```css
+.hl-error {
+  border-bottom: 2px solid #f87171; /* Dark theme */
+}
+```
+
+**Impact**: More accurate visual alignment, cleaner CSS, better performance.
 
 ---
 
