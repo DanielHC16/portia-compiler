@@ -178,9 +178,13 @@ class LexicalAnalyzer:
             if token_type in binary_operators and (next_char is None or next_char == '\n'):
                 return False
 
-            whitespace_keywords = ['bool', 'char', 'const', 'double', 'float', 'func',
-                                   'global', 'int', 'local', 'long', 'string', 'using',
-                                   'var', 'void', 'weave']
+            # Castable primitive types: allow ')' immediately after (for typecasting)
+            castable_types = ['bool', 'char', 'double', 'float', 'int', 'long', 'string']
+            if token_type in castable_types:
+                return next_char in self.dtype_delim
+
+            # Non-castable keywords: require whitespace delimiter
+            whitespace_keywords = ['const', 'func', 'global', 'local', 'using', 'var', 'void', 'weave']
             if token_type in whitespace_keywords:
                 return next_char in self.whitespace_delim
 
