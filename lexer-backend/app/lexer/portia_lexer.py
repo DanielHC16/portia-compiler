@@ -219,6 +219,12 @@ class LexicalAnalyzer:
             if token_type == 'char_lit':
                 return next_char in self.char_lit_delim
 
+            if token_type == 'single_comment':
+                return next_char in self.comment_delim
+
+            if token_type == 'multi_comment':
+                return next_char in self.comment_delim
+
             operator_delims = {
                 'add': self.sign_delim, 'subtract': self.negative_delim,
                 'multiply': self.marithmetic_delim, 'divide': self.slash_delim,
@@ -271,16 +277,14 @@ class LexicalAnalyzer:
                     col = 1
                     continue
 
-                # Multi-line comment ends at */ (s275 is final per TD)
-                if nextState == 's275' or currState == 's274':
-                    # Add the closing / to lexeme and finalize multi-line comment token
-                    lexeme += ch
+                # Multi-line comment ends when we reach s274 (after */)
+                if currState == 's274':
+                    # We just processed the / in */, comment is complete
                     token_type = self.get_token_type('s275', lexeme)
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
-                    i += 1
-                    col += 1
+                    # Don't increment i - reprocess current character as new token
                     continue
 
                 # Continue processing comment - build lexeme for highlighting
@@ -543,12 +547,6 @@ class LexicalAnalyzer:
 
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
-                    # Comments are always valid - they don't need delimiter checking
-                    if token_type in ['single_comment', 'multi_comment']:
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                        currState = 's0'
-                        lexeme = ''
-                        continue
 
                     # Special case: minus operator followed by number should be allowed
                     # This handles unary minus (negative numbers) like -4
@@ -683,14 +681,6 @@ class LexicalAnalyzer:
             # We need to check if the delimiter is valid before finalizing the token
             if nextState == 'DEFINED':
                 token_type = self.get_token_type(currState, lexeme)
-
-                # Comments are always valid - they don't need delimiter checking
-                if token_type in ['single_comment', 'multi_comment']:
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                    currState = 's0'
-                    lexeme = ''
-                    # Don't advance i - reprocess this character (it's the delimiter)
-                    continue
 
                 # Special case: numeric literal ending, and next char is -
                 # If the number is negative (starts with -), this is subtraction, not part of number
@@ -928,9 +918,6 @@ class LexicalAnalyzer:
                 # Check for identifier_too_long error
                 if token_type == 'identifier_too_long':
                     add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                # Comments are always valid
-                elif token_type in ['single_comment', 'multi_comment']:
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 elif token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
                     # Numeric literals - FSA already validated through state transitions
                     # No additional validation needed; just add the token
