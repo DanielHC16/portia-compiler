@@ -108,7 +108,7 @@ class LexicalAnalyzer:
         lexeme_start_line = 1
         lexeme_start_col = 1
         lexeme_start_i = 0
-        prev_token_type = None  # Track previous token type to determine unary vs binary minus
+        prev_token_type = None  # Track previous token type
         last_binary_operator = None  # Track last binary operator to validate no newline follows
         last_binary_operator_pos = None  # Position of last binary operator
         last_binary_operator_indices = None  # Character indices of last binary operator (start, end)
@@ -122,9 +122,7 @@ class LexicalAnalyzer:
             prev_token_type = token_type  # Update previous token type
 
             # Track binary operators AND assignment operators to validate they're not followed by newlines
-            # Special handling for subtract: only track as binary if it appears after an operand
-            # (unary minus appears after operators/delimiters and doesn't need newline validation)
-            binary_ops = ['add', 'multiply', 'divide', 'modulo',
+            binary_ops = ['add', 'subtract', 'multiply', 'divide', 'modulo',
                          'equal_equal', 'not_equal', 'less_than', 'greater_than',
                          'less_equal', 'greater_equal', 'logical_and', 'logical_or',
                          'concat']
@@ -133,13 +131,7 @@ class LexicalAnalyzer:
             assignment_ops = ['assign', 'add_assign', 'minus_assign', 'mult_assign',
                             'div_assign', 'modulo_assign']
             
-            # Determine if subtract is binary or unary based on context
-            is_binary_subtract = (token_type == 'subtract' and 
-                             prev_token_type in ['identifier', 'int_lit', 'long_lit', 'float_lit', 'double_lit',
-                                                'string_lit', 'char_lit', 'bool_lit', 'close_paren', 'close_bracket',
-                                                'close_curly', 'increment', 'decrement'])
-            
-            if token_type in binary_ops or token_type in assignment_ops or is_binary_subtract:
+            if token_type in binary_ops or token_type in assignment_ops:
                 last_binary_operator = lexeme
                 last_binary_operator_pos = (tok_line, tok_col)
                 last_binary_operator_indices = (start_idx, end_idx)
@@ -616,54 +608,6 @@ class LexicalAnalyzer:
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
 
-                    # Special case: minus operator followed by number should be allowed
-                    # This handles unary minus (negative numbers) like -4
-                    # Only combine if it's unary context (start of input or after operators)
-                    # Don't combine if previous token was a number/identifier (that's binary minus)
-                    if token_type == 'minus' and ch in self.numbers:
-                        # Check if this is unary minus context
-                        # Unary minus: at start, after operators, after opening delimiters
-                        # Binary minus: after numbers, identifiers, closing delimiters
-                        is_unary_context = (
-                            prev_token_type is None or  # Start of input
-                            prev_token_type in ['plus', 'minus', 'multiply', 'divide', 'modulo',
-                                               'equal_equal', 'not_equal', 'less_than', 'greater_than',
-                                               'less_equal', 'greater_equal', 'logical_and', 'logical_or',
-                                               'assign', 'open_paren', 'open_bracket', 'open_curly',
-                                               'comma', 'semicolon', 'colon']
-                        )
-
-                        if is_unary_context:
-                            # Don't finalize minus yet - let it continue to build negative number
-                            # The minus will be finalized when the number is complete
-                            # For now, add the number to lexeme and transition to number state
-                            lexeme += ch
-                            currState = 's280'  # Start building number
-                            i += 1
-                            col += 1
-                            continue
-                        # Otherwise, treat as binary minus - finalize minus token, number will be separate
-
-                    # Special case: minus operator followed by ( should be allowed
-                    # This handles unary minus before parenthesized expressions like -(-4 - 4)
-                    if token_type == 'minus' and ch == '(':
-                        # Finalize minus operator - it's valid before (
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                        currState = 's0'
-                        lexeme = ''
-                        # Don't advance i - reprocess ( as new token
-                        continue
-
-                    # Special case: numeric literal followed by - is subtraction
-                    # This handles cases like -4-4 or 4-4 where we need to separate the number from the minus
-                    if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit'] and ch == '-':
-                        # Finalize the number token
-                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                        currState = 's0'
-                        lexeme = ''
-                        # Don't advance i - reprocess - as new token
-                        continue
-
                     # Special case: keyword followed by identifier character - continue as identifier
                     # This handles cases like 'boolx' (should be identifier, not 'bool' + 'x')
                     # Keywords are not valid if followed by identifier characters
@@ -749,18 +693,6 @@ class LexicalAnalyzer:
             # We need to check if the delimiter is valid before finalizing the token
             if nextState == 'DEFINED':
                 token_type = self.get_token_type(currState, lexeme)
-
-                # Special case: numeric literal ending, and next char is -
-                # If the number is negative (starts with -), this is subtraction, not part of number
-                # Also handle positive number followed by - (subtraction)
-                if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit'] and ch == '-':
-                    # Any number (positive or negative) followed by - is subtraction
-                    # Finalize the number token
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                    currState = 's0'
-                    lexeme = ''
-                    # Don't advance i - reprocess - as new token
-                    continue
 
                 # Special case: keyword followed by identifier character - continue as identifier
                 # This handles cases like 'boolx' (should be identifier, not 'bool' + 'x')

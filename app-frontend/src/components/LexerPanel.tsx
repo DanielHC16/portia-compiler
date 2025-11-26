@@ -474,10 +474,10 @@ function tokenClass(type?: string) {
   
   // Operators
   const operators = [
-    "plus", "minus", "multiply", "divide", "modulo",
+    "add", "subtract", "multiply", "divide", "modulo",
     "assign", "add_assign", "minus_assign", "mult_assign", "div_assign", "modulo_assign",
     "equal_equal", "not_equal", "less_than", "greater_than", "less_equal", "greater_equal",
-    "logical_and", "logical_or", "not",
+    "logical_and", "logical_or", "logical_not",
     "increment", "decrement",
     "concat"
   ];
