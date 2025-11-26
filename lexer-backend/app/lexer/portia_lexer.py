@@ -154,6 +154,7 @@ class LexicalAnalyzer:
 
         def add_error(message: str, start_idx: int, end_idx: int, err_line: int, err_col: int):
             # Creates an error object with position information and adds it to errors list
+            nonlocal last_binary_operator, last_binary_operator_pos, last_binary_operator_indices
             errors.append({
                 'message': message,
                 'line': err_line,
@@ -161,6 +162,11 @@ class LexicalAnalyzer:
                 'start_index': start_idx,
                 'end_index': end_idx
             })
+            # Reset binary operator tracking when any error occurs
+            # This prevents false "cannot be followed by newline" errors
+            last_binary_operator = None
+            last_binary_operator_pos = None
+            last_binary_operator_indices = None
 
         def check_delimiter(token_type: str, next_char: str) -> bool:
             # Validates that the next character is a legal delimiter for this token type
