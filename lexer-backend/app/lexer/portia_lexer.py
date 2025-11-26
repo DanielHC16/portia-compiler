@@ -309,6 +309,68 @@ class LexicalAnalyzer:
                     i += 1
                     continue
 
+            # Handle char literals - must have closing quote
+            # s361: after opening ', expect character
+            # s362: after escape \, expect escape char
+            # s363: after character, expect closing ' (OR after closing ', ready to finalize)
+            if currState in ['s361', 's362', 's363']:
+                nextState = self.lex_transition(currState, ch)
+                
+                # Check if we're in s363 and consuming the closing '
+                if currState == 's363' and ch == "'":
+                    # Add closing ' and finalize
+                    lexeme += ch
+                    token_type = self.get_token_type('s363', lexeme)
+                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i + 1)
+                    currState = 's0'
+                    lexeme = ''
+                    i += 1
+                    col += 1
+                    continue
+                
+                # Special case: empty char literal ''
+                if currState == 's361' and ch == "'":
+                    add_error(f"Lexical Error: Empty character literal", lexeme_start_i, i + 1, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
+                    i += 1
+                    col += 1
+                    continue
+                
+                # Special case: char literal with multiple characters 'ab'
+                if currState == 's363' and ch != "'" and ch not in ['\n', '\r']:
+                    add_error(f"Lexical Error: Character literal can only contain one character (use escape sequences for special characters)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
+                    # Skip to the closing ' or end of line
+                    while i < len(code) and code[i] != "'" and code[i] not in ['\n', '\r']:
+                        i += 1
+                        col += 1
+                    if i < len(code) and code[i] == "'":
+                        i += 1
+                        col += 1
+                    continue
+                
+                # Check for errors: newline or EOF without closing '
+                if nextState == 'UNDEFINED' or ch in ['\n', '\r']:
+                    add_error(f"Lexical Error: Unterminated character literal", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
+                    i += 1
+                    if ch == '\n':
+                        line += 1
+                        col = 1
+                    else:
+                        col += 1
+                    continue
+                
+                # Continue building char literal
+                lexeme += ch
+                currState = nextState
+                i += 1
+                col += 1
+                continue
+
             # Handle whitespace characters - they act as token terminators
             # NOTE: Do NOT treat whitespace specially while inside a string literal (s276) or character literal (s361-s363)
             if ch in self.whitespace and currState not in ['s276', 's361', 's362', 's363']:
