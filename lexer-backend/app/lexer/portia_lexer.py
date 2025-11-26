@@ -796,7 +796,7 @@ class LexicalAnalyzer:
                         i += 1
                         col += 1
                         continue
-                    if ch in self.alphabetics or ch == '_':
+                    if ch in self.alphabetics:
                         lexeme = ch
                         currState = 's220'
                         i += 1
@@ -912,7 +912,7 @@ class LexicalAnalyzer:
                             i += 1
                             col += 1
                             continue
-                        if ch in self.alphabetics or ch == '_':
+                        if ch in self.alphabetics:
                             lexeme = ch
                             lexeme_start_i = i
                             lexeme_start_line = line
@@ -1195,7 +1195,7 @@ class LexicalAnalyzer:
 
                     # Identifiers - route to generic identifier FSA
                     # MUST be after all specific character matches (including keywords)
-                    case _ if currChar in self.alphabetics or currChar == '_': return 's220'
+                    case _ if currChar in self.alphabetics: return 's220'
 
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
