@@ -386,7 +386,7 @@ class LexicalAnalyzer:
                 if currState in self.INTERMEDIATE_TO_FINAL:
                     # Transition to final state
                     currState = self.INTERMEDIATE_TO_FINAL[currState]
-                    # Now finalize the keyword token
+                    # Now finalize the keyword token - STRICT delimiter check
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, ch):
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
@@ -396,19 +396,20 @@ class LexicalAnalyzer:
                         col += 1
                         continue
                     else:
-                        add_error(f"Lexical Error: Unexpected character '{ch}' after '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        # Whitespace not a valid delimiter for this token type - error
+                        add_error(f"Lexical Error: Token '{lexeme}' cannot be followed by whitespace in this context", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
                         i += 1
                         col += 1
                         continue
 
-                # Check if we're in a non-final keyword state - finalize as identifier
+                # Check if we're in a non-final keyword state - STRICT: reject incomplete tokens
                 if currState != 's0' and not self.is_final_state(currState):
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151:
-                        # We're in a keyword state but not final - finalize as identifier
-                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                        # STRICT: We're in a keyword state but not final - reject with error
+                        add_error(f"Lexical Error: Incomplete token '{lexeme}' (expected valid delimiter, got whitespace)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -417,10 +418,12 @@ class LexicalAnalyzer:
 
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
+                    # STRICT delimiter check
                     if check_delimiter(token_type, ch):
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
-                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        # Whitespace not valid delimiter for this token - error
+                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (whitespace not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
                 i += 1
@@ -456,6 +459,7 @@ class LexicalAnalyzer:
                         line += 1
                         col = 1
                         continue
+                    # STRICT delimiter check - newline must be valid delimiter for this token type
                     elif check_delimiter(token_type, '\n'):
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
@@ -465,7 +469,8 @@ class LexicalAnalyzer:
                         col = 1
                         continue
                     else:
-                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        # Newline not valid delimiter for this token - error
+                        add_error(f"Lexical Error: Token '{lexeme}' cannot be followed by newline", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -473,12 +478,12 @@ class LexicalAnalyzer:
                         col = 1
                         continue
 
-                # Check if we're in a non-final keyword state - finalize as identifier
+                # Check if we're in a non-final keyword state - STRICT: reject incomplete tokens
                 if currState != 's0' and not self.is_final_state(currState):
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151:
-                        # We're in a keyword state but not final - finalize as identifier
-                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                        # STRICT: We're in a keyword state but not final - reject with error
+                        add_error(f"Lexical Error: Incomplete token '{lexeme}' (expected valid delimiter, got newline)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -486,17 +491,18 @@ class LexicalAnalyzer:
                         col = 1
                         continue
 
-                # First, finalize any pending token 
+                # First, finalize any pending token with STRICT delimiter check
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
                     if check_delimiter(token_type, '\n'):
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
-                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        # Newline not valid delimiter - error
+                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (newline not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
 
-                # NOW check if last token was a binary operator - if so, error WAHAHAHAHAHA
+                # NOW check if last token was a binary operator - if so, error
                 if last_binary_operator is not None:
                     op_line, op_col = last_binary_operator_pos
                     op_start, op_end = last_binary_operator_indices
@@ -570,23 +576,30 @@ class LexicalAnalyzer:
                     # We're in an identifier building state - try to finalize with ANY
                     anyState = self.lex_transition(currState, 'ANY')
                     if anyState != 'UNDEFINED' and self.is_final_state(anyState):
-                        # Can finalize - check delimiter
+                        # Can finalize - STRICT delimiter check required
                         token_type = self.get_token_type(anyState, lexeme)
                         if token_type == 'identifier_too_long':
                             add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                             currState = 's0'
                             lexeme = ''
+                            # Consume the invalid character
+                            i += 1
+                            col += 1
                             continue
                         elif check_delimiter(token_type, ch):
                             add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
-                            # Reprocess this character
+                            # Reprocess this character as potential next token
                             continue
                         else:
-                            add_error(f"Lexical Error: Unexpected character '{ch}' after '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            # STRICT: Invalid delimiter - reject token, do NOT tokenize
+                            add_error(f"Lexical Error: Identifier '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                             currState = 's0'
                             lexeme = ''
+                            # Consume the invalid character and move on
+                            i += 1
+                            col += 1
                             continue
 
                 # Special case: keyword dispatcher states (first letter of keywords)
@@ -596,13 +609,22 @@ class LexicalAnalyzer:
                     # Try to finalize with ANY (single letter as identifier)
                     anyState = self.lex_transition(currState, 'ANY')
                     if anyState != 'UNDEFINED' and self.is_final_state(anyState):
-                        # Can finalize as single-letter identifier
+                        # Can finalize as single-letter identifier - STRICT delimiter check required
                         token_type = self.get_token_type(anyState, lexeme)
                         if check_delimiter(token_type, ch):
                             add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                             # Reprocess this character
+                            continue
+                        else:
+                            # STRICT: Invalid delimiter - reject token, do NOT tokenize
+                            add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            currState = 's0'
+                            lexeme = ''
+                            # Consume the invalid character and move on
+                            i += 1
+                            col += 1
                             continue
 
                 if currState != 's0' and self.is_final_state(currState):
@@ -623,11 +645,21 @@ class LexicalAnalyzer:
                             col += 1
                             continue
 
-                    # Use the current character as the delimiter to validate (e.g., '(' after 'main')
+                    # STRICT delimiter validation - use current character as delimiter
                     if check_delimiter(token_type, ch):
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
+                        # Reprocess this character as potential next token
+                        continue
+                    else:
+                        # STRICT: Invalid delimiter - reject token according to TD, do NOT tokenize
+                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        currState = 's0'
+                        lexeme = ''
+                        # Consume the invalid character and move on
+                        i += 1
+                        col += 1
                         continue
                 # Handle non-final states that hit invalid characters
                 if currState == 's336':
@@ -682,7 +714,10 @@ class LexicalAnalyzer:
                         i += 1
                         col += 1
                         continue
+                    # STRICT: Character not allowed in this context
                     add_error(f"Lexical Error: Unexpected character '{ch}'" + (f" after '{lexeme}'" if lexeme else ""), lexeme_start_i if lexeme else i, i + 1, lexeme_start_line if lexeme else line, lexeme_start_col if lexeme else col)
+                
+                # Reset and consume character
                 currState = 's0'
                 lexeme = ''
                 i += 1
@@ -690,7 +725,7 @@ class LexicalAnalyzer:
                 continue
 
             # DEFINED means we've reached a final state and can accept this character
-            # We need to check if the delimiter is valid before finalizing the token
+            # STRICT delimiter validation is REQUIRED according to TD
             if nextState == 'DEFINED':
                 token_type = self.get_token_type(currState, lexeme)
 
@@ -708,7 +743,7 @@ class LexicalAnalyzer:
                         col += 1
                         continue
 
-                # Current character is the delimiter for the finished token
+                # STRICT delimiter check - current character MUST be valid delimiter according to TD
                 if check_delimiter(token_type, ch):
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
@@ -743,22 +778,12 @@ class LexicalAnalyzer:
                     # Otherwise reprocess this delimiter in next loop
                     continue
                 else:
-                    # Special case: keyword followed by identifier character - continue as identifier
-                    # This handles cases like 'boolx' (should be identifier, not 'bool' + 'x')
-                    if token_type in ['bool', 'break', 'case', 'char', 'const', 'default', 'do', 'double',
-                                     'else', 'false', 'float', 'for', 'func', 'global', 'if', 'int',
-                                     'local', 'long', 'main', 'return', 'string', 'switch', 'thread',
-                                     'threadln', 'trap', 'true', 'using', 'var', 'void', 'weave', 'while']:
-                        if ch in self.alphanum or ch == '_':
-                            # Continue building as identifier - transition to s220
-                            lexeme += ch
-                            currState = 's220'
-                            i += 1
-                            col += 1
-                            continue
-                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    # Invalid delimiter - reject token according to TD (STRICT enforcement)
+                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
+                    i += 1
+                    col += 1
                     continue
 
             # Normal state transition - continue building the current token
@@ -877,60 +902,72 @@ class LexicalAnalyzer:
 
         # Handle end of file - finalize any pending token
         if currState != 's0' and lexeme:
-            # First, check if we're in an intermediate state that can transition to final via 'ANY'
-            if currState in self.INTERMEDIATE_TO_FINAL:
-                currState = self.INTERMEDIATE_TO_FINAL[currState]
+            # STRICT: Check if we're in an identifier building state - these CANNOT auto-finalize at EOF
+            state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
+            if 220 <= state_num <= 268 and state_num % 2 == 0:
+                # Identifier building state at EOF - STRICT error (EOF not valid delimiter)
+                add_error(f"Lexical Error: Identifier '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+            else:
+                # For non-identifier states, check if we're in an intermediate state that can transition to final via 'ANY'
+                if currState in self.INTERMEDIATE_TO_FINAL:
+                    currState = self.INTERMEDIATE_TO_FINAL[currState]
 
-            # Check if we're in a comment state
-            if currState in ['s270', 's271', 's272', 's273', 's274', 's275']:
-                # Comment at end of file - finalize it as a token
-                # Single-line comments (s270) are valid at EOF (no newline needed)
-                # Multi-line comments need to be properly closed
-                if currState == 's270':
-                    # Single-line comment at EOF - treat as complete
-                    token_type = self.get_token_type('s271', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                elif currState == 's271':
-                    # Already finalized single-line comment
+                # Check if we're in a comment state
+                if currState in ['s270', 's271', 's272', 's273', 's274', 's275']:
+                    # Comment at end of file - finalize it as a token
+                    # Single-line comments (s270) are valid at EOF (no newline needed)
+                    # Multi-line comments need to be properly closed
+                    if currState == 's270':
+                        # Single-line comment at EOF - treat as complete
+                        token_type = self.get_token_type('s271', lexeme)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                    elif currState == 's271':
+                        # Already finalized single-line comment
+                        token_type = self.get_token_type(currState, lexeme)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                    elif currState in ['s274', 's275']:
+                        # Multi-line comment properly closed (s274 after */, s275 is final)
+                        token_type = self.get_token_type('s275', lexeme)
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                    elif currState in ['s272', 's273']:
+                        # Incomplete multi-line comment - report error
+                        add_error(f"Lexical Error: Unterminated multi-line comment at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                elif currState == 's336':
+                    # Decimal point without fractional digits - i
+                    state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
+                    if 1 <= state_num <= 151:
+                        # We're in a keyword state but not final - STRICT: incomplete token without delimiter
+                        add_error(f"Lexical Error: Incomplete token '{lexeme}' at end of file (expected valid delimiter)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    elif 220 <= state_num <= 268:
+                        # We're in an identifier building state - STRICT: incomplete without delimiter
+                        add_error(f"Lexical Error: Incomplete identifier '{lexeme}' at end of file (expected valid delimiter)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    else:
+                        # Other non-final states - report incomplete token
+                        add_error(f"Lexical Error: Incomplete token '{lexeme}' at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                elif self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                elif currState in ['s274', 's275']:
-                    # Multi-line comment properly closed (s274 after */, s275 is final)
-                    token_type = self.get_token_type('s275', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                elif currState in ['s272', 's273']:
-                    # Incomplete multi-line comment - report error
-                    add_error(f"Lexical Error: Unterminated multi-line comment at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-            elif currState == 's336':
-                # Decimal point without fractional digits - invalid
-                add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-            elif not self.is_final_state(currState):
-                # Check if we're in a non-final keyword state - finalize as identifier
-                state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
-                if 1 <= state_num <= 151:
-                    # We're in a keyword state but not final - finalize as identifier
-                    add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                else:
-                    # Other non-final states - report incomplete token
-                    add_error(f"Lexical Error: Incomplete token '{lexeme}' at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-            elif self.is_final_state(currState):
-                token_type = self.get_token_type(currState, lexeme)
-                # Check for identifier_too_long error
-                if token_type == 'identifier_too_long':
-                    add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                elif token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
-                    # Numeric literals - FSA already validated through state transitions
-                    # No additional validation needed; just add the token
-                    if check_delimiter(token_type, None):
+                    # Check for identifier_too_long error
+                    if token_type == 'identifier_too_long':
+                        add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    elif token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
+                        # STRICT: EOF must be valid delimiter for numeric literals
+                        if check_delimiter(token_type, None):
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                        else:
+                            add_error(f"Lexical Error: Numeric literal '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    elif token_type == 'identifier':
+                        # STRICT: EOF must be valid delimiter for identifiers
+                        if check_delimiter(token_type, None):
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                        else:
+                            add_error(f"Lexical Error: Identifier '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    elif check_delimiter(token_type, None):
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
+                        # STRICT: EOF not a valid delimiter for this token type
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                elif check_delimiter(token_type, None):
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 else:
-                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-            else:
-                add_error(f"Lexical Error: Incomplete token '{lexeme}' at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    add_error(f"Lexical Error: Incomplete token '{lexeme}' at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
 
         return {
             'tokens': [t.to_dict() for t in tokens],
@@ -1050,7 +1087,7 @@ class LexicalAnalyzer:
 
     def lex_transition(self, currState: str, currChar: str) -> str:
         """
-       FSA state machine - determines next state based on current state and character.
+        FSA state machine - determines next state based on current state and character.
 
         STRICTLY follows Transition Diagrams (TD):
         - s0: Initial/start state
