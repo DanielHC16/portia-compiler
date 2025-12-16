@@ -70,8 +70,8 @@ class Delimiters:
         # char_lit_delim: character literals 'c'
         self.char_lit_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',', ')', ']', '}', ':', ';', '.'] + chars.whitespace + chars.newline
 
-        # Identifier delimiters
-        self.iden_delim = [',', '+', '-', '*', '/', '%', '>', '<', '!', '=', '.', '|', '&', '(', ')', '[', ']', '{', '}', ':', ';', None] + chars.whitespace + chars.newline
+        # Identifier delimiters - STRICT: whitespace/newline OK, but EOF (None) is NOT valid
+        self.iden_delim = [',', '+', '-', '*', '/', '%', '>', '<', '!', '=', '.', '|', '&', '(', ')', '[', ']', '{', '}', ':', ';'] + chars.whitespace + chars.newline
 
         # Other / misc delimiters
         self.slash_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline

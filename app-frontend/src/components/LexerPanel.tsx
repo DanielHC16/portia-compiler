@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { lexCode, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
 
-const EXAMPLE = `// PORTIA by LoomVI`; // Removed performance timing state (lexTime, highlightTime) per request
+const EXAMPLE = ``; // Removed performance timing state (lexTime, highlightTime) per request
 
 type SimpleToken = Token & { start?: number; end?: number };
 
@@ -13,85 +13,53 @@ export default function LexerPanel() {
   const [errors, setErrors] = useState<LexError[]>([]);
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
-  const [autoLexDisabled, setAutoLexDisabled] = useState(false);
-  // Removed performance timing state (lexTime, highlightTime) per request
+  // Removed auto-lex functionality - tokens only generate on manual "Run Lexer" click
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    runLex();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // No auto-lex on mount - user must click "Run Lexer"
+  
   const abortRef = useRef<AbortController | null>(null);
-  const debounceRef = useRef<number | null>(null);
   const pendingScrollRef = useRef<number | null>(null);
 
   async function runLex() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    // timing removed
+    
     setLoading(true);
     setErrors([]);
     try {
       const resp = await lexCode(code, { signal: controller.signal });
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
-      // timing removed
     } catch (err: any) {
-      if (err?.name === 'AbortError') return; 
-      setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
-      setTokens([]);
-      // timing removed
+      // Don't show error for aborted requests
+      if (err?.name !== 'AbortError') {
+        setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
+        setTokens([]);
+      }
     } finally {
+      // Always reset loading state
       setLoading(false);
     }
   }
 
-  async function runLexWithCode(sourceCode: string) {
-    if (abortRef.current) abortRef.current.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    // timing removed
-    setLoading(true);
-    setErrors([]);
-    try {
-      const resp = await lexCode(sourceCode, { signal: controller.signal });
-      setTokens(resp.tokens as SimpleToken[]);
-      setErrors(resp.errors);
-      // timing removed
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
-      setTokens([]);
-      // timing removed
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const LINE_DISABLE_THRESHOLD = 80; // disable auto lex at or above this line count
-
+  // Handle code changes - NO auto-lexing, only update state
   function handleCodeChange(newCode: string) {
     const ta = textareaRef.current;
     const prevScroll = ta ? ta.scrollTop : 0;
     pendingScrollRef.current = prevScroll;
     setCode(newCode);
-    // Disable auto lex for large line counts; manual run required
-    const lineCount = newCode.split('\n').length;
-    if (lineCount >= LINE_DISABLE_THRESHOLD) {
-      setAutoLexDisabled(true);
-      return;
-    } else if (autoLexDisabled && lineCount < LINE_DISABLE_THRESHOLD) {
-      // Re-enable if user shrinks code
-      setAutoLexDisabled(false);
-    }
-    if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => {
-      runLexWithCode(newCode);
-    }, 350);
+    // No auto-lex - user must click "Run Lexer" button manually
+  }
+
+  // Reset function - clears code, tokens, and errors
+  function handleReset() {
+    setCode(EXAMPLE);
+    setTokens([]);
+    setErrors([]);
   }
 
   // Use layout effect to restore scroll before paint to prevent visible jump
@@ -240,22 +208,9 @@ export default function LexerPanel() {
           <button className="btn" onClick={runLex} disabled={loading}>
             {loading ? "Lexing..." : "Run Lexer"}
           </button>
-          {autoLexDisabled && (
-            <button className="btn warning" onClick={() => { setAutoLexDisabled(false); runLex(); }} title="Re-enable auto lexing (currently disabled due to line count)">Enable Auto</button>
-          )}
-          <button
-            className="btn ghost"
-            onClick={async () => {
-              setCode(EXAMPLE);
-              setTokens([]);
-              setErrors([]);
-              // Run lexer with EXAMPLE code directly to avoid stale closure
-              await runLexWithCode(EXAMPLE);
-            }}
-          >
+          <button className="btn ghost" onClick={handleReset}>
             Reset
           </button>
-          {/* Performance metrics removed per request */}
         </div>
       </div>
 
@@ -267,11 +222,6 @@ export default function LexerPanel() {
           <div className="panel" style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
             <h3 style={{ marginTop: 0, marginBottom: 8 }}>Source Code</h3>
             <div style={{ position: "relative", flex: "1 1 auto", minHeight: 300, display: "flex" }}>
-              {autoLexDisabled && (
-                <div style={{ position: 'absolute', top: 8, right: 8, left: 60, zIndex: 2, background: 'var(--warn-bg, #442)', color: 'var(--warn-text, #f7d774)', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12 }}>
-                  Auto lex disabled (≥ {LINE_DISABLE_THRESHOLD} lines). Use "Run Lexer" manually or reduce lines below {LINE_DISABLE_THRESHOLD}.
-                </div>
-              )}
               {/* Line Numbers */}
               <div
                 ref={lineNumbersRef}
