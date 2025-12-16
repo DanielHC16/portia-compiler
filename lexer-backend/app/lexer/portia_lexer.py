@@ -109,44 +109,17 @@ class LexicalAnalyzer:
         lexeme_start_col = 1
         lexeme_start_i = 0
         prev_token_type = None  # Track previous token type
-        last_binary_operator = None  # Track last binary operator to validate no newline follows
-        last_binary_operator_pos = None  # Position of last binary operator
-        last_binary_operator_indices = None  # Character indices of last binary operator (start, end)
 
         def add_token(lexeme: str, token_type: str, tok_line: int, tok_col: int, start_idx: int, end_idx: int):
             # Creates a token object and adds it to the tokens list
-            nonlocal prev_token_type, last_binary_operator, last_binary_operator_pos, last_binary_operator_indices
+            nonlocal prev_token_type
             
             token = Token(tokenName=lexeme, tokenType=token_type, tokenLine=tok_line, tokenCol=tok_col)
             tokens.append(token)
             prev_token_type = token_type  # Update previous token type
 
-            # Track binary operators AND assignment operators to validate they're not followed by newlines
-            binary_ops = ['add', 'subtract', 'multiply', 'divide', 'modulo',
-                         'equal_equal', 'not_equal', 'less_than', 'greater_than',
-                         'less_equal', 'greater_equal', 'logical_and', 'logical_or',
-                         'concat']
-            
-            # Assignment operators must also be tracked - they cannot span lines
-            assignment_ops = ['assign', 'add_assign', 'minus_assign', 'mult_assign',
-                            'div_assign', 'modulo_assign']
-            
-            if token_type in binary_ops or token_type in assignment_ops:
-                last_binary_operator = lexeme
-                last_binary_operator_pos = (tok_line, tok_col)
-                last_binary_operator_indices = (start_idx, end_idx)
-            elif token_type in ['identifier', 'int_lit', 'long_lit', 'float_lit', 'double_lit',
-                               'string_lit', 'char_lit', 'bool_lit', 'close_paren', 'close_bracket',
-                               'close_curly', 'increment', 'decrement']:
-                # Reset when we see an operand (identifier, literal, or closing delimiter)
-                # These indicate a complete expression, so any previous operator is satisfied
-                last_binary_operator = None
-                last_binary_operator_pos = None
-                last_binary_operator_indices = None
-
         def add_error(message: str, start_idx: int, end_idx: int, err_line: int, err_col: int):
             # Creates an error object with position information and adds it to errors list
-            nonlocal last_binary_operator, last_binary_operator_pos, last_binary_operator_indices
             errors.append({
                 'message': message,
                 'line': err_line,
@@ -166,15 +139,6 @@ class LexicalAnalyzer:
             if next_char is None:
                 must_have_delimiter = ['break', 'return', 'main', 'trap', 'thread', 'threadln', 'default']
                 return token_type not in must_have_delimiter
-
-            # Binary operators (excluding assignment) cannot be followed by newlines
-            # Assignment operators are tracked separately via last_binary_operator
-            binary_operators = ['add', 'subtract', 'multiply', 'divide', 'modulo',
-                               'equal_equal', 'not_equal', 'less_than', 'greater_than',
-                               'less_equal', 'greater_equal', 'logical_and', 'logical_or',
-                               'concat']
-            if token_type in binary_operators and (next_char is None or next_char == '\n'):
-                return False
 
             # Castable primitive types: allow ')' immediately after (for typecasting)
             castable_types = ['bool', 'char', 'double', 'float', 'int', 'long', 'string']
@@ -369,7 +333,7 @@ class LexicalAnalyzer:
                 col += 1
                 continue
 
-            # Handle whitespace characters - they act as token terminators
+            # Handle whitespace characters - they now produce tokens
             # NOTE: Do NOT treat whitespace specially while inside a string literal (s276) or character literal (s361-s363)
             if ch in self.whitespace and currState not in ['s276', 's361', 's362', 's363']:
                 # Special case: s336 (decimal point without fractional digits) is invalid
@@ -392,9 +356,6 @@ class LexicalAnalyzer:
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
-                        i += 1
-                        col += 1
-                        continue
                     else:
                         # Whitespace not a valid delimiter for this token type - error
                         add_error(f"Lexical Error: Token '{lexeme}' cannot be followed by whitespace in this context", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -403,6 +364,23 @@ class LexicalAnalyzer:
                         i += 1
                         col += 1
                         continue
+
+                # Check if we're in a keyword dispatcher state that can finalize as identifier
+                # Dispatcher states: s1(b), s11(c), s25(d), s40(e), s45(f), s63(g), s70(i), s76(l), s85(m), s90(r), s97(s), s110(t), s127(u), s133(v), s141(w)
+                if currState in ['s1', 's11', 's25', 's40', 's45', 's63', 's70', 's76', 's85', 's90', 's97', 's110', 's127', 's133', 's141']:
+                    # Try to finalize as single-letter identifier via ANY
+                    anyState = self.lex_transition(currState, 'ANY')
+                    if anyState != 'UNDEFINED' and self.is_final_state(anyState):
+                        token_type = self.get_token_type(anyState, lexeme)
+                        if check_delimiter(token_type, ch):
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            currState = 's0'
+                            lexeme = ''
+                            # Create space token and continue
+                            add_token('␣', 'space', line, col, i, i + 1)
+                            i += 1
+                            col += 1
+                            continue
 
                 # Check if we're in a non-final keyword state - STRICT: reject incomplete tokens
                 if currState != 's0' and not self.is_final_state(currState):
@@ -426,11 +404,14 @@ class LexicalAnalyzer:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (whitespace not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
+                
+                # Now create a space token with space symbol as lexeme
+                add_token('␣', 'space', line, col, i, i + 1)
                 i += 1
                 col += 1
                 continue
 
-            # Handle newline characters - similar to whitespace but also updates line counter
+            # Handle newline characters - they now produce tokens
             # NOTE: Do NOT short-circuit newline inside string literal; let FSA raise an error
             if ch == '\n' and currState not in ['s276']:
                 # Special case: s336 (decimal point without fractional digits) is invalid
@@ -464,10 +445,6 @@ class LexicalAnalyzer:
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
-                        i += 1
-                        line += 1
-                        col = 1
-                        continue
                     else:
                         # Newline not valid delimiter for this token - error
                         add_error(f"Lexical Error: Token '{lexeme}' cannot be followed by newline", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -477,6 +454,24 @@ class LexicalAnalyzer:
                         line += 1
                         col = 1
                         continue
+
+                # Check if we're in a keyword dispatcher state that can finalize as identifier
+                # Dispatcher states: s1(b), s11(c), s25(d), s40(e), s45(f), s63(g), s70(i), s76(l), s85(m), s90(r), s97(s), s110(t), s127(u), s133(v), s141(w)
+                if currState in ['s1', 's11', 's25', 's40', 's45', 's63', 's70', 's76', 's85', 's90', 's97', 's110', 's127', 's133', 's141']:
+                    # Try to finalize as single-letter identifier via ANY
+                    anyState = self.lex_transition(currState, 'ANY')
+                    if anyState != 'UNDEFINED' and self.is_final_state(anyState):
+                        token_type = self.get_token_type(anyState, lexeme)
+                        if check_delimiter(token_type, '\n'):
+                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            currState = 's0'
+                            lexeme = ''
+                            # Create newline token and continue
+                            add_token('newline', 'newline', line, col, i, i + 1)
+                            i += 1
+                            line += 1
+                            col = 1
+                            continue
 
                 # Check if we're in a non-final keyword state - STRICT: reject incomplete tokens
                 if currState != 's0' and not self.is_final_state(currState):
@@ -502,20 +497,8 @@ class LexicalAnalyzer:
                     currState = 's0'
                     lexeme = ''
 
-                # NOW check if last token was a binary operator - if so, error
-                if last_binary_operator is not None:
-                    op_line, op_col = last_binary_operator_pos
-                    op_start, op_end = last_binary_operator_indices
-                    add_error(f"Lexical Error: Binary operator '{last_binary_operator}' cannot be followed by newline",
-                             op_start, op_end, op_line, op_col)
-                    # Remove the invalid operator token from the token list
-                    # The last token should be the operator that we just flagged
-                    if tokens and tokens[-1].tokenName == last_binary_operator:
-                        tokens.pop()
-                    last_binary_operator = None
-                    last_binary_operator_pos = None
-                    last_binary_operator_indices = None
-
+                # Now create a newline token
+                add_token('newline', 'newline', line, col, i, i + 1)
                 i += 1
                 line += 1
                 col = 1
