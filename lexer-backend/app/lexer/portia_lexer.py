@@ -412,8 +412,8 @@ class LexicalAnalyzer:
                 continue
 
             # Handle newline characters - they now produce tokens
-            # NOTE: Do NOT short-circuit newline inside string literal; let FSA raise an error
-            if ch == '\n' and currState not in ['s276']:
+            # NOTE: Do NOT short-circuit newline inside string/char literals; let FSA raise an error
+            if ch == '\n' and currState not in ['s276', 's361', 's362', 's363']:
                 # Special case: s336 (decimal point without fractional digits) is invalid
                 if currState == 's336':
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
