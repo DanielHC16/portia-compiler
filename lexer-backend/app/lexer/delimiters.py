@@ -40,12 +40,13 @@ class Delimiters:
         self.exclamation_delim = chars.alphabetics + chars.whitespace + ['(', '!'] + chars.newline
         self.equal_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '"', "'", '!'] + chars.newline
         self.asign_delim = chars.alphanum + chars.whitespace + ['('] + chars.newline
-        self.and_delim = chars.alphabetics + chars.whitespace + ['(', '!', None] + chars.newline
-        self.or_delim = chars.whitespace + chars.alphanum + ['(', ')', None]
+        # Both && and || are binary logical operators with the same delimiter requirements
+        self.and_delim = chars.alphanum + chars.whitespace + ['(', '!', ')', None] + chars.newline
+        self.or_delim = chars.alphanum + chars.whitespace + ['(', '!', ')', None] + chars.newline
 
         # Backward compatibility: some older lexer versions referenced a unified
         # 'logical_op_delim'. Provide it as a union so legacy code doesn't break.
-        self.logical_op_delim = list({*self.and_delim, *self.or_delim})
+        self.logical_op_delim = self.and_delim  # Now they're identical
 
         # Increment/decrement delimiters (allow identifiers or expressions)
         self.increment_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
