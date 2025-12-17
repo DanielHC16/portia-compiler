@@ -17,10 +17,10 @@ class Delimiters:
         self.chars = chars
 
         # Arithmetic operator delimiters
-        self.negative_delim = chars.alphanum + chars.whitespace + ['(', '+', '.'] + chars.newline
-        self.modulo_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
-        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
-        self.sign_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '{', '"', '!'] + chars.newline
+        self.negative_delim = chars.alphanum + chars.whitespace + ['(', '+', '.']
+        self.modulo_delim = chars.alphanum + chars.whitespace + ['(', '+', '-']
+        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '+', '-']
+        self.sign_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '{', '"', '!']
 
         # Grouping symbol delimiters
         self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '+', '-', '/', '(', ';'] + chars.newline
@@ -37,15 +37,15 @@ class Delimiters:
         self.dot_delim = chars.alphabetics + chars.whitespace + chars.newline
 
         # Logical & comparison operator delimiters
-        self.exclamation_delim = chars.alphabetics + chars.whitespace + ['('] + chars.newline
+        self.exclamation_delim = chars.alphabetics + chars.whitespace + ['(']
         self.equal_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '"', '!'] + chars.newline
-        self.asign_delim = chars.alphanum + chars.whitespace + ['('] + chars.newline
+        self.asign_delim = chars.alphanum + chars.whitespace + ['(']
         # Both && and || are binary logical operators with the same delimiter requirements
-        self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '!'] + chars.newline
+        self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '!']
 
         # Increment/decrement delimiters (allow identifiers or expressions)
-        self.increment_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
-        self.decrement_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
+        self.increment_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}']
+        self.decrement_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}']
 
         # String & concatenation delimiters
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', ')', ']', '}', '(', '{', '+', '-', "'"] + chars.newline

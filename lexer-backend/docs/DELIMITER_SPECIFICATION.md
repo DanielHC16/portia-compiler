@@ -9,23 +9,23 @@ This document provides a visual reference for all delimiter sets used in the POR
   - Allows immediate `)` after primitive type keywords for casting
 
 ### Arithmetic Operators
-- **negative_delim** (subtract `-`): `{alphanum, whitespace, newline, (, +, .}`
-- **modulo_delim** (modulo `%`): `{alphanum, whitespace, newline, (, +, -}`
-- **marithmetic_delim** (multiply `*`): `{alphanum, whitespace, newline, (, +, -}`
-- **sign_delim** (add `+`): `{alphanum, whitespace, newline, (, +, -, {, ", !}`
+- **negative_delim** (subtract `-`): `{alphanum, whitespace, (, +, .}`
+- **modulo_delim** (modulo `%`): `{alphanum, whitespace, (, +, -}`
+- **marithmetic_delim** (multiply `*`): `{alphanum, whitespace, (, +, -}`
+- **sign_delim** (add `+`): `{alphanum, whitespace, (, +, -, {, ", !}`
 - **slash_delim** (divide `/`): `{alphanum, whitespace, newline, (, +, -}`
 
 ### Comparison Operators
-- **asign_delim** (comparison `<`, `>`): `{alphanum, whitespace, newline, (}`
+- **asign_delim** (comparison `<`, `>`): `{alphanum, whitespace, (}`
 - **equal_delim** (equality `==`): `{alphanum, whitespace, newline, (, +, -, ", !}`
 
 ### Logical Operators
-- **logical_op_delim** (`&&`, `||`): `{alphabetics, whitespace, newline, (, !}`
-- **exclamation_delim** (logical NOT `!`): `{alphabetics, whitespace, newline, (}`
+- **logical_op_delim** (`&&`, `||`): `{alphabetics, whitespace, (, !}`
+- **exclamation_delim** (logical NOT `!`): `{alphabetics, whitespace, (}`
 
 ### Increment/Decrement
-- **increment_delim** (`++`): `{alphabetics, whitespace, newline, ;, ), /, *, %, (, ], ,, }}`
-- **decrement_delim** (`--`): `{alphabetics, whitespace, newline, ;, ), /, *, %, (, ], ,, }}`
+- **increment_delim** (`++`): `{alphabetics, whitespace, ;, ), /, *, %, (, ], ,, }}`
+- **decrement_delim** (`--`): `{alphabetics, whitespace, ;, ), /, *, %, (, ], ,, }}`
 
 ### String Concatenation
 - **concat_delim** (concat `..`): `{alphanum, whitespace, newline, ", ), ], }, (, {, +, -, '}`
