@@ -42,9 +42,8 @@ class Delimiters:
         # Both && and || are binary logical operators with the same delimiter requirements
         self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '!'] + chars.newline
 
-        # Increment/decrement delimiters (allow identifiers or expressions)
-        self.increment_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
-        self.decrement_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
+        # Unary operator delimiters (++ and --)
+        self.unary_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
 
         # String & concatenation delimiters
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', ')', ']', '}', '(', '{', '+', '-', "'"] + chars.newline

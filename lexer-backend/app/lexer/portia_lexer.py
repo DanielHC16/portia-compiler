@@ -227,8 +227,8 @@ class LexicalAnalyzer:
                 'less_than': self.asign_delim, 'greater_than': self.asign_delim,
                 'less_equal': self.asign_delim, 'greater_equal': self.asign_delim,
                 'logical_and': self.logical_op_delim, 'logical_or': self.logical_op_delim,
-                'logical_not': self.exclamation_delim, 'increment': self.increment_delim,
-                'decrement': self.decrement_delim, 'add_assign': self.sign_delim,
+                'logical_not': self.exclamation_delim, 'increment': self.unary_delim,
+                'decrement': self.unary_delim, 'add_assign': self.sign_delim,
                 'minus_assign': self.sign_delim, 'mult_assign': self.sign_delim,
                 'div_assign': self.sign_delim, 'modulo_assign': self.sign_delim,
                 'concat': self.concat_delim,
@@ -550,9 +550,8 @@ class LexicalAnalyzer:
                             add_error(f"Lexical Error: Identifier '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                             currState = 's0'
                             lexeme = ''
-                            # Consume the invalid character and move on
-                            i += 1
-                            col += 1
+                            # Do NOT consume - allow reprocessing
+                            continue
                             continue
 
                 # Special case: keyword dispatcher states (first letter of keywords)
@@ -575,9 +574,8 @@ class LexicalAnalyzer:
                             add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                             currState = 's0'
                             lexeme = ''
-                            # Consume the invalid character and move on
-                            i += 1
-                            col += 1
+                            # Do NOT consume - allow reprocessing
+                            continue
                             continue
 
                 if currState != 's0' and self.is_final_state(currState):
@@ -619,9 +617,8 @@ class LexicalAnalyzer:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
-                        # Consume the invalid character and move on
-                        i += 1
-                        col += 1
+                        # Do NOT consume the invalid character - allow it to be reprocessed as the start of a new token
+                        # This allows cases like "+++" where "++" fails delimiter check, but the third "+" can still tokenize
                         continue
                 # Handle non-final states that hit invalid characters
                 if currState == 's320':
@@ -770,8 +767,7 @@ class LexicalAnalyzer:
                     add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
-                    i += 1
-                    col += 1
+                    # Do NOT consume - allow reprocessing
                     continue
 
             # Normal state transition - continue building the current token
@@ -868,9 +864,7 @@ class LexicalAnalyzer:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
-                        # Consume the invalid character
-                        i += 1
-                        col += 1
+                        # Do NOT consume - allow reprocessing
                         continue
 
             # Numeric literal digit limits are enforced by FSA states:
@@ -1887,9 +1881,9 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
             case 's154':  # After '--' (intermediate state)
                 match currChar:
-                    case 'ANY': return 's155'  # -- final (decrement_delim) - for is_final_state check
+                    case 'ANY': return 's155'  # -- final (unary_delim) - for is_final_state check
                     case _: return 's155'  # Any character transitions to final state
-            case 's155':  # -- final (decrement_delim)
+            case 's155':  # -- final (unary_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
@@ -1915,9 +1909,9 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
             case 's160':  # After '++' (intermediate state)
                 match currChar:
-                    case 'ANY': return 's161'  # ++ final (increment_delim) - for is_final_state check
+                    case 'ANY': return 's161'  # ++ final (unary_delim) - for is_final_state check
                     case _: return 's161'  # Any character transitions to final state
-            case 's161':  # ++ final (increment_delim)
+            case 's161':  # ++ final (unary_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
