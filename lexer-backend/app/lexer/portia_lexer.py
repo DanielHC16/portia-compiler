@@ -115,6 +115,11 @@ class LexicalAnalyzer:
             # Creates a token object and adds it to the tokens list
             nonlocal prev_token_type
             
+            # NEVER tokenize identifier_too_long - this should always be an error only
+            if token_type == 'identifier_too_long':
+                add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", start_idx, end_idx, tok_line, tok_col)
+                return  # Don't add the token
+            
             token = Token(tokenName=lexeme, tokenType=token_type, tokenLine=tok_line, tokenCol=tok_col)
             tokens.append(token)
             prev_token_type = token_type  # Update previous token type
@@ -171,7 +176,7 @@ class LexicalAnalyzer:
             special_delimiters = {
                 'break': [';'],
                 'case': [' ', '\t', '/', '('],
-                'default': [':', ' ', '\t', '/'],
+                'default': [':'],
                 'main': ['('], 'trap': ['('], 'thread': ['('], 'threadln': ['('],
                 'return': [';', ' ', '\t', '/'],
             }
@@ -591,7 +596,16 @@ class LexicalAnalyzer:
                             continue
 
                     # STRICT delimiter validation - use current character as delimiter
-                    if check_delimiter(token_type, ch):
+                    # First check for identifier_too_long - should never tokenize
+                    if token_type == 'identifier_too_long':
+                        add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        currState = 's0'
+                        lexeme = ''
+                        # Consume the invalid character
+                        i += 1
+                        col += 1
+                        continue
+                    elif check_delimiter(token_type, ch):
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
@@ -617,6 +631,7 @@ class LexicalAnalyzer:
                     
                     # s300 = 10-digit int (final), s318 = 19-digit long (final)
                     # s333 = 7-frac float (building - max), s351 = 16-frac double (building - max)
+                    # s268 = 25-char identifier (building - max)
                     if (state_num == 300 or state_num == 318 or state_num == 333 or state_num == 351) and ch in self.numbers:
                         # Number exceeds maximum length - consume all remaining digits
                         lexeme += ch
@@ -645,6 +660,22 @@ class LexicalAnalyzer:
                         last_binary_operator = None
                         last_binary_operator_pos = None
                         last_binary_operator_indices = None
+                        
+                        currState = 's0'
+                        lexeme = ''
+                        continue
+                    elif state_num == 268 and (ch in self.alphanum or ch == '_'):
+                        # Identifier exceeds maximum length - consume all remaining identifier chars
+                        lexeme += ch
+                        i += 1
+                        col += 1
+                        while i < len(code) and (code[i] in self.alphanum or code[i] == '_'):
+                            lexeme += code[i]
+                            i += 1
+                            col += 1
+                        
+                        add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", 
+                                lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         
                         currState = 's0'
                         lexeme = ''
@@ -689,7 +720,16 @@ class LexicalAnalyzer:
                         continue
 
                 # STRICT delimiter check - current character MUST be valid delimiter according to TD
-                if check_delimiter(token_type, ch):
+                # First check for identifier_too_long - should never tokenize
+                if token_type == 'identifier_too_long':
+                    add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
+                    # Consume the invalid character
+                    i += 1
+                    col += 1
+                    continue
+                elif check_delimiter(token_type, ch):
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
@@ -996,7 +1036,8 @@ class LexicalAnalyzer:
 
         if state in identifier_states or state in identifier_error_states:
             # Check if identifier exceeds maximum length (25 characters)
-            if len(lexeme) > 25:
+            # s266/s267/s268/s269 should ALL be treated as potential errors
+            if len(lexeme) >= 26:
                 return 'identifier_too_long'  # Special error token type
 
             keywords = {
@@ -2451,7 +2492,7 @@ class LexicalAnalyzer:
             # Position 25 (MAXIMUM ALLOWED)
             case 's268':  # Building - 25th character (LAST VALID)
                 match currChar:
-                    case _ if currChar in self.alphanum or currChar == '_': return 's268'  # Stay in s268 to consume excess
+                    case _ if currChar in self.alphanum or currChar == '_': return 'UNDEFINED'  # Reject - exceeds max length
                     case 'ANY': return 's269'  # Transition to final state
                     case _: return 'UNDEFINED'
 
