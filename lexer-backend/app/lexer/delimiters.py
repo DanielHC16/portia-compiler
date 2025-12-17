@@ -60,7 +60,7 @@ class Delimiters:
         self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', ',', '(', ')', ']', '}', ':', ';'] + chars.whitespace + chars.newline
 
         # bool_lit_delim: boolean literals (true, false)
-        self.bool_lit_delim = ['!', '&', '|', ',', ')', ']', '}', ':', ';', '='] + chars.whitespace + chars.newline
+        self.bool_lit_delim = ['!', '&', '|', ',', ')', '}', ':', ';', '='] + chars.whitespace + chars.newline
 
         # char_lit_delim: character literals 'c'
         self.char_lit_delim = ['>', '<', '=', '!', '&', '|', ',', ')', ':', ';'] + chars.whitespace + chars.newline
