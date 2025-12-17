@@ -149,11 +149,11 @@ class LexicalAnalyzer:
             if token_type in castable_types:
                 return next_char in self.dtype_delim
 
-            # Non-castable keywords: require whitespace delimiter
+            # Non-castable keywords: require whitespace/newline only
             # EOF is NOT allowed for these types
-            whitespace_keywords = ['const', 'func', 'global', 'local', 'using', 'var', 'void', 'weave']
-            if token_type in whitespace_keywords:
-                return next_char in self.whitespace_delim
+            space_keywords = ['const', 'func', 'global', 'local', 'using', 'var', 'void', 'weave']
+            if token_type in space_keywords:
+                return next_char in self.space_delim
 
             # Loop keywords: require whitespace or '('
             # EOF is NOT allowed for these types
@@ -171,11 +171,14 @@ class LexicalAnalyzer:
             if token_type == 'bool_lit':
                 return next_char in self.bool_lit_delim
 
+            # 'case' keyword: require whitespace/newline only
+            if token_type == 'case':
+                return next_char in self.space_delim
+
             # Special keywords with specific delimiters
             # EOF is NOT allowed for these types
             special_delimiters = {
                 'break': [';'],
-                'case': [' ', '\t', '/', '('],
                 'default': [':'],
                 'main': ['('], 'trap': ['('], 'thread': ['('], 'threadln': ['('],
                 'return': [';', ' ', '\t', '/'],

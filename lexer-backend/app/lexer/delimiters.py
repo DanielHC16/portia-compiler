@@ -75,6 +75,8 @@ class Delimiters:
         # Patterns: (int)x; (float)identifier  -- NO whitespace required between type and ')'
         # Excludes 'void' and 'weave' (not valid cast targets)
         self.dtype_delim = chars.whitespace + [')'] + chars.newline
+        # Keyword delimiter for keywords that only allow whitespace/newline: case, const, func, global, local, using, var, void, weave
+        self.space_delim = chars.whitespace + chars.newline
         
         # Escape sequence & comment delimiters
         self.escape_delim = chars.ascii + ['"'] + ['\\', "\'", '\"', '\t', '\n']
