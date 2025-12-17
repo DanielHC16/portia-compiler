@@ -17,10 +17,10 @@ class Delimiters:
         self.chars = chars
 
         # Arithmetic operator delimiters
-        self.negative_delim = chars.alphanum + chars.whitespace + ['(', '+', '.']
-        self.modulo_delim = chars.alphanum + chars.whitespace + ['(', '+', '-']
-        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '+', '-']
-        self.sign_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '{', '"', '!']
+        self.negative_delim = chars.alphanum + chars.whitespace + ['(', '+', '.'] + chars.newline
+        self.modulo_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
+        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
+        self.sign_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '{', '"', '!'] + chars.newline
 
         # Grouping symbol delimiters
         self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '+', '-', '/', '(', ';'] + chars.newline
@@ -37,15 +37,15 @@ class Delimiters:
         self.dot_delim = chars.alphabetics + chars.whitespace + chars.newline
 
         # Logical & comparison operator delimiters
-        self.exclamation_delim = chars.alphabetics + chars.whitespace + ['(']
+        self.exclamation_delim = chars.alphabetics + chars.whitespace + ['('] + chars.newline
         self.equal_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '"', '!'] + chars.newline
-        self.asign_delim = chars.alphanum + chars.whitespace + ['(']
+        self.asign_delim = chars.alphanum + chars.whitespace + ['('] + chars.newline
         # Both && and || are binary logical operators with the same delimiter requirements
-        self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '!']
+        self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '!'] + chars.newline
 
         # Increment/decrement delimiters (allow identifiers or expressions)
-        self.increment_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}']
-        self.decrement_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}']
+        self.increment_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
+        self.decrement_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
 
         # String & concatenation delimiters
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', ')', ']', '}', '(', '{', '+', '-', "'"] + chars.newline
@@ -61,7 +61,7 @@ class Delimiters:
         self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', ',', '(', ')', ']', '}', ':', ';'] + chars.whitespace + chars.newline
 
         # bool_lit_delim: boolean literals (true, false)
-        self.bool_lit_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', ',', ')', ']', '}', ':', ';'] + chars.whitespace + chars.newline
+        self.bool_lit_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', ',', ')', ']', '}', ':', ';'] + chars.whitespace
 
         # char_lit_delim: character literals 'c'
         self.char_lit_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',', ')', ']', '}', ':', ';', '.'] + chars.whitespace + chars.newline
@@ -71,7 +71,7 @@ class Delimiters:
 
         # Other / misc delimiters
         self.slash_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
-        self.whitespace_delim = chars.whitespace + chars.newline + ['/']
+        self.whitespace_delim = chars.whitespace + ['/']
         # Data type casting delimiter: allows ')' immediately after castable primitive type keyword
         # Patterns: (int)x; (float)identifier  -- NO whitespace required between type and ')'
         # Excludes 'void' and 'weave' (not valid cast targets)
