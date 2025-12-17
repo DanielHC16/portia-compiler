@@ -145,10 +145,20 @@ export default function LexerPanel() {
         end = start + tok.lexeme.length;
       }
       
-      // Final verification
+      // If still no match, try to find the token on the same line
       if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
-        console.warn(`Token position mismatch: "${tok.lexeme}" at line ${tok.line} col ${tok.column}, expected at ${start}-${end}, found "${src.slice(start, end)}"`);
-        continue;
+        const lineEnd = lineStarts[tok.line] ?? src.length;
+        const lineText = src.slice(lineStart, lineEnd);
+        const tokenIndex = lineText.indexOf(tok.lexeme);
+        
+        if (tokenIndex !== -1) {
+          start = lineStart + tokenIndex;
+          end = start + tok.lexeme.length;
+        } else {
+          // Last resort: skip this token
+          console.warn(`Token position mismatch: "${tok.lexeme}" at line ${tok.line} col ${tok.column}, could not find in line`);
+          continue;
+        }
       }
       
       const hasError = errorRanges.some(er => 
@@ -187,8 +197,13 @@ export default function LexerPanel() {
 
   const [highlightedHTML, setHighlightedHTML] = useState<string>("");
 
-  // Apply syntax highlighting immediately - no delays
+  // Apply syntax highlighting only when we have tokens (after running lexer)
   useEffect(() => {
+    if (tokens.length === 0 && errors.length === 0) {
+      // No tokens/errors = no highlighting, just show plain text
+      setHighlightedHTML(escapeHtml(code));
+      return;
+    }
     const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
     const html = rawSegments.map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text)).join("");
     setHighlightedHTML(html);

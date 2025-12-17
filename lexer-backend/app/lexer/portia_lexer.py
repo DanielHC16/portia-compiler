@@ -353,17 +353,29 @@ class LexicalAnalyzer:
                             col += 1
                             continue
 
-                # Check if we're in a non-final keyword state - STRICT: reject incomplete tokens
+                # Check if we're in a non-final keyword state - tokenize as identifier
                 if currState != 's0' and not self.is_final_state(currState):
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151:
-                        # STRICT: We're in a keyword state but not final - reject with error
-                        add_error(f"Lexical Error: Incomplete token '{lexeme}' (expected valid delimiter, got whitespace)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                        currState = 's0'
-                        lexeme = ''
-                        i += 1
-                        col += 1
-                        continue
+                        # Keyword state but not final - treat as identifier
+                        # Whitespace is a valid delimiter for identifiers
+                        if check_delimiter('identifier', ch):
+                            add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            currState = 's0'
+                            lexeme = ''
+                            # Create space token and continue
+                            add_token('␣', 'space', line, col, i, i + 1)
+                            i += 1
+                            col += 1
+                            continue
+                        else:
+                            # Whitespace not valid delimiter - should never happen for identifiers
+                            add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (whitespace not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            currState = 's0'
+                            lexeme = ''
+                            i += 1
+                            col += 1
+                            continue
 
                 if currState != 's0' and self.is_final_state(currState):
                     token_type = self.get_token_type(currState, lexeme)
@@ -373,6 +385,12 @@ class LexicalAnalyzer:
                     else:
                         # Whitespace not valid delimiter for this token - error
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (whitespace not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
+                elif currState != 's0':
+                    # Non-final, non-keyword state (e.g., s176 for '&', s179 for '|')
+                    # This is an incomplete token - error
+                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got whitespace)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
                 
@@ -425,15 +443,14 @@ class LexicalAnalyzer:
                         col = 1
                         continue
 
-                # Check if we're in a keyword dispatcher state that can finalize as identifier
-                # Dispatcher states: s1(b), s11(c), s25(d), s40(e), s45(f), s63(g), s70(i), s76(l), s85(m), s90(r), s97(s), s110(t), s127(u), s133(v), s141(w)
-                if currState in ['s1', 's11', 's25', 's40', 's45', 's63', 's70', 's76', 's85', 's90', 's97', 's110', 's127', 's133', 's141']:
-                    # Try to finalize as single-letter identifier via ANY
-                    anyState = self.lex_transition(currState, 'ANY')
-                    if anyState != 'UNDEFINED' and self.is_final_state(anyState):
-                        token_type = self.get_token_type(anyState, lexeme)
-                        if check_delimiter(token_type, '\n'):
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                # Check if we're in a non-final keyword state - tokenize as identifier
+                if currState != 's0' and not self.is_final_state(currState):
+                    state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
+                    if 1 <= state_num <= 151:
+                        # Keyword state but not final - treat as identifier
+                        # Newline is a valid delimiter for identifiers
+                        if check_delimiter('identifier', '\n'):
+                            add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                             # Create newline token and continue
@@ -442,19 +459,15 @@ class LexicalAnalyzer:
                             line += 1
                             col = 1
                             continue
-
-                # Check if we're in a non-final keyword state - STRICT: reject incomplete tokens
-                if currState != 's0' and not self.is_final_state(currState):
-                    state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
-                    if 1 <= state_num <= 151:
-                        # STRICT: We're in a keyword state but not final - reject with error
-                        add_error(f"Lexical Error: Incomplete token '{lexeme}' (expected valid delimiter, got newline)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                        currState = 's0'
-                        lexeme = ''
-                        i += 1
-                        line += 1
-                        col = 1
-                        continue
+                        else:
+                            # Newline not valid delimiter - should never happen for identifiers
+                            add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (newline not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            currState = 's0'
+                            lexeme = ''
+                            i += 1
+                            line += 1
+                            col = 1
+                            continue
 
                 # First, finalize any pending token with STRICT delimiter check
                 if currState != 's0' and self.is_final_state(currState):
@@ -464,6 +477,12 @@ class LexicalAnalyzer:
                     else:
                         # Newline not valid delimiter - error
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (newline not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
+                elif currState != 's0':
+                    # Non-final, non-keyword state (e.g., s176 for '&', s179 for '|')
+                    # This is an incomplete token - error
+                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got newline)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
 
@@ -933,7 +952,7 @@ class LexicalAnalyzer:
                         # STRICT: EOF not a valid delimiter for this token type
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 else:
-                    add_error(f"Lexical Error: Incomplete token '{lexeme}' at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
 
         return {
             'tokens': [t.to_dict() for t in tokens],
@@ -2552,9 +2571,10 @@ class LexicalAnalyzer:
 
             case 's276':  # Building string literal (after opening ")
                 match currChar:
+                    case '\\': return 's352'  # Backslash - next char is escape sequence
                     case '"': return 's277'  # Closing quote - end string
                     case '\n': return 'UNDEFINED'  # Literal newline in string is invalid
-                    case _ if currChar in self.ascii: return 's276'  # Continue consuming ASCII chars (including escape sequences like \n, \t, etc.)
+                    case _ if currChar in self.ascii: return 's276'  # Continue consuming ASCII chars
                     case _ if currChar in self.whitespace: return 's276'  # Allow whitespace in strings
                     case 'ANY': return 's276'  # Continue on any other character
                     case _: return 'UNDEFINED'
@@ -2570,17 +2590,33 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # CHARACTER LITERALS FSA - States s279-s281
-            # Entry: s0 + ' → s279 (opening single quote)
-            # Pattern: s279 stays in s279 consuming chars, ' → s280 (intermediate) → s281 (final)
+            # ESCAPE SEQUENCE STATE - s352
+            # After backslash in string literal, consume next character
+            # ============================================================
+
+            case 's352':  # After \ in string - only valid escape sequences allowed
+                match currChar:
+                    case "'": return 's276'  # \' is valid
+                    case '"': return 's276'  # \" is valid
+                    case 't': return 's276'  # \t is valid
+                    case 'n': return 's276'  # \n is valid
+                    case '\\': return 's276'  # \\ is valid
+                    case _: return 'UNDEFINED'  # Invalid escape sequence
+
+            # ============================================================
+            # CHARACTER LITERALS FSA - States s279-s281, s353-s354
+            # Entry: s0 + ' → s279 (opening single quote, empty)
+            # Pattern: s279 → char/escape → s354 (one char) → ' → s280 → s281 (final)
+            # Enforcement: Must have exactly 1 character or 1 escape sequence, not empty, not multiple
             # Final: s281 returns DEFINED on ANY (char_lit_delim)
             # ============================================================
 
-            case 's279':  # Building character literal (after opening ')
+            case 's279':  # After opening ', must have exactly one character or escape
                 match currChar:
-                    case "'": return 's280'  # Closing quote - transition to intermediate
-                    case '\n': return 'UNDEFINED'  # Newline before closing ' is error
-                    case _ if currChar in self.ascii: return 's279'  # Continue building char (including escapes)
+                    case '\\': return 's353'  # Backslash - next char is escape sequence
+                    case "'": return 'UNDEFINED'  # Empty char literal '' is invalid
+                    case '\n': return 'UNDEFINED'  # Newline is error
+                    case _ if currChar in self.ascii: return 's354'  # One character consumed, must close now
                     case _: return 'UNDEFINED'
 
             case 's280':  # After closing ', transition to final (intermediate state)
@@ -2594,8 +2630,32 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
 
             # ============================================================
+            # ESCAPE SEQUENCE STATE FOR CHAR - s353
+            # After backslash in char literal, only valid escape sequences allowed
             # ============================================================
-            # NUMBER LITERALS FSA - States s282 to s352
+
+            case 's353':  # After \\ in char - only valid escape sequences allowed
+                match currChar:
+                    case "'": return 's354'  # \\' is valid
+                    case '"': return 's354'  # \\" is valid
+                    case 't': return 's354'  # \\t is valid
+                    case 'n': return 's354'  # \\n is valid
+                    case '\\': return 's354'  # \\\\ is valid
+                    case _: return 'UNDEFINED'  # Invalid escape sequence
+
+            # ============================================================
+            # ONE CHARACTER CONSUMED STATE - s354
+            # After exactly one character or escape, must see closing '
+            # ============================================================
+
+            case 's354':  # One character/escape consumed, must close with '
+                match currChar:
+                    case "'": return 's280'  # Closing quote - transition to intermediate
+                    case _: return 'UNDEFINED'  # Any other character = too many characters in char literal
+
+            # ============================================================
+            # ============================================================
+            # NUMBER LITERALS FSA - States s282 to s351
             # ============================================================
             # INTEGER LITERALS - States s282-s301 (1-10 digits)
             # Entry: s0 + digit → s282 (1st digit)
