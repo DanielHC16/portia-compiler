@@ -214,7 +214,7 @@ class LexicalAnalyzer:
             operator_delims = {
                 'add': self.sign_delim, 'subtract': self.negative_delim,
                 'multiply': self.marithmetic_delim, 'divide': self.slash_delim,
-                'modulo': self.modulo_delim, 'assign': self.equal_delim,
+                'modulo': self.marithmetic_delim, 'assign': self.equal_delim,
                 'equal': self.sign_delim, 'not_equal': self.sign_delim,
                 'less_than': self.asign_delim, 'greater_than': self.asign_delim,
                 'less_equal': self.asign_delim, 'greater_equal': self.asign_delim,

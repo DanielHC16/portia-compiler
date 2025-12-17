@@ -18,7 +18,6 @@ class Delimiters:
 
         # Arithmetic operator delimiters
         self.negative_delim = chars.alphanum + chars.whitespace + ['(', '+', '.'] + chars.newline
-        self.modulo_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
         self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
         self.sign_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '{', '"', '!'] + chars.newline
 
