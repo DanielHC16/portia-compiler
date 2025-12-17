@@ -178,6 +178,16 @@ class LexicalAnalyzer:
             if token_type in special_delimiters:
                 return next_char in special_delimiters[token_type]
             
+            # Operators - EOF is NOT allowed
+            operator_types = {
+                'add', 'subtract', 'multiply', 'divide', 'modulo', 'assign',
+                'equal', 'not_equal', 'less_than', 'greater_than', 'less_equal', 'greater_equal',
+                'logical_and', 'logical_or', 'logical_not', 'increment', 'decrement',
+                'add_assign', 'minus_assign', 'mult_assign', 'div_assign', 'modulo_assign', 'concat'
+            }
+            if token_type in operator_types and next_char is None:
+                return False
+            
             # Handle EOF for remaining token types
             if next_char is None:
                 # Most tokens allow EOF, but we've already handled the exceptions above
@@ -811,9 +821,13 @@ class LexicalAnalyzer:
                         # Otherwise reprocess this delimiter in next loop
                         continue
                     else:
-                        add_error(f"Lexical Error: Unexpected character '{ch}' after '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        # STRICT: Invalid delimiter - reject token completely, do NOT tokenize
+                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
+                        # Consume the invalid character
+                        i += 1
+                        col += 1
                         continue
 
             # Numeric literal digit limits are enforced by FSA states:

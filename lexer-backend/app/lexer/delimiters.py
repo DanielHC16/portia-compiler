@@ -75,7 +75,7 @@ class Delimiters:
         # Data type casting delimiter: allows ')' immediately after castable primitive type keyword
         # Patterns: (int)x; (float)identifier  -- NO whitespace required between type and ')'
         # Excludes 'void' and 'weave' (not valid cast targets)
-        self.dtype_delim = chars.whitespace + [')']
+        self.dtype_delim = chars.whitespace + [')'] + chars.newline
         
         # Escape sequence & comment delimiters
         self.escape_delim = chars.ascii + ['"'] + ['\\', "\'", '\"', '\t', '\n']
