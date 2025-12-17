@@ -23,7 +23,7 @@ class Delimiters:
         self.sign_delim = chars.alphanum + chars.whitespace + ['(', '+', '-', '{', '"', '!'] + chars.newline
 
         # Grouping symbol delimiters
-        self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '+', '-', '/', '(', ';'] + chars.newline
+        self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '+', '-', '(', ';'] + chars.newline
         self.open_bracket_delim = chars.alphanum + chars.whitespace + [';', ',', '+', '-'] + chars.newline
         self.open_curly_delim = chars.alphanum + chars.whitespace + ['{', '}', '"', '(', '+', '-', '!', ','] + chars.newline
         self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<', '!', '=', '&', '|', "'", '{', ';', ')', '(', ':', ']', '}', '"', ','] + chars.whitespace + chars.newline
