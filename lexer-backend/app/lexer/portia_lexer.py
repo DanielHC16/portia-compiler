@@ -2559,9 +2559,10 @@ class LexicalAnalyzer:
 
             case 's276':  # Building string literal (after opening ")
                 match currChar:
+                    case '\\': return 's352'  # Backslash - next char is escape sequence
                     case '"': return 's277'  # Closing quote - end string
                     case '\n': return 'UNDEFINED'  # Literal newline in string is invalid
-                    case _ if currChar in self.ascii: return 's276'  # Continue consuming ASCII chars (including escape sequences like \n, \t, etc.)
+                    case _ if currChar in self.ascii: return 's276'  # Continue consuming ASCII chars
                     case _ if currChar in self.whitespace: return 's276'  # Allow whitespace in strings
                     case 'ANY': return 's276'  # Continue on any other character
                     case _: return 'UNDEFINED'
@@ -2577,6 +2578,17 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
 
             # ============================================================
+            # ESCAPE SEQUENCE STATE - s352
+            # After backslash in string literal, consume next character
+            # ============================================================
+
+            case 's352':  # After \ in string - consume next char as escape
+                match currChar:
+                    case '\n': return 'UNDEFINED'  # Literal newline after \ is invalid
+                    case 'ANY': return 's276'  # Any other char is valid escape, return to string building
+                    case _: return 's276'  # Return to string building
+
+            # ============================================================
             # CHARACTER LITERALS FSA - States s279-s281
             # Entry: s0 + ' → s279 (opening single quote)
             # Pattern: s279 stays in s279 consuming chars, ' → s280 (intermediate) → s281 (final)
@@ -2585,9 +2597,10 @@ class LexicalAnalyzer:
 
             case 's279':  # Building character literal (after opening ')
                 match currChar:
+                    case '\\': return 's353'  # Backslash - next char is escape sequence
                     case "'": return 's280'  # Closing quote - transition to intermediate
                     case '\n': return 'UNDEFINED'  # Newline before closing ' is error
-                    case _ if currChar in self.ascii: return 's279'  # Continue building char (including escapes)
+                    case _ if currChar in self.ascii: return 's279'  # Continue building char
                     case _: return 'UNDEFINED'
 
             case 's280':  # After closing ', transition to final (intermediate state)
@@ -2601,8 +2614,19 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
 
             # ============================================================
+            # ESCAPE SEQUENCE STATE FOR CHAR - s353
+            # After backslash in char literal, consume next character
             # ============================================================
-            # NUMBER LITERALS FSA - States s282 to s352
+
+            case 's353':  # After \ in char - consume next char as escape
+                match currChar:
+                    case '\n': return 'UNDEFINED'  # Literal newline after \ is invalid
+                    case 'ANY': return 's279'  # Any other char is valid escape, return to char building
+                    case _: return 's279'  # Return to char building
+
+            # ============================================================
+            # ============================================================
+            # NUMBER LITERALS FSA - States s282 to s351
             # ============================================================
             # INTEGER LITERALS - States s282-s301 (1-10 digits)
             # Entry: s0 + digit → s282 (1st digit)
