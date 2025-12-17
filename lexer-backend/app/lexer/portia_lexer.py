@@ -2594,11 +2594,14 @@ class LexicalAnalyzer:
             # After backslash in string literal, consume next character
             # ============================================================
 
-            case 's352':  # After \ in string - consume next char as escape
+            case 's352':  # After \ in string - only valid escape sequences allowed
                 match currChar:
-                    case '\n': return 'UNDEFINED'  # Literal newline after \ is invalid
-                    case 'ANY': return 's276'  # Any other char is valid escape, return to string building
-                    case _: return 's276'  # Return to string building
+                    case "'": return 's276'  # \' is valid
+                    case '"': return 's276'  # \" is valid
+                    case 't': return 's276'  # \t is valid
+                    case 'n': return 's276'  # \n is valid
+                    case '\\': return 's276'  # \\ is valid
+                    case _: return 'UNDEFINED'  # Invalid escape sequence
 
             # ============================================================
             # CHARACTER LITERALS FSA - States s279-s281, s353-s354
@@ -2628,14 +2631,17 @@ class LexicalAnalyzer:
 
             # ============================================================
             # ESCAPE SEQUENCE STATE FOR CHAR - s353
-            # After backslash in char literal, consume next character
+            # After backslash in char literal, only valid escape sequences allowed
             # ============================================================
 
-            case 's353':  # After \\ in char - consume next char as escape
+            case 's353':  # After \\ in char - only valid escape sequences allowed
                 match currChar:
-                    case '\\n': return 'UNDEFINED'  # Literal newline after \\ is invalid
-                    case 'ANY': return 's354'  # Escape consumed, must close now
-                    case _: return 's354'  # Return to one-char state
+                    case "'": return 's354'  # \\' is valid
+                    case '"': return 's354'  # \\" is valid
+                    case 't': return 's354'  # \\t is valid
+                    case 'n': return 's354'  # \\n is valid
+                    case '\\': return 's354'  # \\\\ is valid
+                    case _: return 'UNDEFINED'  # Invalid escape sequence
 
             # ============================================================
             # ONE CHARACTER CONSUMED STATE - s354
