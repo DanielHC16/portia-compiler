@@ -42,9 +42,8 @@ class Delimiters:
         # Both && and || are binary logical operators with the same delimiter requirements
         self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '!'] + chars.newline
 
-        # Increment/decrement delimiters (allow identifiers or expressions)
-        self.increment_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
-        self.decrement_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
+        # Unary operator delimiters (++ and --)
+        self.unary_delim = chars.alphabetics + chars.whitespace + [';', ')', '/', '*', '%', '(', ']', ',', '}'] + chars.newline
 
         # String & concatenation delimiters
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', ')', ']', '}', '(', '{', '+', '-', "'"] + chars.newline
@@ -60,7 +59,7 @@ class Delimiters:
         self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', ',', '(', ')', ']', '}', ':', ';'] + chars.whitespace + chars.newline
 
         # bool_lit_delim: boolean literals (true, false)
-        self.bool_lit_delim = ['!', '&', '|', ',', ')', ']', '}', ':', ';', '='] + chars.whitespace + chars.newline
+        self.bool_lit_delim = ['!', '&', '|', ',', ')', '}', ':', ';', '='] + chars.whitespace + chars.newline
 
         # char_lit_delim: character literals 'c'
         self.char_lit_delim = ['>', '<', '=', '!', '&', '|', ',', ')', ':', ';'] + chars.whitespace + chars.newline
@@ -75,6 +74,8 @@ class Delimiters:
         # Patterns: (int)x; (float)identifier  -- NO whitespace required between type and ')'
         # Excludes 'void' and 'weave' (not valid cast targets)
         self.dtype_delim = chars.whitespace + [')'] + chars.newline
+        # Keyword delimiter for keywords that only allow whitespace/newline: case, const, func, global, local, using, var, void, weave
+        self.space_delim = chars.whitespace + chars.newline
         
         # Escape sequence & comment delimiters
         self.escape_delim = chars.ascii + ['"'] + ['\\', "\'", '\"', '\t', '\n']
