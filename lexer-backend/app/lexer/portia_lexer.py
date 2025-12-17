@@ -387,6 +387,12 @@ class LexicalAnalyzer:
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (whitespace not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
+                elif currState != 's0':
+                    # Non-final, non-keyword state (e.g., s176 for '&', s179 for '|')
+                    # This is an incomplete token - error
+                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got whitespace)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
                 
                 # Now create a space token with space symbol as lexeme
                 add_token('␣', 'space', line, col, i, i + 1)
@@ -471,6 +477,12 @@ class LexicalAnalyzer:
                     else:
                         # Newline not valid delimiter - error
                         add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (newline not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    currState = 's0'
+                    lexeme = ''
+                elif currState != 's0':
+                    # Non-final, non-keyword state (e.g., s176 for '&', s179 for '|')
+                    # This is an incomplete token - error
+                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got newline)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
 
