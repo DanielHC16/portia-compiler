@@ -2589,18 +2589,19 @@ class LexicalAnalyzer:
                     case _: return 's276'  # Return to string building
 
             # ============================================================
-            # CHARACTER LITERALS FSA - States s279-s281
-            # Entry: s0 + ' → s279 (opening single quote)
-            # Pattern: s279 stays in s279 consuming chars, ' → s280 (intermediate) → s281 (final)
+            # CHARACTER LITERALS FSA - States s279-s281, s353-s354
+            # Entry: s0 + ' → s279 (opening single quote, empty)
+            # Pattern: s279 → char/escape → s354 (one char) → ' → s280 → s281 (final)
+            # Enforcement: Must have exactly 1 character or 1 escape sequence, not empty, not multiple
             # Final: s281 returns DEFINED on ANY (char_lit_delim)
             # ============================================================
 
-            case 's279':  # Building character literal (after opening ')
+            case 's279':  # After opening ', must have exactly one character or escape
                 match currChar:
                     case '\\': return 's353'  # Backslash - next char is escape sequence
-                    case "'": return 's280'  # Closing quote - transition to intermediate
-                    case '\n': return 'UNDEFINED'  # Newline before closing ' is error
-                    case _ if currChar in self.ascii: return 's279'  # Continue building char
+                    case "'": return 'UNDEFINED'  # Empty char literal '' is invalid
+                    case '\n': return 'UNDEFINED'  # Newline is error
+                    case _ if currChar in self.ascii: return 's354'  # One character consumed, must close now
                     case _: return 'UNDEFINED'
 
             case 's280':  # After closing ', transition to final (intermediate state)
@@ -2618,11 +2619,21 @@ class LexicalAnalyzer:
             # After backslash in char literal, consume next character
             # ============================================================
 
-            case 's353':  # After \ in char - consume next char as escape
+            case 's353':  # After \\ in char - consume next char as escape
                 match currChar:
-                    case '\n': return 'UNDEFINED'  # Literal newline after \ is invalid
-                    case 'ANY': return 's279'  # Any other char is valid escape, return to char building
-                    case _: return 's279'  # Return to char building
+                    case '\\n': return 'UNDEFINED'  # Literal newline after \\ is invalid
+                    case 'ANY': return 's354'  # Escape consumed, must close now
+                    case _: return 's354'  # Return to one-char state
+
+            # ============================================================
+            # ONE CHARACTER CONSUMED STATE - s354
+            # After exactly one character or escape, must see closing '
+            # ============================================================
+
+            case 's354':  # One character/escape consumed, must close with '
+                match currChar:
+                    case "'": return 's280'  # Closing quote - transition to intermediate
+                    case _: return 'UNDEFINED'  # Any other character = too many characters in char literal
 
             # ============================================================
             # ============================================================
