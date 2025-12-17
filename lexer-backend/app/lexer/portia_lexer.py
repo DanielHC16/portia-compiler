@@ -136,38 +136,51 @@ class LexicalAnalyzer:
         def check_delimiter(token_type: str, next_char: str) -> bool:
             # Validates that the next character is a legal delimiter for this token type
             # Uses delimiter definitions from delimiters.py
-            if next_char is None:
-                must_have_delimiter = ['break', 'return', 'main', 'trap', 'thread', 'threadln', 'default']
-                return token_type not in must_have_delimiter
-
+            
             # Castable primitive types: allow ')' immediately after (for typecasting)
+            # EOF is NOT allowed for these types
             castable_types = ['bool', 'char', 'double', 'float', 'int', 'long', 'string']
             if token_type in castable_types:
                 return next_char in self.dtype_delim
 
             # Non-castable keywords: require whitespace delimiter
+            # EOF is NOT allowed for these types
             whitespace_keywords = ['const', 'func', 'global', 'local', 'using', 'var', 'void', 'weave']
             if token_type in whitespace_keywords:
                 return next_char in self.whitespace_delim
 
+            # Loop keywords: require whitespace or '('
+            # EOF is NOT allowed for these types
             loop_delimiters = ['if', 'switch', 'for', 'while']
             if token_type in loop_delimiters:
                 return next_char in self.loop_delim
 
+            # Block keywords: require whitespace or '{'
+            # EOF is NOT allowed for these types
             block_delimiters = ['do', 'else']
             if token_type in block_delimiters:
                 return next_char in self.block_delim
 
+            # Boolean literals (true, false): EOF is NOT allowed
+            if token_type == 'bool_lit':
+                return next_char in self.bool_lit_delim
+
+            # Special keywords with specific delimiters
+            # EOF is NOT allowed for these types
             special_delimiters = {
-                'break': [';', ' ', '\t', '\n', '/'],
-                'case': [' ', '\t', '\n', '/', '('],
-                'default': [':', ' ', '\t', '\n', '/'],
+                'break': [';'],
+                'case': [' ', '\t', '/', '('],
+                'default': [':', ' ', '\t', '/'],
                 'main': ['('], 'trap': ['('], 'thread': ['('], 'threadln': ['('],
-                'return': [';', ' ', '\t', '\n', '/'],
-                'bool_lit': self.nbl_delim,
+                'return': [';', ' ', '\t', '/'],
             }
             if token_type in special_delimiters:
                 return next_char in special_delimiters[token_type]
+            
+            # Handle EOF for remaining token types
+            if next_char is None:
+                # Most tokens allow EOF, but we've already handled the exceptions above
+                return True
 
             if token_type == 'identifier':
                 return next_char in self.iden_delim
@@ -358,7 +371,7 @@ class LexicalAnalyzer:
                         lexeme = ''
                     else:
                         # Whitespace not a valid delimiter for this token type - error
-                        add_error(f"Lexical Error: Token '{lexeme}' cannot be followed by whitespace in this context", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        add_error(f"Lexical Error: Token '{lexeme}' cannot be followed by whitespace - not proper delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
                         i += 1

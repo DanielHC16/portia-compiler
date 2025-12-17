@@ -53,7 +53,7 @@ class Delimiters:
 
         # Control flow delimiters
         self.loop_delim = chars.whitespace + ['(']
-        self.block_delim = chars.whitespace + ['{']
+        self.block_delim = chars.whitespace + ['{'] + chars.newline 
         self.return_delim = [';'] + chars.whitespace
 
         # Literal delimiters
@@ -61,7 +61,7 @@ class Delimiters:
         self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', ',', '(', ')', ']', '}', ':', ';'] + chars.whitespace + chars.newline
 
         # bool_lit_delim: boolean literals (true, false)
-        self.bool_lit_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', ',', ')', ']', '}', ':', ';'] + chars.whitespace + chars.newline
+        self.bool_lit_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', ',', ')', ']', '}', ':', ';'] + chars.whitespace
 
         # char_lit_delim: character literals 'c'
         self.char_lit_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', '&', '|', ',', ')', ']', '}', ':', ';', '.'] + chars.whitespace + chars.newline
@@ -71,7 +71,7 @@ class Delimiters:
 
         # Other / misc delimiters
         self.slash_delim = chars.alphanum + chars.whitespace + ['(', '+', '-'] + chars.newline
-        self.whitespace_delim = chars.whitespace + chars.newline + ['/']
+        self.whitespace_delim = chars.whitespace + ['/']
         # Data type casting delimiter: allows ')' immediately after castable primitive type keyword
         # Patterns: (int)x; (float)identifier  -- NO whitespace required between type and ')'
         # Excludes 'void' and 'weave' (not valid cast targets)
