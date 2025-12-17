@@ -53,7 +53,7 @@ class Delimiters:
 
         # Control flow delimiters
         self.loop_delim = chars.whitespace + ['(']
-        self.block_delim = chars.whitespace + ['{']
+        self.block_delim = chars.whitespace + ['{'] + chars.newline 
         self.return_delim = [';'] + chars.whitespace
 
         # Literal delimiters
