@@ -126,17 +126,15 @@ export default function LexerPanel() {
     const errorRanges: Array<{start: number, end: number}> = [];
     for (const err of errs) {
       if (err.start_index !== undefined && err.end_index !== undefined) {
-        let end = err.end_index;
-        // If error message says "got 'X'", extend range to include the invalid delimiter
-        if (err.message && err.message.includes("got '") && end < src.length) {
-          end = end + 1;
-        }
-        errorRanges.push({ start: err.start_index, end });
+        // Backend provides exact indices - use them directly
+        errorRanges.push({ start: err.start_index, end: err.end_index });
       } else if (err.line > 0 && err.line <= lineStarts.length) {
+        // Calculate from line/column (both are 1-based from backend)
         const lineStart = lineStarts[err.line - 1];
-        const start = lineStart + Math.max(0, err.column - 1);
-        if (start < src.length) {
+        const start = lineStart + (err.column - 1);  // column is 1-based
+        if (start >= 0 && start < src.length) {
           let end = start + 1;
+          // Extend to cover the whole identifier/token if possible
           while (end < src.length && /[a-zA-Z0-9_]/.test(src[end])) end++;
           errorRanges.push({ start, end });
         }

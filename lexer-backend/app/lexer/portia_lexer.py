@@ -654,7 +654,7 @@ class LexicalAnalyzer:
                             continue
                         else:
                             # STRICT: Invalid delimiter - reject token, do NOT tokenize
-                            add_error(f"Lexical Error: Identifier '{lexeme}' not properly delimited. Expected one of {self.iden_delim} but found '{ch}' (Line {lexeme_start_line}, Col {lexeme_start_col})", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            add_error(f"Invalid delimiter for identifier '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                             currState = 's0'
                             lexeme = ''
                             # Do NOT consume - allow reprocessing
@@ -1506,6 +1506,7 @@ class LexicalAnalyzer:
                     case 'o': return 's56'
                     case 'u': return 's59'
                     case _ if currChar in self.alphanum or currChar == '_': return 's220'  # Continue as identifier
+                    case 'ANY': return 's221'  # 'f' alone is valid identifier
                     case _: return 'UNDEFINED'
             case 's46':
                 match currChar:
@@ -1809,6 +1810,7 @@ class LexicalAnalyzer:
                     case 'h': return 's111'
                     case 'r': return 's120'
                     case _ if currChar in self.alphanum or currChar == '_': return 's220'  # Continue as identifier
+                    case 'ANY': return 's221'  # 't' alone is valid identifier
                     case _: return 'UNDEFINED'
             case 's111':
                 match currChar:
@@ -3234,3 +3236,5 @@ class LexicalAnalyzer:
 
         return 'UNDEFINED'
  
+
+
