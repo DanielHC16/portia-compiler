@@ -33,9 +33,9 @@ class Delimiters:
         
         # Grouping symbol delimiters
         self.open_paren_delim = chars.alphanum + ['"', '!', ')', '-', '(', ';']
-        self.close_paren_delim = chars.alphanum + ['bool_lit', '+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '&&', '||', '{', ';', ')'] + chars.whitespace + chars.newline
+        self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '&&', '||', '{', ';', ')'] + chars.whitespace + chars.newline
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '['] + chars.whitespace
-        self.open_curly_delim = chars.whitespace + chars.newline + chars.numbers + ['{', '"', "'", '-', 'bool_lit']
+        self.open_curly_delim = chars.whitespace + chars.newline + chars.numbers + ['{', '"', "'", '-', '!']
         self.close_curly_delim = chars.whitespace + chars.newline + [';', ','] + chars.alphabetics + ['}']
 
         # Punctuation delimiters
