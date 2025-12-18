@@ -107,7 +107,7 @@ class Delimiters:
         self.dot_delim = chars.alphabetics + chars.whitespace + chars.newline
         
         # open_bracket_delim: used for '[' delimiter (array indexing)
-        # Can be followed by alphanum (identifiers/literals), whitespace, or expressions
-        self.open_bracket_delim = chars.alphanum + chars.whitespace + ['-'] + chars.newline
+        # Can be followed by alphanum (identifiers/literals) only
+        self.open_bracket_delim = chars.alphanum
 
 
