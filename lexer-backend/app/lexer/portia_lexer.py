@@ -219,24 +219,19 @@ class LexicalAnalyzer:
                 if next_char is None or next_char == '\n':
                     return False
                 return char_in_delimiters(next_char, self.char_lit_delim)
-            
-            # Handle EOF for remaining token types
-            if next_char is None:
-                # Most tokens allow EOF, but we've already handled the exceptions above
-                return True
 
-            if token_type == 'identifier':
-                return char_in_delimiters(next_char, self.iden_delim)
+            # Check delimiter tokens BEFORE EOF handling
+            delimiter_delims = {
+                'open_paren': self.open_paren_delim, 'close_paren': self.close_paren_delim,
+                'open_bracket': self.open_bracket_delim, 'close_bracket': self.close_bracket_delim,
+                'open_brace': self.open_curly_delim, 'close_brace': self.close_curly_delim,
+                'semicolon': self.semicolon_delim, 'comma': self.comma_delim,
+                'colon': self.colon_delim, 'dot': self.dot_delim,
+            }
+            if token_type in delimiter_delims:
+                return char_in_delimiters(next_char, delimiter_delims[token_type])
 
-            if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
-                return char_in_delimiters(next_char, self.nbl_delim)
-
-            if token_type == 'single_comment':
-                return char_in_delimiters(next_char, self.comment_delim)
-
-            if token_type == 'multi_comment':
-                return char_in_delimiters(next_char, self.comment_delim)
-
+            # Check operators BEFORE EOF handling
             operator_delims = {
                 'add': self.sign_delim, 'subtract': self.negative_delim,
                 'multiply': self.marithmetic_delim, 'divide': self.slash_delim,
@@ -253,16 +248,25 @@ class LexicalAnalyzer:
             }
             if token_type in operator_delims:
                 return char_in_delimiters(next_char, operator_delims[token_type])
+            
+            # Check numeric literals BEFORE EOF handling
+            if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
+                return char_in_delimiters(next_char, self.nbl_delim)
 
-            delimiter_delims = {
-                'open_paren': self.open_paren_delim, 'close_paren': self.close_paren_delim,
-                'open_bracket': self.open_bracket_delim, 'close_bracket': self.close_bracket_delim,
-                'open_brace': self.open_curly_delim, 'close_brace': self.close_curly_delim,
-                'semicolon': self.semicolon_delim, 'comma': self.comma_delim,
-                'colon': self.colon_delim, 'dot': self.dot_delim,
-            }
-            if token_type in delimiter_delims:
-                return char_in_delimiters(next_char, delimiter_delims[token_type])
+            # Check identifiers BEFORE EOF handling
+            if token_type == 'identifier':
+                return char_in_delimiters(next_char, self.iden_delim)
+
+            # Handle EOF for remaining token types
+            if next_char is None:
+                # Most tokens allow EOF, but we've already handled the exceptions above
+                return True
+
+            if token_type == 'single_comment':
+                return char_in_delimiters(next_char, self.comment_delim)
+
+            if token_type == 'multi_comment':
+                return char_in_delimiters(next_char, self.comment_delim)
 
             return True
 
