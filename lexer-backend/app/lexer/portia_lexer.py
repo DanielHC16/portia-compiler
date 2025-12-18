@@ -257,16 +257,17 @@ class LexicalAnalyzer:
             if token_type == 'identifier':
                 return char_in_delimiters(next_char, self.iden_delim)
 
-            # Handle EOF for remaining token types
-            if next_char is None:
-                # Most tokens allow EOF, but we've already handled the exceptions above
-                return True
-
+            # Check comments BEFORE EOF handling
             if token_type == 'single_comment':
                 return char_in_delimiters(next_char, self.comment_delim)
 
             if token_type == 'multi_comment':
                 return char_in_delimiters(next_char, self.comment_delim)
+
+            # Handle EOF for remaining token types
+            if next_char is None:
+                # Most tokens allow EOF, but we've already handled the exceptions above
+                return True
 
             return True
 
@@ -285,6 +286,7 @@ class LexicalAnalyzer:
                 if currState == 's270' and ch == '\n':
                     # Finalize single-line comment token (don't include newline)
                     token_type = self.get_token_type('s271', lexeme)
+                    # Newline is always a valid delimiter for single-line comments
                     add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     currState = 's0'
                     lexeme = ''
@@ -297,11 +299,23 @@ class LexicalAnalyzer:
                 if currState == 's274':
                     # We just processed the / in */, comment is complete
                     token_type = self.get_token_type('s275', lexeme)
-                    add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
-                    currState = 's0'
-                    lexeme = ''
-                    # Don't increment i - reprocess current character as new token
-                    continue
+                    # Check what comes after the */ - STRICT delimiter validation
+                    next_char = code[i] if i < length else None
+                    if check_delimiter(token_type, next_char):
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                        currState = 's0'
+                        lexeme = ''
+                        # Don't increment i - reprocess current character as new token
+                        continue
+                    else:
+                        # Invalid delimiter after multi-line comment
+                        if next_char is None:
+                            add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        else:
+                            add_error(f"Lexical Error: Expected valid delimiter, got '{next_char}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        currState = 's0'
+                        lexeme = ''
+                        continue
 
                 # Continue processing comment - build lexeme for highlighting
                 if nextState != 'UNDEFINED':
@@ -1006,17 +1020,27 @@ class LexicalAnalyzer:
                         # Single-line comments (s270) are valid at EOF (no newline needed)
                         # Multi-line comments need to be properly closed
                         if currState == 's270':
-                            # Single-line comment at EOF - treat as complete
+                            # Single-line comment at EOF - STRICT delimiter check
                             token_type = self.get_token_type('s271', lexeme)
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            if check_delimiter(token_type, None):
+                                add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            else:
+                                add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         elif currState == 's271':
                             # Already finalized single-line comment
                             token_type = self.get_token_type(currState, lexeme)
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            if check_delimiter(token_type, None):
+                                add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            else:
+                                add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         elif currState in ['s274', 's275']:
                             # Multi-line comment properly closed (s274 after */, s275 is final)
                             token_type = self.get_token_type('s275', lexeme)
-                            add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            # STRICT: Check delimiter even at EOF
+                            if check_delimiter(token_type, None):
+                                add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            else:
+                                add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         elif currState in ['s272', 's273']:
                             # Incomplete multi-line comment - report error
                             add_error(f"Lexical Error: Unterminated multi-line comment at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)

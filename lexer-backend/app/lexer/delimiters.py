@@ -85,7 +85,7 @@ class Delimiters:
         # Escape sequence & comment delimiters
         self.escape_delim = chars.ascii + ['"'] + ['\\', "\'", '\"', '\t', '\n']
         # Comment delimiter - what can follow after a comment ends
-        self.comment_delim = chars.alphanum + chars.whitespace + chars.newline + ['/', '{', '}', '(', ')', '[', ']', ';', ',', '+', '-', '*', '%', '=', '!', '&', '|', '<', '>', ':', '.', '"', "'", None]
+        self.comment_delim = chars.alphanum + chars.whitespace + chars.newline + ['/', '{', '}', '(', ')', '[', ']', ';', ',', '+', '-', '*', '%', '=', '!', '&', '|', '<', '>', ':', '.', '"', "'"]
 
         # ===== COMPATIBILITY MAPPINGS =====
         # Legacy delimiter names mapped to new definitions for backward compatibility with portia_lexer.py
