@@ -62,7 +62,7 @@ export default function ParserTBA() {
 
         {/* Parser Output */}
         <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <h3 style={{ marginTop: 0, marginBottom: 8 }}>Parse Tree / AST</h3>
+          <h3 style={{ marginTop: 0, marginBottom: 8 }}>Terminal</h3>
           <div style={{ 
             flex: "1 1 auto", 
             overflow: "auto",
