@@ -32,8 +32,8 @@ class Delimiters:
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', '(', '-', "'"]
         
         # Grouping symbol delimiters
-        self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', ',', '-', '(', ';'] + chars.newline
-        self.close_paren_delim = ['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '&&', '||', '{', ';', ')'] + chars.whitespace + chars.newline
+        self.open_paren_delim = chars.alphanum + ['"', '!', ')', ',', '-', '(', ';']
+        self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '&&', '||', '{', ';', ')'] + chars.whitespace + chars.newline
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '['] + chars.whitespace
         self.open_curly_delim = chars.whitespace + chars.newline + chars.numbers + ['{', '"', "'", '-'] + chars.alphabetics
         self.close_curly_delim = chars.whitespace + chars.newline + [';', ','] + chars.alphabetics + ['}']
@@ -55,7 +55,7 @@ class Delimiters:
 
         # IDENTIFIER DELIMITER
         # STRICT: whitespace/newline OK, but EOF (None) is NOT valid
-        self.iden_delim = ['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '.', '&&', '||', '(', ')', '[', ']', ';'] + chars.whitespace + chars.newline + [',', '..']
+        self.iden_delim = ['==', '+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '.', '&&', '||', '(', ')', '[', ']', ';'] + chars.whitespace + chars.newline + [',', '..']
 
         # LITERALS DELIMITER
         # String literal delimiters
@@ -65,7 +65,7 @@ class Delimiters:
         self.char_lit_delim = chars.whitespace + [')', ';', '}', '..', ',', ':']
         
         # Boolean literal delimiters (true, false)
-        self.bool_lit_delim = ['&&', '||', ',', ')', '}', ':', ';'] + chars.whitespace + chars.newline
+        self.bool_lit_delim = ['==', '!=', '&&', '||', ',', ')', '}', ':', ';'] + chars.whitespace + chars.newline
         
         # Numerical literal delimiters (int, long, float, double)
         self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '==', '!=', ',', ')', ']', '}', ';', ':'] + chars.whitespace + chars.newline + ['..']
@@ -85,7 +85,7 @@ class Delimiters:
         # Escape sequence & comment delimiters
         self.escape_delim = chars.ascii + ['"'] + ['\\', "\'", '\"', '\t', '\n']
         # Comment delimiter - what can follow after a comment ends
-        self.comment_delim = chars.alphanum + chars.whitespace + chars.newline + ['/', '{', '}', '(', ')', '[', ']', ';', ',', '+', '-', '*', '%', '=', '!', '&', '|', '<', '>', ':', '.', '"', "'", None]
+        self.comment_delim = chars.alphanum + chars.whitespace + chars.newline + ['/', '{', '}', '(', ')', '[', ']', ';', ',', '+', '-', '*', '%', '=', '!', '&', '|', '<', '>', ':', '.', '"', "'"]
 
         # ===== COMPATIBILITY MAPPINGS =====
         # Legacy delimiter names mapped to new definitions for backward compatibility with portia_lexer.py
