@@ -1,28 +1,33 @@
 // src/components/LexerPanel.tsx
-import { useEffect, useRef, useState, useLayoutEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { lexCode, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
 
-const EXAMPLE = ``; // Removed performance timing state (lexTime, highlightTime) per request
+const EXAMPLE = ``;
 
 type SimpleToken = Token & { start?: number; end?: number };
 
 export default function LexerPanel() {
   const [code, setCode] = useState<string>(EXAMPLE);
+  const [lexedCode, setLexedCode] = useState<string>("");  // The code that was actually lexed
   const [tokens, setTokens] = useState<SimpleToken[]>([]);
   const [errors, setErrors] = useState<LexError[]>([]);
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
-  // Removed auto-lex functionality - tokens only generate on manual "Run Lexer" click
+  
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
-
-  // No auto-lex on mount - user must click "Run Lexer"
-  
   const abortRef = useRef<AbortController | null>(null);
-  const pendingScrollRef = useRef<number | null>(null);
 
+  // Normalize smart/curly quotes to straight quotes for lexer compatibility
+  const normalizeQuotes = (text: string): string => {
+    return text
+      .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')  // " " „ ‟ ″ ‶ → "
+      .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'"); // ' ' ‚ ‛ ′ ‵ → '
+  };
+
+  // Run lexer - only updates when manually triggered
   async function runLex() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
@@ -30,53 +35,62 @@ export default function LexerPanel() {
     
     setLoading(true);
     setErrors([]);
+    
     try {
-      const resp = await lexCode(code, { signal: controller.signal });
+      // Normalize quotes AND line endings before sending to lexer
+      const normalizedCode = normalizeQuotes(code).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const resp = await lexCode(normalizedCode, { signal: controller.signal });
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
+      setLexedCode(normalizedCode);  // Store the normalized code that was lexed
     } catch (err: any) {
-      // Don't show error for aborted requests
       if (err?.name !== 'AbortError') {
         setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
         setTokens([]);
+        setLexedCode("");
       }
     } finally {
-      // Always reset loading state
       setLoading(false);
     }
   }
 
-  // Handle code changes - NO auto-lexing, only update state
-  function handleCodeChange(newCode: string) {
-    const ta = textareaRef.current;
-    const prevScroll = ta ? ta.scrollTop : 0;
-    pendingScrollRef.current = prevScroll;
-    setCode(newCode);
-    // No auto-lex - user must click "Run Lexer" button manually
-  }
+  // Handle code changes - just update the code, keep tokens/errors visible
+  const handleCodeChange = useCallback((newCode: string) => {
+    // Normalize line endings to match what the backend will use
+    const normalized = newCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    setCode(normalized);
+    // Tokens and errors stay visible for reference until user runs lexer again or clicks reset
+  }, []);
 
-  // Reset function - clears code, tokens, and errors
-  function handleReset() {
+  // Handle paste - normalize quotes automatically
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    const normalizedText = normalizeQuotes(pastedText).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newCode = code.substring(0, start) + normalizedText + code.substring(end);
+    
+    setCode(newCode);
+    
+    // Set cursor position after paste
+    setTimeout(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + normalizedText.length;
+      textarea.focus();
+    }, 0);
+  }, [code, normalizeQuotes]);
+
+  // Reset function - clears everything
+  const handleReset = useCallback(() => {
     setCode(EXAMPLE);
     setTokens([]);
     setErrors([]);
-  }
-
-  // Use layout effect to restore scroll before paint to prevent visible jump
-  useLayoutEffect(() => {
-    if (pendingScrollRef.current !== null) {
-      const ta = textareaRef.current;
-      const pre = preRef.current;
-      const lines = lineNumbersRef.current;
-      if (ta) ta.scrollTop = pendingScrollRef.current;
-      if (pre) pre.scrollTop = pendingScrollRef.current;
-      if (lines) lines.scrollTop = pendingScrollRef.current;
-      pendingScrollRef.current = null;
-    }
-  }, [code]);
-  
-
-  // Removed auto-closing pairs feature per user request
+    setLexedCode("");
+  }, []);
 
   // Sync scroll between textarea, highlighting overlay, and line numbers
   useEffect(() => {
@@ -93,12 +107,13 @@ export default function LexerPanel() {
       lineNums.scrollTop = scrollTop;
     };
     
-    ta.addEventListener("scroll", onScroll);
+    ta.addEventListener("scroll", onScroll, { passive: true });
     return () => ta.removeEventListener("scroll", onScroll);
   }, []);
 
   // Build highlight segments from tokens + errors (line/column -> char positions)
-  function buildHighlightsFromTokens(src: string, toks: SimpleToken[], errs: LexError[]) {
+  // Only used when we have tokens (after running lexer) and only for the lexed code
+  const buildHighlightsFromTokens = useCallback((src: string, toks: SimpleToken[], errs: LexError[]) => {
     if (!src) return [{ text: "", cls: undefined }];
 
     // Calculate line start positions
@@ -111,10 +126,8 @@ export default function LexerPanel() {
     const errorRanges: Array<{start: number, end: number}> = [];
     for (const err of errs) {
       if (err.start_index !== undefined && err.end_index !== undefined) {
-        // Use backend-provided indices (most accurate)
         errorRanges.push({ start: err.start_index, end: err.end_index });
       } else if (err.line > 0 && err.line <= lineStarts.length) {
-        // Fallback: calculate from line/column
         const lineStart = lineStarts[err.line - 1];
         const start = lineStart + Math.max(0, err.column - 1);
         if (start < src.length) {
@@ -125,27 +138,25 @@ export default function LexerPanel() {
       }
     }
 
-    type Match = { start: number; end: number; cls?: string; hasError?: boolean };
+    type Match = { start: number; end: number; cls?: string; isError?: boolean };
     const matches: Match[] = [];
 
-    // Add tokens - check both column and column-1 for backend inconsistency
+    // Add tokens first
     for (const tok of toks) {
       if (!tok.lexeme || tok.line === undefined || tok.column === undefined) continue;
       if (tok.line < 1 || tok.line > lineStarts.length) continue;
       
       const lineStart = lineStarts[tok.line - 1];
-      
-      // Try column-1 first (1-indexed from backend)
       let start = lineStart + tok.column - 1;
       let end = start + tok.lexeme.length;
       
-      // If verification fails, try 0-indexed
+      // Verify token position
       if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
         start = lineStart + tok.column;
         end = start + tok.lexeme.length;
       }
       
-      // If still no match, try to find the token on the same line
+      // If still no match, try to find on line
       if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
         const lineEnd = lineStarts[tok.line] ?? src.length;
         const lineText = src.slice(lineStart, lineEnd);
@@ -155,29 +166,35 @@ export default function LexerPanel() {
           start = lineStart + tokenIndex;
           end = start + tok.lexeme.length;
         } else {
-          // Last resort: skip this token
-          console.warn(`Token position mismatch: "${tok.lexeme}" at line ${tok.line} col ${tok.column}, could not find in line`);
           continue;
         }
       }
       
-      const hasError = errorRanges.some(er => 
-        (start < er.end && end > er.start)
-      );
-      
-      matches.push({ start, end, cls: tokenClass(tok.type), hasError });
+      matches.push({ start, end, cls: tokenClass(tok.type), isError: false });
     }
 
-    // Add standalone error ranges
+    // Add error ranges - mark any overlapping tokens as errors
     for (const er of errorRanges) {
-      if (!matches.some(m => m.start < er.end && m.end > er.start)) {
-        matches.push({ start: er.start, end: er.end, cls: undefined, hasError: true });
+      let foundOverlap = false;
+      
+      // Check if error overlaps with any token
+      for (const m of matches) {
+        if (m.start < er.end && m.end > er.start) {
+          // Mark this token as having an error
+          m.isError = true;
+          foundOverlap = true;
+        }
+      }
+      
+      // If no token overlap, add standalone error region
+      if (!foundOverlap) {
+        matches.push({ start: er.start, end: er.end, cls: undefined, isError: true });
       }
     }
 
     if (matches.length === 0) return [{ text: src, cls: undefined }];
 
-    // Sort and build segments
+    // Sort by position
     matches.sort((a, b) => a.start - b.start);
     
     const segments: { text: string; cls?: string }[] = [];
@@ -185,7 +202,9 @@ export default function LexerPanel() {
     
     for (const m of matches) {
       if (m.start > pos) segments.push({ text: src.slice(pos, m.start), cls: undefined });
-      const classes = [m.cls, m.hasError ? 'hl-error' : ''].filter(Boolean).join(' ');
+      
+      // Build class string
+      const classes = [m.cls, m.isError ? 'hl-error' : ''].filter(Boolean).join(' ');
       segments.push({ text: src.slice(m.start, m.end), cls: classes || undefined });
       pos = m.end;
     }
@@ -193,23 +212,22 @@ export default function LexerPanel() {
     if (pos < src.length) segments.push({ text: src.slice(pos), cls: undefined });
     
     return segments;
-  }
+  }, []);
 
-  const [highlightedHTML, setHighlightedHTML] = useState<string>("");
-
-  // Apply syntax highlighting only when we have tokens (after running lexer)
-  useEffect(() => {
-    if (tokens.length === 0 && errors.length === 0) {
-      // No tokens/errors = no highlighting, just show plain text
-      setHighlightedHTML(escapeHtml(code));
-      return;
+  // Generate highlighted HTML - ONLY for the exact lexed code, nothing else
+  const highlightedHTML = useCallback(() => {
+    // STRICT: Only apply highlighting if code EXACTLY matches what was lexed
+    if (lexedCode && code === lexedCode && tokens.length > 0) {
+      const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
+      return rawSegments
+        .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
+        .join("");
     }
-    const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
-    const html = rawSegments.map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text)).join("");
-    setHighlightedHTML(html);
-  }, [code, tokens, errors]);
+    // Show plain text (no highlighting) - user can still see what they're typing
+    return escapeHtml(code);
+  }, [code, lexedCode, tokens, errors, buildHighlightsFromTokens]);
   
-  // Calculate line numbers - ensure we count correctly even without trailing newline
+  // Calculate line numbers
   const lines = code.split('\n');
   const lineCount = lines.length;
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
@@ -253,7 +271,7 @@ export default function LexerPanel() {
                   overflow: "hidden",
                   userSelect: "none",
                   textAlign: "right",
-                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace",
+                  fontFamily: "var(--mono)",
                   fontSize: 14,
                   lineHeight: "1.5",
                   color: "var(--text-muted)",
@@ -281,7 +299,7 @@ export default function LexerPanel() {
                     padding: "12px",
                     whiteSpace: "pre-wrap",
                     wordWrap: "break-word",
-                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace",
+                    fontFamily: "var(--mono)",
                     fontSize: 14,
                     lineHeight: "1.5",
                     pointerEvents: "none",
@@ -290,7 +308,7 @@ export default function LexerPanel() {
                     borderBottomLeftRadius: 0,
                   }}
                 >
-                  <span dangerouslySetInnerHTML={{ __html: highlightedHTML }} />
+                  <span dangerouslySetInnerHTML={{ __html: highlightedHTML() }} />
                 </pre>
                 
                 {/* Editable textarea */}
@@ -298,6 +316,7 @@ export default function LexerPanel() {
                   ref={textareaRef}
                   value={code}
                   onChange={(e) => handleCodeChange(e.target.value)}
+                  onPaste={handlePaste}
                   aria-label="source-input"
                   spellCheck={false}
                   className="source-edit"
@@ -311,7 +330,7 @@ export default function LexerPanel() {
                     height: "100%",
                     margin: 0,
                     padding: "12px",
-                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace",
+                    fontFamily: "var(--mono)",
                     fontSize: 14,
                     lineHeight: "1.5",
                     backgroundColor: "transparent",
