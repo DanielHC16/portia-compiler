@@ -217,7 +217,7 @@ export default function LexerPanel() {
   // Generate highlighted HTML - ONLY for the exact lexed code, nothing else
   const highlightedHTML = useCallback(() => {
     // STRICT: Only apply highlighting if code EXACTLY matches what was lexed
-    if (lexedCode && code === lexedCode && tokens.length > 0) {
+    if (lexedCode && code === lexedCode && (tokens.length > 0 || errors.length > 0)) {
       const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
       return rawSegments
         .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
