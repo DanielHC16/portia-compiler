@@ -37,8 +37,8 @@ export default function LexerPanel() {
     setErrors([]);
     
     try {
-      // Normalize quotes before sending to lexer
-      const normalizedCode = normalizeQuotes(code);
+      // Normalize quotes AND line endings before sending to lexer
+      const normalizedCode = normalizeQuotes(code).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const resp = await lexCode(normalizedCode, { signal: controller.signal });
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
@@ -56,7 +56,9 @@ export default function LexerPanel() {
 
   // Handle code changes - just update the code, keep tokens/errors visible
   const handleCodeChange = useCallback((newCode: string) => {
-    setCode(newCode);
+    // Normalize line endings to match what the backend will use
+    const normalized = newCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    setCode(normalized);
     // Tokens and errors stay visible for reference until user runs lexer again or clicks reset
   }, []);
 
@@ -64,7 +66,7 @@ export default function LexerPanel() {
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
-    const normalizedText = normalizeQuotes(pastedText);
+    const normalizedText = normalizeQuotes(pastedText).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -136,10 +138,10 @@ export default function LexerPanel() {
       }
     }
 
-    type Match = { start: number; end: number; cls?: string; hasError?: boolean };
+    type Match = { start: number; end: number; cls?: string; isError?: boolean };
     const matches: Match[] = [];
 
-    // Add tokens
+    // Add tokens first
     for (const tok of toks) {
       if (!tok.lexeme || tok.line === undefined || tok.column === undefined) continue;
       if (tok.line < 1 || tok.line > lineStarts.length) continue;
@@ -168,20 +170,31 @@ export default function LexerPanel() {
         }
       }
       
-      const hasError = errorRanges.some(er => (start < er.end && end > er.start));
-      matches.push({ start, end, cls: tokenClass(tok.type), hasError });
+      matches.push({ start, end, cls: tokenClass(tok.type), isError: false });
     }
 
-    // Add standalone error ranges
+    // Add error ranges - mark any overlapping tokens as errors
     for (const er of errorRanges) {
-      if (!matches.some(m => m.start < er.end && m.end > er.start)) {
-        matches.push({ start: er.start, end: er.end, cls: undefined, hasError: true });
+      let foundOverlap = false;
+      
+      // Check if error overlaps with any token
+      for (const m of matches) {
+        if (m.start < er.end && m.end > er.start) {
+          // Mark this token as having an error
+          m.isError = true;
+          foundOverlap = true;
+        }
+      }
+      
+      // If no token overlap, add standalone error region
+      if (!foundOverlap) {
+        matches.push({ start: er.start, end: er.end, cls: undefined, isError: true });
       }
     }
 
     if (matches.length === 0) return [{ text: src, cls: undefined }];
 
-    // Sort and build segments
+    // Sort by position
     matches.sort((a, b) => a.start - b.start);
     
     const segments: { text: string; cls?: string }[] = [];
@@ -189,7 +202,9 @@ export default function LexerPanel() {
     
     for (const m of matches) {
       if (m.start > pos) segments.push({ text: src.slice(pos, m.start), cls: undefined });
-      const classes = [m.cls, m.hasError ? 'hl-error' : ''].filter(Boolean).join(' ');
+      
+      // Build class string
+      const classes = [m.cls, m.isError ? 'hl-error' : ''].filter(Boolean).join(' ');
       segments.push({ text: src.slice(m.start, m.end), cls: classes || undefined });
       pos = m.end;
     }

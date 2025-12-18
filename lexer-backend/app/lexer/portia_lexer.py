@@ -17,10 +17,10 @@ class Token:
     def to_dict(self):
         # Convert token to dictionary format for JSON serialization
         return {
-            "tokenName": self.tokenName,
-            "tokenType": self.tokenType,
-            "tokenLine": self.tokenLine,
-            "tokenCol": self.tokenCol
+            "lexeme": self.tokenName,
+            "type": self.tokenType,
+            "line": self.tokenLine,
+            "column": self.tokenCol
         }
 
 class LexicalAnalyzer:
@@ -141,34 +141,48 @@ class LexicalAnalyzer:
         def check_delimiter(token_type: str, next_char: str) -> bool:
             # Validates that the next character is a legal delimiter for this token type
             # Uses delimiter definitions from delimiters.py
+            # Handles both single-character and multi-character delimiters
+            
+            def char_in_delimiters(ch, delim_list):
+                """Check if character matches any delimiter in list (including multi-char delimiters)"""
+                if ch is None:
+                    return None in delim_list
+                # Check for exact match (single char delimiters)
+                if ch in delim_list:
+                    return True
+                # Check if character is the first char of any multi-character delimiter
+                for delim in delim_list:
+                    if isinstance(delim, str) and len(delim) > 1 and delim[0] == ch:
+                        return True
+                return False
             
             # Castable primitive types: allow ')' immediately after (for typecasting)
             # EOF is NOT allowed for these types
             castable_types = ['bool', 'char', 'double', 'float', 'int', 'long', 'string']
             if token_type in castable_types:
-                return next_char in self.dtype_delim
+                return char_in_delimiters(next_char, self.dtype_delim)
 
             # Non-castable keywords: require whitespace/newline only
             # EOF is NOT allowed for these types
             space_keywords = ['const', 'func', 'global', 'local', 'using', 'var', 'void', 'weave']
             if token_type in space_keywords:
-                return next_char in self.space_delim
+                return char_in_delimiters(next_char, self.space_delim)
 
             # Loop keywords: require whitespace or '('
             # EOF is NOT allowed for these types
             loop_delimiters = ['if', 'switch', 'for', 'while']
             if token_type in loop_delimiters:
-                return next_char in self.loop_delim
+                return char_in_delimiters(next_char, self.loop_delim)
 
             # Block keywords: require whitespace or '{'
             # EOF is NOT allowed for these types
             block_delimiters = ['do', 'else']
             if token_type in block_delimiters:
-                return next_char in self.block_delim
+                return char_in_delimiters(next_char, self.block_delim)
 
             # Boolean literals (true, false): EOF is NOT allowed
             if token_type == 'bool_lit':
-                return next_char in self.bool_lit_delim
+                return char_in_delimiters(next_char, self.bool_lit_delim)
 
             # 'case' keyword: require whitespace/newline only
             if token_type == 'case':
@@ -194,6 +208,17 @@ class LexicalAnalyzer:
             }
             if token_type in operator_types and next_char is None:
                 return False
+
+            # String and char literals - EOF and newline are NOT allowed
+            if token_type == 'string_lit':
+                if next_char is None or next_char == '\n':
+                    return False
+                return char_in_delimiters(next_char, self.str_lit_delim)
+
+            if token_type == 'char_lit':
+                if next_char is None or next_char == '\n':
+                    return False
+                return char_in_delimiters(next_char, self.char_lit_delim)
             
             # Handle EOF for remaining token types
             if next_char is None:
@@ -201,22 +226,16 @@ class LexicalAnalyzer:
                 return True
 
             if token_type == 'identifier':
-                return next_char in self.iden_delim
+                return char_in_delimiters(next_char, self.iden_delim)
 
             if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
-                return next_char in self.nbl_delim
-
-            if token_type == 'string_lit':
-                return next_char in self.str_lit_delim
-
-            if token_type == 'char_lit':
-                return next_char in self.char_lit_delim
+                return char_in_delimiters(next_char, self.nbl_delim)
 
             if token_type == 'single_comment':
-                return next_char in self.comment_delim
+                return char_in_delimiters(next_char, self.comment_delim)
 
             if token_type == 'multi_comment':
-                return next_char in self.comment_delim
+                return char_in_delimiters(next_char, self.comment_delim)
 
             operator_delims = {
                 'add': self.sign_delim, 'subtract': self.negative_delim,
@@ -233,7 +252,7 @@ class LexicalAnalyzer:
                 'concat': self.concat_delim,
             }
             if token_type in operator_delims:
-                return next_char in operator_delims[token_type]
+                return char_in_delimiters(next_char, operator_delims[token_type])
 
             delimiter_delims = {
                 'open_paren': self.open_paren_delim, 'close_paren': self.close_paren_delim,
@@ -243,7 +262,7 @@ class LexicalAnalyzer:
                 'colon': self.colon_delim, 'dot': self.dot_delim,
             }
             if token_type in delimiter_delims:
-                return next_char in delimiter_delims[token_type]
+                return char_in_delimiters(next_char, delimiter_delims[token_type])
 
             return True
 
@@ -370,7 +389,7 @@ class LexicalAnalyzer:
                             continue
                         else:
                             # Whitespace not valid delimiter - should never happen for identifiers
-                            add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (whitespace not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            add_error(f"Identifier '{lexeme}' cannot be followed by whitespace here", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                             currState = 's0'
                             lexeme = ''
                             i += 1
@@ -384,13 +403,13 @@ class LexicalAnalyzer:
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
                         # Whitespace not valid delimiter for this token - error
-                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (whitespace not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        add_error(f"Token '{lexeme}' cannot be followed by whitespace here", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
                 elif currState != 's0':
                     # Non-final, non-keyword state (e.g., s176 for '&', s179 for '|')
                     # This is an incomplete token - error
-                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got whitespace)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    add_error(f"Incomplete token '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
                 
@@ -401,8 +420,20 @@ class LexicalAnalyzer:
                 continue
 
             # Handle newline characters - they now produce tokens
-            # Exclude string/char literal states (s276-s282) from newline handling
-            if ch == '\n' and currState not in ['s276', 's277', 's279', 's280', 's281']:
+            # String/char literal states (s276-s282) need special newline handling
+            if ch == '\n' and currState in ['s276', 's279', 's280']:
+                # Unterminated string or character literal - newline encountered before closing quote
+                if currState == 's276':
+                    add_error(f"Lexical Error: Unterminated string literal", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                else:  # s279 or s280
+                    add_error(f"Lexical Error: Unterminated character literal", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                currState = 's0'
+                lexeme = ''
+                line += 1
+                col = 1
+                i += 1
+                continue
+            elif ch == '\n' and currState not in ['s276', 's277', 's279', 's280', 's281']:
                 # Special case: s321 (decimal point without fractional digits) is invalid
                 if currState == 's321':
                     add_error(f"Lexical Error: Decimal point must be followed by at least one digit", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -462,7 +493,7 @@ class LexicalAnalyzer:
                             continue
                         else:
                             # Newline not valid delimiter - should never happen for identifiers
-                            add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (newline not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            add_error(f"Identifier '{lexeme}' cannot be followed by newline here", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                             currState = 's0'
                             lexeme = ''
                             i += 1
@@ -477,13 +508,13 @@ class LexicalAnalyzer:
                         add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                     else:
                         # Newline not valid delimiter - error
-                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (newline not allowed)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        add_error(f"Token '{lexeme}' cannot be followed by newline here", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
                 elif currState != 's0':
                     # Non-final, non-keyword state (e.g., s176 for '&', s179 for '|')
                     # This is an incomplete token - error
-                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got newline)", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    add_error(f"Incomplete token '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
 
@@ -545,7 +576,7 @@ class LexicalAnalyzer:
                 # First, check if we're in string/char literal intermediate states (s277, s281)
                 # These states need explicit delimiter validation before finalizing
                 if currState == 's277':  # After closing " in string literal
-                    if ch in self.str_lit_delim:
+                    if check_delimiter('string_lit', ch):
                         # Valid delimiter - finalize string_lit token
                         add_token(lexeme, 'string_lit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
@@ -554,7 +585,7 @@ class LexicalAnalyzer:
                         continue
                     else:
                         # Invalid delimiter for string literal
-                        add_error(f"Lexical Error: String literal must be followed by valid delimiter (got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        add_error(f"Lexical Error: Expected valid delimiter, got '{ch}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -562,7 +593,7 @@ class LexicalAnalyzer:
                         continue
 
                 if currState == 's281':  # After closing ' in char literal
-                    if ch in self.char_lit_delim:
+                    if check_delimiter('char_lit', ch):
                         # Valid delimiter - finalize char_lit token
                         add_token(lexeme, 'char_lit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
@@ -571,7 +602,7 @@ class LexicalAnalyzer:
                         continue
                     else:
                         # Invalid delimiter for char literal
-                        add_error(f"Lexical Error: Character literal must be followed by valid delimiter (got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        add_error(f"Lexical Error: Expected valid delimiter, got '{ch}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
                         i += 1
@@ -603,7 +634,7 @@ class LexicalAnalyzer:
                             continue
                         else:
                             # STRICT: Invalid delimiter - reject token, do NOT tokenize
-                            add_error(f"Lexical Error: Identifier '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            add_error(f"Lexical Error: Identifier '{lexeme}' not properly delimited. Expected one of {self.iden_delim} but found '{ch}' (Line {lexeme_start_line}, Col {lexeme_start_col})", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                             currState = 's0'
                             lexeme = ''
                             # Do NOT consume - allow reprocessing
@@ -627,7 +658,7 @@ class LexicalAnalyzer:
                             continue
                         else:
                             # STRICT: Invalid delimiter - reject token, do NOT tokenize
-                            add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            add_error(f"Lexical Error: Expected valid delimiter, got '{ch}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                             currState = 's0'
                             lexeme = ''
                             # Do NOT consume - allow reprocessing
@@ -670,7 +701,7 @@ class LexicalAnalyzer:
                         continue
                     else:
                         # STRICT: Invalid delimiter - reject token according to TD, do NOT tokenize
-                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        add_error(f"Lexical Error: Expected valid delimiter, got '{ch}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
                         # Do NOT consume the invalid character - allow it to be reprocessed as the start of a new token
@@ -820,7 +851,7 @@ class LexicalAnalyzer:
                     continue
                 else:
                     # Invalid delimiter - reject token according to TD (STRICT enforcement)
-                    add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    add_error(f"Lexical Error: Expected valid delimiter, got '{ch}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     currState = 's0'
                     lexeme = ''
                     # Do NOT consume - allow reprocessing
@@ -919,7 +950,7 @@ class LexicalAnalyzer:
                         continue
                     else:
                         # STRICT: Invalid delimiter - reject token completely, do NOT tokenize
-                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited (expected valid delimiter, got '{ch}')", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        add_error(f"Lexical Error: Expected valid delimiter, got '{ch}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         currState = 's0'
                         lexeme = ''
                         # Do NOT consume - allow reprocessing
@@ -941,19 +972,25 @@ class LexicalAnalyzer:
                 if None in self.str_lit_delim or check_delimiter('string_lit', None):
                     add_token(lexeme, 'string_lit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 else:
-                    add_error(f"Lexical Error: String literal must be followed by valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
             elif currState == 's281':  # After closing ' in char literal
-                # EOF is a valid delimiter for char literals
+                # End of file check for char literals
                 if None in self.char_lit_delim or check_delimiter('char_lit', None):
                     add_token(lexeme, 'char_lit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 else:
-                    add_error(f"Lexical Error: Character literal must be followed by valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+            elif currState in ['s276', 's279', 's280']:
+                # Unterminated string or character literal at EOF
+                if currState == 's276':
+                    add_error(f"Lexical Error: Unterminated string literal", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                else:  # s279 or s280
+                    add_error(f"Lexical Error: Unterminated character literal", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
             else:
                 # STRICT: Check if we're in an identifier building state - these CANNOT auto-finalize at EOF
                 state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                 if 220 <= state_num <= 268 and state_num % 2 == 0:
-                    # Identifier building state at EOF - STRICT error (EOF not valid delimiter)
-                    add_error(f"Lexical Error: Identifier '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                    # Identifier building state at end of file - STRICT error
+                    add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 else:
                     # For non-identifier states, check if we're in an intermediate state that can transition to final via 'ANY'
                     if currState in self.INTERMEDIATE_TO_FINAL:
@@ -992,20 +1029,20 @@ class LexicalAnalyzer:
                             if check_delimiter(token_type, None):
                                 add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             else:
-                                add_error(f"Lexical Error: Numeric literal '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                                add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         elif token_type == 'identifier':
-                            # STRICT: EOF must be valid delimiter for identifiers
+                            # STRICT: End of file must be valid delimiter for identifiers
                             if check_delimiter(token_type, None):
                                 add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             else:
-                                add_error(f"Lexical Error: Identifier '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                                add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                         elif check_delimiter(token_type, None):
                             add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         else:
-                            # STRICT: EOF not a valid delimiter for this token type
-                            add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                            # STRICT: End of file not a valid delimiter for this token type
+                            add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                     else:
-                        add_error(f"Lexical Error: Token '{lexeme}' not properly delimited at end of file", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+                        add_error(f"Incomplete token '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
         return {
             'tokens': [t.to_dict() for t in tokens],
             'errors': errors

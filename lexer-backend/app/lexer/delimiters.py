@@ -59,10 +59,10 @@ class Delimiters:
 
         # LITERALS DELIMITER
         # String literal delimiters
-        self.str_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', '..', ',']
+        self.str_lit_delim = chars.whitespace + [')', ';', '}', '..', ',']
         
         # Character literal delimiters
-        self.char_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', '..', ',', ':']
+        self.char_lit_delim = chars.whitespace + [')', ';', '}', '..', ',', ':']
         
         # Boolean literal delimiters (true, false)
         self.bool_lit_delim = ['&&', '||', ',', ')', '}', ':', ';'] + chars.whitespace + chars.newline

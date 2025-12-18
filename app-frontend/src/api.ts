@@ -29,16 +29,8 @@ async function postJSON(url: string, body: any, opts?: { signal?: AbortSignal })
 export async function lexCode(code: string, opts?: { signal?: AbortSignal }): Promise<{ tokens: Token[]; errors: LexError[] }> {
   const response = await postJSON(`${LEXER_URL}/lex`, { code }, opts);
   
-  // Map backend field names to frontend field names
-  const mappedTokens = response.tokens.map((token: any) => ({
-    type: token.tokenType,
-    lexeme: token.tokenName,
-    line: token.tokenLine,
-    column: token.tokenCol
-  }));
-  
   return {
-    tokens: mappedTokens,
+    tokens: response.tokens || [],
     errors: response.errors || []
   };
 }
