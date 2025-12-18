@@ -32,10 +32,10 @@ class Delimiters:
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', '(', '-', "'"]
         
         # Grouping symbol delimiters
-        self.open_paren_delim = chars.alphanum + ['"', '!', ')', ',', '-', '(', ';']
-        self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '&&', '||', '{', ';', ')'] + chars.whitespace + chars.newline
+        self.open_paren_delim = chars.alphanum + ['"', '!', ')', '-', '(', ';']
+        self.close_paren_delim = chars.alphanum + ['bool_lit', '+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '&&', '||', '{', ';', ')'] + chars.whitespace + chars.newline
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '['] + chars.whitespace
-        self.open_curly_delim = chars.whitespace + chars.newline + chars.numbers + ['{', '"', "'", '-'] + chars.alphabetics
+        self.open_curly_delim = chars.whitespace + chars.newline + chars.numbers + ['{', '"', "'", '-', 'bool_lit']
         self.close_curly_delim = chars.whitespace + chars.newline + [';', ','] + chars.alphabetics + ['}']
 
         # Punctuation delimiters
@@ -46,7 +46,7 @@ class Delimiters:
         self.multi_delim = chars.alphabetics + chars.newline
 
         # Relational operator delimiter (newly added)
-        self.relational_delim = chars.alphanum + chars.whitespace + ['(', '-', '"', "'", '--', '++']
+        self.relational_delim = chars.alphanum + chars.whitespace + ['(', '-', '"', "'", '--', '++', 'bool_lit']
 
         # CONTROL FLOW DELIMITER
         self.loop_delim = chars.whitespace + ['(']
@@ -59,10 +59,10 @@ class Delimiters:
 
         # LITERALS DELIMITER
         # String literal delimiters
-        self.str_lit_delim = chars.whitespace + [')', ';', '}', '..', ',']
+        self.str_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', '..', ',']
         
         # Character literal delimiters
-        self.char_lit_delim = chars.whitespace + [')', ';', '}', '..', ',', ':']
+        self.char_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', '..', ',', ':']
         
         # Boolean literal delimiters (true, false)
         self.bool_lit_delim = ['==', '!=', '&&', '||', ',', ')', '}', ':', ';'] + chars.whitespace + chars.newline
@@ -106,7 +106,7 @@ class Delimiters:
         # Dot can be followed by alphabetics (for member access like object.method)
         self.dot_delim = chars.alphabetics + chars.whitespace + chars.newline
         
-        # open_bracket_delim: used for '[' delimiter (array indexing)
+        # open_bracket_delim: used for '[' delimiter (array indexin)
         # Can be followed by alphanum (identifiers/literals) only
         self.open_bracket_delim = chars.alphanum
 
