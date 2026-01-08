@@ -2018,6 +2018,7 @@ class LexicalAnalyzer:
                 match currChar:
                     case '-': return 's154'  # -- path
                     case '=': return 's156'  # -= path
+                    case _ if currChar in self.numbers: return 's283'  # Negative number literal
                     case 'ANY': return 's153'  # Single - final (negative_delim) - for is_final_state check
                     case _: return 's153'  # Any other character transitions to final state
             case 's153':  # Single - final (negative_delim)
