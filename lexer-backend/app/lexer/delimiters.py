@@ -25,14 +25,14 @@ class Delimiters:
         # RESERVED SYMBOLS DELIMITER
         # Arithmetic and logical operator delimiters
         self.negative_delim = chars.alphanum + chars.whitespace + ['(']
-        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '-']
+        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(']
         self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '-']
         self.exclamation_delim = chars.alphabetics + ['(']
         self.unary_delim = chars.alphabetics + chars.whitespace + [';', ')', ']', ',', '}'] + chars.newline
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', '(', '-', "'"]
         
         # Grouping symbol delimiters
-        self.open_paren_delim = chars.alphanum + ['"', '!', ')', '-', '(', ';']
+        self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '-', '(', ';']
         self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '&&', '||', '{', ';', ')'] + chars.whitespace + chars.newline
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '['] + chars.whitespace
         self.open_curly_delim = chars.whitespace + chars.newline + chars.numbers + ['{', '"', "'", '-', '!']
@@ -106,8 +106,8 @@ class Delimiters:
         # Dot can be followed by alphabetics (for member access like object.method)
         self.dot_delim = chars.alphabetics + chars.whitespace + chars.newline
         
-        # open_bracket_delim: used for '[' delimiter (array indexin)
-        # Can be followed by alphanum (identifiers/literals) only
-        self.open_bracket_delim = chars.alphanum
+        # open_bracket_delim: used for '[' delimiter (array indexing)
+        # Can be followed by alphanum (identifiers/literals) and whitespace
+        self.open_bracket_delim = chars.alphanum + chars.whitespace
 
 

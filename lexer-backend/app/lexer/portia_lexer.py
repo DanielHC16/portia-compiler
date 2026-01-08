@@ -248,7 +248,7 @@ class LexicalAnalyzer:
 
             # Check operators BEFORE EOF handling
             operator_delims = {
-                'add': self.marithmetic_delim, 'subtract': self.negative_delim,
+                'add': self.marithmetic_delim, 'subtract': self.marithmetic_delim,
                 'multiply': self.marithmetic_delim, 'divide': self.slash_delim,
                 'modulo': self.marithmetic_delim, 'assign': self.equal_delim,
                 'equal': self.sign_delim, 'not_equal': self.sign_delim,
@@ -2018,9 +2018,10 @@ class LexicalAnalyzer:
                 match currChar:
                     case '-': return 's154'  # -- path
                     case '=': return 's156'  # -= path
-                    case 'ANY': return 's153'  # Single - final (negative_delim) - for is_final_state check
+                    case _ if currChar in self.numbers: return 's283'  # Negative number literal
+                    case 'ANY': return 's153'  # Single - final (marithmetic_delim) - for is_final_state check
                     case _: return 's153'  # Any other character transitions to final state
-            case 's153':  # Single - final (negative_delim)
+            case 's153':  # Single - final (marithmetic_delim)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'

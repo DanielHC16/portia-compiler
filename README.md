@@ -23,7 +23,7 @@ PORTIA is a statically-typed, imperative programming language with a complete co
 
 ### Prerequisites
 
-- Python 3.10+ (for match-case syntax)
+- Python 3.10+ 
 - Node.js 18+ and npm
 - Git
 
@@ -91,8 +91,10 @@ portia-compiler/
 │   ├── app/
 │   │   ├── main.py           # FastAPI application
 │   │   └── lexer/
-│   │       └── portia_lexer.py    # FSA lexer
-│   ├── test_lexer.py
+│   │       ├── portia_lexer.py       # FSA lexer
+│   │       ├── character_classes.py  # Character set definitions
+│   │       └── delimiters.py         # Delimiter definitions
+│   ├── docs/                 # Comprehensive documentation
 │   ├── README.md
 │   └── LEXER_EXPLAINED.md
 │
@@ -109,9 +111,9 @@ portia-compiler/
 ## Features
 
 ### Lexical Analyzer
-- **364-state FSA** (s0 initial + s1-s363 operational)
-- **31 keywords** (int, bool, if, while, void, weave, etc.)
-- **23 operators** (arithmetic, logical, relational, assignment)
+- **353-state FSA** (s0 initial + s1-s353 operational)
+- **27 keywords** (int, bool, if, while, void, weave, etc.)
+- **20 operators** (arithmetic, logical, relational, assignment)
 - **11 delimiters** (parentheses, braces, brackets, semicolons, etc.)
 - **6 literal types** (int, long, float, double, string, char)
 - **2 comment types** (single-line `//`, multi-line `/* */`)
@@ -119,6 +121,7 @@ portia-compiler/
 - **Numeric overflow detection** (Int ≤10 digits, Long ≤19, Float ≤7 fractional, Double ≤16)
 - **Character-level error reporting** with precise start/end indices
 - **Primitive casting delimiter rules** (`(int)x` valid, `(void)x` invalid)
+- **Whitespace and newline tokens** for syntax formatting
 
 ### Frontend Interface
 - **Real-time syntax highlighting** with One Dark theme
@@ -193,4 +196,4 @@ This cross-functional approach ensures that every team member has a comprehensiv
 
 **Version:** 1.0.0
 
-**Last Updated:** November 2025
+**Last Updated:** January 2026

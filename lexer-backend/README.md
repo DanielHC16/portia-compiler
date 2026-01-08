@@ -6,7 +6,8 @@ FastAPI lexical analysis service for the PORTIA language. Implements a strict Fi
 The lexer converts source code to a stream of tokens plus structured lexical errors. Every character is consumed exactly once by `lex_transition()` (no backtracking). Intermediate states finalize via an `'ANY'` sentinel allowing delimiter validation **without** consuming the delimiter character prematurely.
 
 Core concepts:
-- Deterministic FSA: keywords, operators, delimiters, identifiers, comments, strings, numerics, escapes, character literals each occupy explicit state ranges.
+- **353-state FSA**: keywords, operators, delimiters, identifiers, comments, strings, numerics, escapes, character literals each occupy explicit state ranges (s0-s353).
+- **Modular Architecture**: Character classes and delimiter definitions separated into `character_classes.py` and `delimiters.py` for maintainability.
 - Delimiter Enforcement: `check_delimiter()` maps token types to category sets (see `docs/DELIMITER_REFERENCE.md`) preventing ambiguous splits (e.g., `intx` becomes identifier not `int` + `x`).
 - Primitive Casting: Castable types (`bool, char, double, float, int, long, string`) allow immediate `)` via `dtype_delim`. Non‑castable keywords (`void`, `weave`) require whitespace before `)`.
 - Numeric Limits: Int (≤10 digits), Long (≤19), Float (≤7 fractional), Double (≤16 fractional). Overflow triggers a targeted error and consumes remaining contiguous digits.
@@ -16,7 +17,7 @@ Core concepts:
 ```python
 from app.lexer.portia_lexer import LexicalAnalyzer
 
-code = "(int)x + 42.000001"  # sample
+code = "(int)x + -42.000001"  # sample with negative number
 lexer = LexicalAnalyzer()
 result = lexer.transition(code)
 
