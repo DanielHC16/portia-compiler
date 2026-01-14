@@ -225,7 +225,7 @@ class LexicalAnalyzer:
                     return False
                 return char_in_delimiters(next_char, self.char_lit_delim)
 
-            # Check delimiter tokens BEFORE EOF handling
+            # Check delimiter tokens - these allow EOF
             delimiter_delims = {
                 'open_paren': self.open_paren_delim, 'close_paren': self.close_paren_delim,
                 'open_bracket': self.open_bracket_delim, 'close_bracket': self.close_bracket_delim,
@@ -234,6 +234,9 @@ class LexicalAnalyzer:
                 'colon': self.colon_delim, 'dot': self.dot_delim,
             }
             if token_type in delimiter_delims:
+                # EOF is allowed for delimiter tokens
+                if next_char is None:
+                    return True
                 return char_in_delimiters(next_char, delimiter_delims[token_type])
             
             # Special handling for open_brace: only allow bool literals (true/false)

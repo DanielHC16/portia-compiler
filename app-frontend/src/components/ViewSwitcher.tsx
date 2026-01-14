@@ -1,7 +1,7 @@
 // src/components/ViewSwitcher.tsx
 import { useState, useEffect } from "react";
 import LexerPanel from "./LexerPanel";
-import ParserTBA from "./ParserTBA";
+import ParserPanel from "./ParserPanel";
 import SemanticTBA from "./SemanticTBA";
 import type { Token, LexError } from "../api";
 
@@ -98,7 +98,7 @@ export default function ViewSwitcher() {
         />
       </div>
       <div style={{ display: view === "syntax" ? "block" : "none", height: "100%" }}>
-        <ParserTBA 
+        <ParserPanel 
           sharedCode={sharedCode}
           sharedTokens={sharedTokens}
           sharedLexErrors={sharedLexErrors}

@@ -1,24 +1,29 @@
-// src/components/ParserTBA.tsx
+// src/components/ParserPanel.tsx
 import { useEffect, useRef, useState, useCallback } from "react";
 import { lexCode, parseTokens, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
 
-const EXAMPLE = ``;
+const EXAMPLE = `int main() {
+    return 0;
+}`;
 
 type SimpleToken = Token & { start?: number; end?: number };
 
-type ParserTBAProps = {
+type ParserPanelProps = {
   sharedCode: string;
   sharedTokens: Token[];
   sharedLexErrors: LexError[];
 };
 
-export default function ParserTBA({ sharedCode, sharedTokens, sharedLexErrors }: ParserTBAProps) {
+export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors }: ParserPanelProps) {
   const [code, setCode] = useState<string>(sharedCode || EXAMPLE);
   const [lexedCode, setLexedCode] = useState<string>(sharedCode || "");
   const [tokens, setTokens] = useState<SimpleToken[]>(sharedTokens as SimpleToken[] || []);
   const [lexErrors, setLexErrors] = useState<LexError[]>(sharedLexErrors || []);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [parseErrorObjects, setParseErrorObjects] = useState<LexError[]>([]);
+  const [ast, setAst] = useState<any>(null);
+  const [showAst, setShowAst] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
   
@@ -65,21 +70,42 @@ export default function ParserTBA({ sharedCode, sharedTokens, sharedLexErrors }:
         try {
           const parseResp = await parseTokens(lexResp.tokens, normalizedCode, { signal: controller.signal });
           
-          // Parser logic in progress - temporary placeholder response handling
-          if (parseResp.status === "tba") {
-            setParseErrors([`Parser logic in progress: ${parseResp.message}`]);
+          // Check if parser succeeded
+          if (parseResp.success && parseResp.ast) {
+            setAst(parseResp.ast);
+            setShowAst(false); // Reset to tokens view
+            setParseErrors([]);
+            setParseErrorObjects([]);
           } else if (parseResp.errors && parseResp.errors.length > 0) {
-            setParseErrors(parseResp.errors);
+            // Store both error objects (for highlighting) and error strings (for display)
+            const errorObjects = parseResp.errors.map((e: any) => {
+              if (typeof e === 'object' && e.message) {
+                return { message: e.message, line: e.line || 0, column: e.column || 0 };
+              }
+              return { message: String(e), line: 0, column: 0 };
+            });
+            const errorMessages = errorObjects.map((e: any) => e.message);
+            setParseErrors(errorMessages);
+            setParseErrorObjects(errorObjects);
+            setAst(null);
+          } else if (parseResp.status === "tba") {
+            setParseErrors([`Parser logic in progress: ${parseResp.message}`]);
+            setParseErrorObjects([]);
+            setAst(null);
           } else {
             setParseErrors([]);
+            setParseErrorObjects([]);
+            setAst(parseResp.ast || null);
           }
         } catch (err: any) {
           if (err?.name !== 'AbortError') {
             setParseErrors([err?.message ?? String(err)]);
+            setAst(null);
           }
         }
       } else {
         setParseErrors(["Cannot parse: lexical errors present"]);
+        setAst(null);
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
@@ -125,6 +151,9 @@ export default function ParserTBA({ sharedCode, sharedTokens, sharedLexErrors }:
     setTokens([]);
     setLexErrors([]);
     setParseErrors([]);
+    setParseErrorObjects([]);
+    setAst(null);
+    setShowAst(false);
     setLexedCode("");
   }, []);
 
@@ -151,10 +180,11 @@ export default function ParserTBA({ sharedCode, sharedTokens, sharedLexErrors }:
   const buildHighlightsFromTokens = useCallback((src: string, toks: SimpleToken[], errs: LexError[]) => {
     if (!src) return [{ text: "", cls: undefined }];
 
-    const lineStarts: number[] = [0];
-    for (let i = 0; i < src.length; i++) {
-      if (src[i] === '\n') lineStarts.push(i + 1);
-    }
+    try {
+      const lineStarts: number[] = [0];
+      for (let i = 0; i < src.length; i++) {
+        if (src[i] === '\n') lineStarts.push(i + 1);
+      }
 
     const errorRanges: Array<{start: number, end: number}> = [];
     for (const err of errs) {
@@ -235,18 +265,30 @@ export default function ParserTBA({ sharedCode, sharedTokens, sharedLexErrors }:
     
     if (pos < src.length) segments.push({ text: src.slice(pos), cls: undefined });
     
-    return segments;
+    return segments.length > 0 ? segments : [{ text: src, cls: undefined }];
+    } catch (e) {
+      // On any error, return plain text
+      return [{ text: src, cls: undefined }];
+    }
   }, []);
 
   const highlightedHTML = useCallback(() => {
-    if (lexedCode && code === lexedCode && (tokens.length > 0 || lexErrors.length > 0)) {
-      const rawSegments = buildHighlightsFromTokens(code, tokens, lexErrors);
-      return rawSegments
-        .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
-        .join("");
+    try {
+      if (lexedCode && code === lexedCode && (tokens.length > 0 || lexErrors.length > 0 || parseErrorObjects.length > 0)) {
+        // Combine lexical and parser errors for highlighting
+        const allErrors = [...lexErrors, ...parseErrorObjects];
+        const rawSegments = buildHighlightsFromTokens(code, tokens, allErrors);
+        const html = rawSegments
+          .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
+          .join("");
+        return html || escapeHtml(code);
+      }
+      return escapeHtml(code);
+    } catch (e) {
+      // Fallback on any error
+      return escapeHtml(code);
     }
-    return escapeHtml(code);
-  }, [code, lexedCode, tokens, lexErrors, buildHighlightsFromTokens]);
+  }, [code, lexedCode, tokens, lexErrors, parseErrorObjects, buildHighlightsFromTokens]);
   
   const lines = code.split('\n');
   const lineCount = lines.length;
@@ -405,7 +447,7 @@ export default function ParserTBA({ sharedCode, sharedTokens, sharedLexErrors }:
                   ))}
                   
                   {/* Show parse errors */}
-                  {parseErrors.map((err, i) => (
+                  {parseErrorObjects.map((err, i) => (
                     <div key={`parse-${i}`} style={{
                       padding: "8px 12px",
                       background: "var(--bg-secondary)",
@@ -415,8 +457,13 @@ export default function ParserTBA({ sharedCode, sharedTokens, sharedLexErrors }:
                       fontSize: 13,
                     }}>
                       <div style={{ fontWeight: 600, color: "var(--warning)", marginBottom: 4 }}>
-                        [Syntax] {err}
+                        [Syntax] {err.message}
                       </div>
+                      {(err.line > 0 || err.column > 0) && (
+                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                          Line {err.line}, Column {err.column}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -425,21 +472,37 @@ export default function ParserTBA({ sharedCode, sharedTokens, sharedLexErrors }:
           </div>
         </div>
 
-        {/* Right Column: Tokens Panel */}
+        {/* Right Column: Tokens or AST Panel */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ margin: 0 }}>Lexer Table</h3>
-            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input
-                type="checkbox"
-                checked={hideComments}
-                onChange={(e) => setHideComments(e.target.checked)}
-              />
-              <span className="small">Hide comments</span>
-            </label>
+            <h3 style={{ margin: 0 }}>Abstract Syntax Tree</h3>
+            {ast && (
+              <button 
+                className="btn ghost" 
+                onClick={() => setShowAst(!showAst)}
+                style={{ padding: "6px 12px", fontSize: 12 }}
+              >
+                {showAst ? "Show Tokens" : "Show AST"}
+              </button>
+            )}
           </div>
           <div style={{ flex: "1 1 auto", overflow: "auto" }}>
-            <TokenList tokens={tokens} hideComments={hideComments} />
+            {showAst && ast ? (
+              <div style={{ fontFamily: "var(--mono)", fontSize: 13, height: "100%" }}>
+                <pre style={{ 
+                  margin: 0, 
+                  padding: 12, 
+                  background: "var(--bg-secondary)", 
+                  borderRadius: 6,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word"
+                }}>
+                  {JSON.stringify(ast, null, 2)}
+                </pre>
+              </div>
+            ) : (
+              <TokenList tokens={tokens} hideComments={hideComments} />
+            )}
           </div>
         </div>
       </div>

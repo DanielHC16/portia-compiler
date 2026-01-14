@@ -177,6 +177,6 @@ $RECYCLE.BIN/
 # ===========================
 # Keep internal developer docs out of the repository
 portia-td/
-inspo-folder
+spec-folder
 TODOs.txt
 updated-states

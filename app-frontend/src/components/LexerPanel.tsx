@@ -3,7 +3,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { lexCode, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
 
-const EXAMPLE = ``;
+const EXAMPLE = `int main() {
+    return 0;
+}`;
 
 type SimpleToken = Token & { start?: number; end?: number };
 
@@ -136,9 +138,10 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
   // Only used when we have tokens (after running lexer) and only for the lexed code
   const buildHighlightsFromTokens = useCallback((src: string, toks: SimpleToken[], errs: LexError[]) => {
     if (!src) return [{ text: "", cls: undefined }];
-
-    // Calculate line start positions
-    const lineStarts: number[] = [0];
+    
+    try {
+      // Calculate line start positions
+      const lineStarts: number[] = [0];
     for (let i = 0; i < src.length; i++) {
       if (src[i] === '\n') lineStarts.push(i + 1);
     }
@@ -235,20 +238,30 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     
     if (pos < src.length) segments.push({ text: src.slice(pos), cls: undefined });
     
-    return segments;
+    return segments.length > 0 ? segments : [{ text: src, cls: undefined }];
+    } catch (e) {
+      // On any error, return plain text
+      return [{ text: src, cls: undefined }];
+    }
   }, []);
 
   // Generate highlighted HTML - ONLY for the exact lexed code, nothing else
   const highlightedHTML = useCallback(() => {
-    // STRICT: Only apply highlighting if code EXACTLY matches what was lexed
-    if (lexedCode && code === lexedCode && (tokens.length > 0 || errors.length > 0)) {
-      const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
-      return rawSegments
-        .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
-        .join("");
+    try {
+      // STRICT: Only apply highlighting if code EXACTLY matches what was lexed
+      if (lexedCode && code === lexedCode && (tokens.length > 0 || errors.length > 0)) {
+        const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
+        const html = rawSegments
+          .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
+          .join("");
+        return html || escapeHtml(code);
+      }
+      // Show plain text (no highlighting) - user can still see what they're typing
+      return escapeHtml(code);
+    } catch (e) {
+      // Fallback on any error
+      return escapeHtml(code);
     }
-    // Show plain text (no highlighting) - user can still see what they're typing
-    return escapeHtml(code);
   }, [code, lexedCode, tokens, errors, buildHighlightsFromTokens]);
   
   // Calculate line numbers
