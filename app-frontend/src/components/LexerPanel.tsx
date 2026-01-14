@@ -7,13 +7,27 @@ const EXAMPLE = ``;
 
 type SimpleToken = Token & { start?: number; end?: number };
 
-export default function LexerPanel() {
-  const [code, setCode] = useState<string>(EXAMPLE);
+type LexerPanelProps = {
+  sharedCode: string;
+  setSharedCode: (code: string) => void;
+  setSharedTokens: (tokens: Token[]) => void;
+  setSharedLexErrors: (errors: LexError[]) => void;
+};
+
+export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens, setSharedLexErrors }: LexerPanelProps) {
+  const [code, setCode] = useState<string>(sharedCode || EXAMPLE);
   const [lexedCode, setLexedCode] = useState<string>("");  // The code that was actually lexed
   const [tokens, setTokens] = useState<SimpleToken[]>([]);
   const [errors, setErrors] = useState<LexError[]>([]);
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
+  
+  // Sync local code with shared code on mount
+  useEffect(() => {
+    if (sharedCode) {
+      setCode(sharedCode);
+    }
+  }, []);
   
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
@@ -43,11 +57,18 @@ export default function LexerPanel() {
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
       setLexedCode(normalizedCode);  // Store the normalized code that was lexed
+      
+      // Update shared state for other panels
+      setSharedCode(normalizedCode);
+      setSharedTokens(resp.tokens);
+      setSharedLexErrors(resp.errors);
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
         setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
         setTokens([]);
         setLexedCode("");
+        setSharedTokens([]);
+        setSharedLexErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
       }
     } finally {
       setLoading(false);
