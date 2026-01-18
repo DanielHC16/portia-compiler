@@ -118,32 +118,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
     }
   }
 
-  // Handle code changes
-  const handleCodeChange = useCallback((newCode: string) => {
-    const normalized = newCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    setCode(normalized);
-  }, []);
-
-  // Handle paste
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    const pastedText = e.clipboardData.getData('text');
-    const normalizedText = normalizeQuotes(pastedText).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const newCode = code.substring(0, start) + normalizedText + code.substring(end);
-    
-    setCode(newCode);
-    
-    setTimeout(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + normalizedText.length;
-      textarea.focus();
-    }, 0);
-  }, [code, normalizeQuotes]);
+  // Code is read-only in Parser Panel - all changes come from Lexer Panel
 
   // Reset function
   const handleReset = useCallback(() => {
@@ -313,7 +288,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, flex: "1 1 auto", minHeight: 0 }}>
         {/* Left Column: Source Code and Terminal */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
-          {/* Code Editor */}
+          {/* Code Viewer (Read-Only) */}
           <div className="panel" style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
             <h3 style={{ marginTop: 0, marginBottom: 8 }}>Source Code</h3>
             <div style={{ position: "relative", flex: "1 1 auto", minHeight: 300, display: "flex" }}>
@@ -373,15 +348,11 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
                   <span dangerouslySetInnerHTML={{ __html: highlightedHTML() }} />
                 </pre>
                 
-                {/* Editable textarea */}
-                <textarea
-                  ref={textareaRef}
-                  value={code}
-                  onChange={(e) => handleCodeChange(e.target.value)}
-                  onPaste={handlePaste}
-                  aria-label="source-input"
-                  spellCheck={false}
-                  className="source-edit"
+                {/* Read-only overlay for scrolling */}
+                <div
+                  ref={textareaRef as any}
+                  aria-label="source-display-readonly"
+                  className="source-display-readonly"
                   style={{
                     position: "absolute",
                     top: 0,
@@ -395,11 +366,9 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
                     fontFamily: "var(--mono)",
                     fontSize: 14,
                     lineHeight: "1.5",
-                    backgroundColor: "transparent",
-                    color: "transparent",
-                    resize: "none",
-                    outline: "none",
-                    caretColor: "var(--text)",
+                    overflow: "auto",
+                    cursor: "default",
+                    userSelect: "text",
                     whiteSpace: "pre-wrap",
                     wordWrap: "break-word",
                     borderTopLeftRadius: 0,
@@ -475,7 +444,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
         {/* Right Column: Tokens or AST Panel */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ margin: 0 }}>Abstract Syntax Tree</h3>
+            <h3 style={{ margin: 0 }}>{showAst ? "Abstract Syntax Tree" : "Tokens"}</h3>
             {ast && (
               <button 
                 className="btn ghost" 
