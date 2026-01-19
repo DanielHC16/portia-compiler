@@ -34,10 +34,11 @@ PORTIA is a statically-typed, imperative programming language with a complete co
 git clone <repository-url>
 cd portia-compiler
 
-# Setup lexer backend
+# Setup Python virtual environment
 cd lexer-backend
 python -m venv .venv-py312
-.\.venv-py312\Scripts\Activate.ps1   # Windows
+.\.venv-py312\Scripts\Activate.ps1   # Windows PowerShell
+# OR: source .venv-py312/bin/activate  # Linux/Mac
 pip install fastapi uvicorn
 cd ..
 
@@ -49,23 +50,46 @@ cd ..
 
 ### Running the Compiler
 
-**Using Scripts (Recommended):**
+**Quick Start (All Services):**
 ```powershell
-# Terminal 1 - Start lexer backend
+# Single command - starts all backends + frontend
+.\scripts\start-portia.ps1
+```
+
+This launches:
+- Lexer backend on `http://localhost:8000`
+- Parser backend on `http://localhost:8001`
+- Frontend on `http://localhost:5173`
+
+Open `http://localhost:5173` in your browser.
+
+**Individual Services:**
+```powershell
+# Lexer only
 .\scripts\start-lexer.ps1
 
-# Terminal 2 - Start frontend
+# Parser only
+.\scripts\start-parser.ps1
+
+# Frontend only
 cd app-frontend
 npm run dev
 ```
 
 **Manual Start:**
 ```bash
-# Terminal 1 - Backend
+# Terminal 1 - Lexer backend
 cd lexer-backend
-.\.venv-py312\Scripts\uvicorn app.main:app --reload
+.\.venv-py312\Scripts\uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 - Frontend
+# Terminal 2 - Parser backend
+cd parser-backend
+python -m venv .venv-py312  # First time only
+.\.venv-py312\Scripts\Activate.ps1
+pip install fastapi uvicorn  # First time only
+uvicorn main:app --reload --port 8001
+
+# Terminal 3 - Frontend
 cd app-frontend
 npm run dev
 ```
