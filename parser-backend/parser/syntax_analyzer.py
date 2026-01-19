@@ -656,6 +656,16 @@ class MainFunctionNode(ASTNode):
     def __repr__(self):
         return f"Main()"
 
+@dataclass
+class ArrayLiteralNode(ASTNode):
+    """Represents an array or struct literal initialization like {1, 2, 3} or {0, 0}"""
+    elements: List[Any]  # Can be expressions or nested lists for 2D arrays
+    line: int
+    column: int
+    
+    def __repr__(self):
+        return f"ArrayLiteral({len(self.elements)} elements)"
+
 # ==================== PARSER CLASS ====================
 
 class Parser:
@@ -1228,12 +1238,16 @@ class Parser:
             return None
         mutability = self.advance().get("lexeme")
         
-        # Parse data type
+        # Parse data type (built-in or weave type)
         dtype_token = self.current_token()
-        if not self.match_predict_set("dtype"):
+        if self.match_predict_set("dtype"):
+            data_type = self.advance().get("lexeme")
+        elif self.match("id"):
+            # Allow identifiers for weave types
+            data_type = self.advance().get("lexeme")
+        else:
             self.add_error(f"Expected data type", dtype_token)
             return None
-        data_type = self.advance().get("lexeme")
         
         # Parse identifier
         id_token = self.expect("id")
@@ -1247,7 +1261,40 @@ class Parser:
         initial_value = None
         if self.match("="):
             self.advance()
-            initial_value = self.parse_expression()
+            # Check if this is a brace-enclosed initialization (for arrays/weaves)
+            if self.match("{"):
+                self.advance()
+                elements = []
+                if self.match_predict_set("elem_1D_list") or self.match("{"):
+                    # Parse first element (could be nested for 2D arrays)
+                    if self.match("{"):
+                        # 2D array or nested structure
+                        elements = []
+                        while self.match("{"):
+                            self.advance()
+                            row = []
+                            if self.match_predict_set("elem_1D_list"):
+                                row.append(self.parse_expression())
+                                while self.match(","):
+                                    self.advance()
+                                    row.append(self.parse_expression())
+                            self.expect("}")
+                            elements.append(row)
+                            if not self.match(","):
+                                break
+                            self.advance()
+                    else:
+                        # 1D array or struct
+                        elements.append(self.parse_expression())
+                        while self.match(","):
+                            self.advance()
+                            if self.match_predict_set("elem_1D_list"):
+                                elements.append(self.parse_expression())
+                self.expect("}")
+                initial_value = ArrayLiteralNode(elements=elements, line=line, column=col)
+            else:
+                # Regular expression
+                initial_value = self.parse_expression()
         
         # Create first declaration
         declarations = [VariableDeclarationNode(
@@ -1271,7 +1318,38 @@ class Parser:
             initial_value = None
             if self.match("="):
                 self.advance()
-                initial_value = self.parse_value()
+                # Check if this is a brace-enclosed initialization
+                if self.match("{"):
+                    self.advance()
+                    elements = []
+                    if self.match_predict_set("elem_1D_list") or self.match("{"):
+                        if self.match("{"):
+                            # 2D array
+                            while self.match("{"):
+                                self.advance()
+                                row = []
+                                if self.match_predict_set("elem_1D_list"):
+                                    row.append(self.parse_expression())
+                                    while self.match(","):
+                                        self.advance()
+                                        row.append(self.parse_expression())
+                                self.expect("}")
+                                elements.append(row)
+                                if not self.match(","):
+                                    break
+                                self.advance()
+                        else:
+                            # 1D array or struct
+                            elements.append(self.parse_expression())
+                            while self.match(","):
+                                self.advance()
+                                if self.match_predict_set("elem_1D_list"):
+                                    elements.append(self.parse_expression())
+                    self.expect("}")
+                    initial_value = ArrayLiteralNode(elements=elements, line=id_token.get("line", 0), column=id_token.get("column", 0))
+                else:
+                    # Regular expression
+                    initial_value = self.parse_expression()
             
             declarations.append(VariableDeclarationNode(
                 scope=scope,
@@ -1513,10 +1591,10 @@ class Parser:
                     self.advance()
                     row = []
                     if self.match_predict_set("elem_1D_list"):
-                        row.append(self.parse_value())
+                        row.append(self.parse_expression())
                         while self.match(","):
                             self.advance()
-                            row.append(self.parse_value())
+                            row.append(self.parse_expression())
                     self.expect("}")
                     elements.append(row)
                     if not self.match(","):
@@ -1526,20 +1604,20 @@ class Parser:
                 # Flat initialization for 2D array - parse as flat list
                 # This is more lenient than strict grammar but easier for users
                 row = []
-                row.append(self.parse_value())
+                row.append(self.parse_expression())
                 while self.match(","):
                     self.advance()
                     if self.match_predict_set("elem_1D_list"):
-                        row.append(self.parse_value())
+                        row.append(self.parse_expression())
                 elements.append(row)
         else:
             # 1D array: {val1, val2, val3}
             if self.match_predict_set("elem_1D_list"):
-                elements.append(self.parse_value())
+                elements.append(self.parse_expression())
                 while self.match(","):
                     self.advance()
                     if self.match_predict_set("elem_1D_list"):
-                        elements.append(self.parse_value())
+                        elements.append(self.parse_expression())
         
         return elements
     
@@ -2112,7 +2190,7 @@ class Parser:
     
     def parse_statement(self) -> Optional[ASTNode]:
         """
-        <statement> → <expression>; | <I/O_stmt> | <assign_stmt>; | <ctrl_struct> | <arr_1D>;
+        <statement> → <expression>; | <I/O_stmt> | <assign_stmt>; | <ctrl_struct> | <arr_1D>; | <local_dec>
         Productions 89-94, 243-248
         """
         # Return early if already in panic mode
@@ -2120,6 +2198,10 @@ class Parser:
             return None
             
         token = self.current_token()
+        
+        # Local variable declaration
+        if self.match("local"):
+            return self.parse_local_dec()
         
         # I/O statements
         if self.match("trap"):
@@ -2417,7 +2499,7 @@ class Parser:
         line = token.get("line", 0)
         col = token.get("column", 0)
         
-        case_value = self.parse_value()
+        case_value = self.parse_expression()
         
         if not self.expect(":"):
             return None

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { lexCode, parseTokens, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
+import ASTTreeView from "./ASTTreeView";
 
 const EXAMPLE = `int main() {
     return 0;
@@ -23,7 +24,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [parseErrorObjects, setParseErrorObjects] = useState<LexError[]>([]);
   const [ast, setAst] = useState<any>(null);
-  const [showAst, setShowAst] = useState(false);
+  const [viewMode, setViewMode] = useState<'tokens' | 'tree' | 'json'>('tokens');
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
   
@@ -81,7 +82,6 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
           // Check if parser succeeded
           if (parseResp.success && parseResp.ast) {
             setAst(parseResp.ast);
-            setShowAst(false); // Reset to tokens view
             setParseErrors([]);
             setParseErrorObjects([]);
           } else if (parseResp.errors && parseResp.errors.length > 0) {
@@ -136,7 +136,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
     setParseErrors([]);
     setParseErrorObjects([]);
     setAst(null);
-    setShowAst(false);
+    setViewMode('tokens');
     setLexedCode("");
   }, []);
 
@@ -452,19 +452,39 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
         {/* Right Column: Tokens or AST Panel */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ margin: 0 }}>{showAst ? "Abstract Syntax Tree" : "Tokens"}</h3>
-            {ast && (
+            <h3 style={{ margin: 0 }}>
+              {viewMode === 'tokens' ? 'Tokens' : viewMode === 'tree' ? 'AST Tree' : 'AST JSON'}
+            </h3>
+            <div style={{ display: "flex", gap: 8 }}>
               <button 
-                className="btn ghost" 
-                onClick={() => setShowAst(!showAst)}
+                className={`btn ${viewMode === 'tokens' ? '' : 'ghost'}`}
+                onClick={() => setViewMode('tokens')}
                 style={{ padding: "6px 12px", fontSize: 12 }}
               >
-                {showAst ? "Show Tokens" : "Show AST"}
+                Show Tokens
               </button>
-            )}
+              <button 
+                className={`btn ${viewMode === 'tree' ? '' : 'ghost'}`}
+                onClick={() => setViewMode('tree')}
+                style={{ padding: "6px 12px", fontSize: 12 }}
+                disabled={!ast}
+              >
+                Show Tree
+              </button>
+              <button 
+                className={`btn ${viewMode === 'json' ? '' : 'ghost'}`}
+                onClick={() => setViewMode('json')}
+                style={{ padding: "6px 12px", fontSize: 12 }}
+                disabled={!ast}
+              >
+                Show Raw
+              </button>
+            </div>
           </div>
           <div style={{ flex: "1 1 auto", overflow: "auto" }}>
-            {showAst && ast ? (
+            {viewMode === 'tree' && ast ? (
+              <ASTTreeView ast={ast} />
+            ) : viewMode === 'json' && ast ? (
               <div style={{ fontFamily: "var(--mono)", fontSize: 13, height: "100%" }}>
                 <pre style={{ 
                   margin: 0, 
