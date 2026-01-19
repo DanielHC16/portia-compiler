@@ -1,12 +1,18 @@
 // src/components/ViewSwitcher.tsx
 import { useState, useEffect } from "react";
 import LexerPanel from "./LexerPanel";
-import ParserTBA from "./ParserTBA";
+import ParserPanel from "./ParserPanel";
 import SemanticTBA from "./SemanticTBA";
+import type { Token, LexError } from "../api";
 
 export default function ViewSwitcher() {
   const [view, setView] = useState<"lexical" | "syntax" | "semantics">("lexical");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  
+  // Shared state across all panels
+  const [sharedCode, setSharedCode] = useState<string>("");
+  const [sharedTokens, setSharedTokens] = useState<Token[]>([]);
+  const [sharedLexErrors, setSharedLexErrors] = useState<LexError[]>([]);
 
   useEffect(() => {
     // Apply theme to document root
@@ -84,10 +90,19 @@ export default function ViewSwitcher() {
 
       {/* Keep all panels mounted to preserve state, show/hide with display */}
       <div style={{ display: view === "lexical" ? "block" : "none", height: "100%" }}>
-        <LexerPanel />
+        <LexerPanel 
+          sharedCode={sharedCode}
+          setSharedCode={setSharedCode}
+          setSharedTokens={setSharedTokens}
+          setSharedLexErrors={setSharedLexErrors}
+        />
       </div>
       <div style={{ display: view === "syntax" ? "block" : "none", height: "100%" }}>
-        <ParserTBA />
+        <ParserPanel 
+          sharedCode={sharedCode}
+          sharedTokens={sharedTokens}
+          sharedLexErrors={sharedLexErrors}
+        />
       </div>
       <div style={{ display: view === "semantics" ? "block" : "none", height: "100%" }}>
         <SemanticTBA />

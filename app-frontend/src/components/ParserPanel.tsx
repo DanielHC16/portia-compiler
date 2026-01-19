@@ -1,7 +1,8 @@
-// src/components/LexerPanel.tsx
+// src/components/ParserPanel.tsx
 import { useEffect, useRef, useState, useCallback } from "react";
-import { lexCode, type Token, type LexError } from "../api";
+import { lexCode, parseTokens, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
+import ASTTreeView from "./ASTTreeView";
 
 const EXAMPLE = `int main() {
     return 0;
@@ -9,113 +10,137 @@ const EXAMPLE = `int main() {
 
 type SimpleToken = Token & { start?: number; end?: number };
 
-type LexerPanelProps = {
+type ParserPanelProps = {
   sharedCode: string;
-  setSharedCode: (code: string) => void;
-  setSharedTokens: (tokens: Token[]) => void;
-  setSharedLexErrors: (errors: LexError[]) => void;
+  sharedTokens: Token[];
+  sharedLexErrors: LexError[];
 };
 
-export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens, setSharedLexErrors }: LexerPanelProps) {
+export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors }: ParserPanelProps) {
   const [code, setCode] = useState<string>(sharedCode || EXAMPLE);
-  const [lexedCode, setLexedCode] = useState<string>("");  // The code that was actually lexed
-  const [tokens, setTokens] = useState<SimpleToken[]>([]);
-  const [errors, setErrors] = useState<LexError[]>([]);
+  const [lexedCode, setLexedCode] = useState<string>(sharedCode || "");
+  const [tokens, setTokens] = useState<SimpleToken[]>(sharedTokens as SimpleToken[] || []);
+  const [lexErrors, setLexErrors] = useState<LexError[]>(sharedLexErrors || []);
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [parseErrorObjects, setParseErrorObjects] = useState<LexError[]>([]);
+  const [ast, setAst] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'tokens' | 'tree' | 'json'>('tokens');
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
   
-  // Sync local code with shared code on mount
+  // Sync with shared state when it changes
   useEffect(() => {
-    if (sharedCode) {
-      setCode(sharedCode);
-    }
-  }, []);
+    setCode(sharedCode || EXAMPLE);
+    setLexedCode(sharedCode || "");
+    setTokens(sharedTokens as SimpleToken[] || []);
+    setLexErrors(sharedLexErrors || []);
+  }, [sharedCode, sharedTokens, sharedLexErrors]);
   
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Normalize smart/curly quotes to straight quotes for lexer compatibility
+  // Normalize smart/curly quotes to straight quotes
   const normalizeQuotes = (text: string): string => {
     return text
-      .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')  // " " „ ‟ ″ ‶ → "
-      .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'"); // ' ' ‚ ‛ ′ ‵ → '
+      .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+      .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
   };
 
-  // Run lexer - only updates when manually triggered
-  async function runLex() {
+  // Run lexer and parser
+  async function runParser() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     
     setLoading(true);
-    setErrors([]);
+    setLexErrors([]);
+    setParseErrors([]);
     
     try {
-      // Normalize quotes AND line endings before sending to lexer
+      // First run lexer
       const normalizedCode = normalizeQuotes(code).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      const resp = await lexCode(normalizedCode, { signal: controller.signal });
-      setTokens(resp.tokens as SimpleToken[]);
-      setErrors(resp.errors);
-      setLexedCode(normalizedCode);  // Store the normalized code that was lexed
+      const lexResp = await lexCode(normalizedCode, { signal: controller.signal });
+      setTokens(lexResp.tokens as SimpleToken[]);
+      setLexErrors(lexResp.errors);
+      setLexedCode(normalizedCode);
       
-      // Update shared state for other panels
-      setSharedCode(normalizedCode);
-      setSharedTokens(resp.tokens);
-      setSharedLexErrors(resp.errors);
+      // If no lexical errors, run parser
+      if (lexResp.errors.length === 0) {
+        try {
+          // Filter out comment tokens before parsing
+          const tokensWithoutComments = lexResp.tokens.filter((token: Token) => 
+            token.type !== 'single_comment' && token.type !== 'multi_comment'
+          );
+          const parseResp = await parseTokens(tokensWithoutComments, normalizedCode, { signal: controller.signal });
+          
+          // Debug: log the parse response
+          console.log('[Parser Response]', parseResp);
+          console.log('[Errors]', parseResp.errors);
+          
+          // Check if parser succeeded
+          if (parseResp.success && parseResp.ast) {
+            setAst(parseResp.ast);
+            setParseErrors([]);
+            setParseErrorObjects([]);
+          } else if (parseResp.errors && parseResp.errors.length > 0) {
+            // Store both error objects (for highlighting) and error strings (for display)
+            const errorObjects = parseResp.errors.map((e: any) => {
+              if (typeof e === 'object' && e.message) {
+                return { message: e.message, line: e.line || 0, column: e.column || 0 };
+              }
+              return { message: String(e), line: 0, column: 0 };
+            });
+            const errorMessages = errorObjects.map((e: any) => e.message);
+            setParseErrors(errorMessages);
+            setParseErrorObjects(errorObjects);
+            setAst(null);
+          } else if (parseResp.status === "tba") {
+            setParseErrors([`Parser logic in progress: ${parseResp.message}`]);
+            setParseErrorObjects([]);
+            setAst(null);
+          } else {
+            setParseErrors([]);
+            setParseErrorObjects([]);
+            setAst(parseResp.ast || null);
+          }
+        } catch (err: any) {
+          if (err?.name !== 'AbortError') {
+            setParseErrors([err?.message ?? String(err)]);
+            setAst(null);
+          }
+        }
+      } else {
+        setParseErrors(["Cannot parse: lexical errors present"]);
+        setAst(null);
+      }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
-        setErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
+        setLexErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
         setTokens([]);
         setLexedCode("");
-        setSharedTokens([]);
-        setSharedLexErrors([{ message: err?.message ?? String(err), line: 0, column: 0 }]);
       }
     } finally {
       setLoading(false);
     }
   }
 
-  // Handle code changes - just update the code, keep tokens/errors visible
-  const handleCodeChange = useCallback((newCode: string) => {
-    // Normalize line endings to match what the backend will use
-    const normalized = newCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    setCode(normalized);
-    // Tokens and errors stay visible for reference until user runs lexer again or clicks reset
-  }, []);
+  // Code is read-only in Parser Panel - all changes come from Lexer Panel
 
-  // Handle paste - normalize quotes automatically
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    const pastedText = e.clipboardData.getData('text');
-    const normalizedText = normalizeQuotes(pastedText).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const newCode = code.substring(0, start) + normalizedText + code.substring(end);
-    
-    setCode(newCode);
-    
-    // Set cursor position after paste
-    setTimeout(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + normalizedText.length;
-      textarea.focus();
-    }, 0);
-  }, [code, normalizeQuotes]);
-
-  // Reset function - clears everything
+  // Reset function
   const handleReset = useCallback(() => {
     setCode(EXAMPLE);
     setTokens([]);
-    setErrors([]);
+    setLexErrors([]);
+    setParseErrors([]);
+    setParseErrorObjects([]);
+    setAst(null);
+    setViewMode('tokens');
     setLexedCode("");
   }, []);
 
-  // Sync scroll between textarea, highlighting overlay, and line numbers
+  // Sync scroll
   useEffect(() => {
     const ta = textareaRef.current;
     const pre = preRef.current;
@@ -134,31 +159,25 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     return () => ta.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Build highlight segments from tokens + errors (line/column -> char positions)
-  // Only used when we have tokens (after running lexer) and only for the lexed code
+  // Build highlights
   const buildHighlightsFromTokens = useCallback((src: string, toks: SimpleToken[], errs: LexError[]) => {
     if (!src) return [{ text: "", cls: undefined }];
-    
-    try {
-      // Calculate line start positions
-      const lineStarts: number[] = [0];
-    for (let i = 0; i < src.length; i++) {
-      if (src[i] === '\n') lineStarts.push(i + 1);
-    }
 
-    // Build error ranges
+    try {
+      const lineStarts: number[] = [0];
+      for (let i = 0; i < src.length; i++) {
+        if (src[i] === '\n') lineStarts.push(i + 1);
+      }
+
     const errorRanges: Array<{start: number, end: number}> = [];
     for (const err of errs) {
       if (err.start_index !== undefined && err.end_index !== undefined) {
-        // Backend provides exact indices - use them directly
         errorRanges.push({ start: err.start_index, end: err.end_index });
       } else if (err.line > 0 && err.line <= lineStarts.length) {
-        // Calculate from line/column (both are 1-based from backend)
         const lineStart = lineStarts[err.line - 1];
-        const start = lineStart + (err.column - 1);  // column is 1-based
+        const start = lineStart + (err.column - 1);
         if (start >= 0 && start < src.length) {
           let end = start + 1;
-          // Extend to cover the whole identifier/token if possible
           while (end < src.length && /[a-zA-Z0-9_]/.test(src[end])) end++;
           errorRanges.push({ start, end });
         }
@@ -168,7 +187,6 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     type Match = { start: number; end: number; cls?: string; isError?: boolean };
     const matches: Match[] = [];
 
-    // Add tokens first
     for (const tok of toks) {
       if (!tok.lexeme || tok.line === undefined || tok.column === undefined) continue;
       if (tok.line < 1 || tok.line > lineStarts.length) continue;
@@ -177,13 +195,11 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
       let start = lineStart + tok.column - 1;
       let end = start + tok.lexeme.length;
       
-      // Verify token position
       if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
         start = lineStart + tok.column;
         end = start + tok.lexeme.length;
       }
       
-      // If still no match, try to find on line
       if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
         const lineEnd = lineStarts[tok.line] ?? src.length;
         const lineText = src.slice(lineStart, lineEnd);
@@ -200,20 +216,16 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
       matches.push({ start, end, cls: tokenClass(tok.type), isError: false });
     }
 
-    // Add error ranges - mark any overlapping tokens as errors
     for (const er of errorRanges) {
       let foundOverlap = false;
       
-      // Check if error overlaps with any token
       for (const m of matches) {
         if (m.start < er.end && m.end > er.start) {
-          // Mark this token as having an error
           m.isError = true;
           foundOverlap = true;
         }
       }
       
-      // If no token overlap, add standalone error region
       if (!foundOverlap) {
         matches.push({ start: er.start, end: er.end, cls: undefined, isError: true });
       }
@@ -221,7 +233,6 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
 
     if (matches.length === 0) return [{ text: src, cls: undefined }];
 
-    // Sort by position
     matches.sort((a, b) => a.start - b.start);
     
     const segments: { text: string; cls?: string }[] = [];
@@ -230,7 +241,6 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     for (const m of matches) {
       if (m.start > pos) segments.push({ text: src.slice(pos, m.start), cls: undefined });
       
-      // Build class string
       const classes = [m.cls, m.isError ? 'hl-error' : ''].filter(Boolean).join(' ');
       segments.push({ text: src.slice(m.start, m.end), cls: classes || undefined });
       pos = m.end;
@@ -245,38 +255,36 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     }
   }, []);
 
-  // Generate highlighted HTML - ONLY for the exact lexed code, nothing else
   const highlightedHTML = useCallback(() => {
     try {
-      // STRICT: Only apply highlighting if code EXACTLY matches what was lexed
-      if (lexedCode && code === lexedCode && (tokens.length > 0 || errors.length > 0)) {
-        const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
+      if (lexedCode && code === lexedCode && (tokens.length > 0 || lexErrors.length > 0 || parseErrorObjects.length > 0)) {
+        // Combine lexical and parser errors for highlighting
+        const allErrors = [...lexErrors, ...parseErrorObjects];
+        const rawSegments = buildHighlightsFromTokens(code, tokens, allErrors);
         const html = rawSegments
           .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
           .join("");
         return html || escapeHtml(code);
       }
-      // Show plain text (no highlighting) - user can still see what they're typing
       return escapeHtml(code);
     } catch (e) {
       // Fallback on any error
       return escapeHtml(code);
     }
-  }, [code, lexedCode, tokens, errors, buildHighlightsFromTokens]);
+  }, [code, lexedCode, tokens, lexErrors, parseErrorObjects, buildHighlightsFromTokens]);
   
-  // Calculate line numbers
   const lines = code.split('\n');
   const lineCount = lines.length;
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%", padding: 16 }}>
-      {/* Header with actions */}
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Lexical Analyzer</h2>
+        <h2 style={{ margin: 0 }}>Syntax Analyzer</h2>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: 'center' }}>
-          <button className="btn" onClick={runLex} disabled={loading}>
-            {loading ? "Lexing..." : "Run Lexer"}
+          <button className="btn" onClick={runParser} disabled={loading}>
+            {loading ? "Analyzing..." : "Run Parser"}
           </button>
           <button className="btn ghost" onClick={handleReset}>
             Reset
@@ -284,11 +292,11 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
         </div>
       </div>
 
-      {/* Two-column layout: Left (Source + Errors) | Right (Tokens) */}
+      {/* Two-column layout */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, flex: "1 1 auto", minHeight: 0 }}>
-        {/* Left Column: Source Code and Errors */}
+        {/* Left Column: Source Code and Terminal */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
-          {/* Code Editor with Syntax Highlighting */}
+          {/* Code Viewer (Read-Only) */}
           <div className="panel" style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
             <h3 style={{ marginTop: 0, marginBottom: 8 }}>Source Code</h3>
             <div style={{ position: "relative", flex: "1 1 auto", minHeight: 300, display: "flex" }}>
@@ -348,15 +356,11 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
                   <span dangerouslySetInnerHTML={{ __html: highlightedHTML() }} />
                 </pre>
                 
-                {/* Editable textarea */}
-                <textarea
-                  ref={textareaRef}
-                  value={code}
-                  onChange={(e) => handleCodeChange(e.target.value)}
-                  onPaste={handlePaste}
-                  aria-label="source-input"
-                  spellCheck={false}
-                  className="source-edit"
+                {/* Read-only overlay for scrolling */}
+                <div
+                  ref={textareaRef as any}
+                  aria-label="source-display-readonly"
+                  className="source-display-readonly"
                   style={{
                     position: "absolute",
                     top: 0,
@@ -370,11 +374,9 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
                     fontFamily: "var(--mono)",
                     fontSize: 14,
                     lineHeight: "1.5",
-                    backgroundColor: "transparent",
-                    color: "transparent",
-                    resize: "none",
-                    outline: "none",
-                    caretColor: "var(--text)",
+                    overflow: "auto",
+                    cursor: "default",
+                    userSelect: "text",
                     whiteSpace: "pre-wrap",
                     wordWrap: "break-word",
                     borderTopLeftRadius: 0,
@@ -385,19 +387,26 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
             </div>
           </div>
 
-          {/* Errors Panel */}
+          {/* Terminal / Errors Panel */}
           <div className="panel" style={{ flex: "0 0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ margin: 0 }}>Errors</h3>
-              <div className="small">{errors.length > 0 ? `Problems: ${errors.length}` : tokens.length > 0 ? 'Lexing success' : 'No errors'}</div>
+              <h3 style={{ margin: 0 }}>Terminal</h3>
+              <div className="small">
+                {lexErrors.length > 0 ? `Lexical Errors: ${lexErrors.length}` : 
+                 parseErrors.length > 0 ? `Syntax Errors: ${parseErrors.length}` : 
+                 tokens.length > 0 ? 'Parsing success' : 'No errors'}
+              </div>
             </div>
             <div style={{ maxHeight: 200, overflow: "auto" }}>
-              {errors.length === 0 ? (
-                <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>{tokens.length > 0 ? "No lexical errors" : "Run lexer to analyze code"}</div>
+              {lexErrors.length === 0 && parseErrors.length === 0 ? (
+                <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>
+                  {tokens.length > 0 ? "No syntax errors" : "Run parser to analyze code"}
+                </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {errors.map((err, i) => (
-                    <div key={i} style={{
+                  {/* Show lexical errors first */}
+                  {lexErrors.map((err, i) => (
+                    <div key={`lex-${i}`} style={{
                       padding: "8px 12px",
                       background: "var(--bg-secondary)",
                       border: "1px solid var(--border)",
@@ -406,11 +415,32 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
                       fontSize: 13,
                     }}>
                       <div style={{ fontWeight: 600, color: "var(--error)", marginBottom: 4 }}>
-                        {err.message}
+                        [Lexical] {err.message}
                       </div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
                         Line {err.line}, Column {err.column}
                       </div>
+                    </div>
+                  ))}
+                  
+                  {/* Show parse errors */}
+                  {parseErrorObjects.map((err, i) => (
+                    <div key={`parse-${i}`} style={{
+                      padding: "8px 12px",
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--border)",
+                      borderLeft: "3px solid var(--warning)",
+                      borderRadius: 4,
+                      fontSize: 13,
+                    }}>
+                      <div style={{ fontWeight: 600, color: "var(--warning)", marginBottom: 4 }}>
+                        [Syntax] {err.message}
+                      </div>
+                      {(err.line > 0 || err.column > 0) && (
+                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                          Line {err.line}, Column {err.column}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -419,21 +449,57 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
           </div>
         </div>
 
-        {/* Right Column: Tokens Panel */}
+        {/* Right Column: Tokens or AST Panel */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ margin: 0 }}>Lexer Table</h3>
-            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input
-                type="checkbox"
-                checked={hideComments}
-                onChange={(e) => setHideComments(e.target.checked)}
-              />
-              <span className="small">Hide comments</span>
-            </label>
+            <h3 style={{ margin: 0 }}>
+              {viewMode === 'tokens' ? 'Tokens' : viewMode === 'tree' ? 'AST Tree' : 'AST JSON'}
+            </h3>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button 
+                className={`btn ${viewMode === 'tokens' ? '' : 'ghost'}`}
+                onClick={() => setViewMode('tokens')}
+                style={{ padding: "6px 12px", fontSize: 12 }}
+              >
+                Show Tokens
+              </button>
+              <button 
+                className={`btn ${viewMode === 'tree' ? '' : 'ghost'}`}
+                onClick={() => setViewMode('tree')}
+                style={{ padding: "6px 12px", fontSize: 12 }}
+                disabled={!ast}
+              >
+                Show Tree
+              </button>
+              <button 
+                className={`btn ${viewMode === 'json' ? '' : 'ghost'}`}
+                onClick={() => setViewMode('json')}
+                style={{ padding: "6px 12px", fontSize: 12 }}
+                disabled={!ast}
+              >
+                Show Raw
+              </button>
+            </div>
           </div>
           <div style={{ flex: "1 1 auto", overflow: "auto" }}>
-            <TokenList tokens={tokens} hideComments={hideComments} />
+            {viewMode === 'tree' && ast ? (
+              <ASTTreeView ast={ast} />
+            ) : viewMode === 'json' && ast ? (
+              <div style={{ fontFamily: "var(--mono)", fontSize: 13, height: "100%" }}>
+                <pre style={{ 
+                  margin: 0, 
+                  padding: 12, 
+                  background: "var(--bg-secondary)", 
+                  borderRadius: 6,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word"
+                }}>
+                  {JSON.stringify(ast, null, 2)}
+                </pre>
+              </div>
+            ) : (
+              <TokenList tokens={tokens} hideComments={hideComments} />
+            )}
           </div>
         </div>
       </div>
@@ -450,50 +516,26 @@ function escapeHtml(s: string) {
 function tokenClass(type?: string) {
   if (!type) return undefined;
   
-  // All PORTIA keywords (as defined in TOKEN_REFERENCE.md)
   const keywords = [
-    // Scope
-    "local", "global", "using",
-    // Main
-    "main",
-    // Data types
+    "local", "global", "using", "main",
     "int", "bool", "string", "float", "double", "long", "char", "void", "weave",
-    // Declarations
     "const", "var",
-    // I/O
     "trap", "thread", "threadln",
-    // Functions
     "func", "return",
-    // Conditionals
     "if", "else", "switch", "case", "default",
-    // Loops
     "while", "do", "for",
-    // Loop control
     "break",
-    // Boolean literals
     "true", "false"
   ];
   
-  // Check if it's a keyword (case-insensitive comparison)
   if (keywords.includes(type.toLowerCase())) return "hl-keyword";
-  
-  // Boolean literals (kept for backward compatibility if needed)
   if (type === "bool_lit") return "hl-keyword";
-  
-  // Numeric literals
   if (type === "int_lit" || type === "long_lit" || type === "float_lit" || type === "double_lit") return "hl-number";
-  
-  // String and char literals
   if (type === "string_lit") return "hl-string";
   if (type === "char_lit") return "hl-char";
-  
-  // Comments
   if (type === "single_comment" || type === "multi_comment") return "hl-comment";
-  
-  // Identifiers
   if (type === "id") return "hl-identifier";
   
-  // Operators
   const operators = [
     "add", "subtract", "multiply", "divide", "modulo",
     "assign", "add_assign", "minus_assign", "mult_assign", "div_assign", "modulo_assign",
@@ -504,7 +546,6 @@ function tokenClass(type?: string) {
   ];
   if (operators.includes(type)) return "hl-operator";
   
-  // Delimiters
   const delimiters = [
     "open_paren", "close_paren",
     "open_bracket", "close_bracket",

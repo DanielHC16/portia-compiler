@@ -13,6 +13,7 @@
   --border-hover: #3d2b5e;
   --token-bg: #1a0f2e;
   --error: #f87171;
+  --warning: #fbbf24;
   --success: #6b9b7f;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
   --radius: 8px;
@@ -33,6 +34,7 @@
   --border-hover: #d4c5eb;
   --token-bg: #fdfcfe;
   --error: #dc2626;
+  --warning: #d97706;
   --success: #4a7c59;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
   --radius: 8px;
@@ -53,6 +55,7 @@
   --border-hover: #3d2b5e;
   --token-bg: #1a0f2e;
   --error: #f87171;
+  --warning: #fbbf24;
   --success: #6b9b7f;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
   --radius: 8px;

@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from parser.api import router as parser_router
 
-app = FastAPI(title="PORTIA Parser Backend (TBA)")
+app = FastAPI(title="PORTIA Parser Backend")
 
 # Allow local frontend dev server and other backends by default during development
 origins = [
@@ -26,4 +26,4 @@ app.include_router(parser_router, prefix="")
 
 @app.get("/")
 def root():
-    return {"message": "PORTIA Parser backend (TBA) is running"}
+    return {"message": "PORTIA Parser backend is running"}

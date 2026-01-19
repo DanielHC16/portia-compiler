@@ -98,7 +98,14 @@ portia-compiler/
 │   ├── README.md
 │   └── LEXER_EXPLAINED.md
 │
-├── parser-backend/            # Syntax parser (in development)
+├── parser-backend/            # Syntax parser backend
+│   ├── main.py               # FastAPI application
+│   ├── parser/
+│   │   ├── syntax_analyzer.py    # Recursive descent parser
+│   │   └── api.py                # Parser API endpoints
+│   ├── PARSER_REFERENCE.md   # Complete parser documentation
+│   └── README.md
+│
 ├── semantic-backend/          # Semantic analyzer (in development)
 ├── scripts/                   # Utility scripts
 │   ├── start-lexer.ps1
@@ -123,11 +130,27 @@ portia-compiler/
 - **Primitive casting delimiter rules** (`(int)x` valid, `(void)x` invalid)
 - **Whitespace and newline tokens** for syntax formatting
 
+### Syntax Parser
+- **Recursive descent parser** implementing LL(1) context-free grammar
+- **36 AST node types** representing all language constructs
+- **Panic mode error recovery** with intelligent synchronization
+- **400+ production rules** covering complete PORTIA grammar
+- **100+ predict sets** for optimized parsing decisions
+- **Full expression parsing** with operator precedence (logical, relational, arithmetic)
+- **Weave support** for user-defined struct types with field access
+- **Array handling** for 1D and 2D arrays with initialization
+- **Function declarations** with parameters, return types, and nested scopes
+- **Control flow parsing** (if/else, switch/case, for, while, do-while)
+- **Context-aware error messages** with line and column information
+
 ### Frontend Interface
 - **Real-time syntax highlighting** with One Dark theme
 - **Token-based coloring** (keywords, literals, operators, delimiters)
+- **Interactive AST tree viewer** with collapsible nodes and hierarchical display
+- **Three view modes** (Tokens, Tree, Raw JSON) for comprehensive analysis
 - **Virtual scrolling** for efficient rendering of large token lists (10,000+ tokens)
 - **Error highlighting** with precise character-level positioning
+- **Dual panel layout** for lexical and syntax analysis
 - **Auto-lex with debouncing** (350ms delay, disables at ≥80 lines)
 - **Request cancellation** (AbortController prevents race conditions)
 - **Line numbers** with synchronized scrolling
@@ -150,10 +173,12 @@ cd lexer-backend
 
 ### Core Documentation
 - **[Complete Lexer Technical Reference](lexer-backend/docs/COMPLETE_LEXER_REFERENCE.md)** — Comprehensive 6000+ line reference with all functions, parameters, algorithms, state machine design, token types, error handling, performance analysis, testing, and troubleshooting.
+- **[Complete Parser Technical Reference](parser-backend/PARSER_REFERENCE.md)** — Full parser documentation covering recursive descent parsing, LL(1) grammar, AST node types, error recovery, predict sets, expression parsing, and testing guide.
 - **[Complete Frontend Technical Reference](app-frontend/docs/COMPLETE_FRONTEND_REFERENCE.md)** — Full React component documentation, state management, API integration, syntax highlighting algorithm, virtual scrolling, performance optimizations, and UI architecture.
 
 ### Quick References
 - [Lexer Backend README](lexer-backend/README.md) — Quick start and API overview
+- [Parser Backend README](parser-backend/README.md) — Parser quick start and usage
 - [Frontend Overview](app-frontend/FRONTEND_OVERVIEW.md) — Quick start with architecture diagrams and configuration guide
 
 ### Specialized Documentation
@@ -192,7 +217,7 @@ This cross-functional approach ensures that every team member has a comprehensiv
 
 ## Status
 
-**Lexer:** Complete | **Parser:** In Development | **Semantic:** In Development
+**Lexer:** Complete | **Parser:** Complete | **Semantic:** In Development
 
 **Version:** 1.0.0
 

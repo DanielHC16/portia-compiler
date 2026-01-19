@@ -120,7 +120,7 @@ class LexicalAnalyzer:
                 return  # Don't add the token
             
             # Special validation: After open_brace, only bool_lit is allowed (no identifiers or other keywords)
-            if prev_token_type == 'open_brace' and token_type == 'identifier':
+            if prev_token_type == 'open_brace' and token_type == 'id':
                 add_error(f"Invalid '{lexeme}' after '{{'", start_idx, end_idx, tok_line, tok_col)
                 return  # Don't add the token
             
@@ -269,7 +269,7 @@ class LexicalAnalyzer:
                 return char_in_delimiters(next_char, self.nbl_delim)
 
             # Check identifiers BEFORE EOF handling
-            if token_type == 'identifier':
+            if token_type == 'id':
                 return char_in_delimiters(next_char, self.iden_delim)
 
             # Check comments BEFORE EOF handling
@@ -420,8 +420,8 @@ class LexicalAnalyzer:
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151:
                         # Keyword state but not final - treat as identifier
-                        if check_delimiter('identifier', ch):
-                            add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                        if check_delimiter('id', ch):
+                            add_token(lexeme, 'id', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                         else:
@@ -503,8 +503,8 @@ class LexicalAnalyzer:
                     if 1 <= state_num <= 151:
                         # Keyword state but not final - treat as identifier
                         # Newline is a valid delimiter for identifiers
-                        if check_delimiter('identifier', '\n'):
-                            add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                        if check_delimiter('id', '\n'):
+                            add_token(lexeme, 'id', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             currState = 's0'
                             lexeme = ''
                             # Create newline token and continue
@@ -529,7 +529,7 @@ class LexicalAnalyzer:
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                     if 1 <= state_num <= 151:
                         # Keyword state but not final - treat as identifier
-                        add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                        add_token(lexeme, 'id', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                     else:
@@ -577,12 +577,12 @@ class LexicalAnalyzer:
                             # Reprocess this character as start of next token
                             continue
 
-            # Special case: If we're in a final state that maps to 'identifier' and the next character
+            # Special case: If we're in a final state that maps to 'id' and the next character
             # would continue an identifier (letter, digit, underscore), don't finalize - continue building
             # This handles cases like 'm' (s83) followed by 'a' - should continue to build 'matrix' as identifier
             if currState != 's0' and self.is_final_state(currState) and nextState != 'UNDEFINED' and nextState != 'DEFINED':
                 token_type = self.get_token_type(currState, lexeme)
-                if token_type == 'identifier' and (ch in self.alphanum or ch == '_'):
+                if token_type == 'id' and (ch in self.alphanum or ch == '_'):
                     # Continue building identifier - transition to s220 (identifier state)
                     lexeme += ch
                     currState = 's220'  # Continue as identifier
@@ -1060,7 +1060,7 @@ class LexicalAnalyzer:
                                 add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                             else:
                                 add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                        elif token_type == 'identifier':
+                        elif token_type == 'id':
                             # STRICT: End of file must be valid delimiter for identifiers
                             if check_delimiter(token_type, None):
                                 add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
@@ -1076,7 +1076,7 @@ class LexicalAnalyzer:
                         state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                         if 1 <= state_num <= 151:
                             # Keyword state but not final - treat as identifier
-                            add_token(lexeme, 'identifier', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                            add_token(lexeme, 'id', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         else:
                             # Non-keyword incomplete token (like incomplete operators)
                             add_error(f"Incomplete token '{lexeme}'", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
@@ -1192,9 +1192,9 @@ class LexicalAnalyzer:
                 'else': 'else', 'switch': 'switch', 'case': 'case', 'default': 'default',
                 'while': 'while', 'do': 'do', 'for': 'for', 'break': 'break'
             }
-            return keywords.get(lexeme, 'identifier')
+            return keywords.get(lexeme, 'id')
 
-        return 'identifier' if lexeme else 'unknown'
+        return 'id' if lexeme else 'unknown'
 
     def lex_transition(self, currState: str, currChar: str) -> str:
         """
