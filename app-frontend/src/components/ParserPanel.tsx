@@ -74,6 +74,10 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
           );
           const parseResp = await parseTokens(tokensWithoutComments, normalizedCode, { signal: controller.signal });
           
+          // Debug: log the parse response
+          console.log('[Parser Response]', parseResp);
+          console.log('[Errors]', parseResp.errors);
+          
           // Check if parser succeeded
           if (parseResp.success && parseResp.ast) {
             setAst(parseResp.ast);

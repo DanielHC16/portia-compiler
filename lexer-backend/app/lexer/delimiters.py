@@ -19,8 +19,9 @@ class Delimiters:
         # DATA TYPE DELIMITER
         # dtype_delim: allows ')' immediately after castable primitive type keywords
         # Patterns: (int)x; (float)identifier -- NO whitespace required between type and ')'
+        # Also allows '[' for function parameters with arrays: int func(int arr[5])
         # Excludes 'void' and 'weave' (not valid cast targets)
-        self.dtype_delim = chars.whitespace + [')'] + chars.newline
+        self.dtype_delim = chars.whitespace + [')', '['] + chars.newline
 
         # RESERVED SYMBOLS DELIMITER
         # Arithmetic and logical operator delimiters
@@ -36,7 +37,7 @@ class Delimiters:
         self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '!=', '=', '&&', '||', '{', ';', ')'] + chars.whitespace + chars.newline
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '['] + chars.whitespace
         self.open_curly_delim = chars.whitespace + chars.newline + chars.numbers + ['{', '"', "'", '-', '!']
-        self.close_curly_delim = chars.whitespace + chars.newline + [';', ','] + chars.alphabetics + ['}']
+        self.close_curly_delim = chars.whitespace + chars.newline + [';', ',', None] + chars.alphabetics + ['}']
 
         # Punctuation delimiters
         self.semicolon_delim = chars.alphabetics + chars.whitespace + chars.newline + [')']

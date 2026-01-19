@@ -1199,6 +1199,12 @@ class Parser:
         
         elif self.match_predict_set("arr_dtype"):
             # Array declaration at global scope (without 'global' keyword)
+            # But NOT if it's "int main(" which is the main function
+            next_tok = self.peek(1)
+            if next_tok and next_tok.get("lexeme") == "main":
+                # This is "int main()", not an array declaration
+                return None
+            
             # Arrays must start with type keywords, not identifiers
             arr = self.parse_arr_1D("global")
             if arr and self.expect(";"):
@@ -1241,7 +1247,7 @@ class Parser:
         initial_value = None
         if self.match("="):
             self.advance()
-            initial_value = self.parse_value()
+            initial_value = self.parse_expression()
         
         # Create first declaration
         declarations = [VariableDeclarationNode(
@@ -1844,21 +1850,30 @@ class Parser:
         if not left:
             return None
         
-        while self.match("+") or self.match("-"):
+        while self.match("+") or self.match("-") or self.match(".."):
             op_token = self.advance()
             operator = op_token.get("lexeme")
             right = self.parse_term()
             if not right:
-                self.add_error("Expected term after arithmetic operator", self.current_token())
+                self.add_error("Expected term after operator", self.current_token())
                 break
             
-            left = BinaryOpNode(
-                left=left,
-                operator=operator,
-                right=right,
-                line=op_token.get("line", 0),
-                column=op_token.get("column", 0)
-            )
+            # Use StringConcatNode for .. operator, BinaryOpNode for + and -
+            if operator == "..":
+                left = StringConcatNode(
+                    left=left,
+                    right=right,
+                    line=op_token.get("line", 0),
+                    column=op_token.get("column", 0)
+                )
+            else:
+                left = BinaryOpNode(
+                    left=left,
+                    operator=operator,
+                    right=right,
+                    line=op_token.get("line", 0),
+                    column=op_token.get("column", 0)
+                )
         
         return left
     
@@ -1898,7 +1913,7 @@ class Parser:
     
     def parse_primary(self) -> Optional[ASTNode]:
         """
-        <primary> → −<primary> | <cast_val> | <atom> | ( <arith_expr> )
+        <primary> → −<primary> | !<primary> | <cast_val> | <atom> | ( <arith_expr> )
         Productions 118-121, 272-276
         """
         token = self.current_token()
@@ -1912,6 +1927,21 @@ class Parser:
                 return None
             return UnaryOpNode(
                 operator="-",
+                operand=operand,
+                is_prefix=True,
+                line=op_token.get("line", 0),
+                column=op_token.get("column", 0)
+            )
+        
+        # Logical NOT
+        if self.match("!"):
+            op_token = self.advance()
+            operand = self.parse_primary()
+            if not operand:
+                self.add_error("Expected expression after logical NOT", self.current_token())
+                return None
+            return UnaryOpNode(
+                operator="!",
                 operand=operand,
                 is_prefix=True,
                 line=op_token.get("line", 0),
@@ -1934,8 +1964,8 @@ class Parser:
                         column=type_token.get("column", 0)
                     )
             else:
-                # Regular parenthesized expression
-                expr = self.parse_arith_expr()
+                # Regular parenthesized expression - allow full expressions including logical ops
+                expr = self.parse_expression()
                 self.expect(")")
                 return expr
         
@@ -1968,16 +1998,6 @@ class Parser:
         
         if token_type == "stringlit":
             self.advance()
-            # Check for string concatenation
-            if self.match(".."):
-                self.advance()
-                right = self.parse_atom()
-                return StringConcatNode(
-                    left=StringNode(value=lexeme, line=line, column=col),
-                    right=right,
-                    line=line,
-                    column=col
-                )
             return StringNode(value=lexeme, line=line, column=col)
         
         if lexeme in ["true", "false"]:
@@ -2334,8 +2354,7 @@ class Parser:
         
         return IfStatementNode(
             condition=condition,
-            if_body=body,
-            elif_parts=elif_parts,
+            then_body=body,
             else_body=else_body,
             line=line,
             column=col
@@ -2379,7 +2398,7 @@ class Parser:
             return None
         
         return SwitchStatementNode(
-            expression=expression,
+            switch_value=expression,
             cases=cases,
             default_case=default_case,
             line=line,
@@ -2411,16 +2430,13 @@ class Parser:
                 statements.append(stmt)
         
         # Parse break statement
-        has_break = False
         if self.match("break"):
             self.advance()
             self.expect(";")
-            has_break = True
         
         return CaseNode(
-            value=case_value,
+            case_value=case_value,
             statements=statements,
-            has_break=has_break,
             line=line,
             column=col
         )
@@ -2448,15 +2464,12 @@ class Parser:
                 statements.append(stmt)
         
         # Parse break statement
-        has_break = False
         if self.match("break"):
             self.advance()
             self.expect(";")
-            has_break = True
         
         return DefaultCaseNode(
             statements=statements,
-            has_break=has_break,
             line=line,
             column=col
         )
