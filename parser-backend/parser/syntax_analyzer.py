@@ -679,8 +679,6 @@ class Parser:
         self.current = 0
         self.errors: List[Dict[str, Any]] = []
         self.source_lines: List[str] = []
-        self.panic_mode = False  # Track if in error recovery mode
-        self.error_token_pos = -1  # Position of last error to prevent duplicates
     
     # -------------------- Token Management --------------------
     
@@ -746,11 +744,7 @@ class Parser:
     # -------------------- Error Handling --------------------
     
     def add_error(self, message: str, token: Optional[Dict[str, Any]] = None):
-        """Add a syntax error to the error list"""
-        # Skip if already in panic mode or same position as last error
-        if self.panic_mode or self.current == self.error_token_pos:
-            return
-        
+        """Add a syntax error to the error list and stop parsing"""
         if token:
             error = {
                 "message": message,
@@ -769,8 +763,7 @@ class Parser:
             }
         
         self.errors.append(error)
-        self.panic_mode = True  # Enter panic mode after first error
-        self.error_token_pos = self.current  # Record error position
+        raise SyntaxError(message)
     
     def synchronize(self, sync_tokens: List[str]):
         """
@@ -884,37 +877,50 @@ class Parser:
         self.tokens = normalized_tokens
         self.current = 0
         self.errors = []
-        self.panic_mode = False  # Reset panic mode
-        self.error_token_pos = -1  # Reset error position
         self.source_lines = source.split('\n') if source else []
         
         try:
             # Parse the program (start symbol)
             ast = self.parse_program()
             
-            # Only check for unconsumed tokens if no errors occurred
-            if not self.panic_mode:
-                current = self.current_token()
-                if current and current.get('type') != 'EOF':
-                    self.add_error(
-                        f"Unexpected token after program end: '{current.get('lexeme')}'",
-                        current
-                    )
+            # Check for unconsumed tokens
+            current = self.current_token()
+            if current and current.get('type') != 'EOF':
+                self.add_error(
+                    f"Unexpected token after program end: '{current.get('lexeme')}'",
+                    current
+                )
             
             return {
-                "success": len(self.errors) == 0,
-                "status": "success" if not self.errors else "error",
+                "success": True,
+                "status": "success",
                 "ast": self.ast_to_dict(ast) if ast else None,
-                "errors": self.errors,
+                "errors": [],
                 "token_count": len(tokens)
             }
-        except Exception as e:
-            self.add_error(f"Internal parser error: {str(e)}", self.current_token())
+        except SyntaxError:
+            # Syntax error already recorded in self.errors
             return {
                 "success": False,
                 "status": "error",
                 "ast": None,
                 "errors": self.errors,
+                "token_count": len(tokens)
+            }
+        except Exception as e:
+            # Unexpected error
+            error = {
+                "message": f"Internal parser error: {str(e)}",
+                "line": 0,
+                "column": 0,
+                "token": "",
+                "type": "internal_error"
+            }
+            return {
+                "success": False,
+                "status": "error",
+                "ast": None,
+                "errors": [error],
                 "token_count": len(tokens)
             }
     
@@ -1059,7 +1065,7 @@ class Parser:
         
         # Parse main function (required)
         main_func = self.parse_main_func()
-        if not main_func and not self.panic_mode:
+        if not main_func:
             # Only report missing main if no other errors occurred
             self.add_error("Missing main function", self.current_token())
             return None
@@ -1075,10 +1081,6 @@ class Parser:
         <main_func> → int main(){<main_body>}
         Production 388
         """
-        # Return early if already in panic mode
-        if self.panic_mode:
-            return None
-            
         token = self.expect("int")
         if not token:
             return None
@@ -1179,10 +1181,6 @@ class Parser:
         <global_dec> → ⟨weave_def⟩⟨global_dec⟩
         Productions 2-12
         """
-        # Return early if already in panic mode
-        if self.panic_mode:
-            return None
-            
         token = self.current_token()
         
         if self.match("global"):
@@ -1227,10 +1225,6 @@ class Parser:
         Parse variable declaration with possible multiple declarations
         global/local ⟨mutability⟩ ⟨dtype⟩ id = ⟨value⟩ ⟨multi_dec⟩;
         """
-        # Return early if already in panic mode
-        if self.panic_mode:
-            return None
-            
         # Parse mutability
         mutability_token = self.current_token()
         if not self.match_predict_set("mutability"):
@@ -1499,10 +1493,6 @@ class Parser:
         <arr_1D> → <arr_dtype>id[<size>]<arr_1D_tail>
         Productions 55-79
         """
-        # Return early if already in panic mode
-        if self.panic_mode:
-            return None
-        
         # CRITICAL: Only parse arrays that start with actual type keywords
         # Never parse identifiers, keywords, or anything else as arrays
         token = self.current_token()
@@ -1780,9 +1770,14 @@ class Parser:
         # Parse statements
         statements = []
         while self.match_predict_set("statement_list") and not self.match("return"):
+            pos_before = self.current
             stmt = self.parse_statement()
             if stmt:
                 statements.append(stmt)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token in function body", self.current_token())
+                break
         
         # Parse optional return statement
         return_stmt = None
@@ -2193,11 +2188,17 @@ class Parser:
         <statement> → <expression>; | <I/O_stmt> | <assign_stmt>; | <ctrl_struct> | <arr_1D>; | <local_dec>
         Productions 89-94, 243-248
         """
-        # Return early if already in panic mode
-        if self.panic_mode:
-            return None
-            
         token = self.current_token()
+        
+        # Return statement
+        if self.match("return"):
+            return self.parse_return_stmt()
+        
+        # Break statement
+        if self.match("break"):
+            token = self.advance()
+            self.expect(";")
+            return BreakStatementNode(line=token.get("line", 0), column=token.get("column", 0))
         
         # Local variable declaration
         if self.match("local"):
@@ -2225,14 +2226,6 @@ class Parser:
         
         if self.match("do"):
             return self.parse_do_while_stmt()
-        
-        # Array declaration (in statement context)
-        # Arrays must start with type keywords (int, long, float, etc.), not identifiers
-        if self.match_predict_set("arr_dtype"):
-            arr = self.parse_arr_1D("local")
-            if arr:
-                self.expect(";")
-            return arr
         
         # Assignment or expression statement
         # Need to distinguish between assignment and expression
@@ -2383,9 +2376,14 @@ class Parser:
         # Parse statement list
         body = []
         while not self.match("}") and self.current_token():
+            pos_before = self.current
             stmt = self.parse_statement()
             if stmt:
                 body.append(stmt)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token in if-statement body", self.current_token())
+                break
         
         if not self.expect("}"):
             return None
@@ -2408,9 +2406,14 @@ class Parser:
             
             elif_body = []
             while not self.match("}") and self.current_token():
+                pos_before = self.current
                 stmt = self.parse_statement()
                 if stmt:
                     elif_body.append(stmt)
+                # Prevent infinite loop if no progress
+                if self.current == pos_before:
+                    self.add_error("Unexpected token in else-if body", self.current_token())
+                    break
             
             if not self.expect("}"):
                 break
@@ -2427,9 +2430,14 @@ class Parser:
             
             else_body = []
             while not self.match("}") and self.current_token():
+                pos_before = self.current
                 stmt = self.parse_statement()
                 if stmt:
                     else_body.append(stmt)
+                # Prevent infinite loop if no progress
+                if self.current == pos_before:
+                    self.add_error("Unexpected token in else-body", self.current_token())
+                    break
             
             if not self.expect("}"):
                 return None
@@ -2507,9 +2515,14 @@ class Parser:
         # Parse statement list
         statements = []
         while not self.match("break") and not self.match("case") and not self.match("default") and not self.match("}") and self.current_token():
+            pos_before = self.current
             stmt = self.parse_statement()
             if stmt:
                 statements.append(stmt)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token in case body", self.current_token())
+                break
         
         # Parse break statement
         if self.match("break"):
@@ -2541,9 +2554,14 @@ class Parser:
         # Parse statement list
         statements = []
         while not self.match("break") and not self.match("}") and self.current_token():
+            pos_before = self.current
             stmt = self.parse_statement()
             if stmt:
                 statements.append(stmt)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token in default case body", self.current_token())
+                break
         
         # Parse break statement
         if self.match("break"):
@@ -2604,9 +2622,14 @@ class Parser:
         # Parse body
         body = []
         while not self.match("}") and self.current_token():
+            pos_before = self.current
             stmt = self.parse_statement()
             if stmt:
                 body.append(stmt)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token in for-loop body", self.current_token())
+                break
         
         if not self.expect("}"):
             return None
@@ -2645,9 +2668,14 @@ class Parser:
         # Parse body
         body = []
         while not self.match("}") and self.current_token():
+            pos_before = self.current
             stmt = self.parse_statement()
             if stmt:
                 body.append(stmt)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token in while-loop body", self.current_token())
+                break
         
         if not self.expect("}"):
             return None
@@ -2677,9 +2705,14 @@ class Parser:
         # Parse body
         body = []
         while not self.match("}") and self.current_token():
+            pos_before = self.current
             stmt = self.parse_statement()
             if stmt:
                 body.append(stmt)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token in do-while body", self.current_token())
+                break
         
         if not self.expect("}"):
             return None
