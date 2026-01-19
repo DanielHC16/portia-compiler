@@ -389,11 +389,11 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
           <div className="panel" style={{ flex: "0 0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>Errors</h3>
-              <div className="small">Problems: {errors.length}</div>
+              <div className="small">{errors.length > 0 ? `Problems: ${errors.length}` : tokens.length > 0 ? 'Lexing success' : 'No errors'}</div>
             </div>
             <div style={{ maxHeight: 200, overflow: "auto" }}>
               {errors.length === 0 ? (
-                <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>No lexical errors</div>
+                <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>{tokens.length > 0 ? "No lexical errors" : "Run lexer to analyze code"}</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {errors.map((err, i) => (

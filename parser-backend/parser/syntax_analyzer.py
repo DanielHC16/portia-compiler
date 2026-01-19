@@ -669,6 +669,8 @@ class Parser:
         self.current = 0
         self.errors: List[Dict[str, Any]] = []
         self.source_lines: List[str] = []
+        self.panic_mode = False  # Track if in error recovery mode
+        self.error_token_pos = -1  # Position of last error to prevent duplicates
     
     # -------------------- Token Management --------------------
     
@@ -735,6 +737,10 @@ class Parser:
     
     def add_error(self, message: str, token: Optional[Dict[str, Any]] = None):
         """Add a syntax error to the error list"""
+        # Skip if already in panic mode or same position as last error
+        if self.panic_mode or self.current == self.error_token_pos:
+            return
+        
         if token:
             error = {
                 "message": message,
@@ -751,7 +757,10 @@ class Parser:
                 "token": "",
                 "type": "syntax_error"
             }
+        
         self.errors.append(error)
+        self.panic_mode = True  # Enter panic mode after first error
+        self.error_token_pos = self.current  # Record error position
     
     def synchronize(self, sync_tokens: List[str]):
         """
@@ -761,6 +770,7 @@ class Parser:
         while self.current_token():
             token = self.current_token()
             if token.get("type") in sync_tokens or token.get("lexeme") in sync_tokens:
+                # Don't clear panic mode - let successful parsing clear it
                 return
             self.advance()
     
@@ -864,19 +874,22 @@ class Parser:
         self.tokens = normalized_tokens
         self.current = 0
         self.errors = []
+        self.panic_mode = False  # Reset panic mode
+        self.error_token_pos = -1  # Reset error position
         self.source_lines = source.split('\n') if source else []
         
         try:
             # Parse the program (start symbol)
             ast = self.parse_program()
             
-            # Check if we consumed all tokens (ignore EOF)
-            current = self.current_token()
-            if current and current.get('type') != 'EOF':
-                self.add_error(
-                    f"Unexpected token after program end: '{current.get('lexeme')}'",
-                    current
-                )
+            # Only check for unconsumed tokens if no errors occurred
+            if not self.panic_mode:
+                current = self.current_token()
+                if current and current.get('type') != 'EOF':
+                    self.add_error(
+                        f"Unexpected token after program end: '{current.get('lexeme')}'",
+                        current
+                    )
             
             return {
                 "success": len(self.errors) == 0,
@@ -1012,7 +1025,11 @@ class Parser:
                 # If no progress was made, skip this token and try next
                 if self.current == pos_before:
                     self.add_error(f"Unexpected token in global declaration", self.current_token())
-                    self.advance()  # Force progress to avoid infinite loop
+                    # Synchronize to recover from error
+                    self.synchronize([";", "global", "weave", "func", "int"])
+                    if self.match(";"):
+                        self.advance()  # Consume semicolon and continue
+                    break  # Stop parsing global declarations after error
         
         # Parse function definitions
         iterations = 0
@@ -1026,11 +1043,14 @@ class Parser:
             # Break if no progress (with error recovery)
             if self.current == pos_before:
                 self.add_error(f"Unexpected token in function definition", self.current_token())
-                self.advance()
+                # Synchronize to recover
+                self.synchronize(["func", "int"])
+                break  # Stop trying to parse more functions after error
         
         # Parse main function (required)
         main_func = self.parse_main_func()
-        if not main_func:
+        if not main_func and not self.panic_mode:
+            # Only report missing main if no other errors occurred
             self.add_error("Missing main function", self.current_token())
             return None
         
@@ -1045,6 +1065,10 @@ class Parser:
         <main_func> → int main(){<main_body>}
         Production 388
         """
+        # Return early if already in panic mode
+        if self.panic_mode:
+            return None
+            
         token = self.expect("int")
         if not token:
             return None
@@ -1145,19 +1169,37 @@ class Parser:
         <global_dec> → ⟨weave_def⟩⟨global_dec⟩
         Productions 2-12
         """
+        # Return early if already in panic mode
+        if self.panic_mode:
+            return None
+            
         token = self.current_token()
         
         if self.match("global"):
-            # Global variable declaration
             self.advance()  # consume 'global'
-            return self.parse_variable_declaration("global")
+            
+            # Lookahead: check if next token is var/const (variable) or data type (array)
+            if self.match_predict_set("mutability"):
+                # Global variable declaration: global var/const <type> id = value;
+                return self.parse_variable_declaration("global")
+            elif self.match_predict_set("arr_dtype"):
+                # Global array declaration: global <type> id[size] = {...};
+                arr = self.parse_arr_1D("global")
+                if arr and self.expect(";"):
+                    return arr
+                return arr
+            else:
+                # Error: expected var/const or data type after 'global'
+                self.add_error("Expected 'var', 'const', or data type after 'global'", self.current_token())
+                return None
         
         elif self.match("weave"):
             # Weave definition
             return self.parse_weave_def()
         
-        elif self.match_predict_set("arr_1D"):
-            # Array declaration (can be global by context)
+        elif self.match_predict_set("arr_dtype"):
+            # Array declaration at global scope (without 'global' keyword)
+            # Arrays must start with type keywords, not identifiers
             arr = self.parse_arr_1D("global")
             if arr and self.expect(";"):
                 return arr
@@ -1169,6 +1211,10 @@ class Parser:
         Parse variable declaration with possible multiple declarations
         global/local ⟨mutability⟩ ⟨dtype⟩ id = ⟨value⟩ ⟨multi_dec⟩;
         """
+        # Return early if already in panic mode
+        if self.panic_mode:
+            return None
+            
         # Parse mutability
         mutability_token = self.current_token()
         if not self.match_predict_set("mutability"):
@@ -1369,13 +1415,25 @@ class Parser:
         <arr_1D> → <arr_dtype>id[<size>]<arr_1D_tail>
         Productions 55-79
         """
-        # Parse array data type
-        dtype_token = self.current_token()
-        if self.match_predict_set("arr_dtype"):
-            data_type = self.advance().get("lexeme")
-        else:
-            self.add_error("Expected array data type", dtype_token)
+        # Return early if already in panic mode
+        if self.panic_mode:
             return None
+        
+        # CRITICAL: Only parse arrays that start with actual type keywords
+        # Never parse identifiers, keywords, or anything else as arrays
+        token = self.current_token()
+        if not token:
+            return None
+            
+        token_lexeme = token.get("lexeme", "")
+        valid_array_types = ["int", "long", "float", "double", "char", "string", "bool"]
+        
+        if token_lexeme not in valid_array_types:
+            # This token cannot start an array declaration - return silently
+            return None
+            
+        # Parse array data type - we already validated it's a valid type
+        data_type = self.advance().get("lexeme")
         
         # Parse identifier
         id_token = self.expect("id")
@@ -1442,26 +1500,40 @@ class Parser:
         
         if is_2d:
             # 2D array: {{val1, val2}, {val3, val4}}
-            while self.match("{"):
-                self.advance()
-                row = []
-                if self.match_predict_set("elem_1D_list"):
-                    row.append(self.parse_value())
-                    while self.match(","):
-                        self.advance()
+            # Check if first element is a nested brace
+            if self.match("{"):
+                # Proper 2D initialization with nested braces
+                while self.match("{"):
+                    self.advance()
+                    row = []
+                    if self.match_predict_set("elem_1D_list"):
                         row.append(self.parse_value())
-                self.expect("}")
+                        while self.match(","):
+                            self.advance()
+                            row.append(self.parse_value())
+                    self.expect("}")
+                    elements.append(row)
+                    if not self.match(","):
+                        break
+                    self.advance()
+            elif self.match_predict_set("elem_1D_list"):
+                # Flat initialization for 2D array - parse as flat list
+                # This is more lenient than strict grammar but easier for users
+                row = []
+                row.append(self.parse_value())
+                while self.match(","):
+                    self.advance()
+                    if self.match_predict_set("elem_1D_list"):
+                        row.append(self.parse_value())
                 elements.append(row)
-                if not self.match(","):
-                    break
-                self.advance()
         else:
             # 1D array: {val1, val2, val3}
             if self.match_predict_set("elem_1D_list"):
                 elements.append(self.parse_value())
                 while self.match(","):
                     self.advance()
-                    elements.append(self.parse_value())
+                    if self.match_predict_set("elem_1D_list"):
+                        elements.append(self.parse_value())
         
         return elements
     
@@ -2023,6 +2095,10 @@ class Parser:
         <statement> → <expression>; | <I/O_stmt> | <assign_stmt>; | <ctrl_struct> | <arr_1D>;
         Productions 89-94, 243-248
         """
+        # Return early if already in panic mode
+        if self.panic_mode:
+            return None
+            
         token = self.current_token()
         
         # I/O statements
@@ -2049,7 +2125,8 @@ class Parser:
             return self.parse_do_while_stmt()
         
         # Array declaration (in statement context)
-        if self.match_predict_set("arr_1D"):
+        # Arrays must start with type keywords (int, long, float, etc.), not identifiers
+        if self.match_predict_set("arr_dtype"):
             arr = self.parse_arr_1D("local")
             if arr:
                 self.expect(";")
@@ -2116,7 +2193,9 @@ class Parser:
     def parse_output_stmt(self) -> Optional[OutputStatementNode]:
         """
         <output_stmt> → thread(<expression1>); | threadln(<expression1>);
-        Productions 146-147, 300-301
+        <expression1> → id<expr1_cont> | <value> | <string_expr> | <string_value> | <iden1>
+        <expr1_cont> → ,id <expr1_cont> | 𝝺
+        Productions 300-308
         """
         token = self.current_token()
         is_newline = self.match("threadln")
@@ -2129,10 +2208,18 @@ class Parser:
             return None
         
         expressions = []
+        # Parse first expression
         if self.match_predict_set("expression1"):
             expr = self.parse_expression()
             if expr:
                 expressions.append(expr)
+            
+            # Parse continuation (,id , ,id , ...)
+            while self.match(","):
+                self.advance()
+                expr = self.parse_expression()
+                if expr:
+                    expressions.append(expr)
         
         if not self.expect(")"):
             return None

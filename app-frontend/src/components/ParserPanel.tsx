@@ -68,7 +68,11 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
       // If no lexical errors, run parser
       if (lexResp.errors.length === 0) {
         try {
-          const parseResp = await parseTokens(lexResp.tokens, normalizedCode, { signal: controller.signal });
+          // Filter out comment tokens before parsing
+          const tokensWithoutComments = lexResp.tokens.filter((token: Token) => 
+            token.type !== 'single_comment' && token.type !== 'multi_comment'
+          );
+          const parseResp = await parseTokens(tokensWithoutComments, normalizedCode, { signal: controller.signal });
           
           // Check if parser succeeded
           if (parseResp.success && parseResp.ast) {
@@ -386,7 +390,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
               <div className="small">
                 {lexErrors.length > 0 ? `Lexical Errors: ${lexErrors.length}` : 
                  parseErrors.length > 0 ? `Syntax Errors: ${parseErrors.length}` : 
-                 'No Errors'}
+                 tokens.length > 0 ? 'Parsing success' : 'No errors'}
               </div>
             </div>
             <div style={{ maxHeight: 200, overflow: "auto" }}>
