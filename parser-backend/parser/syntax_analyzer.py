@@ -103,7 +103,7 @@ PREDICT_SETS = {
     "statement_list": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", 
                       "charlit", "true", "false", "trap", "thread", "threadln", "if", 
                       "switch", "for", "while", "do", "int", "long", "float", "double", 
-                      "char", "string", "bool", "break", "return"],
+                      "char", "string", "bool", "break", "local"],
     "statement_list_empty": ["break", "return", "}"],
     "statement": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", 
                  "charlit", "true", "false", "trap", "thread", "threadln", "if", 
@@ -152,7 +152,7 @@ PREDICT_SETS = {
     "string_value": ["stringlit", "(", "intlit", "longlit", "floatlit", "doublelit", "charlit", "true", "false", "id"],
     "typecast_expr": ["("],
     "function_call": ["id"],
-    "arg": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", "true", "false"],
+    "arg": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", "true", "false", "id", "(", "-", "!", "++", "--"],
     "arg_empty": [")"],
     "multi_arg": [","],
     "multi_arg_empty": [")"],
@@ -215,7 +215,7 @@ PREDICT_SETS = {
     # Return Statements
     "ret_stmt": ["return"],
     "ret_value": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", 
-                 "true", "false", "id", "-", "(", "whole_lit", "frac_lit", "--", "++"],
+                 "true", "false", "id", "identifier", "-", "(", "whole_lit", "frac_lit", "--", "++"],
     "ret_value_empty": [";"],
     
     # Main Function

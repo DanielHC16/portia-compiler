@@ -491,7 +491,7 @@ function tokenClass(type?: string) {
   if (type === "single_comment" || type === "multi_comment") return "hl-comment";
   
   // Identifiers
-  if (type === "identifier") return "hl-identifier";
+  if (type === "id") return "hl-identifier";
   
   // Operators
   const operators = [

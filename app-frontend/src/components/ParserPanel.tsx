@@ -534,7 +534,7 @@ function tokenClass(type?: string) {
   if (type === "string_lit") return "hl-string";
   if (type === "char_lit") return "hl-char";
   if (type === "single_comment" || type === "multi_comment") return "hl-comment";
-  if (type === "identifier") return "hl-identifier";
+  if (type === "id") return "hl-identifier";
   
   const operators = [
     "add", "subtract", "multiply", "divide", "modulo",
