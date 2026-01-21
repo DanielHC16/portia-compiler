@@ -156,9 +156,18 @@ class LexicalAnalyzer:
                 if ch in delim_list:
                     return True
                 # Check if character is the first char of any multi-character delimiter
+                # AND verify the full multi-char sequence is actually present
                 for delim in delim_list:
                     if isinstance(delim, str) and len(delim) > 1 and delim[0] == ch:
-                        return True
+                        # Peek ahead to verify the complete multi-char delimiter
+                        if i + len(delim) <= length:
+                            match = True
+                            for j in range(len(delim)):
+                                if code[i + j] != delim[j]:
+                                    match = False
+                                    break
+                            if match:
+                                return True
                 return False
             
             # Castable primitive types: allow ')' immediately after (for typecasting)
