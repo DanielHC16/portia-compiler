@@ -2239,6 +2239,9 @@ class Parser:
                 # This is an assignment
                 op_token = self.advance()
                 value = self.parse_expression()
+                if not value:
+                    self.add_error(f"Expected expression after '{op_token.get('lexeme')}' operator", self.current_token())
+                    return None
                 self.expect(";")
                 return AssignmentStatementNode(
                     target=id_node,
