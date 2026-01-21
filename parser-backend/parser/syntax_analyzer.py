@@ -835,8 +835,8 @@ class Parser:
         }
         
         for token in tokens:
-            token_type = token.get("type", "")
-            lexeme = token.get("lexeme", "")
+            token_type = token.get("tokenType") or token.get("type", "")
+            lexeme = token.get("tokenName") or token.get("lexeme", "")
             
             # Skip whitespace and newline tokens
             if token_type in ["space", "newline", "tab"]:
@@ -2591,19 +2591,94 @@ class Parser:
         
         # Parse initialization
         init = None
-        if self.match_predict_set("for_init"):
-            # Can be variable declaration or assignment
+        # Check for 'local' keyword (variable declaration in for loop)
+        if self.match("local"):
+            self.advance()  # consume 'local'
+            
+            # Parse mutability
+            if not self.match_predict_set("mutability"):
+                self.add_error("Expected 'var' or 'const'", self.current_token())
+                return None
+            mutability = self.advance().get("lexeme")
+            
+            # Parse data type
             if self.match_predict_set("dtype"):
-                init = self.parse_variable_declaration("local")
+                data_type = self.advance().get("lexeme")
+            elif self.match("id"):
+                data_type = self.advance().get("lexeme")
             else:
-                init = self.parse_expression()
-        
-        if not self.expect(";"):
-            return None
+                self.add_error(f"Expected data type", self.current_token())
+                return None
+            
+            # Parse first variable
+            id_token = self.expect("id")
+            if not id_token:
+                return None
+            identifier = id_token.get("lexeme")
+            
+            # Parse assignment for first variable
+            initial_value = None
+            if self.match("="):
+                self.advance()
+                # Parse ONLY the primary value, not full expression to avoid consuming commas
+                initial_value = self.parse_primary()
+            
+            # Create first declaration
+            declarations = [VariableDeclarationNode(
+                scope="local",
+                mutability=mutability,
+                data_type=data_type,
+                identifier=identifier,
+                initial_value=initial_value,
+                line=id_token.get("line", 0),
+                column=id_token.get("column", 0)
+            )]
+            
+            # Parse additional comma-separated declarations
+            while self.current_token() and self.current_token().get("lexeme") == ",":
+                self.advance()  # consume comma
+                
+                id_token = self.expect("id")
+                if not id_token:
+                    break
+                
+                identifier = id_token.get("lexeme")
+                initial_value = None
+                
+                if self.current_token() and self.current_token().get("lexeme") == "=":
+                    self.advance()  # consume =
+                    # Parse ONLY the primary value
+                    initial_value = self.parse_primary()
+                
+                declarations.append(VariableDeclarationNode(
+                    scope="local",
+                    mutability=mutability,
+                    data_type=data_type,
+                    identifier=identifier,
+                    initial_value=initial_value,
+                    line=id_token.get("line", 0),
+                    column=id_token.get("column", 0)
+                ))
+            
+            init = declarations if len(declarations) > 1 else declarations[0]
+            
+            # Expect semicolon
+            if not self.expect(";"):
+                return None
+                
+        elif self.current_token() and self.current_token().get("lexeme") != ";":
+            # Assignment or expression
+            init = self.parse_expression()
+            if not self.expect(";"):
+                return None
+        else:
+            # Empty initializer, just consume the semicolon
+            if not self.expect(";"):
+                return None
         
         # Parse condition
         condition = None
-        if self.match_predict_set("for_cond"):
+        if self.current_token() and self.current_token().get("lexeme") != ";":
             condition = self.parse_expression()
         
         if not self.expect(";"):
@@ -2611,7 +2686,7 @@ class Parser:
         
         # Parse update
         update = None
-        if self.match_predict_set("for_update"):
+        if self.current_token() and self.current_token().get("lexeme") != ")":
             update = self.parse_expression()
         
         if not self.expect(")"):
@@ -2635,7 +2710,7 @@ class Parser:
             return None
         
         return ForLoopNode(
-            init=init,
+            initializer=init,
             condition=condition,
             update=update,
             body=body,
