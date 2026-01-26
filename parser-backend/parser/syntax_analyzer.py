@@ -226,19 +226,20 @@ PREDICT_SETS = {
                  "string", "bool", "return"],
 }
 
+
 # ==================== AST NODE CLASSES ====================
 # Abstract Syntax Tree node definitions for PORTIA language constructs
 
 @dataclass
 class ASTNode:
-    """Base class for all AST nodes"""
+    # Base class for all AST nodes
     pass
 
 # -------------------- Value Nodes --------------------
 
 @dataclass
 class NumberNode(ASTNode):
-    """Represents numeric literals (int, long, float, double)"""
+    # Represents numeric literals (int, long, float, double)
     value: str
     token_type: str  # "intlit", "longlit", "floatlit", "doublelit"
     line: int
@@ -249,7 +250,7 @@ class NumberNode(ASTNode):
 
 @dataclass
 class StringNode(ASTNode):
-    """Represents string literals"""
+    # Represents string literals
     value: str
     line: int
     column: int
@@ -259,7 +260,7 @@ class StringNode(ASTNode):
 
 @dataclass
 class CharNode(ASTNode):
-    """Represents character literals"""
+    # Represents character literals
     value: str
     line: int
     column: int
@@ -269,7 +270,7 @@ class CharNode(ASTNode):
 
 @dataclass
 class BoolNode(ASTNode):
-    """Represents boolean literals (true/false)"""
+    # Represents boolean literals (true/false)
     value: bool
     line: int
     column: int
@@ -279,7 +280,7 @@ class BoolNode(ASTNode):
 
 @dataclass
 class IdentifierNode(ASTNode):
-    """Represents identifiers (variable names, function names, etc.)"""
+    # Represents identifiers (variable names, function names, etc.)
     name: str
     line: int
     column: int
@@ -291,7 +292,7 @@ class IdentifierNode(ASTNode):
 
 @dataclass
 class BinaryOpNode(ASTNode):
-    """Represents binary operations (arithmetic, relational, logical)"""
+    # Represents binary operations (arithmetic, relational, logical)
     left: ASTNode
     operator: str
     right: ASTNode
@@ -303,7 +304,7 @@ class BinaryOpNode(ASTNode):
 
 @dataclass
 class UnaryOpNode(ASTNode):
-    """Represents unary operations (-, !, ++, --)"""
+    # Represents unary operations (-, !, ++, --)
     operator: str
     operand: ASTNode
     is_prefix: bool  # True for prefix (++i), False for postfix (i++)
@@ -318,7 +319,7 @@ class UnaryOpNode(ASTNode):
 
 @dataclass
 class CastNode(ASTNode):
-    """Represents type casting: (type)expression"""
+    # Represents type casting: (type)expression
     target_type: str
     expression: ASTNode
     line: int
@@ -329,7 +330,7 @@ class CastNode(ASTNode):
 
 @dataclass
 class ArrayAccessNode(ASTNode):
-    """Represents array element access: arr[index] or arr[i][j]"""
+    # Represents array element access: arr[index] or arr[i][j]
     array: ASTNode  # Can be IdentifierNode or another expression
     index1: ASTNode
     index2: Optional[ASTNode] = None  # For 2D arrays
@@ -343,7 +344,7 @@ class ArrayAccessNode(ASTNode):
 
 @dataclass
 class WeaveAccessNode(ASTNode):
-    """Represents weave member access: weaveVar.field"""
+    # Represents weave member access: weaveVar.field
     weave: ASTNode
     field: str
     line: int
@@ -354,7 +355,7 @@ class WeaveAccessNode(ASTNode):
 
 @dataclass
 class FunctionCallNode(ASTNode):
-    """Represents function calls: func(arg1, arg2, ...)"""
+    # Represents function calls: func(arg1, arg2, ...)
     function_name: str
     arguments: List[ASTNode]
     line: int
@@ -366,7 +367,7 @@ class FunctionCallNode(ASTNode):
 
 @dataclass
 class StringConcatNode(ASTNode):
-    """Represents string concatenation: str1..str2"""
+    # Represents string concatenation: str1..str2
     left: ASTNode
     right: ASTNode
     line: int
@@ -379,7 +380,7 @@ class StringConcatNode(ASTNode):
 
 @dataclass
 class VariableDeclarationNode(ASTNode):
-    """Represents variable declarations: global/local var/const type id = value"""
+    # Represents variable declarations: global/local var/const type id = value
     scope: str  # "global" or "local"
     mutability: str  # "var" or "const"
     data_type: str
@@ -394,7 +395,7 @@ class VariableDeclarationNode(ASTNode):
 
 @dataclass
 class MultipleDeclarationNode(ASTNode):
-    """Represents multiple variable declarations in one statement"""
+    # Represents multiple variable declarations in one statement
     declarations: List[VariableDeclarationNode]
     line: int
     column: int
@@ -404,7 +405,7 @@ class MultipleDeclarationNode(ASTNode):
 
 @dataclass
 class ArrayDeclarationNode(ASTNode):
-    """Represents array declarations: type id[size] or type id[size1][size2]"""
+    # Represents array declarations: type id[size] or type id[size1][size2]
     scope: str  # "global" or "local"
     data_type: str
     identifier: str
@@ -423,7 +424,7 @@ class ArrayDeclarationNode(ASTNode):
 
 @dataclass
 class WeaveDefinitionNode(ASTNode):
-    """Represents weave (struct) definitions"""
+    # Represents weave (struct) definitions
     name: str
     fields: List['WeaveFieldNode']
     line: int
@@ -434,7 +435,7 @@ class WeaveDefinitionNode(ASTNode):
 
 @dataclass
 class WeaveFieldNode(ASTNode):
-    """Represents a field in a weave definition"""
+    # Represents a field in a weave definition
     field_type: str
     field_name: str
     is_array: bool = False
@@ -448,7 +449,7 @@ class WeaveFieldNode(ASTNode):
 
 @dataclass
 class FunctionDefinitionNode(ASTNode):
-    """Represents function definitions"""
+    # Represents function definitions
     return_type: str
     name: str
     parameters: List['ParameterNode']
@@ -462,7 +463,7 @@ class FunctionDefinitionNode(ASTNode):
 
 @dataclass
 class ParameterNode(ASTNode):
-    """Represents function parameters"""
+    # Represents function parameters
     param_type: str
     name: str
     is_array: bool = False
@@ -476,7 +477,7 @@ class ParameterNode(ASTNode):
 
 @dataclass
 class FunctionBodyNode(ASTNode):
-    """Represents function body: imports, local declarations, statements, return"""
+    # Represents function body: imports, local declarations, statements, return
     imports: List['UsingStatementNode']
     local_declarations: List[ASTNode]
     statements: List[ASTNode]
@@ -489,7 +490,7 @@ class FunctionBodyNode(ASTNode):
 
 @dataclass
 class AssignmentStatementNode(ASTNode):
-    """Represents assignment statements: id = expr, id += expr, etc."""
+    # Represents assignment statements: id = expr, id += expr, etc.
     target: ASTNode  # Can be Id, ArrayAccess, or WeaveAccess
     operator: str  # "=", "+=", "-=", "*=", "/=", "%="
     value: ASTNode
@@ -501,7 +502,7 @@ class AssignmentStatementNode(ASTNode):
 
 @dataclass
 class InputStatementNode(ASTNode):
-    """Represents input statements: trap(variable)"""
+    # Represents input statements: trap(variable)
     target: ASTNode  # Variable to store input
     line: int
     column: int
@@ -511,7 +512,7 @@ class InputStatementNode(ASTNode):
 
 @dataclass
 class OutputStatementNode(ASTNode):
-    """Represents output statements: thread(...) or threadln(...)"""
+    # Represents output statements: thread(...) or threadln(...)
     is_newline: bool  # True for threadln, False for thread
     expressions: List[ASTNode]
     line: int
@@ -523,7 +524,7 @@ class OutputStatementNode(ASTNode):
 
 @dataclass
 class ReturnStatementNode(ASTNode):
-    """Represents return statements"""
+    # Represents return statements
     value: Optional[ASTNode] = None
     line: int = 0
     column: int = 0
@@ -534,7 +535,7 @@ class ReturnStatementNode(ASTNode):
 
 @dataclass
 class BreakStatementNode(ASTNode):
-    """Represents break statements"""
+    # Represents break statements
     line: int
     column: int
     
@@ -542,8 +543,17 @@ class BreakStatementNode(ASTNode):
         return "Break"
 
 @dataclass
+class ContinueStatementNode(ASTNode):
+    # Represents continue statements
+    line: int
+    column: int
+    
+    def __repr__(self):
+        return "Continue"
+
+@dataclass
 class UsingStatementNode(ASTNode):
-    """Represents using/import statements"""
+    # Represents using/import statements
     modules: List[str]  # List of module names
     line: int
     column: int
@@ -555,7 +565,7 @@ class UsingStatementNode(ASTNode):
 
 @dataclass
 class IfStatementNode(ASTNode):
-    """Represents if statements with optional else/else-if chains"""
+    # Represents if statements with optional else/else-if chains
     condition: ASTNode
     then_body: List[ASTNode]
     else_body: Optional[List[ASTNode]] = None
@@ -568,7 +578,7 @@ class IfStatementNode(ASTNode):
 
 @dataclass
 class SwitchStatementNode(ASTNode):
-    """Represents switch statements"""
+    # Represents switch statements
     switch_value: ASTNode
     cases: List['CaseNode']
     default_case: Optional['DefaultCaseNode'] = None
@@ -580,7 +590,7 @@ class SwitchStatementNode(ASTNode):
 
 @dataclass
 class CaseNode(ASTNode):
-    """Represents a case in a switch statement"""
+    # Represents a case in a switch statement
     case_value: ASTNode
     statements: List[ASTNode]
     line: int
@@ -591,7 +601,7 @@ class CaseNode(ASTNode):
 
 @dataclass
 class DefaultCaseNode(ASTNode):
-    """Represents default case in a switch statement"""
+    # Represents default case in a switch statement
     statements: List[ASTNode]
     line: int
     column: int
@@ -601,7 +611,7 @@ class DefaultCaseNode(ASTNode):
 
 @dataclass
 class ForLoopNode(ASTNode):
-    """Represents for loops"""
+    # Represents for loops
     initializer: Optional[ASTNode]  # Can be VarDecl or Assignment
     condition: Optional[ASTNode]
     update: Optional[ASTNode]
@@ -614,7 +624,7 @@ class ForLoopNode(ASTNode):
 
 @dataclass
 class WhileLoopNode(ASTNode):
-    """Represents while loops"""
+    # Represents while loops
     condition: ASTNode
     body: List[ASTNode]
     line: int
@@ -625,7 +635,7 @@ class WhileLoopNode(ASTNode):
 
 @dataclass
 class DoWhileLoopNode(ASTNode):
-    """Represents do-while loops"""
+    # Represents do-while loops
     body: List[ASTNode]
     condition: ASTNode
     line: int
@@ -638,7 +648,7 @@ class DoWhileLoopNode(ASTNode):
 
 @dataclass
 class ProgramNode(ASTNode):
-    """Root node representing the entire PORTIA program"""
+    # Root node representing the entire PORTIA program
     global_declarations: List[ASTNode]
     functions: List[FunctionDefinitionNode]
     main_function: 'MainFunctionNode'
@@ -648,7 +658,7 @@ class ProgramNode(ASTNode):
 
 @dataclass
 class MainFunctionNode(ASTNode):
-    """Represents the main function"""
+    # Represents the main function
     body: FunctionBodyNode
     line: int
     column: int
@@ -658,7 +668,7 @@ class MainFunctionNode(ASTNode):
 
 @dataclass
 class ArrayLiteralNode(ASTNode):
-    """Represents an array or struct literal initialization like {1, 2, 3} or {0, 0}"""
+    # Represents an array or struct literal initialization like {1, 2, 3} or {0, 0}
     elements: List[Any]  # Can be expressions or nested lists for 2D arrays
     line: int
     column: int
@@ -669,10 +679,9 @@ class ArrayLiteralNode(ASTNode):
 # ==================== PARSER CLASS ====================
 
 class Parser:
-    """
-    PORTIA Recursive Descent Parser
-    Implements LL(1) parsing based on CFG and predict sets
-    """
+    # PORTIA Recursive Descent Parser
+
+    # Implements LL(1) parsing based on CFG and predict sets
     
     def __init__(self):
         self.tokens: List[Dict[str, Any]] = []
@@ -683,54 +692,59 @@ class Parser:
     # -------------------- Token Management --------------------
     
     def current_token(self) -> Optional[Dict[str, Any]]:
-        """Get the current token without consuming it"""
+        # Get the current token without consuming it
         if self.current < len(self.tokens):
             return self.tokens[self.current]
         return None
     
     def peek(self, offset: int = 1) -> Optional[Dict[str, Any]]:
-        """Look ahead at token at current + offset position"""
+        # Look ahead at token at current + offset position
         pos = self.current + offset
         if pos < len(self.tokens):
             return self.tokens[pos]
         return None
     
     def advance(self) -> Dict[str, Any]:
-        """Consume and return the current token"""
+        # Consume and return the current token
         token = self.current_token()
         if token:
             self.current += 1
         return token
     
     def match(self, expected_type: str) -> bool:
-        """Check if current token matches expected type"""
+        # Check if current token matches expected type
         token = self.current_token()
         if not token:
             return False
         return token.get("type") == expected_type or token.get("lexeme") == expected_type
     
     def expect(self, expected: str, consume: bool = True) -> Optional[Dict[str, Any]]:
-        """
-        Expect a specific token type or lexeme.
-        If consume=True, advance past it. Otherwise just check.
-        Returns the token if match, None otherwise (and adds error).
-        """
+        # Expect a specific token type or lexeme.
+
+        # If consume=True, advance past it. Otherwise just check.
+
+        # Returns the token if match, None otherwise (and adds error).
+
+        # Args:
+
+        # expected: Token type or lexeme to expect
+
+        # consume: Whether to consume the token if it matches
         token = self.current_token()
         if not token:
-            self.add_error(f"Expected '{expected}' but reached end of input", None)
+            message = f"Expected '{expected}'"
+            self.add_error(message, None, expected)
             return None
         
         if token.get("type") == expected or token.get("lexeme") == expected:
             return self.advance() if consume else token
         else:
-            self.add_error(
-                f"Expected '{expected}' but got '{token.get('lexeme', token.get('type'))}'",
-                token
-            )
+            message = f"Expected '{expected}'"
+            self.add_error(message, token, expected)
             return None
     
     def match_predict_set(self, non_terminal: str) -> bool:
-        """Check if current token is in the predict set for a non-terminal"""
+        # Check if current token is in the predict set for a non-terminal
         if non_terminal not in PREDICT_SETS:
             return False
         
@@ -741,13 +755,87 @@ class Parser:
         predict_set = PREDICT_SETS[non_terminal]
         return token.get("type") in predict_set or token.get("lexeme") in predict_set
     
+    def expect_predict_set(self, non_terminal: str) -> bool:
+        # Check if current token matches PREDICT set for non-terminal.
+
+        # If not, generates error showing all expected tokens from PREDICT set.
+
+        # Args:
+
+        # non_terminal: Non-terminal name to check PREDICT set for
+
+        # Returns:
+
+        # True if match, False otherwise (error added)
+        if self.match_predict_set(non_terminal):
+            return True
+        
+        # Get PREDICT set for error message
+        predict_set = PREDICT_SETS.get(non_terminal, [])
+        token = self.current_token()
+        
+        if token:
+            token_str = token.get('lexeme', token.get('type', 'unknown'))
+            message = f"Expected {non_terminal} but got '{token_str}'"
+        else:
+            message = f"Expected {non_terminal} but reached end of input"
+        
+        self.add_error(message, token, predict_set)
+        return False
+    
     # -------------------- Error Handling --------------------
     
-    def add_error(self, message: str, token: Optional[Dict[str, Any]] = None):
-        """Add a syntax error to the error list and stop parsing"""
+    def add_error(self, message: str, token: Optional[Dict[str, Any]] = None, expected: Optional[Union[str, List[str]]] = None):
+        # Add a syntax error to the error list and stop parsing
+
+        # Args:
+
+        # message: Primary error message
+
+        # token: Token where error occurred            expected: Expected token(s) - single string or list for PREDICT sets
+        # Build error message in format: Unexpected: '<token>', Expected: '<expected>'
+        if token and expected:
+            token_str = token.get('lexeme', token.get('type', 'unknown'))
+            
+            if isinstance(expected, list):
+                # PREDICT set - show all possible tokens
+                if len(expected) == 1:
+                    expected_str = f"'{expected[0]}'"
+                elif len(expected) == 2:
+                    expected_str = f"'{expected[0]}' or '{expected[1]}'"
+                else:
+                    # Multiple options: quote each, join with commas, use 'or' before last
+                    quoted = [f"'{tok}'" for tok in expected]
+                    expected_str = f"{', '.join(quoted[:-1])}, or {quoted[-1]}"
+            else:
+                # Single terminal
+                expected_str = f"'{expected}'"
+            
+            full_message = f"Unexpected: '{token_str}', Expected: {expected_str}"
+        elif token:
+            # Token but no expected - use original message
+            token_str = token.get('lexeme', token.get('type', 'unknown'))
+            full_message = f"{message}: '{token_str}'"
+        elif expected:
+            # Expected but no token (end of input)
+            if isinstance(expected, list):
+                if len(expected) == 1:
+                    expected_str = f"'{expected[0]}'"
+                elif len(expected) == 2:
+                    expected_str = f"'{expected[0]}' or '{expected[1]}'"
+                else:
+                    quoted = [f"'{tok}'" for tok in expected]
+                    expected_str = f"{', '.join(quoted[:-1])}, or {quoted[-1]}"
+            else:
+                expected_str = f"'{expected}'"
+            full_message = f"{message}, Expected: {expected_str}"
+        else:
+            # No token or expected - just use message
+            full_message = message
+        
         if token:
             error = {
-                "message": message,
+                "message": full_message,
                 "line": token.get("line", 0),
                 "column": token.get("column", 0),
                 "token": token.get("lexeme", ""),
@@ -755,7 +843,7 @@ class Parser:
             }
         else:
             error = {
-                "message": message,
+                "message": full_message,
                 "line": 0,
                 "column": 0,
                 "token": "",
@@ -763,13 +851,12 @@ class Parser:
             }
         
         self.errors.append(error)
-        raise SyntaxError(message)
+        raise SyntaxError(full_message)
     
     def synchronize(self, sync_tokens: List[str]):
-        """
-        Error recovery: skip tokens until we find one in sync_tokens
-        Used to recover from syntax errors and continue parsing
-        """
+        # Error recovery: skip tokens until we find one in sync_tokens
+
+        # Used to recover from syntax errors and continue parsing
         while self.current_token():
             token = self.current_token()
             if token.get("type") in sync_tokens or token.get("lexeme") in sync_tokens:
@@ -780,12 +867,13 @@ class Parser:
     # -------------------- Main Parsing Entry Points --------------------
     
     def normalize_tokens(self, tokens: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Normalize tokens from lexer format to parser format.
-        - Converts token types to match parser expectations
-        - Filters out whitespace tokens
-        - Adds EOF token if not present
-        """
+        # Normalize tokens from lexer format to parser format.
+
+        # - Converts token types to match parser expectations
+
+        # - Filters out whitespace tokens
+
+        # - Adds EOF token if not present
         normalized = []
         
         # Token type mapping from lexer to parser
@@ -867,10 +955,9 @@ class Parser:
         return normalized
     
     def parse_from_tokens(self, tokens: List[Dict[str, Any]], source: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Main entry point for parsing from token list.
-        Returns a dictionary with AST and any errors.
-        """
+        # Main entry point for parsing from token list.
+
+        # Returns a dictionary with AST and any errors.
         # Normalize tokens from lexer format
         normalized_tokens = self.normalize_tokens(tokens)
         
@@ -925,9 +1012,7 @@ class Parser:
             }
     
     def parse_from_source(self, source: str) -> Dict[str, Any]:
-        """
-        Parse from source code by first calling the lexer, then parsing tokens.
-        """
+        # Parse from source code by first calling the lexer, then parsing tokens.
         import requests
         try:
             # Call lexer API
@@ -964,7 +1049,7 @@ class Parser:
             }
     
     def ast_to_dict(self, node: Optional[ASTNode]) -> Optional[Dict[str, Any]]:
-        """Convert AST node to dictionary for JSON serialization"""
+        # Convert AST node to dictionary for JSON serialization
         if node is None:
             return None
         
@@ -997,22 +1082,65 @@ class Parser:
     # -------------------- Program Structure --------------------
     
     def parse_program(self) -> Optional[ProgramNode]:
-        """
-        <program> → <global_dec> <function> <main_func>
-        Production 1
-        """
+        # <program> → <global_dec> <function> <main_func>
+
+        # Production 1
         global_declarations = []
         functions = []
         
-        # Special case: if program starts with "int main(", skip global declarations
+        # Special case: if program starts with "int ..." check if it's main function
+        # Valid starts for main: "int main(", "int identifier..." 
+        # If we see "int (" it's a malformed main function (missing 'main' keyword)
         first_token = self.current_token()
         second_token = self.peek(1)
         if (first_token and second_token and
-            (first_token.get("type") == "int" or first_token.get("lexeme") == "int") and
-            (second_token.get("lexeme") == "main")):
-            # Program starts with main function, no global declarations
-            pass  # Skip global_dec parsing
+            (first_token.get("type") == "int" or first_token.get("lexeme") == "int")):
+            # Check second token
+            if second_token.get("lexeme") == "main":
+                # This is "int main(...)" - skip global_dec parsing
+                pass
+            elif second_token.get("lexeme") == "(":
+                # This is "int (...)" - malformed main function, missing 'main' keyword
+                # Don't try to parse as array, go straight to main_func which will error correctly
+                pass  
+            else:
+                # This is "int <something_else>" - could be global decl or array
+                # Continue to global_dec parsing below
+                # Parse global declarations
+                iterations = 0
+                max_iterations = 100
+                while self.match_predict_set("global_dec") and iterations < max_iterations:
+                    iterations += 1
+                    
+                    # Check if this is "int main(" - if so, break and parse as main_func
+                    current = self.current_token()
+                    next_tok = self.peek(1)
+                    if current and next_tok:
+                        current_is_int = current.get("type") == "int" or current.get("lexeme") == "int"
+                        next_is_main = next_tok.get("lexeme") == "main"
+                        if current_is_int and next_is_main:
+                            break  # This is main function, not global declaration
+                    
+                    # Track position to detect infinite loops
+                    pos_before = self.current
+                    global_decl = self.parse_global_dec()
+                    
+                    if global_decl:
+                        if isinstance(global_decl, list):
+                            global_declarations.extend(global_decl)
+                        else:
+                            global_declarations.append(global_decl)
+                    
+                    # If no progress was made, skip this token and try next
+                    if self.current == pos_before:
+                        self.add_error(f"Unexpected token", self.current_token())
+                        # Synchronize to recover from error
+                        self.synchronize([";", "global", "weave", "func", "int"])
+                        if self.match(";"):
+                            self.advance()  # Consume semicolon and continue
+                        break  # Stop parsing global declarations after error
         else:
+            # Doesn't start with "int", parse global declarations normally
             # Parse global declarations
             iterations = 0
             max_iterations = 100
@@ -1040,7 +1168,7 @@ class Parser:
                 
                 # If no progress was made, skip this token and try next
                 if self.current == pos_before:
-                    self.add_error(f"Unexpected token in global declaration", self.current_token())
+                    self.add_error(f"Unexpected token", self.current_token())
                     # Synchronize to recover from error
                     self.synchronize([";", "global", "weave", "func", "int"])
                     if self.match(";"):
@@ -1058,7 +1186,7 @@ class Parser:
                 functions.append(func)
             # Break if no progress (with error recovery)
             if self.current == pos_before:
-                self.add_error(f"Unexpected token in function definition", self.current_token())
+                self.add_error(f"Unexpected token", self.current_token())
                 # Synchronize to recover
                 self.synchronize(["func", "int"])
                 break  # Stop trying to parse more functions after error
@@ -1067,7 +1195,7 @@ class Parser:
         main_func = self.parse_main_func()
         if not main_func:
             # Only report missing main if no other errors occurred
-            self.add_error("Missing main function", self.current_token())
+            self.add_error("Expected main function", self.current_token())
             return None
         
         return ProgramNode(
@@ -1077,10 +1205,9 @@ class Parser:
         )
     
     def parse_main_func(self) -> Optional[MainFunctionNode]:
-        """
-        <main_func> → int main(){<main_body>}
-        Production 388
-        """
+        # <main_func> → int main(){<main_body>}
+
+        # Production 433
         token = self.expect("int")
         if not token:
             return None
@@ -1106,10 +1233,9 @@ class Parser:
         return MainFunctionNode(body=body, line=line, column=col)
     
     def parse_main_body(self) -> FunctionBodyNode:
-        """
-        <main_body> → <import_block> <local_block> <statement_list> return intlit;
-        Production 389
-        """
+        # <main_body> → <import_block> <local_block> <statement_list> return intlit;
+
+        # Production 434
         # Parse imports
         imports = []
         while self.match_predict_set("import_block"):
@@ -1147,8 +1273,9 @@ class Parser:
                 break
         
         # Parse return statement (required in main)
+        # Production 434: main must return intlit only
         if not self.expect("return"):
-            self.add_error("Main function must end with return statement", self.current_token())
+            self.add_error("Expected return statement", self.current_token())
         
         return_value = None
         if self.match("intlit"):
@@ -1161,7 +1288,7 @@ class Parser:
             )
         
         if not self.expect(";"):
-            self.add_error("Expected ';' after return statement", self.current_token())
+            self.add_error("Expected ';'", self.current_token(), ";")
         
         return_stmt = ReturnStatementNode(value=return_value, line=0, column=0)
         
@@ -1175,30 +1302,29 @@ class Parser:
     # -------------------- Global Declarations --------------------
     
     def parse_global_dec(self) -> Optional[Union[ASTNode, List[ASTNode]]]:
-        """
-        <global_dec> → global⟨mutability⟩⟨dtype⟩id=⟨value⟩⟨multi_dec⟩;
-        <global_dec> → ⟨arr_1D⟩;⟨global_dec⟩
-        <global_dec> → ⟨weave_def⟩⟨global_dec⟩
-        Productions 2-12
-        """
+        # <global_dec> → global⟨mutability⟩⟨dtype⟩id=⟨value⟩⟨multi_dec⟩;
+
+        # <global_dec> → ⟨arr_1D⟩;⟨global_dec⟩
+
+        # <global_dec> → ⟨weave_def⟩⟨global_dec⟩
+
+        # Productions 2-12
         token = self.current_token()
         
         if self.match("global"):
             self.advance()  # consume 'global'
             
-            # Lookahead: check if next token is var/const (variable) or data type (array)
+            # After 'global' keyword, we MUST have var/const for variable declarations
+            # Arrays do NOT use the 'global' keyword (they start directly with type)
+            # CFG: global <mutability> <dtype> id = <value>;
             if self.match_predict_set("mutability"):
                 # Global variable declaration: global var/const <type> id = value;
                 return self.parse_variable_declaration("global")
-            elif self.match_predict_set("arr_dtype"):
-                # Global array declaration: global <type> id[size] = {...};
-                arr = self.parse_arr_1D("global")
-                if arr and self.expect(";"):
-                    return arr
-                return arr
             else:
-                # Error: expected var/const or data type after 'global'
-                self.add_error("Expected 'var', 'const', or data type after 'global'", self.current_token())
+                # Error: expected var/const after 'global'
+                # Arrays don't use 'global' keyword - they start with type directly
+                self.add_error("Expected 'var' or 'const' after 'global'", self.current_token(), 
+                             ["var", "const"])
                 return None
         
         elif self.match("weave"):
@@ -1221,10 +1347,9 @@ class Parser:
         return None
     
     def parse_variable_declaration(self, scope: str) -> Optional[Union[VariableDeclarationNode, List[VariableDeclarationNode]]]:
-        """
-        Parse variable declaration with possible multiple declarations
-        global/local ⟨mutability⟩ ⟨dtype⟩ id = ⟨value⟩ ⟨multi_dec⟩;
-        """
+        # Parse variable declaration with possible multiple declarations
+        # global/local ⟨mutability⟩ ⟨dtype⟩ id = ⟨value⟩ ⟨multi_dec⟩;
+        
         # Parse mutability
         mutability_token = self.current_token()
         if not self.match_predict_set("mutability"):
@@ -1237,10 +1362,22 @@ class Parser:
         if self.match_predict_set("dtype"):
             data_type = self.advance().get("lexeme")
         elif self.match("id"):
-            # Allow identifiers for weave types
+            # Check if this identifier is followed by '=' 
+            # If so, it's the variable name, not a type - missing type error
+            next_tok = self.peek(1)
+            if next_tok and next_tok.get("lexeme") == "=":
+                # This is "global var x =" - missing data type before variable name
+                # Include 'id' in expected because weave types (identifiers) are valid
+                self.add_error("Expected data type", dtype_token, 
+                             ["int", "long", "float", "double", "char", "string", "bool", "id"])
+                return None
+            # Otherwise, allow identifiers for weave types
             data_type = self.advance().get("lexeme")
         else:
-            self.add_error(f"Expected data type", dtype_token)
+            # Report error with expected data types from PREDICT set
+            # Include 'id' for weave types in addition to built-in types
+            self.add_error("Expected data type", dtype_token, 
+                         ["int", "long", "float", "double", "char", "string", "bool", "id"])
             return None
         
         # Parse identifier
@@ -1251,44 +1388,52 @@ class Parser:
         line = id_token.get("line", 0)
         col = id_token.get("column", 0)
         
-        # Parse assignment
+        # After identifier, the ONLY valid token is '=' (initialization is REQUIRED per CFG)
+        # Production: global/local <mutability> <dtype> id = <value> <multi_dec> ;
+        if not self.expect("="):
+            return None
+        
+        # Parse value (REQUIRED)
         initial_value = None
-        if self.match("="):
+        # Check if this is a brace-enclosed initialization (for arrays/weaves)
+        if self.match("{"):
             self.advance()
-            # Check if this is a brace-enclosed initialization (for arrays/weaves)
-            if self.match("{"):
-                self.advance()
-                elements = []
-                if self.match_predict_set("elem_1D_list") or self.match("{"):
-                    # Parse first element (could be nested for 2D arrays)
-                    if self.match("{"):
-                        # 2D array or nested structure
-                        elements = []
-                        while self.match("{"):
-                            self.advance()
-                            row = []
-                            if self.match_predict_set("elem_1D_list"):
+            elements = []
+            if self.match_predict_set("elem_1D_list") or self.match("{"):
+                # Parse first element (could be nested for 2D arrays)
+                if self.match("{"):
+                    # 2D array or nested structure
+                    elements = []
+                    while self.match("{"):
+                        self.advance()
+                        row = []
+                        if self.match_predict_set("elem_1D_list"):
+                            row.append(self.parse_expression())
+                            while self.match(","):
+                                self.advance()
                                 row.append(self.parse_expression())
-                                while self.match(","):
-                                    self.advance()
-                                    row.append(self.parse_expression())
-                            self.expect("}")
-                            elements.append(row)
-                            if not self.match(","):
-                                break
-                            self.advance()
-                    else:
-                        # 1D array or struct
-                        elements.append(self.parse_expression())
-                        while self.match(","):
-                            self.advance()
-                            if self.match_predict_set("elem_1D_list"):
-                                elements.append(self.parse_expression())
-                self.expect("}")
-                initial_value = ArrayLiteralNode(elements=elements, line=line, column=col)
-            else:
-                # Regular expression
-                initial_value = self.parse_expression()
+                        self.expect("}")
+                        elements.append(row)
+                        if not self.match(","):
+                            break
+                        self.advance()
+                else:
+                    # 1D array or struct
+                    elements.append(self.parse_expression())
+                    while self.match(","):
+                        self.advance()
+                        if self.match_predict_set("elem_1D_list"):
+                            elements.append(self.parse_expression())
+            self.expect("}")
+            initial_value = ArrayLiteralNode(elements=elements, line=line, column=col)
+        else:
+            # Regular expression
+            initial_value = self.parse_expression()
+            if not initial_value:
+                # Missing value after '=' - report error at current token
+                self.add_error("Expected expression after '='", self.current_token(),
+                             PREDICT_SETS.get("expression", []))
+                return None
         
         # Create first declaration
         declarations = [VariableDeclarationNode(
@@ -1361,21 +1506,56 @@ class Parser:
         return declarations if len(declarations) > 1 else declarations[0]
     
     def parse_local_dec(self) -> Optional[Union[ASTNode, List[ASTNode]]]:
-        """
-        <local_dec> → local⟨mutability⟩⟨dtype⟩id=⟨value⟩⟨multi_dec⟩;
-        Production 86, 217-240
-        """
+        # <local_dec> → local⟨mutability⟩⟨dtype⟩id=⟨value⟩⟨multi_dec⟩;
+        # <local_dec> → local <arr_1D>;
+
+        # Production 254-269
         if not self.match("local"):
             return None
         
         self.advance()  # consume 'local'
+        
+        # Check if this is an array declaration
+        # Arrays: local var/const type id[size]
+        # Variables: local var/const type id = value
+        # Look ahead to distinguish
+        if self.match_predict_set("mutability"):
+            # Save position to look ahead
+            checkpoint = self.current
+            mutability = self.advance()  # consume var/const
+            
+            # Check if it's a type followed by id followed by '['
+            if self.match_predict_set("arr_dtype"):
+                type_checkpoint = self.current
+                self.advance()  # consume type
+                
+                if self.match("id"):
+                    id_checkpoint = self.current
+                    self.advance()  # consume id
+                    
+                    if self.match("["):
+                        # It's an array! Reset to after 'local' and parse as array
+                        self.current = checkpoint
+                        arr = self.parse_arr_1D("local")
+                        if arr:
+                            self.expect(";")  # Arrays need semicolon
+                        return arr
+                    else:
+                        # It's a variable, reset to after 'local'
+                        self.current = checkpoint
+                else:
+                    # Reset
+                    self.current = checkpoint
+            else:
+                # Reset
+                self.current = checkpoint
+        
         return self.parse_variable_declaration("local")
     
     def parse_weave_def(self) -> Optional[WeaveDefinitionNode]:
-        """
-        <weave_def> → weave id{<field_list>};
-        Production 169
-        """
+        # <weave_def> → weave id{<field_list>};
+
+        # Production 198
         token = self.expect("weave")
         if not token:
             return None
@@ -1415,10 +1595,9 @@ class Parser:
         )
     
     def parse_field_dec(self) -> Optional[Union[WeaveFieldNode, List[WeaveFieldNode]]]:
-        """
-        <field_dec> → <field_type>id <field_array_spec_opt><field_dec_cont>;
-        Productions 172-176
-        """
+        # <field_dec> → <field_type>id <field_array_spec_opt><field_dec_cont>;
+
+        # Production 201
         # Parse field type
         type_token = self.current_token()
         if self.match_predict_set("dtype"):
@@ -1426,7 +1605,8 @@ class Parser:
         elif self.match("id"):
             field_type = self.advance().get("lexeme")  # Weave type
         else:
-            self.add_error("Expected field type", type_token)
+            self.add_error("Expected field type", type_token, 
+                         PREDICT_SETS.get("field_type", []))
             return None
         
         # Parse field name
@@ -1438,7 +1618,7 @@ class Parser:
         line = id_token.get("line", 0)
         col = id_token.get("column", 0)
         
-        # Parse optional array specification
+        # Parse optional array specification - Production 204
         is_array = False
         array_size = None
         if self.match("["):
@@ -1458,7 +1638,7 @@ class Parser:
             column=col
         )]
         
-        # Parse additional fields (comma-separated)
+        # Parse additional fields (comma-separated) - Production 202
         while self.match(","):
             self.advance()
             id_token = self.expect("id")
@@ -1489,12 +1669,25 @@ class Parser:
         return fields if len(fields) > 1 else fields[0]
     
     def parse_arr_1D(self, scope: str) -> Optional[ArrayDeclarationNode]:
-        """
-        <arr_1D> → <arr_dtype>id[<size>]<arr_1D_tail>
-        Productions 55-79
-        """
-        # CRITICAL: Only parse arrays that start with actual type keywords
-        # Never parse identifiers, keywords, or anything else as arrays
+        # <arr_1D> → <scope> <mutability> <arr_dtype>id[<size>]<arr_1D_tail>
+        # For global: type id[size] (no mutability keyword)
+        # For local: var/const type id[size] (mutability required)
+
+        # Productions 66-79
+        token = self.current_token()
+        if not token:
+            return None
+        
+        # For local scope, we need to parse mutability (var/const)
+        mutability = None
+        if scope == "local":
+            if self.match_predict_set("mutability"):
+                mutability = self.advance().get("lexeme")
+            else:
+                self.add_error("Expected 'var' or 'const' for local array", self.current_token(), ["var", "const"])
+                return None
+        
+        # Parse array data type
         token = self.current_token()
         if not token:
             return None
@@ -1569,7 +1762,9 @@ class Parser:
         )
     
     def parse_elem_list(self, is_2d: bool) -> List[ASTNode]:
-        """Parse array initialization list"""
+        # Parse array initialization list
+
+        # Productions 80-197
         elements = []
         
         if is_2d:
@@ -1614,10 +1809,9 @@ class Parser:
     # -------------------- Function Definitions --------------------
     
     def parse_function_def(self) -> Optional[FunctionDefinitionNode]:
-        """
-        <function_def> → func<ret_type>id(<param>){<function_body>}
-        Production 183
-        """
+        # <function_def> → func<ret_type>id(<param>){<function_body>}
+
+        # Production 212
         token = self.expect("func")
         if not token:
             return None
@@ -1675,33 +1869,31 @@ class Parser:
         )
     
     def parse_ret_type(self) -> Optional[str]:
-        """
-        <ret_type> → <dtype> | id<ret_struct> | void
-        Productions 184-191
-        """
+        # <ret_type> → <dtype> | id<ret_struct> | void
+
+        # Productions 213-215
         token = self.current_token()
         
-        if self.match("void"):
+        if self.match("void"):  # Production 215
             self.advance()
             return "void"
         
-        if self.match_predict_set("dtype"):
+        if self.match_predict_set("dtype"):  # Production 213
             return self.advance().get("lexeme")
         
-        if self.match("id"):
+        if self.match("id"):  # Production 214
             # Could be weave type with array/member notation
             type_name = self.advance().get("lexeme")
             # TODO: Handle <ret_struct> for arrays/members if needed
             return type_name
         
-        self.add_error("Expected return type", token)
+        self.add_error("Expected return type", token, PREDICT_SETS.get("ret_type", []))
         return None
     
     def parse_param(self) -> Optional[ParameterNode]:
-        """
-        <param> → <param_type>id<param_struct><param_cont>
-        Productions 192-201
-        """
+        # <param> → <param_type>id<param_struct><param_cont>
+
+        # Production 221
         # Parse parameter type
         param_type_token = self.current_token()
         if self.match_predict_set("dtype"):
@@ -1709,7 +1901,8 @@ class Parser:
         elif self.match("id"):
             param_type = self.advance().get("lexeme")  # Weave type
         else:
-            self.add_error("Expected parameter type", param_type_token)
+            self.add_error("Expected parameter type", param_type_token, 
+                         PREDICT_SETS.get("param_type", []))
             return None
         
         # Parse parameter name
@@ -1721,7 +1914,7 @@ class Parser:
         line = id_token.get("line", 0)
         col = id_token.get("column", 0)
         
-        # Check for array parameter
+        # Check for array parameter - Production 225
         is_array = False
         is_2d_array = False
         if self.match("["):
@@ -1730,7 +1923,7 @@ class Parser:
             self.expect("intlit")  # Size for array parameter
             self.expect("]")
             
-            if self.match("["):
+            if self.match("["):  # Production 227 - 2D array
                 is_2d_array = True
                 self.advance()
                 self.expect("intlit")
@@ -1746,10 +1939,9 @@ class Parser:
         )
     
     def parse_function_body(self) -> FunctionBodyNode:
-        """
-        <function_body> → <import_block> <local_block> <statement_list> <ret_stmt>
-        Production 202
-        """
+        # <function_body> → <import_block> <local_block> <statement_list> <ret_stmt>
+
+        # Production 231
         # Parse imports
         imports = []
         while self.match_predict_set("import_block"):
@@ -1776,7 +1968,7 @@ class Parser:
                 statements.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token in function body", self.current_token())
+                self.add_error("Unexpected token", self.current_token())
                 break
         
         # Parse optional return statement
@@ -1792,10 +1984,9 @@ class Parser:
         )
     
     def parse_import_stmt(self) -> Optional[UsingStatementNode]:
-        """
-        <import_stmt> → using id<import_cont>;
-        Productions 205-207
-        """
+        # <import_stmt> → using id<import_cont>;
+
+        # Production 234
         token = self.expect("using")
         if not token:
             return None
@@ -1808,7 +1999,7 @@ class Parser:
         if id_token:
             modules.append(id_token.get("lexeme"))
         
-        # Parse additional modules
+        # Parse additional modules - Production 235
         while self.match(","):
             self.advance()
             id_token = self.expect("id")
@@ -1822,10 +2013,9 @@ class Parser:
     # -------------------- Expressions --------------------
     
     def parse_value(self) -> Optional[ASTNode]:
-        """
-        <value> → intlit | longlit | floatlit | doublelit | charlit | stringlit | true | false
-        Productions 17-24, 47-54
-        """
+        # <value> → intlit | longlit | floatlit | doublelit | charlit | stringlit | true | false
+
+        # Productions 58-65
         token = self.current_token()
         if not token:
             return None
@@ -1854,17 +2044,15 @@ class Parser:
         return None
     
     def parse_expression(self) -> Optional[ASTNode]:
-        """
-        <expression> → <logical_expr>
-        Production 95, 249
-        """
+        # <expression> → <logical_expr>
+
+        # Production 287
         return self.parse_logical_expr()
     
     def parse_logical_expr(self) -> Optional[ASTNode]:
-        """
-        <logical_expr> → <rel_expr> <logical_expr_cont>
-        Productions 96, 250-253
-        """
+        # <logical_expr> → <rel_expr> <logical_expr_cont>
+
+        # Productions 288-290
         left = self.parse_rel_expr()
         if not left:
             return None
@@ -1874,7 +2062,10 @@ class Parser:
             operator = op_token.get("lexeme")
             right = self.parse_rel_expr()
             if not right:
-                self.add_error("Expected expression after logical operator", self.current_token())
+                # Production 289 for &&, 290 for ||
+                prod_num = 289 if operator == "&&" else 290
+                self.add_error("Expected expression", 
+                             self.current_token(), prod_num)
                 break
             
             left = BinaryOpNode(
@@ -1888,10 +2079,9 @@ class Parser:
         return left
     
     def parse_rel_expr(self) -> Optional[ASTNode]:
-        """
-        <rel_expr> → <arith_expr><rel_expr_cont>
-        Productions 100, 254-261
-        """
+        # <rel_expr> → <arith_expr><rel_expr_cont>
+
+        # Productions 292-298
         left = self.parse_arith_expr()
         if not left:
             return None
@@ -1899,9 +2089,14 @@ class Parser:
         while self.match_predict_set("rel_expr_cont"):
             op_token = self.advance()
             operator = op_token.get("lexeme")
+            # Map operators to production numbers
+            prod_map = {"==": 293, "!=": 294, ">":  295, "<": 296, ">=": 297, "<=": 298}
+            prod_num = prod_map.get(operator, 292)
+            
             right = self.parse_arith_expr()
             if not right:
-                self.add_error("Expected expression after relational operator", self.current_token())
+                self.add_error("Expected expression", 
+                             self.current_token(), prod_num)
                 break
             
             left = BinaryOpNode(
@@ -1915,10 +2110,9 @@ class Parser:
         return left
     
     def parse_arith_expr(self) -> Optional[ASTNode]:
-        """
-        <arith_expr> → <term> <add_min_cont>
-        Productions 108, 262-265
-        """
+        # <arith_expr> → <term> <add_min_cont>
+
+        # Productions 300-302
         left = self.parse_term()
         if not left:
             return None
@@ -1926,9 +2120,12 @@ class Parser:
         while self.match("+") or self.match("-") or self.match(".."):
             op_token = self.advance()
             operator = op_token.get("lexeme")
+            # Production 301 for +, 302 for -
+            prod_num = 301 if operator == "+" else 302 if operator == "-" else 300
+            
             right = self.parse_term()
             if not right:
-                self.add_error("Expected term after operator", self.current_token())
+                self.add_error("Expected term", self.current_token())
                 break
             
             # Use StringConcatNode for .. operator, BinaryOpNode for + and -
@@ -1951,10 +2148,9 @@ class Parser:
         return left
     
     def parse_term(self) -> Optional[ASTNode]:
-        """
-        <term> → <factor> <mult_div_modulo_cont>
-        Productions 112, 266-270
-        """
+        # <term> → <factor> <mult_div_modulo_cont>
+
+        # Productions 304-307
         left = self.parse_factor()
         if not left:
             return None
@@ -1962,9 +2158,13 @@ class Parser:
         while self.match("*") or self.match("/") or self.match("%"):
             op_token = self.advance()
             operator = op_token.get("lexeme")
+            # Production 305 for *, 306 for /, 307 for %
+            prod_map = {"*": 305, "/": 306, "%": 307}
+            prod_num = prod_map.get(operator, 304)
+            
             right = self.parse_factor()
             if not right:
-                self.add_error("Expected factor after operator", self.current_token())
+                self.add_error("Expected factor", self.current_token())
                 break
             
             left = BinaryOpNode(
@@ -1978,25 +2178,23 @@ class Parser:
         return left
     
     def parse_factor(self) -> Optional[ASTNode]:
-        """
-        <factor> → <primary>
-        Production 117, 271
-        """
+        # <factor> → <primary>
+
+        # Production 309
         return self.parse_primary()
     
     def parse_primary(self) -> Optional[ASTNode]:
-        """
-        <primary> → −<primary> | !<primary> | <cast_val> | <atom> | ( <arith_expr> )
-        Productions 118-121, 272-276
-        """
+        # <primary> → −<primary> | !<primary> | <cast_val> | <atom> | ( <arith_expr> )
+
+        # Productions 310-314
         token = self.current_token()
         
-        # Unary minus
+        # Unary minus - Production 311
         if self.match("-"):
             op_token = self.advance()
             operand = self.parse_primary()
             if not operand:
-                self.add_error("Expected expression after unary minus", self.current_token())
+                self.add_error("Expected expression", self.current_token())
                 return None
             return UnaryOpNode(
                 operator="-",
@@ -2006,12 +2204,12 @@ class Parser:
                 column=op_token.get("column", 0)
             )
         
-        # Logical NOT
+        # Logical NOT - Production 310
         if self.match("!"):
             op_token = self.advance()
             operand = self.parse_primary()
             if not operand:
-                self.add_error("Expected expression after logical NOT", self.current_token())
+                self.add_error("Expected expression", self.current_token())
                 return None
             return UnaryOpNode(
                 operator="!",
@@ -2021,10 +2219,10 @@ class Parser:
                 column=op_token.get("column", 0)
             )
         
-        # Parenthesized expression or cast
+        # Parenthesized expression or cast - Production 314 or 315
         if self.match("("):
             self.advance()
-            # Check if this is a cast: (type)
+            # Check if this is a cast: (type) - Production 315
             if self.match_predict_set("dtype"):
                 type_token = self.advance()
                 if self.expect(")"):
@@ -2037,20 +2235,20 @@ class Parser:
                         column=type_token.get("column", 0)
                     )
             else:
-                # Regular parenthesized expression - allow full expressions including logical ops
+                # Regular parenthesized expression - Production 314
                 expr = self.parse_expression()
                 self.expect(")")
                 return expr
         
-        # Atom
+        # Atom - Production 313
         return self.parse_atom()
     
     def parse_atom(self) -> Optional[ASTNode]:
-        """
-        <atom> → <num_lit_type> | <function_call> | −−id | ++id | id<up_down> | 
-                 stringlit | charlit | true | false
-        Productions 123-131, 277-290
-        """
+        # <atom> → <num_lit_type> | <function_call> | −−id | ++id | id<up_down> |
+
+        # stringlit | charlit | true | false
+
+        # Productions 316-334
         token = self.current_token()
         if not token:
             return None
@@ -2060,26 +2258,27 @@ class Parser:
         line = token.get("line", 0)
         col = token.get("column", 0)
         
-        # Literals
+        # Literals - Productions 331-334 (numeric), 320-323 (other)
         if token_type in ["intlit", "longlit", "floatlit", "doublelit"]:
             self.advance()
             return NumberNode(value=lexeme, token_type=token_type, line=line, column=col)
         
-        if token_type == "charlit":
+        if token_type == "charlit":  # Production 321
             self.advance()
             return CharNode(value=lexeme, line=line, column=col)
         
-        if token_type == "stringlit":
+        if token_type == "stringlit":  # Production 320
             self.advance()
             return StringNode(value=lexeme, line=line, column=col)
         
-        if lexeme in ["true", "false"]:
+        if lexeme in ["true", "false"]:  # Productions 322, 323
             self.advance()
             return BoolNode(value=(lexeme == "true"), line=line, column=col)
         
-        # Prefix increment/decrement
+        # Prefix increment/decrement - Productions 327, 328
         if lexeme in ["++", "--"]:
             op = self.advance().get("lexeme")
+            prod_num = 327 if op == "++" else 328
             id_token = self.expect("id")
             if not id_token:
                 return None
@@ -2096,15 +2295,17 @@ class Parser:
             )
         
         # Identifier (variable, function call, array access, weave access, postfix ops)
+        # Productions 316 (id_atom), 319 (function_call), 329-330 (postfix)
         if token_type == "id":
             return self.parse_identifier_expression()
         
         return None
     
     def parse_identifier_expression(self) -> Optional[ASTNode]:
-        """
-        Parse identifier with possible function call, array access, weave member access, or postfix operators
-        """
+        # Parse identifier with possible function call, array access, weave member access, or postfix operators
+        # Supports chaining: id[0].field, id.field[0], id[0][1], id.field1.field2, etc.
+
+        # Productions 319 (function call), 329-330 (postfix increment/decrement)
         id_token = self.advance()
         identifier = id_token.get("lexeme")
         line = id_token.get("line", 0)
@@ -2112,7 +2313,7 @@ class Parser:
         
         base = IdentifierNode(name=identifier, line=line, column=col)
         
-        # Function call
+        # Function call - Production 319, 360
         if self.match("("):
             self.advance()
             arguments = []
@@ -2136,39 +2337,35 @@ class Parser:
                 column=col
             )
         
-        # Array access
-        if self.match("["):
-            self.advance()
-            index1 = self.parse_expression()
-            self.expect("]")
-            
-            index2 = None
+        # Array access and weave member access - can be chained
+        # Loop to handle multiple accesses: arr[0].field, obj.field[0], obj.a.b[0][1], etc.
+        while self.match("[") or self.match("."):
             if self.match("["):
+                # Array access
                 self.advance()
-                index2 = self.parse_expression()
+                index1 = self.parse_expression()
                 self.expect("]")
-            
-            base = ArrayAccessNode(
-                array=base,
-                index1=index1,
-                index2=index2,
-                line=line,
-                column=col
-            )
-        
-        # Weave member access
-        if self.match("."):
-            self.advance()
-            field_token = self.expect("id")
-            if field_token:
-                base = WeaveAccessNode(
-                    weave=base,
-                    field=field_token.get("lexeme"),
+                
+                base = ArrayAccessNode(
+                    array=base,
+                    index1=index1,
+                    index2=None,
                     line=line,
                     column=col
                 )
+            elif self.match("."):
+                # Weave member access
+                self.advance()
+                field_token = self.expect("id")
+                if field_token:
+                    base = WeaveAccessNode(
+                        weave=base,
+                        field=field_token.get("lexeme"),
+                        line=line,
+                        column=col
+                    )
         
-        # Postfix increment/decrement
+        # Postfix increment/decrement - Productions 329, 330
         if self.match("++") or self.match("--"):
             op_token = self.advance()
             return UnaryOpNode(
@@ -2184,10 +2381,9 @@ class Parser:
     # -------------------- Statements --------------------
     
     def parse_statement(self) -> Optional[ASTNode]:
-        """
-        <statement> → <expression>; | <I/O_stmt> | <assign_stmt>; | <ctrl_struct> | <arr_1D>; | <local_dec>
-        Productions 89-94, 243-248
-        """
+        # <statement> → <expression>; | <I/O_stmt> | <assign_stmt>; | <ctrl_struct> | <arr_1D>; | <local_dec>
+
+        # Productions 89-94, 243-248
         token = self.current_token()
         
         # Return statement
@@ -2199,6 +2395,12 @@ class Parser:
             token = self.advance()
             self.expect(";")
             return BreakStatementNode(line=token.get("line", 0), column=token.get("column", 0))
+        
+        # Continue statement
+        if self.match("continue"):
+            token = self.advance()
+            self.expect(";")
+            return ContinueStatementNode(line=token.get("line", 0), column=token.get("column", 0))
         
         # Local variable declaration
         if self.match("local"):
@@ -2234,13 +2436,13 @@ class Parser:
             checkpoint = self.current
             id_node = self.parse_identifier_expression()
             
-            # Check if followed by assignment operator
+            # Check if followed by assignment operator - Production 373
             if self.match_predict_set("assign_stmt_op"):
                 # This is an assignment
                 op_token = self.advance()
                 value = self.parse_expression()
                 if not value:
-                    self.add_error(f"Expected expression after '{op_token.get('lexeme')}' operator", self.current_token())
+                    self.add_error("Expected expression", self.current_token())
                     return None
                 self.expect(";")
                 return AssignmentStatementNode(
@@ -2264,10 +2466,9 @@ class Parser:
         return None
     
     def parse_input_stmt(self) -> Optional[InputStatementNode]:
-        """
-        <input_stmt> → trap(<iden>);
-        Production 139, 293
-        """
+        # <input_stmt> → trap(<iden>);
+
+        # Production 337
         token = self.expect("trap")
         if not token:
             return None
@@ -2289,12 +2490,13 @@ class Parser:
         return InputStatementNode(target=target, line=line, column=col)
     
     def parse_output_stmt(self) -> Optional[OutputStatementNode]:
-        """
-        <output_stmt> → thread(<expression1>); | threadln(<expression1>);
-        <expression1> → id<expr1_cont> | <value> | <string_expr> | <string_value> | <iden1>
-        <expr1_cont> → ,id <expr1_cont> | 𝝺
-        Productions 300-308
-        """
+        # <output_stmt> → thread(<expression1>); | threadln(<expression1>);
+
+        # <expression1> → id<expr1_cont> | <value> | <string_expr> | <string_value> | <iden1>
+
+        # <expr1_cont> → ,id <expr1_cont> | 𝝺
+
+        # Productions 300-308
         token = self.current_token()
         is_newline = self.match("threadln")
         self.advance()
@@ -2332,10 +2534,9 @@ class Parser:
         )
     
     def parse_return_stmt(self) -> Optional[ReturnStatementNode]:
-        """
-        <ret_stmt> → return<ret_value>;
-        Productions 229, 383-387
-        """
+        # <ret_stmt> → return<ret_value>;
+
+        # Production 428
         token = self.expect("return")
         if not token:
             return None
@@ -2355,10 +2556,9 @@ class Parser:
     # -------------------- Control Structures --------------------
     
     def parse_if_stmt(self) -> Optional[IfStatementNode]:
-        """
-        <if_stmt> → if(<expression>) { <statement_list> } <else_if_chain><else_part>
-        Productions 95-96, 249-250
-        """
+        # <if_stmt> → if(<condition>){<ctrl_body><ret_ctrl_body>}<else_if_ei_stmt>
+
+        # Production 388
         token = self.expect("if")
         if not token:
             return None
@@ -2385,13 +2585,13 @@ class Parser:
                 body.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token in if-statement body", self.current_token())
+                self.add_error("Unexpected token", self.current_token())
                 break
         
         if not self.expect("}"):
             return None
         
-        # Parse else-if chain
+        # Parse else-if chain - Production 393, 395
         elif_parts = []
         while self.match("else") and self.peek() and self.peek().get("lexeme") == "if":
             self.advance()  # consume 'else'
@@ -2415,7 +2615,7 @@ class Parser:
                     elif_body.append(stmt)
                 # Prevent infinite loop if no progress
                 if self.current == pos_before:
-                    self.add_error("Unexpected token in else-if body", self.current_token())
+                    self.add_error("Unexpected token", self.current_token())
                     break
             
             if not self.expect("}"):
@@ -2423,7 +2623,7 @@ class Parser:
             
             elif_parts.append({"condition": elif_cond, "body": elif_body})
         
-        # Parse else part
+        # Parse else part - Production 393, 396
         else_body = None
         if self.match("else"):
             self.advance()
@@ -2439,7 +2639,7 @@ class Parser:
                     else_body.append(stmt)
                 # Prevent infinite loop if no progress
                 if self.current == pos_before:
-                    self.add_error("Unexpected token in else-body", self.current_token())
+                    self.add_error("Unexpected token", self.current_token())
                     break
             
             if not self.expect("}"):
@@ -2454,10 +2654,9 @@ class Parser:
         )
     
     def parse_switch_stmt(self) -> Optional[SwitchStatementNode]:
-        """
-        <switch_stmt> → switch(<expression>) { <case_list><default_case> }
-        Productions 101-102, 255-256
-        """
+        # <switch_stmt> → switch(<switch_val>) { <case_stmt><default_stmt>}
+
+        # Production 397
         token = self.expect("switch")
         if not token:
             return None
@@ -2499,10 +2698,9 @@ class Parser:
         )
     
     def parse_case(self) -> Optional[CaseNode]:
-        """
-        <case> → case <value>: <statement_list><break_stmt>
-        Productions 105, 259
-        """
+        # <case_stmt> → case<case_val>: <ctrl_body> break;
+
+        # Production 402
         token = self.expect("case")
         if not token:
             return None
@@ -2524,7 +2722,7 @@ class Parser:
                 statements.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token in case body", self.current_token())
+                self.add_error("Unexpected token", self.current_token())
                 break
         
         # Parse break statement
@@ -2540,10 +2738,9 @@ class Parser:
         )
     
     def parse_default_case(self) -> Optional[DefaultCaseNode]:
-        """
-        <default_case> → default: <statement_list><break_stmt>
-        Productions 107, 261
-        """
+        # <default_stmt> → default : <ctrl_body> break;
+
+        # Production 411
         token = self.expect("default")
         if not token:
             return None
@@ -2563,7 +2760,7 @@ class Parser:
                 statements.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token in default case body", self.current_token())
+                self.add_error("Unexpected token", self.current_token())
                 break
         
         # Parse break statement
@@ -2578,10 +2775,9 @@ class Parser:
         )
     
     def parse_for_stmt(self) -> Optional[ForLoopNode]:
-        """
-        <for_stmt> → for(<for_init>; <for_cond>; <for_update>) { <statement_list> }
-        Productions 108, 262
-        """
+        # <for_stmt> → for(<initializer>;<condition>;<update>){<ctrl_body>}
+
+        # Production 416
         token = self.expect("for")
         if not token:
             return None
@@ -2592,7 +2788,7 @@ class Parser:
         if not self.expect("("):
             return None
         
-        # Parse initialization
+        # Parse initialization - Production 417
         init = None
         # Check for 'local' keyword (variable declaration in for loop)
         if self.match("local"):
@@ -2670,7 +2866,7 @@ class Parser:
                 return None
                 
         elif self.current_token() and self.current_token().get("lexeme") != ";":
-            # Assignment or expression
+            # Assignment or expression - Production 418
             init = self.parse_expression()
             if not self.expect(";"):
                 return None
@@ -2679,7 +2875,7 @@ class Parser:
             if not self.expect(";"):
                 return None
         
-        # Parse condition
+        # Parse condition - Production 389
         condition = None
         if self.current_token() and self.current_token().get("lexeme") != ";":
             condition = self.parse_expression()
@@ -2687,10 +2883,39 @@ class Parser:
         if not self.expect(";"):
             return None
         
-        # Parse update
+        # Parse update - Productions 420-422
         update = None
         if self.current_token() and self.current_token().get("lexeme") != ")":
-            update = self.parse_expression()
+            # Update can be an assignment or expression
+            # Try to parse as assignment first (id = expr)
+            if self.match("id"):
+                checkpoint = self.current
+                id_node = self.parse_identifier_expression()
+                
+                # Check if followed by assignment operator
+                if self.match_predict_set("assign_stmt_op"):
+                    # This is an assignment - but don't consume semicolon
+                    op_token = self.advance()
+                    value = self.parse_expression()
+                    if not value:
+                        self.add_error("Expected expression", self.current_token())
+                        return None
+                    # Create assignment node (but no semicolon in for update)
+                    update = AssignmentStatementNode(
+                        target=id_node,
+                        operator=op_token.get("lexeme"),
+                        value=value,
+                        line=id_node.line if hasattr(id_node, 'line') else 0,
+                        column=id_node.column if hasattr(id_node, 'column') else 0
+                    )
+                else:
+                    # Not an assignment, rewind and parse as expression
+                    self.current = checkpoint
+                    update = self.parse_expression()
+            else:
+                # Not starting with id, just parse as expression (e.g., i++, ++i)
+                update = self.parse_expression()
+
         
         if not self.expect(")"):
             return None
@@ -2706,7 +2931,7 @@ class Parser:
                 body.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token in for-loop body", self.current_token())
+                self.add_error("Unexpected token", self.current_token())
                 break
         
         if not self.expect("}"):
@@ -2722,10 +2947,9 @@ class Parser:
         )
     
     def parse_while_stmt(self) -> Optional[WhileLoopNode]:
-        """
-        <while_stmt> → while(<expression>) { <statement_list> }
-        Productions 113, 267
-        """
+        # <while_stmt> → while(<condition>){<ctrl_body>}
+
+        # Production 426
         token = self.expect("while")
         if not token:
             return None
@@ -2752,7 +2976,7 @@ class Parser:
                 body.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token in while-loop body", self.current_token())
+                self.add_error("Unexpected token", self.current_token())
                 break
         
         if not self.expect("}"):
@@ -2766,10 +2990,9 @@ class Parser:
         )
     
     def parse_do_while_stmt(self) -> Optional[DoWhileLoopNode]:
-        """
-        <do_stmt> → do { <statement_list> } while(<expression>);
-        Productions 114, 268
-        """
+        # <do_stmt> → do{<ctrl_body>} while(<condition>);
+
+        # Production 427
         token = self.expect("do")
         if not token:
             return None
@@ -2789,7 +3012,7 @@ class Parser:
                 body.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token in do-while body", self.current_token())
+                self.add_error("Unexpected token", self.current_token())
                 break
         
         if not self.expect("}"):

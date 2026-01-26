@@ -140,6 +140,26 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
     setLexedCode("");
   }, []);
 
+  // Handle code changes
+  const handleCodeChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCode(e.target.value);
+  }, []);
+
+  // Handle special key combinations
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const target = e.target as HTMLTextAreaElement;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      const newCode = code.substring(0, start) + '    ' + code.substring(end);
+      setCode(newCode);
+      setTimeout(() => {
+        target.selectionStart = target.selectionEnd = start + 4;
+      }, 0);
+    }
+  }, [code]);
+
   // Sync scroll
   useEffect(() => {
     const ta = textareaRef.current;
@@ -283,7 +303,12 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <h2 style={{ margin: 0 }}>Syntax Analyzer</h2>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: 'center' }}>
-          <button className="btn" onClick={runParser} disabled={loading}>
+          <button 
+            className="btn" 
+            onClick={runParser} 
+            disabled={loading || lexErrors.length > 0}
+            title={lexErrors.length > 0 ? "Fix lexical errors before parsing" : ""}
+          >
             {loading ? "Analyzing..." : "Run Parser"}
           </button>
           <button className="btn ghost" onClick={handleReset}>
@@ -296,7 +321,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, flex: "1 1 auto", minHeight: 0 }}>
         {/* Left Column: Source Code and Terminal */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
-          {/* Code Viewer (Read-Only) */}
+          {/* Code Editor with Syntax Highlighting */}
           <div className="panel" style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
             <h3 style={{ marginTop: 0, marginBottom: 8 }}>Source Code</h3>
             <div style={{ position: "relative", flex: "1 1 auto", minHeight: 300, display: "flex" }}>
@@ -356,11 +381,15 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
                   <span dangerouslySetInnerHTML={{ __html: highlightedHTML() }} />
                 </pre>
                 
-                {/* Read-only overlay for scrolling */}
-                <div
+                {/* Editable textarea */}
+                <textarea
                   ref={textareaRef as any}
-                  aria-label="source-display-readonly"
-                  className="source-display-readonly"
+                  value={code}
+                  onChange={handleCodeChange}
+                  onKeyDown={handleKeyDown}
+                  aria-label="source-code-editor"
+                  className="source-display"
+                  spellCheck={false}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -374,9 +403,13 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
                     fontFamily: "var(--mono)",
                     fontSize: 14,
                     lineHeight: "1.5",
+                    resize: "none",
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    color: "transparent",
+                    caretColor: "var(--text)",
                     overflow: "auto",
-                    cursor: "default",
-                    userSelect: "text",
                     whiteSpace: "pre-wrap",
                     wordWrap: "break-word",
                     borderTopLeftRadius: 0,
@@ -391,10 +424,17 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
           <div className="panel" style={{ flex: "0 0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>Terminal</h3>
-              <div className="small">
+              <div className="small" style={{
+                color: (lexErrors.length > 0 || parseErrors.length > 0) ? "var(--text-muted)" : tokens.length > 0 ? "var(--success)" : "var(--text-muted)",
+                fontWeight: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? 600 : 400,
+                padding: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "4px 12px" : "0",
+                borderRadius: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "12px" : "0",
+                backgroundColor: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "rgba(34, 197, 94, 0.1)" : "transparent",
+                border: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "1px solid rgba(34, 197, 94, 0.3)" : "none"
+              }}>
                 {lexErrors.length > 0 ? `Lexical Errors: ${lexErrors.length}` : 
                  parseErrors.length > 0 ? `Syntax Errors: ${parseErrors.length}` : 
-                 tokens.length > 0 ? 'Parsing success' : 'No errors'}
+                 tokens.length > 0 ? '✓ Parsing success' : 'No errors'}
               </div>
             </div>
             <div style={{ maxHeight: 200, overflow: "auto" }}>

@@ -389,7 +389,16 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
           <div className="panel" style={{ flex: "0 0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>Errors</h3>
-              <div className="small">{errors.length > 0 ? `Problems: ${errors.length}` : tokens.length > 0 ? 'Lexing success' : 'No errors'}</div>
+              <div className="small" style={{ 
+                color: errors.length > 0 ? "var(--text-muted)" : tokens.length > 0 ? "var(--success)" : "var(--text-muted)",
+                fontWeight: tokens.length > 0 && errors.length === 0 ? 600 : 400,
+                padding: tokens.length > 0 && errors.length === 0 ? "4px 12px" : "0",
+                borderRadius: tokens.length > 0 && errors.length === 0 ? "12px" : "0",
+                backgroundColor: tokens.length > 0 && errors.length === 0 ? "rgba(34, 197, 94, 0.1)" : "transparent",
+                border: tokens.length > 0 && errors.length === 0 ? "1px solid rgba(34, 197, 94, 0.3)" : "none"
+              }}>
+                {errors.length > 0 ? `Problems: ${errors.length}` : tokens.length > 0 ? '✓ Lexing success' : 'No errors'}
+              </div>
             </div>
             <div style={{ maxHeight: 200, overflow: "auto" }}>
               {errors.length === 0 ? (
