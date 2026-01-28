@@ -2897,8 +2897,36 @@ class Parser:
                 return None
                 
         elif self.current_token() and self.current_token().get("lexeme") != ";":
-            # Assignment or expression - Production 418
-            init = self.parse_expression()
+            # Production 419: <initializer> → <assign_stmt>
+            # Assignment statement (e.g., i = 0)
+            if self.match("id"):
+                checkpoint = self.current
+                id_node = self.parse_identifier_expression()
+                
+                # Check if followed by assignment operator
+                if self.match_predict_set("assign_stmt_op"):
+                    # This is an assignment statement
+                    op_token = self.advance()
+                    value = self.parse_expression()
+                    if not value:
+                        self.add_error("Expected expression", self.current_token(), PREDICT_SETS.get("expression", []))
+                        return None
+                    
+                    init = AssignmentStatementNode(
+                        target=id_node,
+                        operator=op_token.get("lexeme"),
+                        value=value,
+                        line=id_node.line if hasattr(id_node, 'line') else 0,
+                        column=id_node.column if hasattr(id_node, 'column') else 0
+                    )
+                else:
+                    # Not an assignment, treat as expression
+                    self.current = checkpoint
+                    init = self.parse_expression()
+            else:
+                # Not starting with id, parse as expression
+                init = self.parse_expression()
+            
             if not self.expect(";"):
                 return None
         else:
