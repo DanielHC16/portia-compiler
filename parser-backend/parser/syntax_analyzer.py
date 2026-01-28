@@ -1133,7 +1133,7 @@ class Parser:
                     
                     # If no progress was made, skip this token and try next
                     if self.current == pos_before:
-                        self.add_error(f"Unexpected token", self.current_token())
+                        self.add_error(f"Unexpected token", self.current_token(), PREDICT_SETS.get("global_dec", []))
                         # Synchronize to recover from error
                         self.synchronize([";", "global", "weave", "func", "int"])
                         if self.match(";"):
@@ -1168,7 +1168,7 @@ class Parser:
                 
                 # If no progress was made, skip this token and try next
                 if self.current == pos_before:
-                    self.add_error(f"Unexpected token", self.current_token())
+                    self.add_error(f"Unexpected token", self.current_token(), PREDICT_SETS.get("global_dec", []))
                     # Synchronize to recover from error
                     self.synchronize([";", "global", "weave", "func", "int"])
                     if self.match(";"):
@@ -1186,7 +1186,7 @@ class Parser:
                 functions.append(func)
             # Break if no progress (with error recovery)
             if self.current == pos_before:
-                self.add_error(f"Unexpected token", self.current_token())
+                self.add_error(f"Unexpected token", self.current_token(), PREDICT_SETS.get("function", []))
                 # Synchronize to recover
                 self.synchronize(["func", "int"])
                 break  # Stop trying to parse more functions after error
@@ -1195,7 +1195,7 @@ class Parser:
         main_func = self.parse_main_func()
         if not main_func:
             # Only report missing main if no other errors occurred
-            self.add_error("Expected main function", self.current_token())
+            self.add_error("Expected main function", self.current_token(), PREDICT_SETS.get("main_func", []))
             return None
         
         return ProgramNode(
@@ -2125,7 +2125,7 @@ class Parser:
             
             right = self.parse_term()
             if not right:
-                self.add_error("Expected term", self.current_token())
+                self.add_error("Expected term", self.current_token(), PREDICT_SETS.get("term", []))
                 break
             
             # Use StringConcatNode for .. operator, BinaryOpNode for + and -
@@ -2164,7 +2164,7 @@ class Parser:
             
             right = self.parse_factor()
             if not right:
-                self.add_error("Expected factor", self.current_token())
+                self.add_error("Expected factor", self.current_token(), PREDICT_SETS.get("factor", []))
                 break
             
             left = BinaryOpNode(
@@ -2194,7 +2194,7 @@ class Parser:
             op_token = self.advance()
             operand = self.parse_primary()
             if not operand:
-                self.add_error("Expected expression", self.current_token())
+                self.add_error("Expected expression", self.current_token(), PREDICT_SETS.get("primary", []))
                 return None
             return UnaryOpNode(
                 operator="-",
@@ -2209,7 +2209,7 @@ class Parser:
             op_token = self.advance()
             operand = self.parse_primary()
             if not operand:
-                self.add_error("Expected expression", self.current_token())
+                self.add_error("Expected expression", self.current_token(), PREDICT_SETS.get("primary", []))
                 return None
             return UnaryOpNode(
                 operator="!",
@@ -2442,7 +2442,7 @@ class Parser:
                 op_token = self.advance()
                 value = self.parse_expression()
                 if not value:
-                    self.add_error("Expected expression", self.current_token())
+                    self.add_error("Expected expression", self.current_token(), PREDICT_SETS.get("expression", []))
                     return None
                 self.expect(";")
                 return AssignmentStatementNode(
@@ -2513,13 +2513,24 @@ class Parser:
             expr = self.parse_expression()
             if expr:
                 expressions.append(expr)
+            elif not self.match(")"):
+                # If we're in the expression1 predict set but got no expression,
+                # and we're not at the closing paren, that's an error
+                self.add_error("Expected expression", self.current_token(), PREDICT_SETS.get("expression1", []))
             
             # Parse continuation (,id , ,id , ...)
+            # Production 351: <expr1_cont> → , <expression1>
+            # Production 352: <expr1_cont> → 𝝺
             while self.match(","):
                 self.advance()
+                # After a comma, we MUST have an expression (non-nullable)
                 expr = self.parse_expression()
                 if expr:
                     expressions.append(expr)
+                else:
+                    # Error: comma without following expression
+                    self.add_error("Expected expression after comma", self.current_token(), PREDICT_SETS.get("expression1", []))
+                    return None
         
         if not self.expect(")"):
             return None
@@ -2585,7 +2596,7 @@ class Parser:
                 body.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token", self.current_token())
+                self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                 break
         
         if not self.expect("}"):
@@ -2615,7 +2626,7 @@ class Parser:
                     elif_body.append(stmt)
                 # Prevent infinite loop if no progress
                 if self.current == pos_before:
-                    self.add_error("Unexpected token", self.current_token())
+                    self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                     break
             
             if not self.expect("}"):
@@ -2639,7 +2650,7 @@ class Parser:
                     else_body.append(stmt)
                 # Prevent infinite loop if no progress
                 if self.current == pos_before:
-                    self.add_error("Unexpected token", self.current_token())
+                    self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                     break
             
             if not self.expect("}"):
@@ -2722,7 +2733,7 @@ class Parser:
                 statements.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token", self.current_token())
+                self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                 break
         
         # Parse break statement
@@ -2760,7 +2771,7 @@ class Parser:
                 statements.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token", self.current_token())
+                self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                 break
         
         # Parse break statement
@@ -2796,7 +2807,7 @@ class Parser:
             
             # Parse mutability
             if not self.match_predict_set("mutability"):
-                self.add_error("Expected 'var' or 'const'", self.current_token())
+                self.add_error("Expected 'var' or 'const'", self.current_token(), ["var", "const"])
                 return None
             mutability = self.advance().get("lexeme")
             
@@ -2806,7 +2817,7 @@ class Parser:
             elif self.match("id"):
                 data_type = self.advance().get("lexeme")
             else:
-                self.add_error(f"Expected data type", self.current_token())
+                self.add_error(f"Expected data type", self.current_token(), PREDICT_SETS.get("dtype", []))
                 return None
             
             # Parse first variable
@@ -2898,7 +2909,7 @@ class Parser:
                     op_token = self.advance()
                     value = self.parse_expression()
                     if not value:
-                        self.add_error("Expected expression", self.current_token())
+                        self.add_error("Expected expression", self.current_token(), PREDICT_SETS.get("expression", []))
                         return None
                     # Create assignment node (but no semicolon in for update)
                     update = AssignmentStatementNode(
@@ -2931,7 +2942,7 @@ class Parser:
                 body.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token", self.current_token())
+                self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                 break
         
         if not self.expect("}"):
@@ -2976,7 +2987,7 @@ class Parser:
                 body.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token", self.current_token())
+                self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                 break
         
         if not self.expect("}"):
@@ -3012,7 +3023,7 @@ class Parser:
                 body.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token", self.current_token())
+                self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                 break
         
         if not self.expect("}"):
