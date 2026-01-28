@@ -2974,10 +2974,13 @@ class Parser:
             if not self.expect(";"):
                 return None
         
-        # Parse condition - Production 389
-        condition = None
-        if self.current_token() and self.current_token().get("lexeme") != ";":
-            condition = self.parse_expression()
+        # Parse condition - Production 389 (REQUIRED, non-nullable)
+        condition = self.parse_expression()
+        if not condition:
+            # Empty condition or invalid expression
+            self.add_error("Expected condition expression", self.current_token(), 
+                         PREDICT_SETS.get("condition", []))
+            return None
         
         if not self.expect(";"):
             return None
