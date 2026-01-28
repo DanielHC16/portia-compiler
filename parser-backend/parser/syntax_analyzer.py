@@ -3021,8 +3021,15 @@ class Parser:
         
         condition = self.parse_expression()
         
-        if not self.expect(")"):
+        # After expression, expect ) or report better error
+        if not self.match(")"):
+            # Expression might be incomplete - could need operators or )
+            # Show both closing paren and possible expression continuations
+            expected_tokens = [")", "==", "!=", ">", "<", ">=", "<=", "&&", "||", "+", "-", "*", "/", "%"]
+            self.add_error("Expected closing parenthesis or operator", self.current_token(), expected_tokens)
             return None
+        self.advance()  # consume )
+        
         if not self.expect("{"):
             return None
         
