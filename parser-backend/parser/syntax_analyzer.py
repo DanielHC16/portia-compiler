@@ -2230,8 +2230,14 @@ class Parser:
             if self.match_predict_set("dtype"):
                 type_token = self.advance()
                 if self.expect(")"):
-                    # This is a cast
+                    # This is a cast - MUST have a factor after it
+                    # Production 315: <cast_val> → (<dtype>) <factor>
                     expr = self.parse_factor()
+                    if not expr:
+                        # No factor found after cast - invalid
+                        self.add_error("Expected expression after cast", 
+                                     self.current_token(), PREDICT_SETS.get("factor", []))
+                        return None
                     return CastNode(
                         target_type=type_token.get("lexeme"),
                         expression=expr,
