@@ -1852,14 +1852,24 @@ class Parser:
             if param:
                 parameters.append(param)
             
+            # After first parameter, expect comma (for more params) or closing paren
+            # Production 229: <param_cont> → ,<param>
+            # Production 230: <param_cont> → λ
             while self.match(","):
                 self.advance()
                 param = self.parse_param()
                 if param:
                     parameters.append(param)
         
-        if not self.expect(")"):
+        # After parameters, expect closing paren only
+        if not self.match(")"):
+            # If we don't see ), provide error with valid continuations
+            # At this point, only ) is valid (if there was a comma, we'd still be in the loop)
+            curr_token = self.current_token()
+            if curr_token:
+                self.add_error("Unexpected token in parameter list", curr_token, [",", ")"])
             return None
+        self.advance()  # consume )
         
         # Parse function body
         if not self.expect("{"):
