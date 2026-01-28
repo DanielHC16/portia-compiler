@@ -2062,10 +2062,9 @@ class Parser:
             operator = op_token.get("lexeme")
             right = self.parse_rel_expr()
             if not right:
-                # Production 289 for &&, 290 for ||
-                prod_num = 289 if operator == "&&" else 290
+                # After logical operator, expect a relational expression
                 self.add_error("Expected expression", 
-                             self.current_token(), prod_num)
+                             self.current_token(), PREDICT_SETS.get("rel_expr", []))
                 break
             
             left = BinaryOpNode(
@@ -2089,14 +2088,12 @@ class Parser:
         while self.match_predict_set("rel_expr_cont"):
             op_token = self.advance()
             operator = op_token.get("lexeme")
-            # Map operators to production numbers
-            prod_map = {"==": 293, "!=": 294, ">":  295, "<": 296, ">=": 297, "<=": 298}
-            prod_num = prod_map.get(operator, 292)
             
             right = self.parse_arith_expr()
             if not right:
+                # After relational operator, expect an arithmetic expression
                 self.add_error("Expected expression", 
-                             self.current_token(), prod_num)
+                             self.current_token(), PREDICT_SETS.get("arith_expr", []))
                 break
             
             left = BinaryOpNode(
