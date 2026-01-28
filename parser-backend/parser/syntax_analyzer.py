@@ -2134,6 +2134,13 @@ class Parser:
                     column=op_token.get("column", 0)
                 )
             else:
+                # Validate that + and - are not used with string literals
+                # Grammar only allows .. for string concatenation
+                if isinstance(left, StringNode) or isinstance(right, StringNode):
+                    self.add_error("Cannot use arithmetic operator with string", 
+                                 op_token, [".."])
+                    return None
+                
                 left = BinaryOpNode(
                     left=left,
                     operator=operator,
