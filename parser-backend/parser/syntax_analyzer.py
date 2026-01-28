@@ -1270,12 +1270,15 @@ class Parser:
             if stmt:
                 statements.append(stmt)
             if self.current == pos_before:
+                # No progress made - unexpected token in statement context
+                self.add_error("Unexpected token", self.current_token(), 
+                             PREDICT_SETS.get("statement_list", []))
                 break
         
         # Parse return statement (required in main)
         # Production 434: main must return intlit only
         if not self.expect("return"):
-            self.add_error("Expected return statement", self.current_token())
+            self.add_error("Expected return statement", self.current_token(), ["return"])
         
         return_value = None
         if self.match("intlit"):
