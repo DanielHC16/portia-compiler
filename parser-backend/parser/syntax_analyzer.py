@@ -1575,12 +1575,20 @@ class Parser:
         # Parse field list
         fields = []
         while self.match_predict_set("field_list") and not self.match("}"):
+            pos_before = self.current
             field = self.parse_field_dec()
             if field:
                 if isinstance(field, list):
                     fields.extend(field)
                 else:
                     fields.append(field)
+            
+            # Check for infinite loop - if no progress was made
+            if self.current == pos_before:
+                self.add_error("Unexpected token in weave definition", 
+                             self.current_token(), 
+                             PREDICT_SETS.get("field_list", []))
+                break
         
         if not self.expect("}"):
             return None
@@ -1665,7 +1673,10 @@ class Parser:
                 column=id_token.get("column", 0)
             ))
         
-        self.expect(";")
+        # Production 201 requires semicolon at end
+        if not self.expect(";"):
+            return None
+        
         return fields if len(fields) > 1 else fields[0]
     
     def parse_arr_1D(self, scope: str) -> Optional[ArrayDeclarationNode]:
