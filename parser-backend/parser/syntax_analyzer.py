@@ -2432,13 +2432,33 @@ class Parser:
         # Assignment or expression statement
         # Need to distinguish between assignment and expression
         if self.match("id"):
-            # Look ahead to determine if this is an assignment
+            # Production 374: <assign_stmt> → id<array_spec_opt><assign_stmt_op>
+            # After 'id', valid tokens are: '[' (array), '.', or assignment operators
+            # If we see '(' it means this is a function call, not an assignment
+            
             checkpoint = self.current
+            id_token = self.current_token()
+            
+            # Peek ahead after the identifier
+            self.advance()  # consume id
+            
+            # Check what comes after the id
+            if self.match("("):
+                # This is a function call - rewind and parse as expression statement
+                self.current = checkpoint
+                expr = self.parse_expression()
+                if expr:
+                    self.expect(";")
+                    return expr
+                return None
+            
+            # Not a function call, rewind and parse identifier expression
+            self.current = checkpoint
             id_node = self.parse_identifier_expression()
             
-            # Check if followed by assignment operator - Production 373
+            # Check if followed by assignment operator
             if self.match_predict_set("assign_stmt_op"):
-                # This is an assignment
+                # This is a valid assignment
                 op_token = self.advance()
                 value = self.parse_expression()
                 if not value:
