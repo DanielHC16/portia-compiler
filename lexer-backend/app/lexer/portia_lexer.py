@@ -120,7 +120,7 @@ class LexicalAnalyzer:
                 return  # Don't add the token
             
             # Special validation: After open_brace, only bool_lit is allowed (no identifiers or other keywords)
-            if prev_token_type == 'open_brace' and token_type == 'id':
+            if prev_token_type == '{' and token_type == 'id':
                 add_error(f"Invalid '{lexeme}' after '{{'", start_idx, end_idx, tok_line, tok_col)
                 return  # Don't add the token
             
@@ -215,38 +215,38 @@ class LexicalAnalyzer:
             
             # Operators - EOF is NOT allowed
             operator_types = {
-                'add', 'subtract', 'multiply', 'divide', 'modulo', 'assign',
-                'equal', 'not_equal', 'less_than', 'greater_than', 'less_equal', 'greater_equal',
-                'logical_and', 'logical_or', 'logical_not', 'increment', 'decrement',
-                'add_assign', 'minus_assign', 'mult_assign', 'div_assign', 'modulo_assign', 'concat'
+                '+', '-', '*', '/', '%', '=',
+                '==', '!=', '<', '>', '<=', '>=',
+                '&&', '||', '!', '++', '--',
+                '+=', '-=', '*=', '/=', '%=', '..'
             }
             if token_type in operator_types and next_char is None:
                 return False
 
             # String and char literals - EOF and newline are NOT allowed
-            if token_type == 'string_lit':
+            if token_type == 'stringlit':
                 if next_char is None or next_char == '\n':
                     return False
                 return char_in_delimiters(next_char, self.str_lit_delim)
 
-            if token_type == 'char_lit':
+            if token_type == 'charlit':
                 if next_char is None or next_char == '\n':
                     return False
                 return char_in_delimiters(next_char, self.char_lit_delim)
 
             # Check delimiter tokens BEFORE EOF handling
             delimiter_delims = {
-                'open_paren': self.open_paren_delim, 'close_paren': self.close_paren_delim,
-                'open_bracket': self.open_bracket_delim, 'close_bracket': self.close_bracket_delim,
-                'close_brace': self.close_curly_delim,
-                'semicolon': self.semicolon_delim, 'comma': self.comma_delim,
-                'colon': self.colon_delim, 'dot': self.dot_delim,
+                '(': self.open_paren_delim, ')': self.close_paren_delim,
+                '[': self.open_bracket_delim, ']': self.close_bracket_delim,
+                '}': self.close_curly_delim,
+                ';': self.semicolon_delim, ',': self.comma_delim,
+                ':': self.colon_delim, '.': self.dot_delim,
             }
             if token_type in delimiter_delims:
                 return char_in_delimiters(next_char, delimiter_delims[token_type])
             
             # Special handling for open_brace: only allow bool literals (true/false)
-            if token_type == 'open_brace':
+            if token_type == '{':
                 # Allow whitespace, newline, numbers, quotes, '-', '!', '{' as normal
                 if char_in_delimiters(next_char, self.open_curly_delim):
                     return True
@@ -257,24 +257,24 @@ class LexicalAnalyzer:
 
             # Check operators BEFORE EOF handling
             operator_delims = {
-                'add': self.marithmetic_delim, 'subtract': self.marithmetic_delim,
-                'multiply': self.marithmetic_delim, 'divide': self.slash_delim,
-                'modulo': self.marithmetic_delim, 'assign': self.equal_delim,
-                'equal': self.sign_delim, 'not_equal': self.sign_delim,
-                'less_than': self.asign_delim, 'greater_than': self.asign_delim,
-                'less_equal': self.asign_delim, 'greater_equal': self.asign_delim,
-                'logical_and': self.logical_op_delim, 'logical_or': self.logical_op_delim,
-                'logical_not': self.exclamation_delim, 'increment': self.unary_delim,
-                'decrement': self.unary_delim, 'add_assign': self.sign_delim,
-                'minus_assign': self.sign_delim, 'mult_assign': self.sign_delim,
-                'div_assign': self.sign_delim, 'modulo_assign': self.sign_delim,
-                'concat': self.concat_delim,
+                '+': self.marithmetic_delim, '-': self.marithmetic_delim,
+                '*': self.marithmetic_delim, '/': self.slash_delim,
+                '%': self.marithmetic_delim, '=': self.equal_delim,
+                '==': self.sign_delim, '!=': self.sign_delim,
+                '<': self.asign_delim, '>': self.asign_delim,
+                '<=': self.asign_delim, '>=': self.asign_delim,
+                '&&': self.logical_op_delim, '||': self.logical_op_delim,
+                '!': self.exclamation_delim, '++': self.unary_delim,
+                '--': self.unary_delim, '+=': self.sign_delim,
+                '-=': self.sign_delim, '*=': self.sign_delim,
+                '/=': self.sign_delim, '%=': self.sign_delim,
+                '..': self.concat_delim,
             }
             if token_type in operator_delims:
                 return char_in_delimiters(next_char, operator_delims[token_type])
             
             # Check numeric literals BEFORE EOF handling
-            if token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
+            if token_type in ['intlit', 'longlit', 'floatlit', 'doublelit']:
                 return char_in_delimiters(next_char, self.nbl_delim)
 
             # Check identifiers BEFORE EOF handling
@@ -605,9 +605,9 @@ class LexicalAnalyzer:
                 # First, check if we're in string/char literal intermediate states (s277, s281)
                 # These states need explicit delimiter validation before finalizing
                 if currState == 's277':  # After closing " in string literal
-                    if check_delimiter('string_lit', ch):
-                        # Valid delimiter - finalize string_lit token
-                        add_token(lexeme, 'string_lit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                    if check_delimiter('stringlit', ch):
+                        # Valid delimiter - finalize stringlit token
+                        add_token(lexeme, 'stringlit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         # Reprocess delimiter character
@@ -622,9 +622,9 @@ class LexicalAnalyzer:
                         continue
 
                 if currState == 's281':  # After closing ' in char literal
-                    if check_delimiter('char_lit', ch):
-                        # Valid delimiter - finalize char_lit token
-                        add_token(lexeme, 'char_lit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                    if check_delimiter('charlit', ch):
+                        # Valid delimiter - finalize charlit token
+                        add_token(lexeme, 'charlit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
                         lexeme = ''
                         # Reprocess delimiter character
@@ -998,14 +998,14 @@ class LexicalAnalyzer:
             # Special handling for string/char literal intermediate states at EOF
             if currState == 's277':  # After closing " in string literal
                 # EOF is a valid delimiter for string literals
-                if None in self.str_lit_delim or check_delimiter('string_lit', None):
-                    add_token(lexeme, 'string_lit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                if None in self.str_lit_delim or check_delimiter('stringlit', None):
+                    add_token(lexeme, 'stringlit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 else:
                     add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
             elif currState == 's281':  # After closing ' in char literal
                 # End of file check for char literals
-                if None in self.char_lit_delim or check_delimiter('char_lit', None):
-                    add_token(lexeme, 'char_lit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                if None in self.char_lit_delim or check_delimiter('charlit', None):
+                    add_token(lexeme, 'charlit', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                 else:
                     add_error(f"Lexical Error: Expected valid delimiter", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
             elif currState in ['s276', 's279', 's280']:
@@ -1063,7 +1063,7 @@ class LexicalAnalyzer:
                         # Check for identifier_too_long error
                         if token_type == 'identifier_too_long':
                             add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                        elif token_type in ['int_lit', 'long_lit', 'float_lit', 'double_lit']:
+                        elif token_type in ['intlit', 'longlit', 'floatlit', 'doublelit']:
                             # STRICT: EOF must be valid delimiter for numeric literals
                             if check_delimiter(token_type, None):
                                 add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
@@ -1116,48 +1116,48 @@ class LexicalAnalyzer:
         }
 
         operator_states = {
-            's153': 'subtract', 's155': 'decrement', 's157': 'minus_assign',
-            's159': 'add', 's161': 'increment', 's163': 'add_assign',
-            's165': 'multiply', 's167': 'mult_assign',
-            's169': 'divide', 's171': 'div_assign',
-            's173': 'modulo', 's175': 'modulo_assign',
-            's178': 'logical_and', 's181': 'logical_or',
-            's183': 'logical_not', 's185': 'not_equal',
-            's187': 'assign', 's189': 'equal',
-            's191': 'less_than', 's193': 'less_equal',
-            's195': 'greater_than', 's197': 'greater_equal',
+            's153': '-', 's155': '--', 's157': '-=',
+            's159': '+', 's161': '++', 's163': '+=',
+            's165': '*', 's167': '*=',
+            's169': '/', 's171': '/=',
+            's173': '%', 's175': '%=',
+            's178': '&&', 's181': '||',
+            's183': '!', 's185': '!=',
+            's187': '=', 's189': '==',
+            's191': '<', 's193': '<=',
+            's195': '>', 's197': '>=',
         }
 
         delimiter_states = {
-            's199': 'open_paren', 's201': 'close_paren',
-            's203': 'open_brace', 's205': 'close_brace',
-            's207': 'open_bracket', 's209': 'close_bracket',
-            's211': 'semicolon', 's213': 'comma',
-            's219': 'colon',
-            's215': 'dot',  # Single dot
-            's217': 'concat',  # Double dot (..) concatenation
+            's199': '(', 's201': ')',
+            's203': '{', 's205': '}',
+            's207': '[', 's209': ']',
+            's211': ';', 's213': ',',
+            's219': ':',
+            's215': '.',  # Single dot
+            's217': '..',  # Double dot (..) concatenation
         }
 
         literal_states = {
-            's278': 'string_lit',
+            's278': 'stringlit',
             's271': 'single_comment',
             's275': 'multi_comment',
             # Character literal (s282 final state)
-            's282': 'char_lit',
-            # Integer literals (1-10 digits) - all map to int_lit (shifted by +1)
-            's284': 'int_lit', 's286': 'int_lit', 's288': 'int_lit', 's290': 'int_lit',
-            's292': 'int_lit', 's294': 'int_lit', 's296': 'int_lit', 's298': 'int_lit',
-            's300': 'int_lit', 's302': 'int_lit',
-            # Long integer literals (11-19 digits) - all map to long_lit (shifted by +1)
-            's304': 'long_lit', 's306': 'long_lit', 's308': 'long_lit', 's310': 'long_lit',
-            's312': 'long_lit', 's314': 'long_lit', 's316': 'long_lit', 's318': 'long_lit',
-            's320': 'long_lit',
-            # Float literals (1-7 fractional digits) - all map to float_lit (shifted by +1)
-            's323': 'float_lit', 's325': 'float_lit', 's327': 'float_lit', 's329': 'float_lit',
-            's331': 'float_lit', 's333': 'float_lit', 's335': 'float_lit',
-            # Double literals (8-16 fractional digits) - all EVEN final states map to double_lit (shifted by +1)
-            's337': 'double_lit', 's339': 'double_lit', 's341': 'double_lit', 's343': 'double_lit',
-            's345': 'double_lit', 's347': 'double_lit', 's349': 'double_lit', 's351': 'double_lit', 's353': 'double_lit',
+            's282': 'charlit',
+            # Integer literals (1-10 digits) - all map to intlit (shifted by +1)
+            's284': 'intlit', 's286': 'intlit', 's288': 'intlit', 's290': 'intlit',
+            's292': 'intlit', 's294': 'intlit', 's296': 'intlit', 's298': 'intlit',
+            's300': 'intlit', 's302': 'intlit',
+            # Long integer literals (11-19 digits) - all map to longlit (shifted by +1)
+            's304': 'longlit', 's306': 'longlit', 's308': 'longlit', 's310': 'longlit',
+            's312': 'longlit', 's314': 'longlit', 's316': 'longlit', 's318': 'longlit',
+            's320': 'longlit',
+            # Float literals (1-7 fractional digits) - all map to floatlit (shifted by +1)
+            's323': 'floatlit', 's325': 'floatlit', 's327': 'floatlit', 's329': 'floatlit',
+            's331': 'floatlit', 's333': 'floatlit', 's335': 'floatlit',
+            # Double literals (8-16 fractional digits) - all EVEN final states map to doublelit (shifted by +1)
+            's337': 'doublelit', 's339': 'doublelit', 's341': 'doublelit', 's343': 'doublelit',
+            's345': 'doublelit', 's347': 'doublelit', 's349': 'doublelit', 's351': 'doublelit', 's353': 'doublelit',
         }
 
         if state in keyword_states:
