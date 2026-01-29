@@ -3358,7 +3358,13 @@ class Parser:
                 return None
                 
         elif self.current_token() and self.current_token().get("lexeme") != ";":
-            # Production 419: <initializer> → <assign_stmt>
+            # Production 410: <initializer> → <assign_stmt>
+            # Check if user is trying to declare without 'local' keyword
+            if self.match_predict_set("dtype"):
+                self.add_error("For loop variable declaration requires 'local' keyword", 
+                             self.current_token(), ["local", "id", ";"])
+                return None
+            
             # Assignment statement (e.g., i = 0)
             if self.match("id"):
                 checkpoint = self.current
