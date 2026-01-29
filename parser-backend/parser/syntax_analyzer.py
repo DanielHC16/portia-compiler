@@ -220,6 +220,7 @@ PREDICT_SETS = {
     # Productions 211-212: Functions
     "function": ["func"],  # Production 211
     "function_empty": ["int"],  # Production 212: λ (main_func starts with int)
+    "main_func": ["int"],  # Main function always starts with 'int main()'
     
     # Production 213: Function Definition
     "function_def": ["func"],  # Production 213
@@ -366,6 +367,16 @@ PREDICT_SETS = {
     # Production 277: Expression
     "expression": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
                   "stringlit", "charlit", "true", "false"],  # Production 277
+    
+    # Additional expression-related PREDICT sets
+    "condition": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+                 "stringlit", "charlit", "true", "false"],  # Same as expression - for if/while/for conditions
+    "expression1": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+                   "stringlit", "charlit", "true", "false"],  # Same as expression - for thread/threadln
+    "factor": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+              "stringlit", "charlit", "true", "false"],  # Same as expression - for multiplication/division terms
+    "primary": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+               "stringlit", "charlit", "true", "false"],  # Same as expression - for primary expressions
     
     # Production 278: Logical Expression
     "logical_expr": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
