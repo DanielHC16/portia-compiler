@@ -3172,6 +3172,14 @@ class Parser:
         if self.match("default"):
             default_case = self.parse_default_case()
         
+        # Check for closing brace or unexpected token
+        if not self.match("}"):
+            curr = self.current_token()
+            if curr and not curr.get("lexeme") in ["case", "default", "}"]:
+                # User likely forgot 'case' or 'default' keyword
+                self.add_error("Expected case or default in switch body", curr, ["case", "default", "}"])
+                return None
+        
         if not self.expect("}"):
             return None
         
