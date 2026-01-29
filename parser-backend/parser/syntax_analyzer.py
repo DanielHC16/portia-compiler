@@ -4,226 +4,538 @@ from dataclasses import dataclass
 # ==================== PREDICT SETS ====================
 
 PREDICT_SETS = {
-    # Program and Global Structure
-    "program": ["global", "int", "long", "float", "double", "char", "string", "bool", "id", "weave", "func"],
-    "global_dec": ["global", "int", "long", "float", "double", "char", "string", "bool", "id", "weave"],
-    "global_dec_empty": ["func", "int"],  # Follow set for empty production
+    # Production 1: <program>
+    "program": ["global", "int", "long", "float", "double", "char", "string", "bool", "weave", "id", "func"],
     
-    # Mutability
+    # Productions 2-18: <global_dec> variations
+    "global_dec": ["global", "int", "long", "float", "double", "char", "string", "bool", "id", "weave"],
+    "global_dec_empty": ["func", "int"],  # Production 18: λ (Follow set)
+    "int_global_dec": ["global"],  # Production 2
+    "long_global_dec": ["global"],  # Production 3
+    "float_global_dec": ["global"],  # Production 4
+    "double_global_dec": ["global"],  # Production 5
+    "char_global_dec": ["global"],  # Production 6
+    "string_global_dec": ["global"],  # Production 7
+    "true_global_dec": ["global"],  # Production 8
+    "false_global_dec": ["global"],  # Production 9
+    "arr_1D": ["int", "long", "float", "double", "char", "string", "bool", "id"],  # Production 10
+    "weave_def": ["weave"],  # Production 11
+    "int_weave_global_dec": ["global"],  # Production 12
+    "long_weave_global_dec": ["global"],  # Production 13
+    "float_weave_global_dec": ["global"],  # Production 14
+    "double_weave_global_dec": ["global"],  # Production 15
+    "char_weave_global_dec": ["global"],  # Production 16
+    "string_weave_global_dec": ["global"],  # Production 17
+    
+    # Productions 33-34: <mutability>
     "mutability": ["var", "const"],
     
-    # Data Types
+    # Productions 35-50: Multiple declarations
+    "int_multi_dec": [","],  # Production 35
+    "int_multi_dec_empty": [";"],  # Production 36: λ
+    "long_multi_dec": [","],  # Production 37
+    "long_multi_dec_empty": [";"],  # Production 38: λ
+    "float_multi_dec": [","],  # Production 39
+    "float_multi_dec_empty": [";"],  # Production 40: λ
+    "double_multi_dec": [","],  # Production 41
+    "double_multi_dec_empty": [";"],  # Production 42: λ
+    "char_multi_dec": [","],  # Production 43
+    "char_multi_dec_empty": [";"],  # Production 44: λ
+    "string_multi_dec": [","],  # Production 45
+    "string_multi_dec_empty": [";"],  # Production 46: λ
+    "true_multi_dec": [","],  # Production 47
+    "true_multi_dec_empty": [";"],  # Production 48: λ
+    "false_multi_dec": [","],  # Production 49
+    "false_multi_dec_empty": [";"],  # Production 50: λ
+    
+    # Productions 51-57: <dtype>
     "dtype": ["int", "long", "float", "double", "char", "string", "bool"],
+    
+    # Productions 58-65: <value>
     "value": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", "true", "false"],
     
-    # Multiple Declarations
-    "multi_dec": [","],
-    "multi_dec_empty": [";"],  # Follow set
+    # Productions 66-81: <arr_1D> variations
+    # Productions 66-73: arr_1D_UD types
+    "int_arr_1D_UD": ["id", ";"],  # Production 66
+    "long_arr_1D_UD": ["id", ";"],  # Production 67
+    "float_arr_1D_UD": ["id", ";"],  # Production 68
+    "double_arr_1D_UD": ["id", ";"],  # Production 69
+    "char_arr_1D_UD": ["id", ";"],  # Production 70
+    "string_arr_1D_UD": ["id", ";"],  # Production 71
+    "true_arr_1D_UD": ["id", ";"],  # Production 72
+    "false_arr_1D_UD": ["id", ";"],  # Production 73
+    # Productions 74-81: Explicit type arr_1D
+    "arr_1D_int": ["int"],  # Production 74
+    "arr_1D_long": ["long"],  # Production 75
+    "arr_1D_float": ["float"],  # Production 76
+    "arr_1D_double": ["double"],  # Production 77
+    "arr_1D_char": ["char"],  # Production 78
+    "arr_1D_string": ["string"],  # Production 79
+    "arr_1D_true": ["bool"],  # Production 80
+    "arr_1D_false": ["bool"],  # Production 81
     
-    # Arrays
-    "arr_1D": ["int", "long", "float", "double", "char", "string", "bool", "id"],
-    "arr_dtype": ["int", "long", "float", "double", "char", "string", "bool"],
-    "arr_dtype_empty": ["id"],
-    "arr_1D_tail": ["=", "["],
-    "arr_1D_tail_empty": [";"],
-    "arr_1D_init": ["="],
-    "arr_2D": ["["],
-    "arr_2D_init": ["="],
-    "arr_2D_init_empty": [";", "="],
-    "arr_2D_UD": ["="],
-    "arr_2D_UD_empty": [";"],
-    "elem_1D_list": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", "true", "false"],
-    "elem_1D_list_empty": ["}"],
-    "elem_1D_list_tail": [","],
-    "elem_1D_list_tail_empty": ["}"],
+    # Productions 82-97: arr_1D_tail variations
+    "int_arr_1D_tail": ["["],  # Production 82
+    "int_arr_1D_tail_empty": [";"],  # Production 83: λ
+    "long_arr_1D_tail": ["["],  # Production 84
+    "long_arr_1D_tail_empty": [";"],  # Production 85: λ
+    "float_arr_1D_tail": ["["],  # Production 86
+    "float_arr_1D_tail_empty": [";"],  # Production 87: λ
+    "double_arr_1D_tail": ["["],  # Production 88
+    "double_arr_1D_tail_empty": [";"],  # Production 89: λ
+    "char_arr_1D_tail": ["["],  # Production 90
+    "char_arr_1D_tail_empty": [";"],  # Production 91: λ
+    "string_arr_1D_tail": ["["],  # Production 92
+    "string_arr_1D_tail_empty": [";"],  # Production 93: λ
+    "true_arr_1D_tail": ["["],  # Production 94
+    "true_arr_1D_tail_empty": [";"],  # Production 95: λ
+    "false_arr_1D_tail": ["["],  # Production 96
+    "false_arr_1D_tail_empty": [";"],  # Production 97: λ
+    
+    # Production 98: arr_1D_init
+    "arr_1D_init": ["="],  # Production 98
+    
+    # Productions 99-107: elem_1D_list variations
+    "elem_1D_list_int": ["(", "intlit"],  # Production 99
+    "elem_1D_list_long": ["(", "longlit"],  # Production 100
+    "elem_1D_list_float": ["(", "floatlit"],  # Production 101
+    "elem_1D_list_double": ["(", "doublelit"],  # Production 102
+    "elem_1D_list_char": ["(", "charlit"],  # Production 103
+    "elem_1D_list_string": ["(", "stringlit"],  # Production 104
+    "elem_1D_list_true": ["(", "true"],  # Production 105
+    "elem_1D_list_false": ["(", "false"],  # Production 106
+    "elem_1D_list_empty": ["}"],  # Production 107: λ
+    
+    # Productions 108-109: arr_tpc_type (typecast)
+    "arr_tpc_type": ["("],  # Production 108
+    "arr_tpc_type_empty": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", "true", "false"],  # Production 109: λ
+    
+    # Productions 111-126: elem_1D_list_tail variations
+    "int_elem_1D_list_tail": [","],  # Production 111
+    "int_elem_1D_list_tail_empty": ["}"],  # Production 112: λ
+    "long_elem_1D_list_tail": [","],  # Production 113
+    "long_elem_1D_list_tail_empty": ["}"],  # Production 114: λ
+    "float_elem_1D_list_tail": [","],  # Production 115
+    "float_elem_1D_list_tail_empty": ["}"],  # Production 116: λ
+    "dbl_elem_1D_list_tail": [","],  # Production 117
+    "dbl_elem_1D_list_tail_empty": ["}"],  # Production 118: λ
+    "char_elem_1D_list_tail": [","],  # Production 119
+    "char_elem_1D_list_tail_empty": ["}"],  # Production 120: λ
+    "string_elem_1D_list_tail": [","],  # Production 121
+    "string_elem_1D_list_tail_empty": ["}"],  # Production 122: λ
+    "true_elem_1D_list_tail": [","],  # Production 123
+    "true_elem_1D_list_tail_empty": ["}"],  # Production 124: λ
+    "false_elem_1D_list_tail": [","],  # Production 125
+    "false_elem_1D_list_tail_empty": ["}"],  # Production 126: λ
+    
+    # Productions 127-128: Generic elem_1D_list_tail
+    "elem_1D_list_tail": [","],  # Production 127
+    "elem_1D_list_tail_empty": ["}"],  # Production 128: λ
+    
+    # Productions 129-144: arr_2D variations
+    "int_arr_2D": ["["],  # Production 129
+    "int_arr_2D_empty": [";"],  # Production 130: λ
+    "long_arr_2D": ["["],  # Production 131
+    "long_arr_2D_empty": [";"],  # Production 132: λ
+    "float_arr_2D": ["["],  # Production 133
+    "float_arr_2D_empty": [";"],  # Production 134: λ
+    "double_arr_2D": ["["],  # Production 135
+    "double_arr_2D_empty": [";"],  # Production 136: λ
+    "char_arr_2D": ["["],  # Production 137
+    "char_arr_2D_empty": [";"],  # Production 138: λ
+    "string_arr_2D": ["["],  # Production 139
+    "string_arr_2D_empty": [";"],  # Production 140: λ
+    "true_arr_2D": ["["],  # Production 141
+    "true_arr_2D_empty": [";"],  # Production 142: λ
+    "false_arr_2D": ["["],  # Production 143
+    "false_arr_2D_empty": [";"],  # Production 144: λ
+    
+    # Productions 145-146: arr_2D_init
+    "arr_2D_init": ["="],  # Production 145
+    "arr_2D_init_empty": [";"],  # Production 146: λ
+    
+    # Productions 147-180: arr_2D_UD and arrup_2D variations (abbreviated for space)
+    "int_arr_2D_UD": ["="],  # Production 147
+    "int_arr_2D_UD_empty": [";"],  # Production 148: λ
+    "int_arr_1D_UD_rec": ["id"],  # Production 149
+    "int_arr_1D_UD_empty": [";"],  # Production 150: λ
+    "long_arr_2D_UD": ["="],  # Production 151 (implied)
+    "long_arr_2D_UD_empty": [";"],
+    "float_arr_2D_UD": ["="],
+    "float_arr_2D_UD_empty": [";"],
+    "double_arr_2D_UD": ["="],
+    "double_arr_2D_UD_empty": [";"],
+    "char_arr_2D_UD": ["="],
+    "char_arr_2D_UD_empty": [";"],
+    "string_arr_2D_UD": ["="],
+    "string_arr_2D_UD_empty": [";"],
+    "true_arr_2D_UD": ["="],
+    "true_arr_2D_UD_empty": [";"],
+    "false_arr_2D_UD": ["="],
+    "false_arr_2D_UD_empty": [";"],
+    
+    # arrup_2D variations
+    "int_arrup_2D": ["["],
+    "int_arrup_2D_empty": [";"],
+    "long_arrup_2D": ["["],
+    "long_arrup_2D_empty": [";"],
+    "float_arrup_2D": ["["],
+    "float_arrup_2D_empty": [";"],
+    "double_arrup_2D": ["["],
+    "double_arrup_2D_empty": [";"],
+    "char_arrup_2D": ["["],
+    "char_arrup_2D_empty": [";"],
+    "string_arrup_2D": ["["],
+    "string_arrup_2D_empty": [";"],
+    "true_arrup_2D": ["["],
+    "true_arrup_2D_empty": [";"],
+    "false_arrup_2D": ["["],
+    "false_arrup_2D_empty": [";"],
+    
+    # elem_2D_list (for nested array initialization)
     "elem_2D_list": ["{"],
     "elem_2D_list_empty": ["}"],
     "elem_2D_list_tail": [","],
     "elem_2D_list_tail_empty": ["}"],
     
-    # Weaves (Structures)
-    "weave_def": ["weave"],
-    "field_list": ["int", "long", "float", "double", "char", "string", "bool", "id"],
-    "field_list_empty": ["}"],
-    "field_dec": ["int", "long", "float", "double", "char", "string", "bool", "id"],
-    "field_dec_cont": [","],
-    "field_dec_cont_empty": [";"],
-    "field_array_spec_opt": ["["],
-    "field_array_spec_opt_empty": [",", ";"],
-    "field_type": ["int", "long", "float", "double", "char", "string", "bool", "id"],
-    "weave_id": ["id"],
-    "size": ["intlit"],
+    # General array predict sets (used in parser logic)
+    "arr_1D": ["int", "long", "float", "double", "char", "string", "bool", "id"],
+    "arr_dtype": ["int", "long", "float", "double", "char", "string", "bool"],
+    "elem_1D_list": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", "true", "false", "("],
     
-    # Functions
-    "function": ["func"],
-    "function_empty": ["int"],  # main_func starts with int
-    "function_def": ["func"],
-    "ret_type": ["int", "long", "float", "double", "char", "string", "bool", "id", "void"],
-    "ret_struct": ["[", "."],
-    "ret_struct_empty": ["id"],
-    "ret_2D": ["["],
-    "ret_2D_empty": ["id"],
+    # Productions 199-210: Weaves (Structures)
+    "weave_def": ["weave"],  # Production 199
+    "field_list": ["int", "long", "float", "double", "char", "string", "bool", "id"],  # Production 200
+    "field_list_empty": ["}"],  # Production 201: λ
+    "field_dec": ["int", "long", "float", "double", "char", "string", "bool", "id"],  # Production 202
+    "field_dec_cont": [","],  # Production 203
+    "field_dec_cont_empty": [";"],  # Production 204: λ
+    "field_array_spec_opt": ["["],  # Production 205
+    "field_array_spec_opt_empty": [",", ";"],  # Production 206: λ
+    "field_type_dtype": ["int", "long", "float", "double", "char", "string", "bool"],  # Production 207
+    "field_type_weave": ["id"],  # Production 208
+    "field_type": ["int", "long", "float", "double", "char", "string", "bool", "id"],  # Combined 207-208
+    "weave_id": ["id"],  # Production 209
     
-    # Parameters
-    "param": ["int", "long", "float", "double", "char", "string", "bool", "id"],
-    "param_empty": [")"],
-    "param_type": ["int", "long", "float", "double", "char", "string", "bool", "id"],
-    "param_struct": ["["],
-    "param_struct_empty": [")", "id"],
-    "param_2D": ["["],
-    "param_2D_empty": [")", "id"],
-    "param_cont": [","],
-    "param_cont_empty": [")"],
+    # Productions 211-212: Functions
+    "function": ["func"],  # Production 211
+    "function_empty": ["int"],  # Production 212: λ (main_func starts with int)
+    "main_func": ["int"],  # Main function always starts with 'int main()'
     
-    # Function Body
-    "function_body": ["using", "(", "++", "-", "--", "bool", "true", "false", "char", "charlit", 
-                      "do", "double", "float", "for", "frac_lit", "id", "if", "int", "local", 
-                      "long", "return", "string", "stringlit", "switch", "thread", "threadln", 
-                      "trap", "while", "whole_lit"],
+    # Production 213: Function Definition
+    "function_def": ["func"],  # Production 213
     
-    # Import/Using Statements
-    "import_block": ["using"],
-    "import_block_empty": ["(", "++", "-", "--", "bool", "true", "false", "char", "charlit", 
-                          "do", "double", "float", "for", "frac_lit", "id", "if", "int", 
-                          "local", "long", "return", "string", "stringlit", "switch", "thread", 
-                          "threadln", "trap", "while", "whole_lit"],
-    "import_stmt": ["using"],
-    "import_cont": [","],
-    "import_cont_empty": [";"],
+    # Productions 214-216: Return Type
+    "ret_type_dtype": ["int", "long", "float", "double", "char", "string", "bool"],  # Production 214
+    "ret_type_weave": ["id"],  # Production 215
+    "ret_type_void": ["void"],  # Production 216
+    "ret_type": ["int", "long", "float", "double", "char", "string", "bool", "id", "void"],  # Combined 214-216
     
-    # Local Declarations
-    "local_block": ["local"],
-    "local_block_empty": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", 
-                         "charlit", "true", "false", "trap", "thread", "threadln", "if", 
-                         "switch", "for", "while", "do", "int", "long", "float", "double", 
-                         "char", "string", "bool", "}", "return", "break"],
-    "local_dec": ["local"],
+    # Productions 217-219: Return Structure (array specs)
+    "ret_struct": ["[", "."],  # Productions 217-218
+    "ret_struct_empty": ["id"],  # Production 219: λ
     
-    # Statements
-    "statement_list": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", 
-                      "charlit", "true", "false", "trap", "thread", "threadln", "if", 
-                      "switch", "for", "while", "do", "int", "long", "float", "double", 
-                      "char", "string", "bool", "break", "local"],
-    "statement_list_empty": ["break", "return", "}"],
-    "statement": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", 
-                 "charlit", "true", "false", "trap", "thread", "threadln", "if", 
-                 "switch", "for", "while", "do", "int", "long", "float", "double", 
-                 "char", "string", "bool"],
-    "statement_empty": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", 
-                       "charlit", "true", "false", "trap", "thread", "threadln", "if", 
-                       "switch", "for", "while", "do", "int", "long", "float", "double", 
-                       "char", "string", "bool", "break", "return", "}"],
+    # Productions 220-221: ret_2D
+    "ret_2D": ["["],  # Production 220
+    "ret_2D_empty": ["id"],  # Production 221: λ
     
-    # Expressions
-    "expression": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", "charlit", "true", "false"],
-    "logical_expr": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", "charlit", "true", "false"],
-    "logical_expr_cont": ["&&", "||"],
-    "logical_expr_cont_empty": [";", ")"],
-    "rel_expr": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", "charlit", "true", "false"],
-    "rel_expr_cont": ["==", "!=", ">", "<", ">=", "<="],
-    "rel_expr_cont_empty": ["&&", "||", ";", ")"],
-    "arith_expr": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", "charlit", "true", "false"],
-    "add_min_cont": ["+", "-"],
-    "add_min_cont_empty": ["=", "!=", ">", "<", "&&", "||", ";", ")"],
-    "term": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", "charlit", "true", "false"],
-    "mult_div_modulo_cont": ["*", "/", "%"],
-    "mult_div_modulo_cont_empty": ["+", "-", "=", "!=", ">", "<", "&&", "||", ";", ")"],
-    "factor": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", "charlit", "true", "false"],
-    "primary": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", "charlit", "true", "false"],
-    "cast_val": ["("],
-    "atom": ["whole_lit", "frac_lit", "id", "--", "++", "stringlit", "charlit", "true", "false"],
-    "up_down": ["++", "--"],
-    "up_down_empty": [";", "+", "-", "*", "/", "%", "=", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "++", "--", ".."],
-    "num_lit_type": ["whole_lit", "frac_lit"],
+    # Productions 222-231: Parameters
+    "param": ["int", "long", "float", "double", "char", "string", "bool", "id"],  # Production 222
+    "param_empty": [")"],  # Production 223: λ
+    "param_type_dtype": ["int", "long", "float", "double", "char", "string", "bool"],  # Production 224
+    "param_type_weave": ["id"],  # Production 225
+    "param_type": ["int", "long", "float", "double", "char", "string", "bool", "id"],  # Combined 224-225
+    "param_struct": ["["],  # Production 226
+    "param_struct_empty": [",", ")", "id"],  # Production 227: λ
+    "param_2D": ["["],  # Production 228
+    "param_2D_empty": [",", ")", "id"],  # Production 229: λ
+    "param_cont": [","],  # Production 230
+    "param_cont_empty": [")"],  # Production 231: λ
     
-    # I/O Statements
-    "I/O_stmt": ["trap", "thread", "threadln"],
-    "input_stmt": ["trap"],
-    "output_stmt": ["thread", "threadln"],
-    "iden": ["id"],
-    "iden_val": ["[", "."],
-    "iden_val_empty": [")"],
-    "isize": ["["],
-    "isize_empty": [")"],
-    "expression1": ["id", "intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", "true", "false", "("],
-    "expr1_cont": [","],
-    "expr1_cont_empty": [")"],
-    "string_expr": ["stringlit", "("],
-    "string_value": ["stringlit", "(", "intlit", "longlit", "floatlit", "doublelit", "charlit", "true", "false", "id"],
-    "typecast_expr": ["("],
-    "function_call": ["id"],
-    "arg": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", "true", "false", "id", "(", "-", "!", "++", "--"],
-    "arg_empty": [")"],
-    "multi_arg": [","],
-    "multi_arg_empty": [")"],
-    "iden1": ["id"],
-    "iden1_weave": ["[", "."],
-    "iden1_tail": ["["],
-    "iden1_tail_empty": [")"],
-    "iden1_cont": [","],
-    "iden1_cont_empty": [")"],
+    # Production 232: Function Body
+    "function_body": ["using", "local", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", 
+                      "--", "++", "stringlit", "charlit", "true", "false", "thread", "threadln", 
+                      "trap", "if", "switch", "for", "while", "do", "int", "long", "float", 
+                      "double", "char", "string", "bool", "return"],
     
-    # Assignment Statements
-    "assign_stmt": ["id"],
-    "array_spec_opt": ["["],
-    "array_spec_opt_empty": ["=", "+=", "-=", "*=", "/=", "%="],
-    "array_spec_2D": ["["],
-    "array_spec_2D_empty": ["=", "+=", "-=", "*=", "/=", "%="],
-    "assign_stmt_op": ["=", "+=", "-=", "*=", "/=", "%="],
+    # Productions 233-234: Import Block
+    "import_block": ["using"],  # Production 233
+    "import_block_empty": ["local", "!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", 
+                          "--", "++", "stringlit", "charlit", "true", "false", "thread", "threadln", 
+                          "trap", "if", "switch", "for", "while", "do", "int", "long", "float", 
+                          "double", "char", "string", "bool", "return"],  # Production 234: λ
     
-    # Control Structures
-    "ctrl_struct": ["if", "switch", "for", "while", "do"],
-    "conditional_stmt": ["if", "switch"],
-    "loop_stmt": ["for", "while", "do"],
+    # Production 235: Import Statement
+    "import_stmt": ["using"],  # Production 235
     
-    # If Statements
-    "if_stmt": ["if"],
-    "condition": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", "charlit", "true", "false"],
-    "ctrl_body": ["local", "-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", 
+    # Productions 236-237: Import Continuation
+    "import_cont": [","],  # Production 236
+    "import_cont_empty": [";"],  # Production 237: λ
+    
+    # Productions 238-241: Local Block
+    "local_block": ["local"],  # Productions 238-240 - all local declarations start with 'local'
+    "local_block_empty": ["!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", "--", "++", 
+                         "stringlit", "charlit", "true", "false", "thread", "threadln", "trap", 
+                         "if", "switch", "for", "while", "do", "int", "long", "float", "double", 
+                         "char", "string", "bool", "return", "}", "break"],  # Production 241: λ
+    
+    # Productions 242-249: Local Declaration Types
+    "local_dec": ["local"],  # Productions 242-249 (all start with local)
+    "int_local_dec": ["local"],  # Production 242
+    "long_local_dec": ["local"],  # Production 243
+    "float_local_dec": ["local"],  # Production 244
+    "double_local_dec": ["local"],  # Production 245
+    "char_local_dec": ["local"],  # Production 246
+    "string_local_dec": ["local"],  # Production 247
+    "true_local_dec": ["local"],  # Production 248
+    "false_local_dec": ["local"],  # Production 249
+    
+    # Productions 250-257: Specific Local Declarations
+    # Production 250: int_local_dec → local <mutability> int id = intlit <int_multi_dec>;
+    # Production 251: long_local_dec → local <mutability> long id = longlit <multi_dec>;
+    # Production 252: float_local_dec → local <mutability> float id = floatlit <multi_dec>;
+    # Production 253: double_local_dec → local <mutability> double id = doublelit <multi_dec>;
+    # Production 254: char_local_dec → local <mutability> char id = charlit <multi_dec>;
+    # Production 255: string_local_dec → local <mutability> string id = stringlit <multi_dec>;
+    # Production 256: true_local_dec → local <mutability> bool id = true <multi_dec>;
+    # Production 257: false_local_dec → local <mutability> bool id = false <multi_dec>;
+    
+    # Productions 258-265: Empty Local Declarations (λ - Follow sets)
+    "int_local_dec_empty": ["local", "!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", 
+                           "--", "++", "stringlit", "charlit", "true", "false", "thread", "threadln", 
+                           "trap", "if", "switch", "for", "while", "do", "int", "long", "float", 
+                           "double", "char", "string", "bool", "return"],  # Production 258: λ
+    "long_local_dec_empty": ["local", "!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", 
+                            "--", "++", "stringlit", "charlit", "true", "false", "thread", "threadln", 
+                            "trap", "if", "switch", "for", "while", "do", "int", "long", "float", 
+                            "double", "char", "string", "bool", "return"],  # Production 259: λ
+    "float_local_dec_empty": ["local", "!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", 
+                             "--", "++", "stringlit", "charlit", "true", "false", "thread", "threadln", 
+                             "trap", "if", "switch", "for", "while", "do", "int", "long", "float", 
+                             "double", "char", "string", "bool", "return"],  # Production 260: λ
+    "double_local_dec_empty": ["local", "-", "(", "intlit", "floatlit", "id", "--", "++", "stringlit", 
+                              "charlit", "true", "false", "thread", "threadln", "trap", "if", "switch", 
+                              "for", "while", "do", "int", "long", "float", "double", "char", "string", 
+                              "bool", "return"],  # Production 261: λ
+    "char_local_dec_empty": ["local", "-", "(", "intlit", "floatlit", "id", "--", "++", "stringlit", 
+                            "charlit", "true", "false", "thread", "threadln", "trap", "if", "switch", 
+                            "for", "while", "do", "int", "long", "float", "double", "char", "string", 
+                            "bool", "return"],  # Production 262: λ
+    "string_local_dec_empty": ["local", "-", "(", "intlit", "floatlit", "id", "--", "++", "stringlit", 
+                              "charlit", "true", "false", "thread", "threadln", "trap", "if", "switch", 
+                              "for", "while", "do", "int", "long", "float", "double", "char", "string", 
+                              "bool", "return"],  # Production 263: λ
+    "true_local_dec_empty": ["local", "-", "(", "intlit", "floatlit", "id", "--", "++", "stringlit", 
+                            "charlit", "true", "false", "thread", "threadln", "trap", "if", "switch", 
+                            "for", "while", "do", "int", "long", "float", "double", "char", "string", 
+                            "bool", "return"],  # Production 264: λ
+    "false_local_dec_empty": ["local", "-", "(", "intlit", "floatlit", "id", "--", "++", "stringlit", 
+                             "charlit", "true", "false", "thread", "threadln", "trap", "if", "switch", 
+                             "for", "while", "do", "int", "long", "float", "double", "char", "string", 
+                             "bool", "return"],  # Production 265: λ
+    
+    # Productions 266-267: Multi Declaration
+    "multi_dec": [","],  # Production 266
+    "multi_dec_empty": [";"],  # Production 267: λ
+    
+    # Production 268: Weave Local Declaration
+    "weave_local_dec": ["local"],  # Production 268
+    
+    # Productions 269-270: Statement List
+    "statement_list": ["local", "!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", "--", "++", 
+                      "stringlit", "charlit", "true", "false", "thread", "threadln", "trap", "if", 
+                      "switch", "for", "while", "do", "int", "long", "float", "double", "char", 
+                      "string", "bool", "return", "break"],  # Production 269
+    "statement_list_empty": ["return", "}"],  # Production 270: λ
+    
+    # Productions 271-276: Statement Types
+    "statement": ["!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", "--", "++", 
+                 "stringlit", "charlit", "true", "false", "thread", "threadln", "trap", "if", 
+                 "switch", "for", "while", "do", "int", "long", "float", "double", "char", 
+                 "string", "bool"],  # Combined productions 271-275
+    "statement_expression": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+                           "stringlit", "charlit", "true", "false"],  # Production 271
+    "statement_io": ["thread", "threadln", "trap"],  # Production 272
+    "statement_assign": ["id"],  # Production 273
+    "statement_ctrl": ["if", "switch", "for", "while", "do"],  # Production 274
+    "statement_arr": ["int", "long", "float", "double", "char", "string", "bool"],  # Production 275
+    "statement_empty": ["!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", "--", "++", 
+                       "stringlit", "charlit", "true", "false", "thread", "threadln", "trap", "if", 
+                       "switch", "for", "while", "do", "int", "long", "float", "double", "char", 
+                       "string", "bool", "return", "}"],  # Production 276: λ
+    
+    # Production 277: Expression
+    "expression": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+                  "stringlit", "charlit", "true", "false"],  # Production 277
+    
+    # Additional expression-related PREDICT sets
+    "condition": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+                 "stringlit", "charlit", "true", "false"],  # Same as expression - for if/while/for conditions
+    "expression1": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+                   "stringlit", "charlit", "true", "false"],  # Same as expression - for thread/threadln
+    "factor": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+              "stringlit", "charlit", "true", "false"],  # Same as expression - for multiplication/division terms
+    "primary": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+               "stringlit", "charlit", "true", "false"],  # Same as expression - for primary expressions
+    
+    # Production 278: Logical Expression
+    "logical_expr": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+                    "stringlit", "charlit", "true", "false"],  # Production 278
+    
+    # Productions 279-281: Logical Expression Continuation
+    "logical_expr_cont": ["&&", "||"],  # Productions 279-280
+    "logical_expr_cont_empty": [";"],  # Production 281: λ
+    
+    # Production 282: Relational Expression
+    "rel_expr": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+                "stringlit", "charlit", "true", "false"],  # Production 282
+    
+    # Productions 283-289: Relational Expression Continuation
+    "rel_expr_cont": ["==", "!=", ">", "<", ">=", "<="],  # Productions 283-288
+    "rel_expr_cont_empty": [";"],  # Production 289: λ
+    
+    # Production 290: Arithmetic Expression
+    "arith_expr": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+                  "stringlit", "charlit", "true", "false"],  # Production 290
+    
+    # Productions 291-293: Add/Minus Continuation
+    "add_min_cont": ["+", "-"],  # Productions 291-292
+    "add_min_cont_empty": ["==", "!=", ">", "<", ">=", "<=", "&&", "||", ";", ")"],  # Production 293: λ
+    
+    # Production 294: Term
+    "term": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+            "stringlit", "charlit", "true", "false"],  # Production 294
+    
+    # Productions 295-298: Mult/Div/Modulo Continuation
+    "mult_div_modulo_cont": ["*", "/", "%"],  # Productions 295-297
+    "mult_div_modulo_cont_empty": ["+", "-", "==", "!=", ">", "<", ">=", "<=", "&&", "||", ";", ")"],  # Production 298: λ
+    
+    # Production 299: Factor
+    "factor": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+              "stringlit", "charlit", "true", "false"],  # Production 299
+    
+    # Productions 300-304: Primary
+    "primary": ["!", "-", "(", "id", "++", "--", "intlit", "floatlit", "longlit", "doublelit", 
+               "stringlit", "charlit", "true", "false"],  # Productions 300-304
+    "primary_not": ["!"],  # Production 300
+    "primary_neg": ["-"],  # Production 301
+    "primary_cast": ["("],  # Production 302
+    "primary_atom": ["intlit", "floatlit", "--", "++", "id", "stringlit", "charlit", "true", "false"],  # Production 303
+    "primary_paren": ["intlit", "longlit", "floatlit", "doublelit", "--", "++", "id", "stringlit", 
+                     "charlit", "true", "false"],  # Production 304
+    
+    # Production 305: Cast Value
+    "cast_val": ["("],  # Production 305: cast_val → ( <dtype> ) <factor>
+    
+    # Productions 306-313: Atoms
+    "atom": ["id", "--", "++", "intlit", "longlit", "floatlit", "doublelit", "stringlit", "charlit", "true", "false"],  # Production 306-313
+    "id_atom": ["id"],  # Production 314: id_atom → <iden>
+    "incdec_atom": ["--", "++"],  # Production 315: incdec_atom → <pre_incdec> | <post_incdec>
+    "pre_incdec": ["--", "++"],  # Production 316-317: pre_incdec → ++ id | -- id
+    "post_incdec": ["id"],  # Production 318-319: post_incdec → id ++ | id --
+    "num_lit_type": ["intlit", "longlit", "floatlit", "doublelit"],  # Production 320-324
+    
+    # Productions 325-327: I/O Statements
+    "I/O_stmt": ["trap", "thread", "threadln"],  # Production 325-327: I/O_stmt → <input_stmt> | <output_stmt>
+    "input_stmt": ["trap"],  # Production 328: input_stmt → trap ( <iden> )
+    "output_stmt": ["thread", "threadln"],  # Production 334-335: output_stmt → thread(...) | threadln(...)
+    
+    # Productions 329-333: Identifier
+    "iden": ["id"],  # Production 329: iden → id<iden_val>
+    "iden_val": ["[", ")"],  # Production 330-333: iden_val → <isize> | λ
+    "iden_val_empty": [")"],  # Production 333: iden_val → λ
+    "isize": ["["],  # Production 331-332: isize → [ <size> ]
+    "isize_empty": [")"],  # Production 333: iden_val → λ (when no isize)
+    
+    # Productions 336-343: Expression1
+    "expression1": ["intlit", "longlit", "floatlit", "doublelit", "id", "--", "++", "stringlit", "charlit", "true", "false", "("],  # Production 336-342: expression1 → <expression><expr1_cont>
+    "expr1_cont": [","],  # Production 343: expr1_cont → , <expression1>
+    "expr1_cont_empty": [")"],  # Production 343: expr1_cont → λ
+    
+    # Productions 344-350: String Expressions and Values
+    "string_expr": ["stringlit", "(", "id", "intlit", "longlit", "floatlit", "doublelit", "charlit", "true", "false"],  # Production 344: string_expr → <string_value>..<string_value>
+    "string_value": ["stringlit", "(", "id", "intlit", "longlit", "floatlit", "doublelit", "charlit", "true", "false"],  # Production 345-350
+    "typecast_expr": ["("],  # Production 347: typecast_expr → ( <dtype> ) <value>
+    
+    # Productions 351-356: Function Calls
+    "function_call": ["id"],  # Production 351: function_call → id ( <arg> ) <multi_arg>
+    "arg": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", "true", "false", "id"],  # Production 352-353: arg → <value> | id
+    "arg_empty": [",", ")"],  # Production 354: arg → λ
+    "multi_arg": [","],  # Production 355: multi_arg → , <arg> <multi_arg>
+    "multi_arg_empty": [")"],  # Production 356: multi_arg → λ
+    
+    # Productions 357-364: Identifier (iden1)
+    "iden1": ["id"],  # Production 357: iden1 → id<iden1_weave>
+    "iden1_weave": ["[", "."],  # Production 358-359: iden1_weave → [<size>]<iden1_tail> | .id<iden1_cont>
+    "iden1_tail": ["["],  # Production 360: iden1_tail → [<size>]
+    "iden1_tail_empty": [")"],  # Production 361: iden1_tail → λ
+    "iden1_cont": [","],  # Production 362: iden1_cont → , id . id <iden1_cont>
+    "iden1_cont_empty": [")"],  # Production 363: iden1_cont → λ
+    
+    # Productions 364-375: Assignment Statements
+    "assign_stmt": ["id"],  # Production 364-365: assign_stmt → <iden1><assign_stmt_op> | id<array_spec_opt><assign_stmt_op>
+    "array_spec_opt": ["["],  # Production 366: array_spec_opt → [<size>]<array_spec_2D>
+    "array_spec_opt_empty": ["=", "+=", "-=", "*=", "/=", "%="],  # Production 367: array_spec_opt → λ
+    "array_spec_2D": ["["],  # Production 368: array_spec_2D → [<size>]
+    "array_spec_2D_empty": ["=", "+=", "-=", "*=", "/=", "%="],  # Production 369: array_spec_2D → λ
+    "assign_stmt_op": ["=", "+=", "-=", "*=", "/=", "%="],  # Production 370-375
+    
+    # Productions 376-379: Control Structures
+    "ctrl_struct": ["if", "switch", "for", "while", "do"],  # Production 376-377: ctrl_struct → <conditional_stmt> | <loop_stmt>
+    "conditional_stmt": ["if", "switch"],  # Production 378-379: conditional_stmt → <if_stmt> | <switch_stmt>
+    "loop_stmt": ["for", "while", "do"],  # Production 377: loop_stmt
+    
+    # Productions 380-388: If Statements
+    "if_stmt": ["if"],  # Production 380: if_stmt → if(<condition>){<ctrl_body><ret_ctrl_body>}<else_if_ei_stmt>
+    "condition": ["-", "(", "intlit", "floatlit", "id", "--", "++", "stringlit", "charlit", "true", "false"],  # Production 381: condition → <logical_expr>
+    "ctrl_body": ["local", "-", "(", "intlit", "floatlit", "id", "--", "++", "stringlit", 
                  "charlit", "true", "false", "trap", "thread", "threadln", "if", "switch", 
-                 "for", "while", "do", "int", "long", "float", "double", "char", "string", "bool"],
-    "ret_ctrl_body": ["return"],
-    "ret_ctrl_body_empty": ["}", "break"],
-    "else_if_ei_stmt": ["else"],
-    "else_if_ei_stmt_empty": ["-", "(", "whole_lit", "frac_lit", "id", "--", "++", "stringlit", 
+                 "for", "while", "do", "int", "long", "float", "double", "char", "string", "bool", "return", "}", "break"],  # Production 382: ctrl_body
+    "ret_ctrl_body": ["return"],  # Production 383: ret_ctrl_body → <ret_stmt>
+    "ret_ctrl_body_empty": ["}", "break"],  # Production 384: ret_ctrl_body → λ
+    "else_if_ei_stmt": ["else"],  # Production 385: else_if_ei_stmt → else <else_stmt>
+    "else_if_ei_stmt_empty": ["-", "(", "intlit", "floatlit", "id", "--", "++", "stringlit", 
                               "charlit", "true", "false", "trap", "thread", "threadln", "if", 
                               "switch", "for", "while", "do", "int", "long", "float", "double", 
-                              "char", "string", "bool", "return", "}", "break"],
-    "else_stmt": ["if", "{"],
+                              "char", "string", "bool", "return"],  # Production 386: else_if_ei_stmt → λ
+    "else_stmt": ["if", "return", "local", "{", "-", "(", "intlit", "floatlit", "id", "--", "++", "stringlit", 
+                 "charlit", "true", "false", "trap", "thread", "threadln", "switch", 
+                 "for", "while", "do", "int", "long", "float", "double", "char", "string", "bool"],  # Production 387-388
     
-    # Switch Statements
-    "switch_stmt": ["switch"],
-    "switch_val": ["id", "intlit", "stringlit", "-", "(", "whole_lit", "frac_lit", "--", "++", "charlit", "true", "false"],
-    "case_stmt": ["case"],
-    "case_stmt_cont": ["case"],
-    "case_stmt_cont_empty": ["default", "}", "case"],
-    "case_val": ["intlit", "longlit", "charlit", "true", "false"],
-    "unique_val": ["intlit", "longlit", "charlit", "true", "false"],
-    "default_stmt": ["default"],
-    "default_stmt_empty": ["}"],
+    # Productions 389-394: Switch Statements
+    "switch_stmt": ["switch"],  # Production 389: switch_stmt → switch(<switch_val>) { <case_stmt> <default_stmt>}
+    "switch_val": ["id", "intlit", "stringlit", "!", "-", "(", "++", "--", "longlit", "floatlit", "doublelit", "charlit", "true", "false"],  # Production 390-393
+    "case_stmt": ["case"],  # Production 394: case_stmt → case<case_val>: <ctrl_body> break; <case_stmt_cont>
+    "case_stmt_cont": ["case"],  # Production 395: case_stmt_cont → <case_stmt><case_stmt_cont>
+    "case_stmt_cont_empty": ["default", "}"],  # Production 396: case_stmt_cont → λ
+    "case_val": ["intlit", "longlit", "charlit", "true", "false"],  # Production 397: case_val → <unique_val>
+    "unique_val": ["intlit", "longlit", "charlit", "true", "false"],  # Production 398-402
+    "default_stmt": ["default"],  # Production 403: default_stmt → default : <ctrl_body>
+    "default_stmt_empty": ["}"],  # Production 404: default_stmt → λ
     
-    # Loop Statements
-    "for_stmt": ["for"],
-    "initializer": ["local", "id"],
-    "initializer_empty": [";"],
-    "update": ["++", "--", "id"],
-    "update_empty": [")"],
-    "up_post": ["++", "--"],
-    "while_stmt": ["while"],
-    "do_stmt": ["do"],
+    # Productions 405-419: Loop Statements
+    "loop_stmt": ["for", "while", "do"],  # Production 405-407: loop_stmt → <for_stmt> | <while_stmt> | <do_stmt>
+    "for_stmt": ["for"],  # Production 408: for_stmt → for(<initializer>;<condition>;<update>){<ctrl_body>}
+    "initializer": ["local", "id"],  # Production 409-410: initializer → local var <dtype> id = <value> <multi_dec> | <assign_stmt>
+    "initializer_empty": [";"],  # Production 411: initializer → λ
+    "update": ["++", "--", "id"],  # Production 412-414: update → ++id | --id | id<up_post>
+    "update_empty": [")"],  # Production 415: update → λ
+    "up_post": ["++", "--"],  # Production 416-417: up_post → ++ | --
+    "while_stmt": ["while"],  # Production 418: while_stmt → while (<condition>){<ctrl_body>}
+    "do_stmt": ["do"],  # Production 419: do_stmt → do{<ctrl_body>} while(<condition>);
     
-    # Return Statements
-    "ret_stmt": ["return"],
+    # Productions 420-424: Return Statements
+    "ret_stmt": ["return"],  # Production 420: ret_stmt → return<ret_value>;
     "ret_value": ["intlit", "longlit", "floatlit", "doublelit", "charlit", "stringlit", 
-                 "true", "false", "id", "identifier", "-", "(", "whole_lit", "frac_lit", "--", "++"],
-    "ret_value_empty": [";"],
+                 "true", "false", "id", "-", "(", "--", "++"],  # Production 421-423: ret_value → <value> | id | <logical_expr>
+    "ret_value_empty": [";"],  # Production 424: ret_value → λ
     
-    # Main Function
-    "main_func": ["int"],
-    "main_body": ["using", "local", "-", "(", "whole_lit", "frac_lit", "id", "--", "++", 
+    # Productions 425-426: Main Function
+    "main_func": ["int"],  # Production 425: main_func → int main(){<main_body>}
+    "main_body": ["using", "local", "-", "(", "intlit", "floatlit", "id", "--", "++", 
                  "stringlit", "charlit", "true", "false", "trap", "thread", "threadln", "if", 
                  "switch", "for", "while", "do", "int", "long", "float", "double", "char", 
-                 "string", "bool", "return"],
+                 "string", "bool", "return"],  # Production 426: main_body
 }
 
 
@@ -786,14 +1098,12 @@ class Parser:
     # -------------------- Error Handling --------------------
     
     def add_error(self, message: str, token: Optional[Dict[str, Any]] = None, expected: Optional[Union[str, List[str]]] = None):
-        # Add a syntax error to the error list and stop parsing
-
+        # Add a syntax error to the error list
         # Args:
-
-        # message: Primary error message
-
-        # token: Token where error occurred            expected: Expected token(s) - single string or list for PREDICT sets
-        # Build error message in format: Unexpected: '<token>', Expected: '<expected>'
+        #   message: Primary error message
+        #   token: Token where error occurred
+        #   expected: Expected token(s) - single string or list for PREDICT sets
+        # Build error message in format: Unexpected: '<token>' Expected: '<expected>'
         if token and expected:
             token_str = token.get('lexeme', token.get('type', 'unknown'))
             
@@ -811,11 +1121,11 @@ class Parser:
                 # Single terminal
                 expected_str = f"'{expected}'"
             
-            full_message = f"Unexpected: '{token_str}', Expected: {expected_str}"
+            full_message = f"Unexpected: '{token_str}' Expected: {expected_str}"
         elif token:
             # Token but no expected - use original message
             token_str = token.get('lexeme', token.get('type', 'unknown'))
-            full_message = f"{message}: '{token_str}'"
+            full_message = f"Unexpected: '{token_str}'"
         elif expected:
             # Expected but no token (end of input)
             if isinstance(expected, list):
@@ -877,49 +1187,14 @@ class Parser:
         normalized = []
         
         # Token type mapping from lexer to parser
-        # Only map types that need conversion; preserve others as-is
+        # Lexer now outputs symbols directly (e.g., ';', '{', '+', etc.)
+        # No mapping needed - lexer tokens are used as-is
         type_map = {
             # Lexer-specific types to parser types
             "identifier": "id",
             "main": "keyword",
             "spell": "keyword",
-            # Literal mappings
-            "int_lit": "intlit",
-            "long_lit": "longlit",
-            "float_lit": "floatlit",
-            "double_lit": "doublelit",
-            "char_lit": "charlit",
-            "string_lit": "stringlit",
-            # Lexer delimiter types to symbols
-            "semicolon": "symbol",
-            "open_paren": "symbol",
-            "close_paren": "symbol",
-            "open_brace": "symbol",
-            "close_brace": "symbol",
-            "open_bracket": "symbol",
-            "close_bracket": "symbol",
-            "comma": "symbol",
-            "dot": "symbol",
-            "colon": "symbol",
-            # Operators to symbols
-            "plus": "symbol",
-            "minus": "symbol",
-            "multiply": "symbol",
-            "divide": "symbol",
-            "modulo": "symbol",
-            "assign": "symbol",
-            "equal": "symbol",
-            "not_equal": "symbol",
-            "less_than": "symbol",
-            "greater_than": "symbol",
-            "less_equal": "symbol",
-            "greater_equal": "symbol",
-            "logical_and": "symbol",
-            "logical_or": "symbol",
-            "logical_not": "symbol",
-            "increment": "symbol",
-            "decrement": "symbol",
-            "concat": "symbol",
+            # All other tokens use their actual symbols/names from lexer
         }
         
         for token in tokens:
@@ -1083,7 +1358,6 @@ class Parser:
     
     def parse_program(self) -> Optional[ProgramNode]:
         # <program> → <global_dec> <function> <main_func>
-
         # Production 1
         global_declarations = []
         functions = []
@@ -1206,8 +1480,7 @@ class Parser:
     
     def parse_main_func(self) -> Optional[MainFunctionNode]:
         # <main_func> → int main(){<main_body>}
-
-        # Production 433
+        # Production 425
         token = self.expect("int")
         if not token:
             return None
@@ -1234,8 +1507,7 @@ class Parser:
     
     def parse_main_body(self) -> FunctionBodyNode:
         # <main_body> → <import_block> <local_block> <statement_list> return intlit;
-
-        # Production 434
+        # Production 426
         # Parse imports
         imports = []
         while self.match_predict_set("import_block"):
@@ -1276,7 +1548,7 @@ class Parser:
                 break
         
         # Parse return statement (required in main)
-        # Production 434: main must return intlit only
+        # Main must return intlit (Production 426)
         if not self.expect("return"):
             self.add_error("Expected return statement", self.current_token(), ["return"])
         
@@ -1305,13 +1577,9 @@ class Parser:
     # -------------------- Global Declarations --------------------
     
     def parse_global_dec(self) -> Optional[Union[ASTNode, List[ASTNode]]]:
-        # <global_dec> → global⟨mutability⟩⟨dtype⟩id=⟨value⟩⟨multi_dec⟩;
-
-        # <global_dec> → ⟨arr_1D⟩;⟨global_dec⟩
-
-        # <global_dec> → ⟨weave_def⟩⟨global_dec⟩
-
-        # Productions 2-12
+        # <global_dec> → <int_global_dec> | <long_global_dec> | ... | <arr_1D> | <weave_def>
+        # Productions 2-11: Global declarations (variables, arrays, weaves)
+        # Production 18: global_dec → λ (handled in parse_program loop)
         token = self.current_token()
         
         if self.match("global"):
@@ -1352,6 +1620,7 @@ class Parser:
     def parse_variable_declaration(self, scope: str) -> Optional[Union[VariableDeclarationNode, List[VariableDeclarationNode]]]:
         # Parse variable declaration with possible multiple declarations
         # global/local ⟨mutability⟩ ⟨dtype⟩ id = ⟨value⟩ ⟨multi_dec⟩;
+        # Productions 2-17 (global), 242-249 (local), 33-34 (mutability), 51-57 (dtype), 35-50 (multi_dec)
         
         # Parse mutability
         mutability_token = self.current_token()
@@ -1509,19 +1778,102 @@ class Parser:
         return declarations if len(declarations) > 1 else declarations[0]
     
     def parse_local_dec(self) -> Optional[Union[ASTNode, List[ASTNode]]]:
-        # <local_dec> → local⟨mutability⟩⟨dtype⟩id=⟨value⟩⟨multi_dec⟩;
-        # <local_dec> → local <arr_1D>;
-
-        # Production 254-269
+        # <local_dec> → <int_local_dec> | <long_local_dec> | ... | <weave_local_dec>
+        # Productions 242-249: Local declarations (int, long, float, double, char, string, bool)
+        # Production 268: weave_local_dec → local <weave_id> id={<value>}<elem_1D_list_tail>;
+        # Also handles local array declarations
         if not self.match("local"):
             return None
         
         self.advance()  # consume 'local'
         
-        # Check if this is an array declaration
+        # Check if this is a weave declaration without mutability (Production 268)
+        # Format: local WeaveType varName = {...};
+        if self.match("id"):
+            # Could be: local WeaveType id = {...} OR local var/const type id = value
+            # Look ahead to determine which
+            checkpoint = self.current
+            type_or_mut = self.advance()  # consume id (could be weave type or next token after var/const)
+            
+            # Check if next token is 'id' (variable name)
+            if self.match("id"):
+                # Pattern: local <identifier> <identifier>
+                # This is weave declaration: local WeaveType varName
+                weave_type = type_or_mut.get("lexeme")
+                id_token = self.advance()
+                identifier = id_token.get("lexeme")
+                line = id_token.get("line", 0)
+                col = id_token.get("column", 0)
+                
+                # Expect '=' for initialization
+                if not self.expect("="):
+                    return None
+                
+                # Parse brace-enclosed initialization
+                if not self.expect("{"):
+                    return None
+                
+                elements = []
+                # Parse elements (could be values or nested arrays)
+                if self.match_predict_set("elem_1D_list") or self.match("{"):
+                    # Check if first element is a nested array
+                    if self.match("{"):
+                        # Nested array - parse it as an array literal
+                        self.advance()  # consume '{'
+                        nested = []
+                        if self.match_predict_set("elem_1D_list"):
+                            nested.append(self.parse_expression())
+                            while self.match(","):
+                                self.advance()
+                                if self.match_predict_set("elem_1D_list"):
+                                    nested.append(self.parse_expression())
+                        self.expect("}")
+                        elements.append(ArrayLiteralNode(elements=nested, line=line, column=col))
+                    else:
+                        # Regular value
+                        elements.append(self.parse_expression())
+                    
+                    # Parse remaining elements
+                    while self.match(","):
+                        self.advance()
+                        if self.match("{"):
+                            # Another nested array
+                            self.advance()  # consume '{'
+                            nested = []
+                            if self.match_predict_set("elem_1D_list"):
+                                nested.append(self.parse_expression())
+                                while self.match(","):
+                                    self.advance()
+                                    if self.match_predict_set("elem_1D_list"):
+                                        nested.append(self.parse_expression())
+                            self.expect("}")
+                            elements.append(ArrayLiteralNode(elements=nested, line=line, column=col))
+                        elif self.match_predict_set("elem_1D_list"):
+                            # Regular value
+                            elements.append(self.parse_expression())
+                
+                if not self.expect("}"):
+                    return None
+                if not self.expect(";"):
+                    return None
+                
+                # Create weave instance node
+                return VariableDeclarationNode(
+                    scope="local",
+                    mutability="var",  # Default for weave instances
+                    data_type=weave_type,
+                    identifier=identifier,
+                    initial_value=ArrayLiteralNode(elements=elements, line=line, column=col),
+                    line=line,
+                    column=col
+                )
+            else:
+                # Not weave declaration, reset and parse normally
+                self.current = checkpoint
+        
+        # Check if this is an array declaration with mutability
         # Arrays: local var/const type id[size]
         # Variables: local var/const type id = value
-        # Look ahead to distinguish
         if self.match_predict_set("mutability"):
             # Save position to look ahead
             checkpoint = self.current
@@ -1557,8 +1909,7 @@ class Parser:
     
     def parse_weave_def(self) -> Optional[WeaveDefinitionNode]:
         # <weave_def> → weave id{<field_list>};
-
-        # Production 198
+        # Production 199
         token = self.expect("weave")
         if not token:
             return None
@@ -1607,8 +1958,7 @@ class Parser:
     
     def parse_field_dec(self) -> Optional[Union[WeaveFieldNode, List[WeaveFieldNode]]]:
         # <field_dec> → <field_type>id <field_array_spec_opt><field_dec_cont>;
-
-        # Production 201
+        # Productions 200-206: field_list, field_dec, field_dec_cont, field_array_spec_opt, field_type
         # Parse field type
         type_token = self.current_token()
         if self.match_predict_set("dtype"):
@@ -1629,7 +1979,7 @@ class Parser:
         line = id_token.get("line", 0)
         col = id_token.get("column", 0)
         
-        # Parse optional array specification - Production 204
+        # Parse optional array specification
         is_array = False
         array_size = None
         if self.match("["):
@@ -1649,7 +1999,7 @@ class Parser:
             column=col
         )]
         
-        # Parse additional fields (comma-separated) - Production 202
+        # Parse additional fields (comma-separated)
         while self.match(","):
             self.advance()
             id_token = self.expect("id")
@@ -1683,11 +2033,10 @@ class Parser:
         return fields if len(fields) > 1 else fields[0]
     
     def parse_arr_1D(self, scope: str) -> Optional[ArrayDeclarationNode]:
-        # <arr_1D> → <scope> <mutability> <arr_dtype>id[<size>]<arr_1D_tail>
-        # For global: type id[size] (no mutability keyword)
+        # Array declarations (1D and 2D)
+        # Productions 66-180: arr_1D variations, initialization, element lists, 2D arrays
+        # For global: type id[size] (no mutability keyword per refactored CFG)
         # For local: var/const type id[size] (mutability required)
-
-        # Productions 66-79
         token = self.current_token()
         if not token:
             return None
@@ -1777,8 +2126,7 @@ class Parser:
     
     def parse_elem_list(self, is_2d: bool) -> List[ASTNode]:
         # Parse array initialization list
-
-        # Productions 80-197
+        # Productions 99-180: elem_1D_list variations for different types, 2D arrays
         elements = []
         
         if is_2d:
@@ -1824,8 +2172,7 @@ class Parser:
     
     def parse_function_def(self) -> Optional[FunctionDefinitionNode]:
         # <function_def> → func<ret_type>id(<param>){<function_body>}
-
-        # Production 212
+        # Productions 211 (function), 213 (function_def)
         token = self.expect("func")
         if not token:
             return None
@@ -1867,10 +2214,10 @@ class Parser:
         # After parameters, expect closing paren only
         if not self.match(")"):
             # If we don't see ), provide error with valid continuations
-            # At this point, only ) is valid (if there was a comma, we'd still be in the loop)
+            # Valid: [ (array), , (more params), ) (end) - per CFG param_struct and param_cont
             curr_token = self.current_token()
             if curr_token:
-                self.add_error("Unexpected token in parameter list", curr_token, [",", ")"])
+                self.add_error("Unexpected token in parameter list", curr_token, ["[", ",", ")"])
             return None
         self.advance()  # consume )
         
@@ -1894,8 +2241,7 @@ class Parser:
     
     def parse_ret_type(self) -> Optional[str]:
         # <ret_type> → <dtype> | id<ret_struct> | void
-
-        # Productions 213-215
+        # Productions 214-216: ret_type_dtype, ret_type_weave, ret_type_void
         token = self.current_token()
         
         if self.match("void"):  # Production 215
@@ -1916,8 +2262,7 @@ class Parser:
     
     def parse_param(self) -> Optional[ParameterNode]:
         # <param> → <param_type>id<param_struct><param_cont>
-
-        # Production 221
+        # Productions 222-229: param, param_type, param_struct, param_2D, param_cont
         # Parse parameter type
         param_type_token = self.current_token()
         if self.match_predict_set("dtype"):
@@ -1964,24 +2309,35 @@ class Parser:
     
     def parse_function_body(self) -> FunctionBodyNode:
         # <function_body> → <import_block> <local_block> <statement_list> <ret_stmt>
-
-        # Production 231
+        # Production 232
         # Parse imports
         imports = []
         while self.match_predict_set("import_block"):
+            pos_before = self.current
             import_stmt = self.parse_import_stmt()
             if import_stmt:
                 imports.append(import_stmt)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token", self.current_token(), 
+                             PREDICT_SETS.get("import_block", []))
+                break
         
         # Parse local declarations
         local_declarations = []
         while self.match_predict_set("local_block"):
+            pos_before = self.current
             local_decl = self.parse_local_dec()
             if local_decl:
                 if isinstance(local_decl, list):
                     local_declarations.extend(local_decl)
                 else:
                     local_declarations.append(local_decl)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token", self.current_token(), 
+                             PREDICT_SETS.get("local_block", []))
+                break
         
         # Parse statements
         statements = []
@@ -1992,7 +2348,8 @@ class Parser:
                 statements.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token", self.current_token())
+                self.add_error("Unexpected token", self.current_token(), 
+                             PREDICT_SETS.get("statement_list", []))
                 break
         
         # Parse optional return statement
@@ -2009,8 +2366,7 @@ class Parser:
     
     def parse_import_stmt(self) -> Optional[UsingStatementNode]:
         # <import_stmt> → using id<import_cont>;
-
-        # Production 234
+        # Productions 233 (import_block), 235 (import_stmt), 236-237 (import_cont)
         token = self.expect("using")
         if not token:
             return None
@@ -2023,7 +2379,7 @@ class Parser:
         if id_token:
             modules.append(id_token.get("lexeme"))
         
-        # Parse additional modules - Production 235
+        # Parse additional modules (comma-separated)
         while self.match(","):
             self.advance()
             id_token = self.expect("id")
@@ -2069,14 +2425,12 @@ class Parser:
     
     def parse_expression(self) -> Optional[ASTNode]:
         # <expression> → <logical_expr>
-
-        # Production 287
+        # Production 277
         return self.parse_logical_expr()
     
     def parse_logical_expr(self) -> Optional[ASTNode]:
         # <logical_expr> → <rel_expr> <logical_expr_cont>
-
-        # Productions 288-290
+        # Productions 278-281: logical_expr, logical_expr_cont (&&, ||)
         left = self.parse_rel_expr()
         if not left:
             return None
@@ -2103,8 +2457,7 @@ class Parser:
     
     def parse_rel_expr(self) -> Optional[ASTNode]:
         # <rel_expr> → <arith_expr><rel_expr_cont>
-
-        # Productions 292-298
+        # Productions 282-289: rel_expr, rel_expr_cont (==, !=, >, <, >=, <=)
         left = self.parse_arith_expr()
         if not left:
             return None
@@ -2132,8 +2485,7 @@ class Parser:
     
     def parse_arith_expr(self) -> Optional[ASTNode]:
         # <arith_expr> → <term> <add_min_cont>
-
-        # Productions 300-302
+        # Productions 290-293: arith_expr, add_min_cont (+, -)
         left = self.parse_term()
         if not left:
             return None
@@ -2177,8 +2529,7 @@ class Parser:
     
     def parse_term(self) -> Optional[ASTNode]:
         # <term> → <factor> <mult_div_modulo_cont>
-
-        # Productions 304-307
+        # Productions 294-298: term, mult_div_modulo_cont (*, /, %)
         left = self.parse_factor()
         if not left:
             return None
@@ -2207,14 +2558,12 @@ class Parser:
     
     def parse_factor(self) -> Optional[ASTNode]:
         # <factor> → <primary>
-
-        # Production 309
+        # Production 299
         return self.parse_primary()
     
     def parse_primary(self) -> Optional[ASTNode]:
-        # <primary> → −<primary> | !<primary> | <cast_val> | <atom> | ( <arith_expr> )
-
-        # Productions 310-314
+        # <primary> → !<primary> | -<primary> | <cast_val> | <atom> | ( <expression> )
+        # Productions 300-305: primary_not, primary_neg, primary_cast, primary_atom, primary_paren
         token = self.current_token()
         
         # Unary minus - Production 311
@@ -2278,11 +2627,8 @@ class Parser:
         return self.parse_atom()
     
     def parse_atom(self) -> Optional[ASTNode]:
-        # <atom> → <num_lit_type> | <function_call> | −−id | ++id | id<up_down> |
-
-        # stringlit | charlit | true | false
-
-        # Productions 316-334
+        # <atom> → <id_atom> | <incdec_atom> | <num_lit_type> | <function_call> | stringlit | charlit | true | false
+        # Productions 306-324: atom variations, id_atom, incdec_atom, pre_incdec, post_incdec, num_lit_type
         token = self.current_token()
         if not token:
             return None
@@ -2333,6 +2679,8 @@ class Parser:
         if token_type == "id":
             return self.parse_identifier_expression()
         
+        # No valid atom found - report error with all tokens that can start an expression
+        self.add_error("Expected expression", token, PREDICT_SETS.get("expression", []))
         return None
     
     def parse_identifier_expression(self) -> Optional[ASTNode]:
@@ -2415,9 +2763,8 @@ class Parser:
     # -------------------- Statements --------------------
     
     def parse_statement(self) -> Optional[ASTNode]:
-        # <statement> → <expression>; | <I/O_stmt> | <assign_stmt>; | <ctrl_struct> | <arr_1D>; | <local_dec>
-
-        # Productions 89-94, 243-248
+        # <statement> → <expression>; | <I/O_stmt> | <assign_stmt>; | <ctrl_struct> | <arr_1D>;
+        # Productions 271-276: statement types (expression, I/O, assignment, control, array)
         token = self.current_token()
         
         # Return statement
@@ -2429,12 +2776,6 @@ class Parser:
             token = self.advance()
             self.expect(";")
             return BreakStatementNode(line=token.get("line", 0), column=token.get("column", 0))
-        
-        # Continue statement
-        if self.match("continue"):
-            token = self.advance()
-            self.expect(";")
-            return ContinueStatementNode(line=token.get("line", 0), column=token.get("column", 0))
         
         # Local variable declaration
         if self.match("local"):
@@ -2462,6 +2803,11 @@ class Parser:
         
         if self.match("do"):
             return self.parse_do_while_stmt()
+        
+        # Array declaration statements - Production 275: <statement> → <arr_1D>;
+        # Productions 74-81: int/long/float/double/char/string/bool id[size]...
+        if self.match_predict_set("dtype"):
+            return self.parse_array_declaration()
         
         # Assignment or expression statement
         # Need to distinguish between assignment and expression
@@ -2519,10 +2865,87 @@ class Parser:
         
         return None
     
+    def parse_array_declaration(self) -> Optional[ASTNode]:
+        # <arr_1D> → dtype id[<size>]<arr_1D_tail>
+        # Productions 74-81: Array declarations (1D and 2D)
+        # <arr_1D_tail> can be [<size>]<arr_1D_init> (2D) or <arr_1D_init> (1D with optional init)
+        # Production 98: <arr_1D_init> → = { <elem_1D_list> }
+        dtype_token = self.current_token()
+        if not self.match_predict_set("dtype"):
+            return None
+        
+        dtype = self.advance().get("lexeme")
+        line = dtype_token.get("line", 0)
+        col = dtype_token.get("column", 0)
+        
+        # Parse array name
+        id_token = self.expect("id")
+        if not id_token:
+            return None
+        
+        array_name = id_token.get("lexeme")
+        
+        # Parse first dimension [size]
+        if not self.expect("["):
+            return None
+        
+        size1_token = self.expect("intlit")
+        if not size1_token:
+            return None
+        
+        size1 = size1_token.get("lexeme")
+        
+        if not self.expect("]"):
+            return None
+        
+        # Check for second dimension (2D array)
+        size2 = None
+        if self.match("["):
+            self.advance()
+            size2_token = self.expect("intlit")
+            if size2_token:
+                size2 = size2_token.get("lexeme")
+            self.expect("]")
+        
+        # Parse optional initialization: = { <elem_1D_list> }
+        initial_values = None
+        if self.match("="):
+            self.advance()
+            if self.expect("{"):
+                initial_values = []
+                # Parse element list
+                if self.match_predict_set("value"):
+                    elem = self.parse_value()
+                    if elem:
+                        initial_values.append(elem)
+                    
+                    # Parse remaining elements
+                    while self.match(","):
+                        self.advance()
+                        elem = self.parse_value()
+                        if elem:
+                            initial_values.append(elem)
+                
+                self.expect("}")
+        
+        # Expect semicolon to end the declaration
+        self.expect(";")
+        
+        # Return appropriate array declaration node
+        return ArrayDeclarationNode(
+            scope="local",  # Arrays in statements are local
+            data_type=dtype,
+            identifier=array_name,
+            size1=size1,
+            size2=size2,
+            initial_values=initial_values,
+            line=line,
+            column=col
+        )
+    
     def parse_input_stmt(self) -> Optional[InputStatementNode]:
         # <input_stmt> → trap(<iden>);
-
-        # Production 337
+        # Production 328 (input_stmt)
         token = self.expect("trap")
         if not token:
             return None
@@ -2545,12 +2968,7 @@ class Parser:
     
     def parse_output_stmt(self) -> Optional[OutputStatementNode]:
         # <output_stmt> → thread(<expression1>); | threadln(<expression1>);
-
-        # <expression1> → id<expr1_cont> | <value> | <string_expr> | <string_value> | <iden1>
-
-        # <expr1_cont> → ,id <expr1_cont> | 𝝺
-
-        # Productions 300-308
+        # Productions 334-343: output_stmt (thread, threadln), expression1, expr1_cont
         token = self.current_token()
         is_newline = self.match("threadln")
         self.advance()
@@ -2600,8 +3018,7 @@ class Parser:
     
     def parse_return_stmt(self) -> Optional[ReturnStatementNode]:
         # <ret_stmt> → return<ret_value>;
-
-        # Production 428
+        # Productions 420-424: ret_stmt, ret_value variations
         token = self.expect("return")
         if not token:
             return None
@@ -2622,8 +3039,7 @@ class Parser:
     
     def parse_if_stmt(self) -> Optional[IfStatementNode]:
         # <if_stmt> → if(<condition>){<ctrl_body><ret_ctrl_body>}<else_if_ei_stmt>
-
-        # Production 388
+        # Productions 380-388: if_stmt, condition, ctrl_body, ret_ctrl_body, else_if_ei_stmt, else_stmt
         token = self.expect("if")
         if not token:
             return None
@@ -2642,8 +3058,19 @@ class Parser:
                          PREDICT_SETS.get("condition", []))
             return None
         
-        if not self.expect(")"):
-            return None
+        # Check for closing parenthesis
+        if not self.match(")"):
+            curr = self.current_token()
+            if curr and curr.get("type") in ["intlit", "longlit", "floatlit", "doublelit", "id", "stringlit", "charlit"] or \
+               curr and curr.get("lexeme") in ["true", "false", "(", "!", "-", "++", "--"]:
+                # User likely forgot an operator between expressions
+                self.add_error("Missing operator or unexpected token in condition", curr, 
+                             ["<", ">", "<=", ">=", "==", "!=", "&&", "||", "+", "-", "*", "/", "%", "..", ")", ";"])
+                return None
+            else:
+                self.expect(")")
+                return None
+        self.advance()  # consume )
         if not self.expect("{"):
             return None
         
@@ -2726,8 +3153,7 @@ class Parser:
     
     def parse_switch_stmt(self) -> Optional[SwitchStatementNode]:
         # <switch_stmt> → switch(<switch_val>) { <case_stmt><default_stmt>}
-
-        # Production 397
+        # Productions 389-393: switch_stmt, switch_val, case_stmt, case_val, unique_val
         token = self.expect("switch")
         if not token:
             return None
@@ -2757,6 +3183,14 @@ class Parser:
         if self.match("default"):
             default_case = self.parse_default_case()
         
+        # Check for closing brace or unexpected token
+        if not self.match("}"):
+            curr = self.current_token()
+            if curr and not curr.get("lexeme") in ["case", "default", "}"]:
+                # User likely forgot 'case' or 'default' keyword
+                self.add_error("Expected case or default in switch body", curr, ["case", "default", "}"])
+                return None
+        
         if not self.expect("}"):
             return None
         
@@ -2770,8 +3204,7 @@ class Parser:
     
     def parse_case(self) -> Optional[CaseNode]:
         # <case_stmt> → case<case_val>: <ctrl_body> break;
-
-        # Production 402
+        # Productions 394-397: case_stmt, case_stmt_cont, case_val, unique_val
         token = self.expect("case")
         if not token:
             return None
@@ -2784,6 +3217,11 @@ class Parser:
         if not self.expect(":"):
             return None
         
+        # Check if case body is wrapped in a block { }
+        has_block = self.match("{")
+        if has_block:
+            self.advance()  # consume '{'
+        
         # Parse statement list
         statements = []
         while not self.match("break") and not self.match("case") and not self.match("default") and not self.match("}") and self.current_token():
@@ -2795,6 +3233,11 @@ class Parser:
             if self.current == pos_before:
                 self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                 break
+        
+        # If block syntax was used, expect closing brace
+        if has_block:
+            if not self.expect("}"):
+                return None
         
         # Parse break statement
         if self.match("break"):
@@ -2809,9 +3252,8 @@ class Parser:
         )
     
     def parse_default_case(self) -> Optional[DefaultCaseNode]:
-        # <default_stmt> → default : <ctrl_body> break;
-
-        # Production 411
+        # <default_stmt> → default : <ctrl_body>
+        # Productions 403-404: default_stmt (and empty variation)
         token = self.expect("default")
         if not token:
             return None
@@ -2821,6 +3263,11 @@ class Parser:
         
         if not self.expect(":"):
             return None
+        
+        # Check if default body is wrapped in a block { }
+        has_block = self.match("{")
+        if has_block:
+            self.advance()  # consume '{'
         
         # Parse statement list
         statements = []
@@ -2833,6 +3280,11 @@ class Parser:
             if self.current == pos_before:
                 self.add_error("Unexpected token", self.current_token(), PREDICT_SETS.get("statement", []))
                 break
+        
+        # If block syntax was used, expect closing brace
+        if has_block:
+            if not self.expect("}"):
+                return None
         
         # Parse break statement
         if self.match("break"):
@@ -2847,8 +3299,7 @@ class Parser:
     
     def parse_for_stmt(self) -> Optional[ForLoopNode]:
         # <for_stmt> → for(<initializer>;<condition>;<update>){<ctrl_body>}
-
-        # Production 416
+        # Productions 408-417: for_stmt, initializer, update, up_post
         token = self.expect("for")
         if not token:
             return None
@@ -2937,7 +3388,13 @@ class Parser:
                 return None
                 
         elif self.current_token() and self.current_token().get("lexeme") != ";":
-            # Production 419: <initializer> → <assign_stmt>
+            # Production 410: <initializer> → <assign_stmt>
+            # Check if user is trying to declare without 'local' keyword
+            if self.match_predict_set("dtype"):
+                self.add_error("For loop variable declaration requires 'local' keyword", 
+                             self.current_token(), ["local", "id", ";"])
+                return None
+            
             # Assignment statement (e.g., i = 0)
             if self.match("id"):
                 checkpoint = self.current
@@ -3050,8 +3507,7 @@ class Parser:
     
     def parse_while_stmt(self) -> Optional[WhileLoopNode]:
         # <while_stmt> → while(<condition>){<ctrl_body>}
-
-        # Production 426
+        # Production 418
         token = self.expect("while")
         if not token:
             return None
@@ -3100,8 +3556,7 @@ class Parser:
     
     def parse_do_while_stmt(self) -> Optional[DoWhileLoopNode]:
         # <do_stmt> → do{<ctrl_body>} while(<condition>);
-
-        # Production 427
+        # Production 419
         token = self.expect("do")
         if not token:
             return None
