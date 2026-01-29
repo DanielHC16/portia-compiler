@@ -272,7 +272,7 @@ PREDICT_SETS = {
     "import_cont_empty": [";"],  # Production 237: λ
     
     # Productions 238-241: Local Block
-    "local_block": ["local", "int", "long", "float", "double", "char", "string", "bool", "id"],  # Productions 238-240
+    "local_block": ["local"],  # Productions 238-240 - all local declarations start with 'local'
     "local_block_empty": ["!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", "--", "++", 
                          "stringlit", "charlit", "true", "false", "thread", "threadln", "trap", 
                          "if", "switch", "for", "while", "do", "int", "long", "float", "double", 
@@ -344,7 +344,7 @@ PREDICT_SETS = {
     "statement_list": ["local", "!", "-", "(", "intlit", "longlit", "floatlit", "doublelit", "id", "--", "++", 
                       "stringlit", "charlit", "true", "false", "thread", "threadln", "trap", "if", 
                       "switch", "for", "while", "do", "int", "long", "float", "double", "char", 
-                      "string", "bool", "return", "break", "}"],  # Production 269
+                      "string", "bool", "return", "break"],  # Production 269
     "statement_list_empty": ["return", "}"],  # Production 270: λ
     
     # Productions 271-276: Statement Types
@@ -2203,10 +2203,10 @@ class Parser:
         # After parameters, expect closing paren only
         if not self.match(")"):
             # If we don't see ), provide error with valid continuations
-            # At this point, only ) is valid (if there was a comma, we'd still be in the loop)
+            # Valid: [ (array), , (more params), ) (end) - per CFG param_struct and param_cont
             curr_token = self.current_token()
             if curr_token:
-                self.add_error("Unexpected token in parameter list", curr_token, [",", ")"])
+                self.add_error("Unexpected token in parameter list", curr_token, ["[", ",", ")"])
             return None
         self.advance()  # consume )
         
@@ -2302,19 +2302,31 @@ class Parser:
         # Parse imports
         imports = []
         while self.match_predict_set("import_block"):
+            pos_before = self.current
             import_stmt = self.parse_import_stmt()
             if import_stmt:
                 imports.append(import_stmt)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token", self.current_token(), 
+                             PREDICT_SETS.get("import_block", []))
+                break
         
         # Parse local declarations
         local_declarations = []
         while self.match_predict_set("local_block"):
+            pos_before = self.current
             local_decl = self.parse_local_dec()
             if local_decl:
                 if isinstance(local_decl, list):
                     local_declarations.extend(local_decl)
                 else:
                     local_declarations.append(local_decl)
+            # Prevent infinite loop if no progress
+            if self.current == pos_before:
+                self.add_error("Unexpected token", self.current_token(), 
+                             PREDICT_SETS.get("local_block", []))
+                break
         
         # Parse statements
         statements = []
@@ -2325,7 +2337,8 @@ class Parser:
                 statements.append(stmt)
             # Prevent infinite loop if no progress
             if self.current == pos_before:
-                self.add_error("Unexpected token", self.current_token())
+                self.add_error("Unexpected token", self.current_token(), 
+                             PREDICT_SETS.get("statement_list", []))
                 break
         
         # Parse optional return statement
@@ -2655,6 +2668,8 @@ class Parser:
         if token_type == "id":
             return self.parse_identifier_expression()
         
+        # No valid atom found - report error with all tokens that can start an expression
+        self.add_error("Expected expression", token, PREDICT_SETS.get("expression", []))
         return None
     
     def parse_identifier_expression(self) -> Optional[ASTNode]:
@@ -2751,12 +2766,6 @@ class Parser:
             self.expect(";")
             return BreakStatementNode(line=token.get("line", 0), column=token.get("column", 0))
         
-        # Continue statement
-        if self.match("continue"):
-            token = self.advance()
-            self.expect(";")
-            return ContinueStatementNode(line=token.get("line", 0), column=token.get("column", 0))
-        
         # Local variable declaration
         if self.match("local"):
             return self.parse_local_dec()
@@ -2783,6 +2792,11 @@ class Parser:
         
         if self.match("do"):
             return self.parse_do_while_stmt()
+        
+        # Array declaration statements - Production 275: <statement> → <arr_1D>;
+        # Productions 74-81: int/long/float/double/char/string/bool id[size]...
+        if self.match_predict_set("dtype"):
+            return self.parse_array_declaration()
         
         # Assignment or expression statement
         # Need to distinguish between assignment and expression
@@ -2839,6 +2853,84 @@ class Parser:
             return expr
         
         return None
+    
+    def parse_array_declaration(self) -> Optional[ASTNode]:
+        # <arr_1D> → dtype id[<size>]<arr_1D_tail>
+        # Productions 74-81: Array declarations (1D and 2D)
+        # <arr_1D_tail> can be [<size>]<arr_1D_init> (2D) or <arr_1D_init> (1D with optional init)
+        # Production 98: <arr_1D_init> → = { <elem_1D_list> }
+        dtype_token = self.current_token()
+        if not self.match_predict_set("dtype"):
+            return None
+        
+        dtype = self.advance().get("lexeme")
+        line = dtype_token.get("line", 0)
+        col = dtype_token.get("column", 0)
+        
+        # Parse array name
+        id_token = self.expect("id")
+        if not id_token:
+            return None
+        
+        array_name = id_token.get("lexeme")
+        
+        # Parse first dimension [size]
+        if not self.expect("["):
+            return None
+        
+        size1_token = self.expect("intlit")
+        if not size1_token:
+            return None
+        
+        size1 = size1_token.get("lexeme")
+        
+        if not self.expect("]"):
+            return None
+        
+        # Check for second dimension (2D array)
+        size2 = None
+        if self.match("["):
+            self.advance()
+            size2_token = self.expect("intlit")
+            if size2_token:
+                size2 = size2_token.get("lexeme")
+            self.expect("]")
+        
+        # Parse optional initialization: = { <elem_1D_list> }
+        initial_values = None
+        if self.match("="):
+            self.advance()
+            if self.expect("{"):
+                initial_values = []
+                # Parse element list
+                if self.match_predict_set("value"):
+                    elem = self.parse_value()
+                    if elem:
+                        initial_values.append(elem)
+                    
+                    # Parse remaining elements
+                    while self.match(","):
+                        self.advance()
+                        elem = self.parse_value()
+                        if elem:
+                            initial_values.append(elem)
+                
+                self.expect("}")
+        
+        # Expect semicolon to end the declaration
+        self.expect(";")
+        
+        # Return appropriate array declaration node
+        return ArrayDeclarationNode(
+            scope="local",  # Arrays in statements are local
+            data_type=dtype,
+            identifier=array_name,
+            size1=size1,
+            size2=size2,
+            initial_values=initial_values,
+            line=line,
+            column=col
+        )
     
     def parse_input_stmt(self) -> Optional[InputStatementNode]:
         # <input_stmt> → trap(<iden>);
