@@ -3322,13 +3322,12 @@ class Parser:
                 return None
             mutability = self.advance().get("lexeme")
             
-            # Parse data type
+            # Parse data type (only explicit types allowed in for loops)
             if self.match_predict_set("dtype"):
                 data_type = self.advance().get("lexeme")
-            elif self.match("id"):
-                data_type = self.advance().get("lexeme")
             else:
-                self.add_error(f"Expected data type", self.current_token(), PREDICT_SETS.get("dtype", []))
+                # Only show dtypes, no 'id' for user-defined types
+                self.add_error(f"Expected data type after 'var'", self.current_token(), PREDICT_SETS.get("dtype", []))
                 return None
             
             # Parse first variable
@@ -3337,12 +3336,22 @@ class Parser:
                 return None
             identifier = id_token.get("lexeme")
             
-            # Parse assignment for first variable
+            # Parse assignment for first variable (required - no uninitialized declarations)
             initial_value = None
             if self.match("="):
                 self.advance()
                 # Parse ONLY the primary value, not full expression to avoid consuming commas
                 initial_value = self.parse_primary()
+            elif self.match(","):
+                # Multiple declarations - but first variable must be initialized
+                self.add_error("Variable must be initialized with '='", 
+                             self.current_token(), ["="])
+                return None
+            else:
+                # Invalid token after identifier
+                self.add_error("Expected '=' to initialize variable", 
+                             self.current_token(), ["="])
+                return None
             
             # Create first declaration
             declarations = [VariableDeclarationNode(
@@ -3389,10 +3398,19 @@ class Parser:
                 
         elif self.current_token() and self.current_token().get("lexeme") != ";":
             # Production 410: <initializer> → <assign_stmt>
+            # Check if user is trying to use var/const without 'local' keyword
+            if self.match_predict_set("mutability"):
+                # Valid starts include 'local', 'id', ';', and expression starts
+                valid_starts = ["local", "id", ";"] + PREDICT_SETS.get("logical_expr", [])
+                self.add_error("For loop variable declaration requires 'local' keyword before 'var' or 'const'", 
+                             self.current_token(), valid_starts)
+                return None
+            
             # Check if user is trying to declare without 'local' keyword
             if self.match_predict_set("dtype"):
+                valid_starts = ["local", "id", ";"] + PREDICT_SETS.get("logical_expr", [])
                 self.add_error("For loop variable declaration requires 'local' keyword", 
-                             self.current_token(), ["local", "id", ";"])
+                             self.current_token(), valid_starts)
                 return None
             
             # Assignment statement (e.g., i = 0)
