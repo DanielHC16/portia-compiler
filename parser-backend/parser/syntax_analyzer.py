@@ -3047,8 +3047,19 @@ class Parser:
                          PREDICT_SETS.get("condition", []))
             return None
         
-        if not self.expect(")"):
-            return None
+        # Check for closing parenthesis
+        if not self.match(")"):
+            curr = self.current_token()
+            if curr and curr.get("type") in ["intlit", "longlit", "floatlit", "doublelit", "id", "stringlit", "charlit"] or \
+               curr and curr.get("lexeme") in ["true", "false", "(", "!", "-", "++", "--"]:
+                # User likely forgot an operator between expressions
+                self.add_error("Missing operator or unexpected token in condition", curr, 
+                             ["<", ">", "<=", ">=", "==", "!=", "&&", "||", "+", "-", "*", "/", "%", "..", ")", ";"])
+                return None
+            else:
+                self.expect(")")
+                return None
+        self.advance()  # consume )
         if not self.expect("{"):
             return None
         
