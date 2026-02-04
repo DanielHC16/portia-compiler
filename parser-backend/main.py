@@ -1,7 +1,6 @@
 # parser-backend/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from parser.api import router as parser_router
 
 app = FastAPI(title="PORTIA Parser Backend")
 
@@ -22,8 +21,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(parser_router, prefix="")
-
 @app.get("/")
 def root():
     return {"message": "PORTIA Parser backend is running"}
+
+# Import router after app is created to avoid circular imports
+from parser.api import router as parser_router
+app.include_router(parser_router, prefix="")

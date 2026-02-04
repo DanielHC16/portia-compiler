@@ -1,0 +1,357 @@
+// PORTIA Language Grammar for Lark Parser
+// Strict mapping from CFG - no ambiguity resolution
+
+// ===== Program Structure (Production 1) =====
+// CFG: <program> → <global_dec> <function> <main_func>
+// Both <global_dec> and <function> have ε-productions (18, 212)
+?start: program
+program: global_dec function main_func
+
+// ===== Global Declarations (Productions 2-32) =====
+// Production 18: <global_dec> → ε (PREDICT: {func, int})
+global_dec: (global_var_dec | arr_1d_decl | weave_def)*
+
+global_var_dec: GLOBAL mutability dtype ID ASSIGN value multi_dec_tail SEMICOLON
+
+multi_dec_tail: (COMMA ID ASSIGN value)*
+
+mutability: VAR | CONST
+
+dtype: INT | LONG | FLOAT | DOUBLE | CHAR | STRING | BOOL
+
+value: INTLIT | LONGLIT | FLOATLIT | DOUBLELIT | CHARLIT | STRINGLIT | TRUE | FALSE
+
+// ===== Arrays (Productions 66-210) =====
+arr_1d_decl: dtype ID LBRACK INTLIT RBRACK arr_2d_opt arr_init_opt SEMICOLON
+
+arr_2d_opt: (LBRACK INTLIT RBRACK)?
+
+arr_init_opt: (ASSIGN LBRACE elem_list RBRACE)?
+
+elem_list: (arr_tpc_opt value elem_list_tail)?
+
+elem_list_tail: (COMMA arr_tpc_opt value)*
+
+arr_tpc_opt: (LPAREN dtype RPAREN)?
+
+// ===== Weave Definitions (Productions 199-209) =====
+weave_def: WEAVE ID LBRACE field_list RBRACE SEMICOLON
+
+field_list: field_dec*
+
+field_dec: field_type ID field_array_opt field_dec_cont SEMICOLON
+
+field_type: dtype | ID
+
+field_array_opt: (LBRACK INTLIT RBRACK)?
+
+field_dec_cont: (COMMA ID field_array_opt)*
+
+// ===== Functions (Productions 211-237) =====
+function: function_def*
+
+function_def: FUNC ret_type ID LPAREN param_list_opt RPAREN LBRACE function_body RBRACE
+
+ret_type: dtype | ID | VOID
+
+param_list_opt: (param param_cont)?
+
+param: param_type ID param_array_opt
+
+param_type: dtype | ID
+
+param_array_opt: (LBRACK INTLIT RBRACK arr_2d_opt)?
+
+param_cont: (COMMA param)*
+
+function_body: using_block local_block statement_list ret_stmt_opt
+
+using_block: using_stmt*
+
+using_stmt: USING ID using_cont SEMICOLON
+
+using_cont: (COMMA ID)*
+
+// ===== Local Declarations (Productions 238-269) =====
+local_block: (local_decl)*
+
+local_decl: local_var_dec
+          | local_arr_dec
+          | weave_local_dec
+
+local_var_dec: LOCAL mutability dtype ID ASSIGN value multi_dec_tail SEMICOLON
+
+local_arr_dec: LOCAL mutability dtype ID LBRACK INTLIT RBRACK arr_2d_opt arr_init_opt SEMICOLON
+
+weave_local_dec: LOCAL mutability ID ID ASSIGN LBRACE value elem_list_tail RBRACE SEMICOLON
+
+string_expr: string_primary string_tail
+
+string_primary: STRINGLIT 
+              | CHARLIT 
+              | id_with_access
+              | function_call
+
+string_tail: (CONCAT string_primary)*
+
+// ===== Statements (Productions 270-275) =====
+// Production 270: <statement_list> → <statement><statement_list>
+// Production 271: <statement_list> → ε
+statement_list: statement*
+
+// Production 272-275: statement alternatives
+// Note: Prod 275 <statement> → ε removed (not parseable with explicit statements)
+statement: expression SEMICOLON
+         | io_stmt
+         | ctrl_struct
+         | BREAK SEMICOLON
+         | ret_stmt
+
+// Removed assign_stmt SEMICOLON - handled by assign_expr in expression
+
+// ===== I/O (Productions 384-412) =====
+io_stmt: input_stmt | output_stmt
+
+input_stmt: TRAP LPAREN id_with_access RPAREN SEMICOLON
+
+output_stmt: (THREAD | THREADLN) LPAREN print_args_opt RPAREN SEMICOLON
+
+print_args_opt: (expression print_tail)?
+
+print_tail: (COMMA expression)*
+
+// ===== Control Structures (Productions 413-475) =====
+ctrl_struct: if_stmt | switch_stmt | for_stmt | while_stmt | do_while_stmt
+
+if_stmt: IF LPAREN condition RPAREN LBRACE statement_list RBRACE else_opt
+
+else_opt: (ELSE (LBRACE statement_list RBRACE | if_stmt))?
+
+condition: expression
+
+switch_stmt: SWITCH LPAREN expression RPAREN LBRACE case_list default_opt RBRACE
+
+case_list: case_stmt*
+
+case_stmt: CASE unique_val COLON statement_list break_opt
+
+unique_val: INTLIT | LONGLIT | CHARLIT | TRUE | FALSE
+
+default_opt: (DEFAULT COLON statement_list break_opt)?
+
+break_opt: (BREAK SEMICOLON)?
+
+for_stmt: FOR LPAREN for_init_opt SEMICOLON condition_opt SEMICOLON for_update_opt RPAREN LBRACE statement_list RBRACE
+
+// CFG Production 465-467: <initializer> → local var<dtype>id=<value><multi_dec> | <assign_expr> | 𝝺
+// Note: Unlike local_var_dec in local_block, for-loop initializer does NOT include semicolon
+for_init_opt: (for_local_init | expression)?
+
+// For-loop specific local declaration (no trailing semicolon per CFG 465)
+for_local_init: LOCAL mutability dtype ID ASSIGN value multi_dec_tail
+
+condition_opt: expression?
+
+// CFG Productions 468-471: <update> → ++id | --id | id<up_post> | ε
+// PREDICT: 468={++}, 469={--}, 470={id}, 471={)}
+// Only increment/decrement operations are valid, not general expressions
+for_update_opt: (for_update)?
+for_update: INCR ID     // Production 468: ++id
+          | DECR ID     // Production 469: --id
+          | ID INCR     // Production 470,472: id++
+          | ID DECR     // Production 470,473: id--
+
+while_stmt: WHILE LPAREN condition RPAREN LBRACE statement_list RBRACE
+
+do_while_stmt: DO LBRACE statement_list RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+// ===== Expressions (Productions 276-279) =====
+// CFG has 4 alternatives but overlapping FIRST sets
+// Priority: assign (highest) → string → arith → bool
+?expression: assign_expr
+           | string_expr
+           | arith_expr
+           | bool_expr
+
+// Arithmetic expressions (280-293)
+arith_expr: term add_min_cont*
+
+add_min_cont: PLUS term | MINUS term
+
+term: primary mult_div_modulo_cont*
+
+mult_div_modulo_cont: STAR primary | SLASH primary | MOD primary
+
+primary: cast_val
+       | atom
+       | LPAREN arith_expr RPAREN
+       | MINUS LPAREN arith_expr RPAREN
+
+cast_val: LPAREN dtype RPAREN primary
+
+// Atoms (294-316)
+// Productions 294-299: atom alternatives
+// CONFLICT RESOLUTION: Prods 294 (<id_atom>) and 295 (<iden1>) both have PREDICT {id}
+// <id_atom> → id OR -id (prods 300-301)
+// <iden1> → id <iden1_suffix> where <iden1_suffix> can be ε (prod 366)
+// Solution: Merge into single ID-based atom WITHOUT arr_field_access_opt to avoid ε conflicts
+atom: ID                             // Simple ID reference
+    | MINUS ID                       // Prod 301: -id
+    | incdec_atom                    // Prod 296
+    | num_lit_type                   // Prod 297
+    | function_call                  // Prod 298
+    | MINUS function_call            // Prod 299
+
+incdec_atom: pre_incdec | post_incdec
+
+pre_incdec: INCR ID | DECR ID
+
+post_incdec: ID INCR | ID DECR
+
+num_lit_type: INTLIT | LONGLIT | FLOATLIT | DOUBLELIT
+
+// Boolean expressions (317-336)
+bool_expr: bool_term bool_cont*
+
+bool_cont: OR bool_term
+
+bool_term: bool_factor bool_term_cont*
+
+bool_term_cont: AND bool_factor
+
+bool_factor: NOT bool_factor | bool_atom
+
+bool_atom: TRUE
+         | FALSE
+         | id_with_access
+         | LPAREN bool_expr RPAREN
+         | rel_compare
+         | eq_compare
+
+id_with_access: ID (array_or_field_access)*
+
+array_or_field_access: LBRACK expression RBRACK array_2d_access?
+                     | DOT ID
+
+array_2d_access: LBRACK expression RBRACK
+
+rel_compare: arith_expr rel_op_strict arith_expr
+
+rel_op_strict: LT | GT | LTE | GTE
+
+eq_compare: arith_expr eq_op arith_expr
+          | bool_simple eq_op bool_simple
+
+bool_simple: TRUE | FALSE | id_with_access
+
+eq_op: EQ | NEQ
+
+// Assignment expressions (346-370)
+assign_expr: ID (array_or_field_access)* assign_op expression
+
+assign_op: ASSIGN | PLUSEQ | MINUSEQ | STAREQ | SLASHEQ | MODEQ
+
+// Function calls
+function_call: ID LPAREN arg_list_opt RPAREN
+
+arg_list_opt: (arg arg_tail)?
+
+arg: value | ID
+
+arg_tail: (COMMA arg)*
+
+ret_stmt_opt: (ret_stmt)?
+
+ret_stmt: RETURN expression_opt SEMICOLON
+
+expression_opt: expression?
+
+// ===== Main Function (Production 481-482) =====
+main_func: INT MAIN LPAREN RPAREN LBRACE main_body RBRACE
+
+main_body: using_block local_block statement_list RETURN INTLIT SEMICOLON
+
+// ===== Terminals (matched by lexer) =====
+GLOBAL: "global"
+LOCAL: "local"
+FUNC: "func"
+RETURN: "return"
+IF: "if"
+ELSE: "else"
+SWITCH: "switch"
+CASE: "case"
+DEFAULT: "default"
+FOR: "for"
+WHILE: "while"
+DO: "do"
+BREAK: "break"
+TRAP: "trap"
+THREAD: "thread"
+THREADLN: "threadln"
+USING: "using"
+WEAVE: "weave"
+MAIN: "main"
+
+INT: "int"
+LONG: "long"
+FLOAT: "float"
+DOUBLE: "double"
+CHAR: "char"
+STRING: "string"
+BOOL: "bool"
+VOID: "void"
+
+VAR: "var"
+CONST: "const"
+TRUE: "true"
+FALSE: "false"
+
+ASSIGN: "="
+PLUSEQ: "+="
+MINUSEQ: "-="
+STAREQ: "*="
+SLASHEQ: "/="
+MODEQ: "%="
+
+EQ: "=="
+NEQ: "!="
+LT: "<"
+GT: ">"
+LTE: "<="
+GTE: ">="
+
+AND: "&&"
+OR: "||"
+NOT: "!"
+
+PLUS: "+"
+MINUS: "-"
+STAR: "*"
+SLASH: "/"
+MOD: "%"
+INCR: "++"
+DECR: "--"
+CONCAT: ".."
+
+LPAREN: "("
+RPAREN: ")"
+LBRACE: "{"
+RBRACE: "}"
+LBRACK: "["
+RBRACK: "]"
+SEMICOLON: ";"
+COMMA: ","
+COLON: ":"
+DOT: "."
+
+ID: /[a-zA-Z_][a-zA-Z0-9_]*/
+INTLIT: /[0-9]{1,10}/
+LONGLIT: /[0-9]{11,19}/
+FLOATLIT: /[0-9]+\.[0-9]{1,7}/
+DOUBLELIT: /[0-9]+\.[0-9]{8,16}/
+CHARLIT: /'[^']'/
+STRINGLIT: /"[^"]*"/
+
+%ignore /[ \t\n]+/
+%ignore /\/\/[^\n]*/
+%ignore /\/\*.*?\*\//s

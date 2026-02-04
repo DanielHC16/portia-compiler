@@ -6,6 +6,7 @@ export type LexError = {
   column: number;
   start_index?: number;
   end_index?: number;
+  token_length?: number;  // Parser errors include token length for exact highlighting
 };
 
 const LEXER_URL = import.meta.env.VITE_LEXER_BACKEND_URL ?? "http://localhost:8000";
