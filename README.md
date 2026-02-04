@@ -1,248 +1,272 @@
-# PORTIA by LoomVI
+# PORTIA Compiler
 
-PORTIA takes its name from the Portia spider — renowned for patience, precision, and calculated strategy. Just as the spider weaves its web with intent, PORTIA weaves rules and logic into a unified and purposeful structure.
+A multi-stage compiler for the PORTIA programming language, featuring a complete lexer, parser, and semantic analyzer (in progress).
 
-PORTIA is a **high‑level, procedural, statically typed programming language** built around clarity and discipline. Programs are written as tightly defined statements, with explicit scoping and language features that emphasize order, readability, and precision.
+## Architecture Overview
 
-- **From C** → procedural structure, explicit scoping, disciplined statement design  
-- **From Python** → readability, consistency, avoidance of ambiguity  
-- **From Lua** → intuitive string handling  
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           PORTIA Compiler                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│    Source Code                                                          │
+│         │                                                               │
+│         ▼                                                               │
+│    ┌─────────────────┐                                                  │
+│    │  Lexer Backend  │  Port 8000                                       │
+│    │  (Python/FastAPI)│                                                 │
+│    └────────┬────────┘                                                  │
+│             │ Tokens                                                    │
+│             ▼                                                           │
+│    ┌─────────────────┐                                                  │
+│    │ Parser Backend  │  Port 8001                                       │
+│    │ (Lark/Earley)   │                                                  │
+│    └────────┬────────┘                                                  │
+│             │ AST                                                       │
+│             ▼                                                           │
+│    ┌─────────────────┐                                                  │
+│    │Semantic Backend │  Port 8002 (TBA)                                 │
+│    │  (Python/FastAPI)│                                                 │
+│    └────────┬────────┘                                                  │
+│             │                                                           │
+│             ▼                                                           │
+│    ┌─────────────────┐                                                  │
+│    │    Frontend     │  Port 5173                                       │
+│    │ (React/TypeScript/Vite)                                            │
+│    └─────────────────┘                                                  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-Like a web, PORTIA programs form deliberate, interconnected patterns of intent.
+## Components
 
-## Overview
+### Lexer Backend (`lexer-backend/`)
 
-PORTIA is a statically-typed, imperative programming language with a complete compiler toolchain consisting of:
+Finite State Automaton (FSA) based lexical analyzer that tokenizes PORTIA source code.
 
-- **Lexical Analyzer** - FSA-based tokenization with strict delimiter validation
-- **Syntax Parser** - Context-free grammar parsing (in development)
-- **Semantic Analyzer** - Type checking and semantic validation (in development)
-- **Web Interface** - React-based IDE with real-time analysis and syntax highlighting
+- **Technology**: Python, FastAPI
+- **Port**: 8000
+- **Endpoint**: `POST /lex` - Accepts `{ "code": "..." }` and returns tokens and errors
+- **Features**:
+  - Character class-based FSA transitions
+  - Delimiter recognition
+  - Line and column tracking for error reporting
+  - Support for comments, strings, and all PORTIA literals
 
-## Quick Start
+### Parser Backend (`parser-backend/`)
+
+Parser using the Lark parsing library with the Earley algorithm.
+
+- **Technology**: Python, FastAPI, Lark
+- **Port**: 8001
+- **Endpoints**:
+  - `POST /parse` - Accepts `{ "tokens": [...] }` and returns AST
+  - `POST /parse/source` - Accepts `{ "source": "..." }`, calls lexer, then parses
+- **Features**:
+  - Earley parser with explicit ambiguity handling
+  - Grammar defined in `portia.lark`
+  - Error reporting with expected tokens
+  - Accurate line/column positions from original lexer tokens
+
+### Semantic Backend (`semantic-backend/`)
+
+Semantic analyzer for type checking and symbol table management. **Status: In Progress (TBA)**
+
+- **Technology**: Python, FastAPI
+- **Port**: 8002
+- **Endpoints**:
+  - `POST /analyze` - Accepts tokens
+  - `POST /analyze/ast` - Accepts AST for semantic analysis
+
+### Frontend (`app-frontend/`)
+
+Web-based IDE for writing, compiling, and debugging PORTIA programs.
+
+- **Technology**: React, TypeScript, Vite
+- **Port**: 5173
+- **Features**:
+  - Code editor with syntax highlighting
+  - Lexer panel showing tokenization results
+  - Parser panel with AST tree visualization
+  - Real-time error highlighting with line/column markers
+  - View switcher between compiler phases
+
+## Setup and Installation
 
 ### Prerequisites
 
-- Python 3.10+ 
-- Node.js 18+ and npm
-- Git
+- Python 3.12+
+- Node.js 18+
+- npm or yarn
 
 ### Installation
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd portia-compiler
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd portia-compiler
+   ```
 
-# Setup Python virtual environment
-cd lexer-backend
-python -m venv .venv-py312
-.\.venv-py312\Scripts\Activate.ps1   # Windows PowerShell
-# OR: source .venv-py312/bin/activate  # Linux/Mac
-pip install fastapi uvicorn
-cd ..
+2. **Set up Lexer Backend**
+   ```bash
+   cd lexer-backend
+   python -m venv .venv-py312
+   .venv-py312\Scripts\activate  # Windows
+   # source .venv-py312/bin/activate  # Linux/Mac
+   pip install fastapi uvicorn
+   ```
 
-# Setup frontend
-cd app-frontend
-npm install
-cd ..
-```
+3. **Set up Parser Backend**
+   ```bash
+   cd parser-backend
+   python -m venv .venv-py312
+   .venv-py312\Scripts\activate  # Windows
+   pip install fastapi uvicorn lark
+   ```
 
-### Running the Compiler
+4. **Set up Semantic Backend**
+   ```bash
+   cd semantic-backend
+   python -m venv .venv-py312
+   .venv-py312\Scripts\activate  # Windows
+   pip install fastapi uvicorn
+   ```
 
-**Quick Start (All Services):**
+5. **Set up Frontend**
+   ```bash
+   cd app-frontend
+   npm install
+   ```
+
+## Running the Compiler
+
+### Quick Start (Windows)
+
+Use the provided PowerShell scripts:
+
 ```powershell
-# Single command - starts all backends + frontend
-.\scripts\start-portia.ps1
+# Start all services (opens separate terminal windows)
+./scripts/start-portia.ps1
+
+# Stop all services
+./scripts/stop-all.ps1
 ```
 
-This launches:
-- Lexer backend on `http://localhost:8000`
-- Parser backend on `http://localhost:8001`
-- Frontend on `http://localhost:5173`
+### Manual Start
 
-Open `http://localhost:5173` in your browser.
+Start each service in a separate terminal:
 
-**Individual Services:**
-```powershell
-# Lexer only
-.\scripts\start-lexer.ps1
-
-# Parser only
-.\scripts\start-parser.ps1
-
-# Frontend only
-cd app-frontend
-npm run dev
-```
-
-**Manual Start:**
 ```bash
-# Terminal 1 - Lexer backend
+# Terminal 1: Lexer (Port 8000)
 cd lexer-backend
-.\.venv-py312\Scripts\uvicorn app.main:app --reload --port 8000
+.venv-py312\Scripts\python -m uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 - Parser backend
+# Terminal 2: Parser (Port 8001)
 cd parser-backend
-python -m venv .venv-py312  # First time only
-.\.venv-py312\Scripts\Activate.ps1
-pip install fastapi uvicorn  # First time only
-uvicorn main:app --reload --port 8001
+.venv-py312\Scripts\python -m uvicorn main:app --reload --port 8001
 
-# Terminal 3 - Frontend
+# Terminal 3: Semantic (Port 8002)
+cd semantic-backend
+.venv-py312\Scripts\python -m uvicorn main:app --reload --port 8002
+
+# Terminal 4: Frontend (Port 5173)
 cd app-frontend
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+### Access the Application
+
+Open your browser to: **http://localhost:5173**
+
+## API Usage
+
+### Lexical Analysis
+
+```bash
+curl -X POST http://localhost:8000/lex \
+  -H "Content-Type: application/json" \
+  -d '{"code": "int main() { return 0; }"}'
+```
+
+### Parsing (with tokens)
+
+```bash
+curl -X POST http://localhost:8001/parse \
+  -H "Content-Type: application/json" \
+  -d '{"tokens": [...]}'
+```
+
+### Parsing (with source)
+
+```bash
+curl -X POST http://localhost:8001/parse/source \
+  -H "Content-Type: application/json" \
+  -d '{"source": "int main() { return 0; }"}'
+```
 
 ## Project Structure
 
 ```
 portia-compiler/
-├── app-frontend/              # React + TypeScript frontend
-│   ├── src/
-│   │   ├── api.ts            # Backend API client
-│   │   ├── main.tsx          # App entry point
-│   │   ├── index.css         # Global styles
-│   │   └── components/       # React components
-│   ├── public/
-│   │   └── portia-logo.svg
-│   ├── package.json
-│   └── README.md
-│
-├── lexer-backend/             # Lexical analyzer backend
+├── lexer-backend/          # Lexical analyzer
 │   ├── app/
-│   │   ├── main.py           # FastAPI application
+│   │   ├── main.py         # FastAPI application
 │   │   └── lexer/
-│   │       ├── portia_lexer.py       # FSA lexer
-│   │       ├── character_classes.py  # Character set definitions
-│   │       └── delimiters.py         # Delimiter definitions
-│   ├── docs/                 # Comprehensive documentation
-│   ├── README.md
-│   └── LEXER_EXPLAINED.md
+│   │       ├── portia_lexer.py      # FSA-based lexer
+│   │       ├── character_classes.py # Character classification
+│   │       └── delimiters.py        # Delimiter recognition
+│   └── docs/               # Lexer documentation
 │
-├── parser-backend/            # Syntax parser backend
-│   ├── main.py               # FastAPI application
-│   ├── parser/
-│   │   ├── syntax_analyzer.py    # Recursive descent parser
-│   │   └── api.py                # Parser API endpoints
-│   ├── PARSER_REFERENCE.md   # Complete parser documentation
-│   └── README.md
+├── parser-backend/         # Syntax analyzer
+│   ├── main.py             # FastAPI application
+│   └── parser/
+│       ├── api.py          # Parser API routes
+│       ├── portia_parser.py # Lark-based parser
+│       └── portia.lark     # Grammar definition
 │
-├── semantic-backend/          # Semantic analyzer (in development)
-├── scripts/                   # Utility scripts
-│   ├── start-lexer.ps1
-│   ├── start-parser.ps1
-│   └── start-semantic.ps1
+├── semantic-backend/       # Semantic analyzer (TBA)
+│   ├── main.py             # FastAPI application
+│   └── semantic/
+│       ├── api.py          # Semantic API routes
+│       └── semantic_analyzer.py
 │
-└── README.md                  # This file
+├── app-frontend/           # Web IDE
+│   ├── src/
+│   │   ├── main.tsx        # React entry point
+│   │   ├── api.ts          # Backend API client
+│   │   └── components/     # UI components
+│   └── docs/               # Frontend documentation
+│
+└── scripts/                # Utility scripts
+    ├── start-portia.ps1    # Start all services
+    └── stop-all.ps1        # Stop all services
 ```
 
-## Features
+## PORTIA Language Features
 
-### Lexical Analyzer
-- **353-state FSA** (s0 initial + s1-s353 operational)
-- **27 keywords** (int, bool, if, while, void, weave, etc.)
-- **20 operators** (arithmetic, logical, relational, assignment)
-- **11 delimiters** (parentheses, braces, brackets, semicolons, etc.)
-- **6 literal types** (int, long, float, double, string, char)
-- **2 comment types** (single-line `//`, multi-line `/* */`)
-- **Strict delimiter validation** preventing ambiguous splits
-- **Numeric overflow detection** (Int ≤10 digits, Long ≤19, Float ≤7 fractional, Double ≤16)
-- **Character-level error reporting** with precise start/end indices
-- **Primitive casting delimiter rules** (`(int)x` valid, `(void)x` invalid)
-- **Whitespace and newline tokens** for syntax formatting
-
-### Syntax Parser
-- **Recursive descent parser** implementing LL(1) context-free grammar
-- **36 AST node types** representing all language constructs
-- **Panic mode error recovery** with intelligent synchronization
-- **400+ production rules** covering complete PORTIA grammar
-- **100+ predict sets** for optimized parsing decisions
-- **Full expression parsing** with operator precedence (logical, relational, arithmetic)
-- **Weave support** for user-defined struct types with field access
-- **Array handling** for 1D and 2D arrays with initialization
-- **Function declarations** with parameters, return types, and nested scopes
-- **Control flow parsing** (if/else, switch/case, for, while, do-while)
-- **Context-aware error messages** with line and column information
-
-### Frontend Interface
-- **Real-time syntax highlighting** with One Dark theme
-- **Token-based coloring** (keywords, literals, operators, delimiters)
-- **Interactive AST tree viewer** with collapsible nodes and hierarchical display
-- **Three view modes** (Tokens, Tree, Raw JSON) for comprehensive analysis
-- **Virtual scrolling** for efficient rendering of large token lists (10,000+ tokens)
-- **Error highlighting** with precise character-level positioning
-- **Dual panel layout** for lexical and syntax analysis
-- **Auto-lex with debouncing** (350ms delay, disables at ≥80 lines)
-- **Request cancellation** (AbortController prevents race conditions)
-- **Line numbers** with synchronized scrolling
-- **Performance optimizations** (O(1) token rendering, non-blocking highlighting)
-
-## Technology Stack
-
-**Backend:** Python 3.10+ | FastAPI | Uvicorn
-
-**Frontend:** React 19 | TypeScript | Vite 7
-
-## Testing
-
-```bash
-cd lexer-backend
-.\.venv-py312\Scripts\python.exe test_lexer.py
-```
+- **Data Types**: `int`, `long`, `float`, `double`, `char`, `string`, `bool`
+- **Variables**: Global (`global var/const`) and local (`local var/const`)
+- **Arrays**: 1D and 2D arrays with optional initialization
+- **Weave Types**: User-defined struct-like types
+- **Functions**: User-defined functions with parameters and return types
+- **Control Flow**: `if`/`else`, `switch`/`case`, `for`, `while`, `do-while`
+- **I/O**: `trap` (input), `thread`/`threadln` (output)
+- **Operators**: Arithmetic, relational, logical, assignment, increment/decrement
 
 ## Documentation
 
-### Core Documentation
-- **[Complete Lexer Technical Reference](lexer-backend/docs/COMPLETE_LEXER_REFERENCE.md)** — Comprehensive 6000+ line reference with all functions, parameters, algorithms, state machine design, token types, error handling, performance analysis, testing, and troubleshooting.
-- **[Complete Parser Technical Reference](parser-backend/PARSER_REFERENCE.md)** — Full parser documentation covering recursive descent parsing, LL(1) grammar, AST node types, error recovery, predict sets, expression parsing, and testing guide.
-- **[Complete Frontend Technical Reference](app-frontend/docs/COMPLETE_FRONTEND_REFERENCE.md)** — Full React component documentation, state management, API integration, syntax highlighting algorithm, virtual scrolling, performance optimizations, and UI architecture.
+- `lexer-backend/docs/` - Lexer architecture and FSA specification
+- `app-frontend/docs/` - Frontend component reference
 
-### Quick References
-- [Lexer Backend README](lexer-backend/README.md) — Quick start and API overview
-- [Parser Backend README](parser-backend/README.md) — Parser quick start and usage
-- [Frontend Overview](app-frontend/FRONTEND_OVERVIEW.md) — Quick start with architecture diagrams and configuration guide
+## Authors
 
-### Specialized Documentation
-- [FSA Specification](lexer-backend/docs/PORTIA_FSA_SPEC.md) — State range & casting delimiter specification
-- [Lexer Deep Dive](lexer-backend/docs/LEXER_EXPLAINED.md) — Function-level technical details
-- [Delimiter Reference](lexer-backend/docs/DELIMITER_REFERENCE.md) — Complete delimiter catalog
-- [Lexer Architecture](lexer-backend/docs/LEXER_ARCHITECTURE.md) — Flow diagrams and architecture patterns
-- [Frontend Integration Guide](lexer-backend/docs/FRONTEND_INTEGRATION.md) — End-to-end request/response flow with UI mapping
+- Abundo, J.R.B.
+- Camacho, D.H.C.
+- Dalangin, H.A.P.
+- Mabutas, C.R.
+- Peña, S.A.M.
+- Vaflor, M.K.R.
 
-## Team
+## License
 
-**LoomVI | BSCS 3-3 2025-2026**
-
-PORTIA Programming Language Development Team
-
-| Role | Team Member |
-|------|-------------|
-| Team Leader | Jonalene Ryza B. Abundo |
-| Core Developer | Daniel Hardy C. Camacho |
-| Documentation Team Lead | Mariel Kim R. Vaflor |
-| Finance Team Lead | Carla R. Mabutas |
-| Q/A Team | Hershey Anne P. Dalangin |
-| Q/A Team | Sydney Angeleve M. Peña |
-
-### Collaborative Development
-
-While each team member has a designated role, LoomVI operates as a fully collaborative unit. All team members actively contribute across different aspects of the PORTIA compiler project, including:
-
-- Grammar design and refinement
-- Parser implementation and testing
-- Documentation and technical writing
-- Quality assurance and validation
-- Project planning and coordination
-
-This cross-functional approach ensures that every team member has a comprehensive understanding of the PORTIA language and contributes to all phases of development.
-
-## Status
-
-**Lexer:** Complete | **Parser:** Complete | **Semantic:** In Development
-
-**Version:** 1.0.0
-
-**Last Updated:** January 2026
+This project is developed for educational purposes.

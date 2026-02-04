@@ -88,9 +88,14 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
             // Store both error objects (for highlighting) and error strings (for display)
             const errorObjects = parseResp.errors.map((e: any) => {
               if (typeof e === 'object' && e.message) {
-                return { message: e.message, line: e.line || 0, column: e.column || 0 };
+                return { 
+                  message: e.message, 
+                  line: e.line || 0, 
+                  column: e.column || 0,
+                  token_length: e.token_length || 0  // Include token length for exact highlighting
+                };
               }
-              return { message: String(e), line: 0, column: 0 };
+              return { message: String(e), line: 0, column: 0, token_length: 0 };
             });
             const errorMessages = errorObjects.map((e: any) => e.message);
             setParseErrors(errorMessages);
@@ -184,93 +189,107 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
     if (!src) return [{ text: "", cls: undefined }];
 
     try {
+      // Calculate line start positions (0-indexed character positions)
       const lineStarts: number[] = [0];
       for (let i = 0; i < src.length; i++) {
         if (src[i] === '\n') lineStarts.push(i + 1);
       }
 
-    const errorRanges: Array<{start: number, end: number}> = [];
-    for (const err of errs) {
-      if (err.start_index !== undefined && err.end_index !== undefined) {
-        errorRanges.push({ start: err.start_index, end: err.end_index });
-      } else if (err.line > 0 && err.line <= lineStarts.length) {
-        const lineStart = lineStarts[err.line - 1];
-        const start = lineStart + (err.column - 1);
-        if (start >= 0 && start < src.length) {
-          let end = start + 1;
-          while (end < src.length && /[a-zA-Z0-9_]/.test(src[end])) end++;
-          errorRanges.push({ start, end });
+      // Collect all ranges: syntax tokens + error underlines
+      // Error ranges take priority and will be rendered separately
+      type Range = { start: number; end: number; cls?: string; isError: boolean };
+      const tokenRanges: Range[] = [];
+      const errorRanges: Range[] = [];
+
+      // 1. Build syntax token ranges
+      for (const tok of toks) {
+        if (!tok.lexeme || tok.line === undefined || tok.column === undefined) continue;
+        if (tok.line < 1 || tok.line > lineStarts.length) continue;
+        
+        const lineStart = lineStarts[tok.line - 1];
+        let start = lineStart + tok.column - 1;
+        let end = start + tok.lexeme.length;
+        
+        // Verify position matches
+        if (start >= 0 && end <= src.length && src.slice(start, end) === tok.lexeme) {
+          tokenRanges.push({ start, end, cls: tokenClass(tok.type), isError: false });
         }
       }
-    }
 
-    type Match = { start: number; end: number; cls?: string; isError?: boolean };
-    const matches: Match[] = [];
-
-    for (const tok of toks) {
-      if (!tok.lexeme || tok.line === undefined || tok.column === undefined) continue;
-      if (tok.line < 1 || tok.line > lineStarts.length) continue;
-      
-      const lineStart = lineStarts[tok.line - 1];
-      let start = lineStart + tok.column - 1;
-      let end = start + tok.lexeme.length;
-      
-      if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
-        start = lineStart + tok.column;
-        end = start + tok.lexeme.length;
-      }
-      
-      if (start < 0 || end > src.length || src.slice(start, end) !== tok.lexeme) {
-        const lineEnd = lineStarts[tok.line] ?? src.length;
-        const lineText = src.slice(lineStart, lineEnd);
-        const tokenIndex = lineText.indexOf(tok.lexeme);
-        
-        if (tokenIndex !== -1) {
-          start = lineStart + tokenIndex;
-          end = start + tok.lexeme.length;
-        } else {
+      // 2. Build error ranges from parser-provided data ONLY
+      // NO merging, NO text search, NO token inference
+      for (const err of errs) {
+        if (err.line === undefined || err.line < 1 || err.column === undefined || err.column < 1) {
           continue;
         }
-      }
-      
-      matches.push({ start, end, cls: tokenClass(tok.type), isError: false });
-    }
-
-    for (const er of errorRanges) {
-      let foundOverlap = false;
-      
-      for (const m of matches) {
-        if (m.start < er.end && m.end > er.start) {
-          m.isError = true;
-          foundOverlap = true;
+        if (err.line > lineStarts.length) {
+          continue;
         }
-      }
-      
-      if (!foundOverlap) {
-        matches.push({ start: er.start, end: er.end, cls: undefined, isError: true });
-      }
-    }
 
-    if (matches.length === 0) return [{ text: src, cls: undefined }];
+        const lineStart = lineStarts[err.line - 1];
+        const errorStart = lineStart + err.column - 1; // 1-based column → 0-based index
+        const errorLength = err.token_length || 1;
+        const errorEnd = errorStart + errorLength;
 
-    matches.sort((a, b) => a.start - b.start);
-    
-    const segments: { text: string; cls?: string }[] = [];
-    let pos = 0;
-    
-    for (const m of matches) {
-      if (m.start > pos) segments.push({ text: src.slice(pos, m.start), cls: undefined });
-      
-      const classes = [m.cls, m.isError ? 'hl-error' : ''].filter(Boolean).join(' ');
-      segments.push({ text: src.slice(m.start, m.end), cls: classes || undefined });
-      pos = m.end;
-    }
-    
-    if (pos < src.length) segments.push({ text: src.slice(pos), cls: undefined });
-    
-    return segments.length > 0 ? segments : [{ text: src, cls: undefined }];
+        if (errorStart < 0 || errorEnd > src.length) {
+          continue;
+        }
+
+        console.log('[Error Underline] Range:', err.line, err.column, '→ chars', errorStart, '-', errorEnd, '=', JSON.stringify(src.slice(errorStart, errorEnd)));
+        
+        // Always add standalone error range - never merge into tokens
+        errorRanges.push({ start: errorStart, end: errorEnd, cls: 'hl-error', isError: true });
+      }
+
+      // 3. Build final segments by merging token and error ranges
+      // Errors take visual priority (rendered on top via CSS)
+      const allRanges = [...tokenRanges, ...errorRanges];
+      if (allRanges.length === 0) return [{ text: src, cls: undefined }];
+
+      // Sort by start position, errors first at same position
+      allRanges.sort((a, b) => a.start - b.start || (a.isError ? -1 : 1));
+
+      // Build non-overlapping segments using sweep line algorithm
+      const segments: { text: string; cls?: string }[] = [];
+
+      // Create a simple segment list from all ranges
+      // Handle overlaps by letting error class override
+      const points = new Set<number>();
+      for (const r of allRanges) {
+        points.add(r.start);
+        points.add(r.end);
+      }
+      points.add(0);
+      points.add(src.length);
+      const sortedPoints = Array.from(points).sort((a, b) => a - b);
+
+      for (let i = 0; i < sortedPoints.length - 1; i++) {
+        const segStart = sortedPoints[i];
+        const segEnd = sortedPoints[i + 1];
+        if (segStart >= segEnd) continue;
+
+        // Find all ranges covering this segment
+        const coveringRanges = allRanges.filter(r => r.start <= segStart && r.end >= segEnd);
+        
+        // Determine class: error takes priority, then token class
+        let cls: string | undefined;
+        const hasError = coveringRanges.some(r => r.isError);
+        const tokenRange = coveringRanges.find(r => !r.isError && r.cls);
+        
+        if (hasError && tokenRange) {
+          cls = `${tokenRange.cls} hl-error`;
+        } else if (hasError) {
+          cls = 'hl-error';
+        } else if (tokenRange) {
+          cls = tokenRange.cls;
+        }
+
+        segments.push({ text: src.slice(segStart, segEnd), cls });
+      }
+
+      return segments.length > 0 ? segments : [{ text: src, cls: undefined }];
     } catch (e) {
-      // On any error, return plain text
+      console.error('[Highlight] Exception:', e);
       return [{ text: src, cls: undefined }];
     }
   }, []);
@@ -447,42 +466,68 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
                   {/* Show lexical errors first */}
                   {lexErrors.map((err, i) => (
                     <div key={`lex-${i}`} style={{
-                      padding: "8px 12px",
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border)",
-                      borderLeft: "3px solid var(--error)",
-                      borderRadius: 4,
+                      padding: "10px 14px",
+                      background: "rgba(234, 179, 8, 0.08)",
+                      border: "1px solid rgba(234, 179, 8, 0.3)",
+                      borderLeft: "4px solid rgba(234, 179, 8, 0.8)",
+                      borderRadius: 6,
                       fontSize: 13,
                     }}>
-                      <div style={{ fontWeight: 600, color: "var(--error)", marginBottom: 4 }}>
-                        [Lexical] {err.message}
+                      <div style={{ fontWeight: 600, color: "rgb(234, 179, 8)", marginBottom: 6, fontSize: 14 }}>
+                        {err.message}
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                        Line {err.line}, Column {err.column}
+                      <div style={{ fontSize: 12, color: "rgba(234, 179, 8, 0.7)", fontWeight: 500 }}>
+                        at line {err.line}, column {err.column}
                       </div>
                     </div>
                   ))}
                   
                   {/* Show parse errors */}
-                  {parseErrorObjects.map((err, i) => (
-                    <div key={`parse-${i}`} style={{
-                      padding: "8px 12px",
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border)",
-                      borderLeft: "3px solid var(--warning)",
-                      borderRadius: 4,
-                      fontSize: 13,
-                    }}>
-                      <div style={{ fontWeight: 600, color: "var(--warning)", marginBottom: 4 }}>
-                        [Syntax] {err.message}
-                      </div>
-                      {(err.line > 0 || err.column > 0) && (
-                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                          Line {err.line}, Column {err.column}
+                  {parseErrorObjects.map((err, i) => {
+                    // Format the error message to highlight bracketed content
+                    const formatErrorMessage = (msg: string) => {
+                      // Split by [ and ] to find bracketed content
+                      const parts = msg.split(/(\[.*?\])/g);
+                      return parts.map((part, idx) => {
+                        if (part.startsWith('[') && part.endsWith(']')) {
+                          // This is bracketed content - style it differently
+                          return (
+                            <span key={idx} style={{ 
+                              color: "rgba(248, 113, 113, 0.9)", 
+                              fontWeight: 700,
+                              background: "rgba(248, 113, 113, 0.15)",
+                              padding: "2px 6px",
+                              borderRadius: 3,
+                              fontFamily: "var(--mono)"
+                            }}>
+                              {part}
+                            </span>
+                          );
+                        }
+                        return <span key={idx}>{part}</span>;
+                      });
+                    };
+
+                    return (
+                      <div key={`parse-${i}`} style={{
+                        padding: "10px 14px",
+                        background: "rgba(239, 68, 68, 0.08)",
+                        border: "1px solid rgba(239, 68, 68, 0.3)",
+                        borderLeft: "4px solid rgba(239, 68, 68, 0.8)",
+                        borderRadius: 6,
+                        fontSize: 13,
+                      }}>
+                        <div style={{ fontWeight: 600, color: "rgb(239, 68, 68)", marginBottom: 6, fontSize: 14, lineHeight: "1.6" }}>
+                          {formatErrorMessage(err.message)}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {(err.line > 0 || err.column > 0) && (
+                          <div style={{ fontSize: 12, color: "rgba(239, 68, 68, 0.7)", fontWeight: 500 }}>
+                            at line {err.line}, column {err.column}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

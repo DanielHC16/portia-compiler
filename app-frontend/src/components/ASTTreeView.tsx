@@ -9,10 +9,12 @@ interface ASTTreeViewProps {
 interface TreeNodeProps {
   node: any;
   depth?: number;
+  fieldName?: string;
 }
 
-function TreeNode({ node, depth = 0 }: TreeNodeProps) {
-  const [collapsed, setCollapsed] = useState(false);
+function TreeNode({ node, depth = 0, fieldName }: TreeNodeProps) {
+  // Start collapsed for all nodes except the root
+  const [collapsed, setCollapsed] = useState(depth > 0);
 
   if (!node) {
     return <div style={{ color: "var(--text-muted)", fontStyle: "italic" }}>null</div>;
@@ -46,7 +48,7 @@ function TreeNode({ node, depth = 0 }: TreeNodeProps) {
             {node.map((item, i) => (
               <div key={i} style={{ marginTop: 8 }}>
                 <span style={{ color: "var(--warning)", marginRight: 8 }}>[{i}]</span>
-                <TreeNode node={item} depth={depth + 1} />
+                <TreeNode node={item} depth={depth + 1} fieldName={fieldName} />
               </div>
             ))}
           </div>
@@ -71,7 +73,11 @@ function TreeNode({ node, depth = 0 }: TreeNodeProps) {
           border: "1px solid var(--border)",
           borderRadius: 6,
           marginBottom: 8,
-          display: "inline-block"
+          display: "inline-block",
+          maxWidth: "100%",
+          wordWrap: "break-word",
+          overflowWrap: "break-word",
+          boxSizing: "border-box"
         }}
       >
         {children.length > 0 && <span style={{ marginRight: 8 }}>{collapsed ? "▶" : "▼"}</span>}
@@ -98,7 +104,7 @@ function TreeNode({ node, depth = 0 }: TreeNodeProps) {
               }}>
                 {child.label}
               </div>
-              <TreeNode node={child.value} depth={depth + 1} />
+              <TreeNode node={child.value} depth={depth + 1} fieldName={child.label.replace(/ /g, '_')} />
             </div>
           ))}
         </div>
@@ -204,7 +210,9 @@ export default function ASTTreeView({ ast }: ASTTreeViewProps) {
       fontFamily: "var(--mono)",
       fontSize: 13,
       height: "100%",
-      overflow: "auto"
+      overflow: "auto",
+      maxWidth: "100%",
+      boxSizing: "border-box"
     }}>
       <TreeNode node={ast} />
     </div>
