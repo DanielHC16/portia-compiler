@@ -242,31 +242,28 @@ portia-compiler/
     └── stop-all.ps1        # Stop all services
 ```
 
-## PORTIA Language Features
 
-- **Data Types**: `int`, `long`, `float`, `double`, `char`, `string`, `bool`
-- **Variables**: Global (`global var/const`) and local (`local var/const`)
-- **Arrays**: 1D and 2D arrays with optional initialization
-- **Weave Types**: User-defined struct-like types
-- **Functions**: User-defined functions with parameters and return types
-- **Control Flow**: `if`/`else`, `switch`/`case`, `for`, `while`, `do-while`
-- **I/O**: `trap` (input), `thread`/`threadln` (output)
-- **Operators**: Arithmetic, relational, logical, assignment, increment/decrement
+## LoomVI | BSCS 3-3 2025-2026
 
-## Documentation
+**PORTIA Programming Language Development Team**
 
-- `lexer-backend/docs/` - Lexer architecture and FSA specification
-- `app-frontend/docs/` - Frontend component reference
+| Role | Team Member |
+|------|-------------|
+| **Team Leader** | Jonalene Ryza B. Abundo |
+| **Core Developer** | Daniel Hardy C. Camacho |
+| **Documentation Team Lead** | Mariel Kim R. Vaflor |
+| **Finance Team Lead** | Carla R. Mabutas |
+| **Q/A Team** | Hershey Anne P. Dalangin |
+| **Q/A Team** | Sydney Angeleve M. Peña |
 
-## Authors
+### Collaborative Development
 
-- Abundo, J.R.B.
-- Camacho, D.H.C.
-- Dalangin, H.A.P.
-- Mabutas, C.R.
-- Peña, S.A.M.
-- Vaflor, M.K.R.
+While each team member has a designated role, **LoomVI operates as a fully collaborative unit**. All team members actively contribute across different aspects of the PORTIA compiler project, including:
 
-## License
+- Grammar design and refinement
+- Parser implementation and testing
+- Documentation and technical writing
+- Quality assurance and validation
+- Project planning and coordination
 
-This project is developed for educational purposes.
+This cross-functional approach ensures that every team member has a comprehensive understanding of the PORTIA language and contributes to all phases of development.
