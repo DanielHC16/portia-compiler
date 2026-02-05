@@ -270,7 +270,8 @@ class PortiaLarkParser:
         
         # Format expected tokens for display (symbols for punctuation, names for keywords)
         if not expected_lexer_types:
-            expected_str = "valid token"
+            # No expected tokens means EOF was expected (end of program)
+            expected_str = "[ <EOF> (end of file) ]"
         else:
             expected_display = [self._format_token_for_display(t) for t in expected_lexer_types]
             expected_str = f"[ {', '.join(expected_display)} ]"
