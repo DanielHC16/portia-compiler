@@ -160,9 +160,9 @@ io_stmt: input_stmt | output_stmt
 
 input_stmt: TRAP LPAREN id_with_access RPAREN SEMICOLON
 
-output_stmt: (THREAD | THREADLN) LPAREN print_args_opt RPAREN SEMICOLON
+output_stmt: (THREAD | THREADLN) LPAREN print_args RPAREN SEMICOLON
 
-print_args_opt: (expression print_tail)?
+print_args: expression print_tail
 
 print_tail: (COMMA expression)*
 
