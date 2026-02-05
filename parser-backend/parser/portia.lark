@@ -26,8 +26,20 @@ arr_1d_decl: dtype ID LBRACK INTLIT RBRACK arr_2d_opt arr_init_opt SEMICOLON
 
 arr_2d_opt: (LBRACK INTLIT RBRACK)?
 
-arr_init_opt: (ASSIGN LBRACE elem_list RBRACE)?
+// arr_init_opt handles both 1D and 2D initialization
+// 1D: = { value, value, ... }
+// 2D: = { {value, value}, {value, value}, ... }
+arr_init_opt: (ASSIGN LBRACE arr_init_content RBRACE)?
 
+// Content can be either 2D (nested braces) or 1D (flat values)
+arr_init_content: elem_2d_list | elem_list
+
+// Production 195-198: 2D array element list with nested braces
+elem_2d_list: LBRACE elem_list RBRACE elem_2d_list_tail
+
+elem_2d_list_tail: (COMMA LBRACE elem_list RBRACE)*
+
+// 1D element list (flat values)
 elem_list: (arr_tpc_opt value elem_list_tail)?
 
 elem_list_tail: (COMMA arr_tpc_opt value)*
