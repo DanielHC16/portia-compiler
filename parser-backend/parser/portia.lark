@@ -187,13 +187,25 @@ default_opt: (DEFAULT COLON statement_list break_opt)?
 
 break_opt: (BREAK SEMICOLON)?
 
-for_stmt: FOR LPAREN for_init_opt SEMICOLON condition SEMICOLON for_update_opt RPAREN LBRACE statement_list RBRACE
+for_stmt: FOR LPAREN initializer SEMICOLON condition SEMICOLON for_update_opt RPAREN LBRACE statement_list RBRACE
 
-// CFG Production 465-467: <initializer> → local var<dtype>id=<value><multi_dec> | <assign_expr> | 𝝺
-// Note: Unlike local_var_dec in local_block, for-loop initializer does NOT include semicolon
-for_init_opt: (for_local_init | expression)?
+// CFG Productions 469-471: <initializer> for for-loop
+// 469: <initializer> → local var <dtype> id = <value>
+// 470: <initializer> → <for_expr>
+// 471: <initializer> → λ
+// PREDICT: 469={local}, 470={id}, 471={;}
+initializer: for_local_init    // Production 469
+           | for_expr          // Production 470
+           |                   // Production 471 (empty/lambda)
 
-// For-loop specific local declaration (no trailing semicolon per CFG 465)
+// CFG Productions 472-473: <for_expr>
+// 472: <for_expr> → <assign_expr>
+// 473: <for_expr> → <function_call>
+// PREDICT: 472={id}, 473={id} - resolved by lookahead (id( vs id=)
+for_expr: assign_expr          // Production 472
+        | function_call        // Production 473
+
+// For-loop specific local declaration (no trailing semicolon per CFG 469)
 // Type-specific to enforce correct literal types
 for_local_init: LOCAL mutability INT ID ASSIGN INTLIT int_multi_dec_tail
               | LOCAL mutability LONG ID ASSIGN LONGLIT long_multi_dec_tail
