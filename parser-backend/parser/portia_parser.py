@@ -172,19 +172,32 @@ class PortiaLarkParser:
         # Join lines with newlines - Lark now sees multi-line source
         return "\n".join(reconstructed_lines)
     
-    def _lookup_original_token(self, line: int, lexeme: str) -> Dict[str, Any]:
+    def _lookup_original_token(self, line: int, lexeme: str, lark_column: int = None) -> Dict[str, Any]:
         """
         Look up the original token by line and lexeme value.
+        If lark_column is provided, finds the token closest to that column position.
         Returns original token dict with correct column, or None if not found.
         """
         if not hasattr(self, '_tokens_by_line') or line not in self._tokens_by_line:
             return None
         
-        for token in self._tokens_by_line[line]:
-            if token.get("lexeme") == lexeme:
-                return token
+        # Find all tokens matching the lexeme on this line
+        matching_tokens = [t for t in self._tokens_by_line[line] if t.get("lexeme") == lexeme]
         
-        return None
+        if not matching_tokens:
+            return None
+        
+        if len(matching_tokens) == 1:
+            return matching_tokens[0]
+        
+        # Multiple matches - use lark_column to find the closest one
+        if lark_column is not None:
+            # Find token with column closest to lark_column
+            best_match = min(matching_tokens, key=lambda t: abs(t.get("column", 0) - lark_column))
+            return best_match
+        
+        # Fallback to first match
+        return matching_tokens[0]
     
     def parse(self, tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -270,7 +283,8 @@ class PortiaLarkParser:
         
         # Format expected tokens for display (symbols for punctuation, names for keywords)
         if not expected_lexer_types:
-            expected_str = "valid token"
+            # No expected tokens means EOF was expected (end of program)
+            expected_str = "[ <EOF> (end of file) ]"
         else:
             expected_display = [self._format_token_for_display(t) for t in expected_lexer_types]
             expected_str = f"[ {', '.join(expected_display)} ]"
@@ -285,7 +299,7 @@ class PortiaLarkParser:
         token_length = len(token_value) if token_value else 1
         
         # Look up original token to get correct column position
-        original_token = self._lookup_original_token(lark_line, token_value)
+        original_token = self._lookup_original_token(lark_line, token_value, lark_column)
         if original_token:
             line = original_token.get("line", lark_line)
             column = original_token.get("column", lark_column)
@@ -373,7 +387,7 @@ class PortiaLarkParser:
             token_length = len(token_value) if token_value else 1
         
         # Look up original token to get correct column position
-        original_token = self._lookup_original_token(lark_line, token_value)
+        original_token = self._lookup_original_token(lark_line, token_value, lark_column)
         if original_token:
             line = original_token.get("line", lark_line)
             column = original_token.get("column", lark_column)

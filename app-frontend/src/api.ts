@@ -40,8 +40,8 @@ export async function parseSource(source: string, opts?: { signal?: AbortSignal 
   return postJSON(`${PARSER_URL}/parse/source`, { source }, opts);
 }
 
-export async function parseTokens(tokens: Token[], source?: string, opts?: { signal?: AbortSignal }) {
-  return postJSON(`${PARSER_URL}/parse`, { tokens, source }, opts);
+export async function parseTokens(tokens: Token[], source?: string, lexer_errors?: LexError[], opts?: { signal?: AbortSignal }) {
+  return postJSON(`${PARSER_URL}/parse`, { tokens, source, lexer_errors }, opts);
 }
 
 export async function analyzeTokens(tokens: Token[], opts?: { signal?: AbortSignal }) {
