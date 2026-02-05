@@ -177,7 +177,7 @@ condition: expression
 
 switch_stmt: SWITCH LPAREN expression RPAREN LBRACE case_list default_opt RBRACE
 
-case_list: case_stmt*
+case_list: case_stmt+
 
 case_stmt: CASE unique_val COLON statement_list break_opt
 
