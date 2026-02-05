@@ -73,7 +73,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
           const tokensWithoutComments = lexResp.tokens.filter((token: Token) => 
             token.type !== 'single_comment' && token.type !== 'multi_comment'
           );
-          const parseResp = await parseTokens(tokensWithoutComments, normalizedCode, { signal: controller.signal });
+          const parseResp = await parseTokens(tokensWithoutComments, normalizedCode, lexResp.errors, { signal: controller.signal });
           
           // Debug: log the parse response
           console.log('[Parser Response]', parseResp);

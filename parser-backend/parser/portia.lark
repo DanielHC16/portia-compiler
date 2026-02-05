@@ -11,9 +11,27 @@ program: global_dec function main_func
 // Production 18: <global_dec> → ε (PREDICT: {func, int})
 global_dec: (global_var_dec | arr_1d_decl | weave_def)*
 
-global_var_dec: GLOBAL mutability dtype ID ASSIGN value multi_dec_tail SEMICOLON
+// Type-specific global declarations per CFG Productions 19-26
+// Each type requires its matching literal type
+global_var_dec: GLOBAL mutability INT ID ASSIGN INTLIT int_multi_dec_tail SEMICOLON
+              | GLOBAL mutability LONG ID ASSIGN LONGLIT long_multi_dec_tail SEMICOLON
+              | GLOBAL mutability FLOAT ID ASSIGN FLOATLIT float_multi_dec_tail SEMICOLON
+              | GLOBAL mutability DOUBLE ID ASSIGN DOUBLELIT double_multi_dec_tail SEMICOLON
+              | GLOBAL mutability CHAR ID ASSIGN CHARLIT char_multi_dec_tail SEMICOLON
+              | GLOBAL mutability STRING ID ASSIGN STRINGLIT string_multi_dec_tail SEMICOLON
+              | GLOBAL mutability BOOL ID ASSIGN bool_lit bool_multi_dec_tail SEMICOLON
 
-multi_dec_tail: (COMMA ID ASSIGN value)*
+// Type-specific multi-declaration tails per CFG Productions 35-50
+int_multi_dec_tail: (COMMA ID ASSIGN INTLIT)*
+long_multi_dec_tail: (COMMA ID ASSIGN LONGLIT)*
+float_multi_dec_tail: (COMMA ID ASSIGN FLOATLIT)*
+double_multi_dec_tail: (COMMA ID ASSIGN DOUBLELIT)*
+char_multi_dec_tail: (COMMA ID ASSIGN CHARLIT)*
+string_multi_dec_tail: (COMMA ID ASSIGN STRINGLIT)*
+bool_multi_dec_tail: (COMMA ID ASSIGN bool_lit)*
+
+// Boolean literals
+bool_lit: TRUE | FALSE
 
 mutability: VAR | CONST
 
@@ -91,7 +109,16 @@ local_decl: local_var_dec
           | local_arr_dec
           | weave_local_dec
 
-local_var_dec: LOCAL mutability dtype ID ASSIGN value multi_dec_tail SEMICOLON
+// Type-specific local variable declarations per CFG
+// Each type requires its matching literal type only
+// CFG 259: <string_local_dec> → local<mutability> string id= stringlit <string_multi_dec>
+local_var_dec: LOCAL mutability INT ID ASSIGN INTLIT int_multi_dec_tail SEMICOLON
+             | LOCAL mutability LONG ID ASSIGN LONGLIT long_multi_dec_tail SEMICOLON
+             | LOCAL mutability FLOAT ID ASSIGN FLOATLIT float_multi_dec_tail SEMICOLON
+             | LOCAL mutability DOUBLE ID ASSIGN DOUBLELIT double_multi_dec_tail SEMICOLON
+             | LOCAL mutability CHAR ID ASSIGN CHARLIT char_multi_dec_tail SEMICOLON
+             | LOCAL mutability STRING ID ASSIGN STRINGLIT string_multi_dec_tail SEMICOLON
+             | LOCAL mutability BOOL ID ASSIGN bool_lit bool_multi_dec_tail SEMICOLON
 
 local_arr_dec: LOCAL mutability dtype ID LBRACK INTLIT RBRACK arr_2d_opt arr_init_opt SEMICOLON
 
@@ -99,10 +126,17 @@ weave_local_dec: LOCAL mutability ID ID ASSIGN LBRACE value elem_list_tail RBRAC
 
 string_expr: string_primary string_tail
 
+// string_primary includes typecast for expressions like (string)'A'
 string_primary: STRINGLIT 
               | CHARLIT 
               | id_with_access
               | function_call
+              | string_cast
+
+// Typecast to string: (dtype)value - allows (string)'A', (string)65, etc.
+string_cast: LPAREN dtype RPAREN string_cast_operand
+
+string_cast_operand: CHARLIT | INTLIT | LONGLIT | FLOATLIT | DOUBLELIT | id_with_access
 
 string_tail: (CONCAT string_primary)*
 
@@ -153,16 +187,25 @@ default_opt: (DEFAULT COLON statement_list break_opt)?
 
 break_opt: (BREAK SEMICOLON)?
 
-for_stmt: FOR LPAREN for_init_opt SEMICOLON condition_opt SEMICOLON for_update_opt RPAREN LBRACE statement_list RBRACE
+for_stmt: FOR LPAREN for_init_opt SEMICOLON condition SEMICOLON for_update_opt RPAREN LBRACE statement_list RBRACE
 
 // CFG Production 465-467: <initializer> → local var<dtype>id=<value><multi_dec> | <assign_expr> | 𝝺
 // Note: Unlike local_var_dec in local_block, for-loop initializer does NOT include semicolon
 for_init_opt: (for_local_init | expression)?
 
 // For-loop specific local declaration (no trailing semicolon per CFG 465)
-for_local_init: LOCAL mutability dtype ID ASSIGN value multi_dec_tail
+// Type-specific to enforce correct literal types
+for_local_init: LOCAL mutability INT ID ASSIGN INTLIT int_multi_dec_tail
+              | LOCAL mutability LONG ID ASSIGN LONGLIT long_multi_dec_tail
+              | LOCAL mutability FLOAT ID ASSIGN FLOATLIT float_multi_dec_tail
+              | LOCAL mutability DOUBLE ID ASSIGN DOUBLELIT double_multi_dec_tail
+              | LOCAL mutability CHAR ID ASSIGN CHARLIT char_multi_dec_tail
+              | LOCAL mutability STRING ID ASSIGN STRINGLIT string_multi_dec_tail
+              | LOCAL mutability BOOL ID ASSIGN bool_lit bool_multi_dec_tail
 
-condition_opt: expression?
+// CFG Production 418: <condition> → <logical_op><logical_op_tail> (NOT nullable)
+// For-loops require a condition - no ε production exists for <condition>
+// condition_opt removed - for-loop must have explicit condition per CFG 464
 
 // CFG Productions 468-471: <update> → ++id | --id | id<up_post> | ε
 // PREDICT: 468={++}, 469={--}, 470={id}, 471={)}
