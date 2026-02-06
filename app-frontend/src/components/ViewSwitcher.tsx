@@ -10,7 +10,9 @@ export default function ViewSwitcher() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   
   // Shared state across all panels
-  const [sharedCode, setSharedCode] = useState<string>("");
+  const [sharedCode, setSharedCode] = useState<string>(`int main() {
+    return 0;
+}`);
   const [sharedTokens, setSharedTokens] = useState<Token[]>([]);
   const [sharedLexErrors, setSharedLexErrors] = useState<LexError[]>([]);
 
@@ -100,6 +102,7 @@ export default function ViewSwitcher() {
       <div style={{ display: view === "syntax" ? "block" : "none", height: "100%" }}>
         <ParserPanel 
           sharedCode={sharedCode}
+          setSharedCode={setSharedCode}
           sharedTokens={sharedTokens}
           sharedLexErrors={sharedLexErrors}
         />

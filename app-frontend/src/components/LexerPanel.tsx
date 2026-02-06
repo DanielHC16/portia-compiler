@@ -17,19 +17,11 @@ type LexerPanelProps = {
 };
 
 export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens, setSharedLexErrors }: LexerPanelProps) {
-  const [code, setCode] = useState<string>(sharedCode || EXAMPLE);
   const [lexedCode, setLexedCode] = useState<string>("");  // The code that was actually lexed
   const [tokens, setTokens] = useState<SimpleToken[]>([]);
   const [errors, setErrors] = useState<LexError[]>([]);
   const [loading, setLoading] = useState(false);
   const [hideComments, setHideComments] = useState(false);
-  
-  // Sync local code with shared code on mount
-  useEffect(() => {
-    if (sharedCode) {
-      setCode(sharedCode);
-    }
-  }, []);
   
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
@@ -54,7 +46,7 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     
     try {
       // Normalize quotes AND line endings before sending to lexer
-      const normalizedCode = normalizeQuotes(code).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const normalizedCode = normalizeQuotes(sharedCode).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const resp = await lexCode(normalizedCode, { signal: controller.signal });
       setTokens(resp.tokens as SimpleToken[]);
       setErrors(resp.errors);
@@ -81,9 +73,9 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
   const handleCodeChange = useCallback((newCode: string) => {
     // Normalize line endings to match what the backend will use
     const normalized = newCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    setCode(normalized);
+    setSharedCode(normalized);
     // Tokens and errors stay visible for reference until user runs lexer again or clicks reset
-  }, []);
+  }, [setSharedCode]);
 
   // Handle paste - normalize quotes automatically
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -96,24 +88,24 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const newCode = code.substring(0, start) + normalizedText + code.substring(end);
+    const newCode = sharedCode.substring(0, start) + normalizedText + sharedCode.substring(end);
     
-    setCode(newCode);
+    setSharedCode(newCode);
     
     // Set cursor position after paste
     setTimeout(() => {
       textarea.selectionStart = textarea.selectionEnd = start + normalizedText.length;
       textarea.focus();
     }, 0);
-  }, [code, normalizeQuotes]);
+  }, [sharedCode, setSharedCode]);
 
   // Reset function - clears everything
   const handleReset = useCallback(() => {
-    setCode(EXAMPLE);
+    setSharedCode(EXAMPLE);
     setTokens([]);
     setErrors([]);
     setLexedCode("");
-  }, []);
+  }, [setSharedCode]);
 
   // Sync scroll between textarea, highlighting overlay, and line numbers
   useEffect(() => {
@@ -249,23 +241,23 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
   const highlightedHTML = useCallback(() => {
     try {
       // STRICT: Only apply highlighting if code EXACTLY matches what was lexed
-      if (lexedCode && code === lexedCode && (tokens.length > 0 || errors.length > 0)) {
-        const rawSegments = buildHighlightsFromTokens(code, tokens, errors);
+      if (lexedCode && sharedCode === lexedCode && (tokens.length > 0 || errors.length > 0)) {
+        const rawSegments = buildHighlightsFromTokens(sharedCode, tokens, errors);
         const html = rawSegments
           .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
           .join("");
-        return html || escapeHtml(code);
+        return html || escapeHtml(sharedCode);
       }
       // Show plain text (no highlighting) - user can still see what they're typing
-      return escapeHtml(code);
+      return escapeHtml(sharedCode);
     } catch (e) {
       // Fallback on any error
-      return escapeHtml(code);
+      return escapeHtml(sharedCode);
     }
-  }, [code, lexedCode, tokens, errors, buildHighlightsFromTokens]);
+  }, [sharedCode, lexedCode, tokens, errors, buildHighlightsFromTokens]);
   
   // Calculate line numbers
-  const lines = code.split('\n');
+  const lines = sharedCode.split('\n');
   const lineCount = lines.length;
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
@@ -351,7 +343,7 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
                 {/* Editable textarea */}
                 <textarea
                   ref={textareaRef}
-                  value={code}
+                  value={sharedCode}
                   onChange={(e) => handleCodeChange(e.target.value)}
                   onPaste={handlePaste}
                   aria-label="source-input"
@@ -407,18 +399,18 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {errors.map((err, i) => (
                     <div key={i} style={{
-                      padding: "8px 12px",
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border)",
-                      borderLeft: "3px solid var(--error)",
-                      borderRadius: 4,
+                      padding: "10px 14px",
+                      background: "rgba(234, 179, 8, 0.08)",
+                      border: "1px solid rgba(234, 179, 8, 0.3)",
+                      borderLeft: "4px solid rgba(234, 179, 8, 0.8)",
+                      borderRadius: 6,
                       fontSize: 13,
                     }}>
-                      <div style={{ fontWeight: 600, color: "var(--error)", marginBottom: 4 }}>
+                      <div style={{ fontWeight: 600, color: "rgb(234, 179, 8)", marginBottom: 6, fontSize: 14 }}>
                         {err.message}
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                        Line {err.line}, Column {err.column}
+                      <div style={{ fontSize: 12, color: "rgba(234, 179, 8, 0.7)", fontWeight: 500 }}>
+                        at line {err.line}, column {err.column}
                       </div>
                     </div>
                   ))}
