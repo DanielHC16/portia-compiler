@@ -12,12 +12,12 @@ type SimpleToken = Token & { start?: number; end?: number };
 
 type ParserPanelProps = {
   sharedCode: string;
+  setSharedCode: (code: string) => void;
   sharedTokens: Token[];
   sharedLexErrors: LexError[];
 };
 
-export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors }: ParserPanelProps) {
-  const [code, setCode] = useState<string>(sharedCode || EXAMPLE);
+export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, sharedLexErrors }: ParserPanelProps) {
   const [lexedCode, setLexedCode] = useState<string>(sharedCode || "");
   const [tokens, setTokens] = useState<SimpleToken[]>(sharedTokens as SimpleToken[] || []);
   const [lexErrors, setLexErrors] = useState<LexError[]>(sharedLexErrors || []);
@@ -26,11 +26,10 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
   const [ast, setAst] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'tokens' | 'tree' | 'json'>('tokens');
   const [loading, setLoading] = useState(false);
-  const [hideComments, setHideComments] = useState(false);
+  const [hideComments, _setHideComments] = useState(false);
   
-  // Sync with shared state when it changes
+  // Sync tokens/errors with shared state when it changes (but not code - that's shared)
   useEffect(() => {
-    setCode(sharedCode || EXAMPLE);
     setLexedCode(sharedCode || "");
     setTokens(sharedTokens as SimpleToken[] || []);
     setLexErrors(sharedLexErrors || []);
@@ -60,7 +59,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
     
     try {
       // First run lexer
-      const normalizedCode = normalizeQuotes(code).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const normalizedCode = normalizeQuotes(sharedCode).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const lexResp = await lexCode(normalizedCode, { signal: controller.signal });
       setTokens(lexResp.tokens as SimpleToken[]);
       setLexErrors(lexResp.errors);
@@ -135,7 +134,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
 
   // Reset function
   const handleReset = useCallback(() => {
-    setCode(EXAMPLE);
+    setSharedCode(EXAMPLE);
     setTokens([]);
     setLexErrors([]);
     setParseErrors([]);
@@ -143,12 +142,12 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
     setAst(null);
     setViewMode('tokens');
     setLexedCode("");
-  }, []);
+  }, [setSharedCode]);
 
   // Handle code changes
   const handleCodeChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setCode(e.target.value);
-  }, []);
+    setSharedCode(e.target.value);
+  }, [setSharedCode]);
 
   // Handle special key combinations
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -157,13 +156,13 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
       const target = e.target as HTMLTextAreaElement;
       const start = target.selectionStart;
       const end = target.selectionEnd;
-      const newCode = code.substring(0, start) + '    ' + code.substring(end);
-      setCode(newCode);
+      const newCode = sharedCode.substring(0, start) + '    ' + sharedCode.substring(end);
+      setSharedCode(newCode);
       setTimeout(() => {
         target.selectionStart = target.selectionEnd = start + 4;
       }, 0);
     }
-  }, [code]);
+  }, [sharedCode, setSharedCode]);
 
   // Sync scroll
   useEffect(() => {
@@ -296,23 +295,23 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
 
   const highlightedHTML = useCallback(() => {
     try {
-      if (lexedCode && code === lexedCode && (tokens.length > 0 || lexErrors.length > 0 || parseErrorObjects.length > 0)) {
+      if (lexedCode && sharedCode === lexedCode && (tokens.length > 0 || lexErrors.length > 0 || parseErrorObjects.length > 0)) {
         // Combine lexical and parser errors for highlighting
         const allErrors = [...lexErrors, ...parseErrorObjects];
-        const rawSegments = buildHighlightsFromTokens(code, tokens, allErrors);
+        const rawSegments = buildHighlightsFromTokens(sharedCode, tokens, allErrors);
         const html = rawSegments
           .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
           .join("");
-        return html || escapeHtml(code);
+        return html || escapeHtml(sharedCode);
       }
-      return escapeHtml(code);
+      return escapeHtml(sharedCode);
     } catch (e) {
       // Fallback on any error
-      return escapeHtml(code);
+      return escapeHtml(sharedCode);
     }
-  }, [code, lexedCode, tokens, lexErrors, parseErrorObjects, buildHighlightsFromTokens]);
+  }, [sharedCode, lexedCode, tokens, lexErrors, parseErrorObjects, buildHighlightsFromTokens]);
   
-  const lines = code.split('\n');
+  const lines = sharedCode.split('\n');
   const lineCount = lines.length;
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
@@ -325,8 +324,7 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
           <button 
             className="btn" 
             onClick={runParser} 
-            disabled={loading || lexErrors.length > 0}
-            title={lexErrors.length > 0 ? "Fix lexical errors before parsing" : ""}
+            disabled={loading}
           >
             {loading ? "Analyzing..." : "Run Parser"}
           </button>
@@ -336,205 +334,108 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, flex: "1 1 auto", minHeight: 0 }}>
-        {/* Left Column: Source Code and Terminal */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
-          {/* Code Editor with Syntax Highlighting */}
-          <div className="panel" style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <h3 style={{ marginTop: 0, marginBottom: 8 }}>Source Code</h3>
-            <div style={{ position: "relative", flex: "1 1 auto", minHeight: 300, display: "flex" }}>
-              {/* Line Numbers */}
-              <div
-                ref={lineNumbersRef}
+      {/* Grid layout: Top row (Source + Tokens), Bottom row (Terminal) */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 16, flex: "1 1 auto", minHeight: 0 }}>
+        {/* Top-Left: Source Code */}
+        <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 8 }}>Source Code</h3>
+          <div style={{ position: "relative", flex: "1 1 auto", minHeight: 300, display: "flex" }}>
+            {/* Line Numbers */}
+            <div
+              ref={lineNumbersRef}
+              style={{
+                position: "relative",
+                width: 40,
+                padding: "12px 8px",
+                background: "var(--bg-secondary)",
+                borderLeft: "1px solid var(--border)",
+                borderTop: "1px solid var(--border)",
+                borderBottom: "1px solid var(--border)",
+                borderTopLeftRadius: 6,
+                borderBottomLeftRadius: 6,
+                overflow: "hidden",
+                userSelect: "none",
+                textAlign: "right",
+                fontFamily: "var(--mono)",
+                fontSize: 14,
+                lineHeight: "1.5",
+                color: "var(--text-muted)",
+                opacity: 0.6,
+              }}
+            >
+              {lineNumbers.map((num) => (
+                <div key={num} style={{ minHeight: "21px" }}>{num}</div>
+              ))}
+            </div>
+
+            {/* Code container */}
+            <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+              {/* Highlighted overlay */}
+              <pre
+                ref={preRef}
+                className="source-display"
                 style={{
-                  position: "relative",
-                  width: 40,
-                  padding: "12px 8px",
-                  background: "var(--bg-secondary)",
-                  borderLeft: "1px solid var(--border)",
-                  borderTop: "1px solid var(--border)",
-                  borderBottom: "1px solid var(--border)",
-                  borderTopLeftRadius: 6,
-                  borderBottomLeftRadius: 6,
-                  overflow: "hidden",
-                  userSelect: "none",
-                  textAlign: "right",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  margin: 0,
+                  padding: "12px",
+                  whiteSpace: "pre-wrap",
+                  wordWrap: "break-word",
                   fontFamily: "var(--mono)",
                   fontSize: 14,
                   lineHeight: "1.5",
-                  color: "var(--text-muted)",
-                  opacity: 0.6,
+                  pointerEvents: "none",
+                  overflow: "hidden",
+                  borderTopLeftRadius: 0,
+                  borderBottomLeftRadius: 0,
                 }}
               >
-                {lineNumbers.map((num) => (
-                  <div key={num} style={{ minHeight: "21px" }}>{num}</div>
-                ))}
-              </div>
-
-              {/* Code container */}
-              <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
-                {/* Highlighted overlay */}
-                <pre
-                  ref={preRef}
-                  className="source-display"
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    margin: 0,
-                    padding: "12px",
-                    whiteSpace: "pre-wrap",
-                    wordWrap: "break-word",
-                    fontFamily: "var(--mono)",
-                    fontSize: 14,
-                    lineHeight: "1.5",
-                    pointerEvents: "none",
-                    overflow: "hidden",
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
-                  }}
-                >
-                  <span dangerouslySetInnerHTML={{ __html: highlightedHTML() }} />
-                </pre>
-                
-                {/* Editable textarea */}
-                <textarea
-                  ref={textareaRef as any}
-                  value={code}
-                  onChange={handleCodeChange}
-                  onKeyDown={handleKeyDown}
-                  aria-label="source-code-editor"
-                  className="source-display"
-                  spellCheck={false}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    width: "100%",
-                    height: "100%",
-                    margin: 0,
-                    padding: "12px",
-                    fontFamily: "var(--mono)",
-                    fontSize: 14,
-                    lineHeight: "1.5",
-                    resize: "none",
-                    border: "none",
-                    outline: "none",
-                    background: "transparent",
-                    color: "transparent",
-                    caretColor: "var(--text)",
-                    overflow: "auto",
-                    whiteSpace: "pre-wrap",
-                    wordWrap: "break-word",
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Terminal / Errors Panel */}
-          <div className="panel" style={{ flex: "0 0 auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ margin: 0 }}>Terminal</h3>
-              <div className="small" style={{
-                color: (lexErrors.length > 0 || parseErrors.length > 0) ? "var(--text-muted)" : tokens.length > 0 ? "var(--success)" : "var(--text-muted)",
-                fontWeight: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? 600 : 400,
-                padding: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "4px 12px" : "0",
-                borderRadius: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "12px" : "0",
-                backgroundColor: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "rgba(34, 197, 94, 0.1)" : "transparent",
-                border: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "1px solid rgba(34, 197, 94, 0.3)" : "none"
-              }}>
-                {lexErrors.length > 0 ? `Lexical Errors: ${lexErrors.length}` : 
-                 parseErrors.length > 0 ? `Syntax Errors: ${parseErrors.length}` : 
-                 tokens.length > 0 ? '✓ Parsing success' : 'No errors'}
-              </div>
-            </div>
-            <div style={{ maxHeight: 200, overflow: "auto" }}>
-              {lexErrors.length === 0 && parseErrors.length === 0 ? (
-                <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>
-                  {tokens.length > 0 ? "No syntax errors" : "Run parser to analyze code"}
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {/* Show lexical errors first */}
-                  {lexErrors.map((err, i) => (
-                    <div key={`lex-${i}`} style={{
-                      padding: "10px 14px",
-                      background: "rgba(234, 179, 8, 0.08)",
-                      border: "1px solid rgba(234, 179, 8, 0.3)",
-                      borderLeft: "4px solid rgba(234, 179, 8, 0.8)",
-                      borderRadius: 6,
-                      fontSize: 13,
-                    }}>
-                      <div style={{ fontWeight: 600, color: "rgb(234, 179, 8)", marginBottom: 6, fontSize: 14 }}>
-                        {err.message}
-                      </div>
-                      <div style={{ fontSize: 12, color: "rgba(234, 179, 8, 0.7)", fontWeight: 500 }}>
-                        at line {err.line}, column {err.column}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Show parse errors */}
-                  {parseErrorObjects.map((err, i) => {
-                    // Format the error message to highlight bracketed content
-                    const formatErrorMessage = (msg: string) => {
-                      // Split by [ and ] to find bracketed content
-                      const parts = msg.split(/(\[.*?\])/g);
-                      return parts.map((part, idx) => {
-                        if (part.startsWith('[') && part.endsWith(']')) {
-                          // This is bracketed content - style it differently
-                          return (
-                            <span key={idx} style={{ 
-                              color: "rgba(248, 113, 113, 0.9)", 
-                              fontWeight: 700,
-                              background: "rgba(248, 113, 113, 0.15)",
-                              padding: "2px 6px",
-                              borderRadius: 3,
-                              fontFamily: "var(--mono)"
-                            }}>
-                              {part}
-                            </span>
-                          );
-                        }
-                        return <span key={idx}>{part}</span>;
-                      });
-                    };
-
-                    return (
-                      <div key={`parse-${i}`} style={{
-                        padding: "10px 14px",
-                        background: "rgba(239, 68, 68, 0.08)",
-                        border: "1px solid rgba(239, 68, 68, 0.3)",
-                        borderLeft: "4px solid rgba(239, 68, 68, 0.8)",
-                        borderRadius: 6,
-                        fontSize: 13,
-                      }}>
-                        <div style={{ fontWeight: 600, color: "rgb(239, 68, 68)", marginBottom: 6, fontSize: 14, lineHeight: "1.6" }}>
-                          {formatErrorMessage(err.message)}
-                        </div>
-                        {(err.line > 0 || err.column > 0) && (
-                          <div style={{ fontSize: 12, color: "rgba(239, 68, 68, 0.7)", fontWeight: 500 }}>
-                            at line {err.line}, column {err.column}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                <span dangerouslySetInnerHTML={{ __html: highlightedHTML() }} />
+              </pre>
+              
+              {/* Editable textarea */}
+              <textarea
+                ref={textareaRef as any}
+                value={sharedCode}
+                onChange={handleCodeChange}
+                onKeyDown={handleKeyDown}
+                aria-label="source-code-editor"
+                className="source-display"
+                spellCheck={false}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: "100%",
+                  height: "100%",
+                  margin: 0,
+                  padding: "12px",
+                  fontFamily: "var(--mono)",
+                  fontSize: 14,
+                  lineHeight: "1.5",
+                  resize: "none",
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  color: "transparent",
+                  caretColor: "var(--text)",
+                  overflow: "auto",
+                  whiteSpace: "pre-wrap",
+                  wordWrap: "break-word",
+                  borderTopLeftRadius: 0,
+                  borderBottomLeftRadius: 0,
+                }}
+              />
             </div>
           </div>
         </div>
 
-        {/* Right Column: Tokens or AST Panel */}
+        {/* Top-Right: Tokens or AST Panel */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <h3 style={{ margin: 0 }}>
@@ -584,6 +485,151 @@ export default function ParserPanel({ sharedCode, sharedTokens, sharedLexErrors 
               </div>
             ) : (
               <TokenList tokens={tokens} hideComments={hideComments} />
+            )}
+          </div>
+        </div>
+
+        {/* Bottom: Terminal / Errors Panel (full width) */}
+        <div className="panel" style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>Terminal</h3>
+            <div className="small" style={{
+              color: (lexErrors.length > 0 || parseErrors.length > 0) ? "var(--text-muted)" : tokens.length > 0 ? "var(--success)" : "var(--text-muted)",
+              fontWeight: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? 600 : 400,
+              padding: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "4px 12px" : "0",
+              borderRadius: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "12px" : "0",
+              backgroundColor: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "rgba(34, 197, 94, 0.1)" : "transparent",
+              border: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "1px solid rgba(34, 197, 94, 0.3)" : "none"
+            }}>
+              {lexErrors.length > 0 ? `Lexical Errors: ${lexErrors.length}` : 
+               parseErrors.length > 0 ? `Syntax Errors: ${parseErrors.length}` : 
+               tokens.length > 0 ? '✓ Parsing success' : 'No errors'}
+            </div>
+          </div>
+          <div style={{ flex: "1 1 auto", overflow: "auto" }}>
+            {lexErrors.length === 0 && parseErrors.length === 0 ? (
+              <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>
+                {tokens.length > 0 ? "No syntax errors" : "Run parser to analyze code"}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {/* Show lexical errors first */}
+                {lexErrors.map((err, i) => (
+                  <div key={`lex-${i}`} style={{
+                    padding: "10px 14px",
+                    background: "rgba(234, 179, 8, 0.08)",
+                    border: "1px solid rgba(234, 179, 8, 0.3)",
+                    borderLeft: "4px solid rgba(234, 179, 8, 0.8)",
+                    borderRadius: 6,
+                    fontSize: 13,
+                  }}>
+                    <div style={{ fontWeight: 600, color: "rgb(234, 179, 8)", marginBottom: 6, fontSize: 14 }}>
+                      {err.message}
+                    </div>
+                    <div style={{ fontSize: 12, color: "rgba(234, 179, 8, 0.7)", fontWeight: 500 }}>
+                      at line {err.line}, column {err.column}
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Show parse errors */}
+                {parseErrorObjects.map((err, i) => {
+                  // Format the error message to highlight bracketed content and put Unexpected/Expected on separate lines
+                  const formatErrorMessage = (msg: string) => {
+                    // First, extract header (everything before "Unexpected:")
+                    const unexpectedMatch = msg.match(/^(.*?)(Unexpected:.*)/s);
+                    if (!unexpectedMatch) {
+                      // No "Unexpected:" found, just return with bracket highlighting
+                      const parts = msg.split(/(\[.*?\])/g);
+                      return parts.map((part, idx) => {
+                        if (part.startsWith('[') && part.endsWith(']')) {
+                          return (
+                            <span key={idx} style={{ 
+                              color: "rgba(248, 113, 113, 0.9)", 
+                              fontWeight: 700,
+                              background: "rgba(248, 113, 113, 0.15)",
+                              padding: "2px 6px",
+                              borderRadius: 3,
+                              fontFamily: "var(--mono)"
+                            }}>
+                              {part}
+                            </span>
+                          );
+                        }
+                        return <span key={idx}>{part}</span>;
+                      });
+                    }
+
+                    const header = unexpectedMatch[1].trim();
+                    const rest = unexpectedMatch[2];
+
+                    // Extract Unexpected and Expected parts
+                    const expectedMatch = rest.match(/^(Unexpected:.*?)(Expected:.*)/s);
+                    
+                    const renderBracketedText = (text: string, keyPrefix: string) => {
+                      const parts = text.split(/(\[.*?\])/g);
+                      return parts.map((part, idx) => {
+                        if (part.startsWith('[') && part.endsWith(']')) {
+                          return (
+                            <span key={`${keyPrefix}-${idx}`} style={{ 
+                              color: "rgba(248, 113, 113, 0.9)", 
+                              fontWeight: 700,
+                              background: "rgba(248, 113, 113, 0.15)",
+                              padding: "2px 6px",
+                              borderRadius: 3,
+                              fontFamily: "var(--mono)"
+                            }}>
+                              {part}
+                            </span>
+                          );
+                        }
+                        return <span key={`${keyPrefix}-${idx}`}>{part}</span>;
+                      });
+                    };
+
+                    if (expectedMatch) {
+                      const unexpectedPart = expectedMatch[1].trim();
+                      const expectedPart = expectedMatch[2].trim();
+                      
+                      return (
+                        <>
+                          {header && <div style={{ marginBottom: 4 }}>{header}</div>}
+                          <div style={{ marginBottom: 2 }}>{renderBracketedText(unexpectedPart, 'unexp')}</div>
+                          <div>{renderBracketedText(expectedPart, 'exp')}</div>
+                        </>
+                      );
+                    } else {
+                      // Only Unexpected, no Expected
+                      return (
+                        <>
+                          {header && <div style={{ marginBottom: 4 }}>{header}</div>}
+                          <div>{renderBracketedText(rest, 'unexp')}</div>
+                        </>
+                      );
+                    }
+                  };
+
+                  return (
+                    <div key={`parse-${i}`} style={{
+                      padding: "10px 14px",
+                      background: "rgba(239, 68, 68, 0.08)",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      borderLeft: "4px solid rgba(239, 68, 68, 0.8)",
+                      borderRadius: 6,
+                      fontSize: 13,
+                    }}>
+                      <div style={{ fontWeight: 600, color: "rgb(239, 68, 68)", marginBottom: 6, fontSize: 14, lineHeight: "1.6" }}>
+                        {formatErrorMessage(err.message)}
+                      </div>
+                      {(err.line > 0 || err.column > 0) && (
+                        <div style={{ fontSize: 12, color: "rgba(239, 68, 68, 0.7)", fontWeight: 500 }}>
+                          at line {err.line}, column {err.column}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
