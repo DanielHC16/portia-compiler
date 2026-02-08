@@ -1,344 +1,587 @@
-// PORTIA Language Grammar for Lark Parser
-// Strict mapping from CFG - no ambiguity resolution
+// PORTIA Language Grammar for Lark LALR(1) Parser
+// Strict LL(1) grammar - no ambiguity, no left recursion, fully left-factored
+// Note: Lark uses LALR(1), which parses all LL(1) grammars deterministically
 
-// ===== Program Structure (Production 1) =====
-// CFG: <program> → <global_dec> <function> <main_func>
-// Both <global_dec> and <function> have ε-productions (18, 212)
+// ============================================
+// PROGRAM STRUCTURE
+// ============================================
+// Grammar enforces: declarations followed by main_func (nothing after main)
+// Left-factored to resolve INT lookahead conflict between int_decl and main_func
+// decl_list must end with main_func (not epsilon) - main is REQUIRED
+
 ?start: program
-program: global_dec function main_func
 
-// ===== Global Declarations (Productions 2-32) =====
-// Production 18: <global_dec> → ε (PREDICT: {func, int})
-global_dec: (global_var_dec | arr_1d_decl | weave_def)*
+program: decl_list
 
-// Type-specific global declarations per CFG Productions 19-26
-// Each type requires its matching literal type
-global_var_dec: GLOBAL mutability INT ID ASSIGN INTLIT int_multi_dec_tail SEMICOLON
-              | GLOBAL mutability LONG ID ASSIGN LONGLIT long_multi_dec_tail SEMICOLON
-              | GLOBAL mutability FLOAT ID ASSIGN FLOATLIT float_multi_dec_tail SEMICOLON
-              | GLOBAL mutability DOUBLE ID ASSIGN DOUBLELIT double_multi_dec_tail SEMICOLON
-              | GLOBAL mutability CHAR ID ASSIGN CHARLIT char_multi_dec_tail SEMICOLON
-              | GLOBAL mutability STRING ID ASSIGN STRINGLIT string_multi_dec_tail SEMICOLON
-              | GLOBAL mutability BOOL ID ASSIGN bool_lit bool_multi_dec_tail SEMICOLON
+// Left-factored: when we see INT, look ahead to MAIN vs ID
+// main_func terminates the program (no more decl_list after it)
+decl_list: INT int_decl_or_main
+         | other_decl decl_list
 
-// Type-specific multi-declaration tails per CFG Productions 35-50
-int_multi_dec_tail: (COMMA ID ASSIGN INTLIT)*
-long_multi_dec_tail: (COMMA ID ASSIGN LONGLIT)*
-float_multi_dec_tail: (COMMA ID ASSIGN FLOATLIT)*
-double_multi_dec_tail: (COMMA ID ASSIGN DOUBLELIT)*
-char_multi_dec_tail: (COMMA ID ASSIGN CHARLIT)*
-string_multi_dec_tail: (COMMA ID ASSIGN STRINGLIT)*
-bool_multi_dec_tail: (COMMA ID ASSIGN bool_lit)*
+// After INT: ID continues with typed_decl_tail then more decls, MAIN ends program
+int_decl_or_main: ID typed_decl_tail decl_list
+                | MAIN LPAREN RPAREN LBRACE main_body RBRACE
 
-// Boolean literals
-bool_lit: TRUE | FALSE
+// All non-INT declarations (no ambiguity)
+other_decl: GLOBAL mutability dtype ID ASSIGN expression multi_global SEMICOLON
+          | LONG ID typed_decl_tail
+          | FLOAT ID typed_decl_tail
+          | DOUBLE ID typed_decl_tail
+          | CHAR ID typed_decl_tail
+          | STRING ID typed_decl_tail
+          | BOOL ID typed_decl_tail
+          | WEAVE ID LBRACE field_list RBRACE SEMICOLON
+          | ID weave_inst_decl
+          | FUNC nonvoid_ret_type ID LPAREN param_list RPAREN LBRACE function_body_nonvoid RBRACE
+          | FUNC VOID ID LPAREN param_list RPAREN LBRACE function_body_void RBRACE
 
-mutability: VAR | CONST
+// main_func rule for AST construction (matched via int_decl_or_main)
+main_func: INT MAIN LPAREN RPAREN LBRACE main_body RBRACE
 
-dtype: INT | LONG | FLOAT | DOUBLE | CHAR | STRING | BOOL
+multi_global: COMMA ID ASSIGN expression multi_global
+            |
 
-value: INTLIT | LONGLIT | FLOATLIT | DOUBLELIT | CHARLIT | STRINGLIT | TRUE | FALSE
+weave_inst_decl: ID weave_inst_tail weave_inst_cont SEMICOLON
+               | array_with_init weave_arr_cont SEMICOLON
 
-// ===== Arrays (Productions 66-210) =====
-arr_1d_decl: dtype ID LBRACK INTLIT RBRACK arr_2d_opt arr_init_opt SEMICOLON
+weave_inst_tail: ASSIGN LBRACE weave_field_value weave_field_list_tail RBRACE
+               | array_with_init
 
-arr_2d_opt: (LBRACK INTLIT RBRACK)?
+weave_field_value: INTLIT
+                 | LONGLIT
+                 | FLOATLIT
+                 | DOUBLELIT
+                 | CHARLIT
+                 | STRINGLIT
+                 | TRUE
+                 | FALSE
+                 | LBRACE weave_arr_content RBRACE
 
-// arr_init_opt handles both 1D and 2D initialization
-// 1D: = { value, value, ... }
-// 2D: = { {value, value}, {value, value}, ... }
-arr_init_opt: (ASSIGN LBRACE arr_init_content RBRACE)?
+weave_arr_content: LBRACE elem_list RBRACE elem_2d_tail
+                 | arr_elem elem_1d_tail
+                 |
 
-// Content can be either 2D (nested braces) or 1D (flat values)
-arr_init_content: elem_2d_list | elem_list
+weave_field_list_tail: COMMA weave_field_value weave_field_list_tail
+                     |
 
-// Production 195-198: 2D array element list with nested braces
-elem_2d_list: LBRACE elem_list RBRACE elem_2d_list_tail
+weave_inst_cont: COMMA ID weave_inst_tail weave_inst_cont
+               |
 
-elem_2d_list_tail: (COMMA LBRACE elem_list RBRACE)*
+weave_arr_cont: COMMA ID array_with_init weave_arr_cont
+              |
 
-// 1D element list (flat values)
-elem_list: (arr_tpc_opt value elem_list_tail)?
+typed_decl_tail: array_with_init SEMICOLON
+               | ASSIGN expression multi_typed SEMICOLON
 
-elem_list_tail: (COMMA arr_tpc_opt value)*
+multi_typed: COMMA ID ASSIGN expression multi_typed
+           |
 
-arr_tpc_opt: (LPAREN dtype RPAREN)?
+// ============================================
+// MUTABILITY & TYPES
+// ============================================
 
-// ===== Weave Definitions (Productions 199-209) =====
-weave_def: WEAVE ID LBRACE field_list RBRACE SEMICOLON
+mutability: VAR
+          | CONST
 
-field_list: field_dec*
+dtype: INT
+     | LONG
+     | FLOAT
+     | DOUBLE
+     | CHAR
+     | STRING
+     | BOOL
 
-field_dec: field_type ID field_array_opt field_dec_cont SEMICOLON
+// ============================================
+// VALUES & LITERALS
+// ============================================
 
-field_type: dtype | ID
+value: INTLIT
+     | LONGLIT
+     | FLOATLIT
+     | DOUBLELIT
+     | CHARLIT
+     | STRINGLIT
+     | TRUE
+     | FALSE
 
-field_array_opt: (LBRACK INTLIT RBRACK)?
+value_list_tail: COMMA value value_list_tail
+               |
 
-field_dec_cont: (COMMA ID field_array_opt)*
+// ============================================
+// SHARED ARRAY DIMENSION RULES (MAX 2D)
+// ============================================
 
-// ===== Functions (Productions 211-237) =====
-function: function_def*
+array_dims: LBRACK size RBRACK array_dim2_opt
 
-function_def: FUNC ret_type ID LPAREN param_list_opt RPAREN LBRACE function_body RBRACE
+array_dim2_opt: LBRACK size RBRACK
+              |
 
-ret_type: dtype | ID | VOID
+// Combined array declaration with dimension-appropriate initialization
+array_with_init: LBRACK size RBRACK array_init_tail
 
-param_list_opt: (param param_cont)?
+array_init_tail: LBRACK size RBRACK arr_init_opt_2d
+               | arr_init_opt_1d
 
-param: param_type ID param_array_opt
+// ============================================
+// ARRAY DECLARATIONS
+// ============================================
 
-param_type: dtype | ID
+// 1D array initialization (flat elements only)
+arr_init_opt_1d: ASSIGN LBRACE arr_init_content_1d RBRACE
+               |
 
-param_array_opt: (LBRACK INTLIT RBRACK arr_2d_opt)?
+arr_init_content_1d: arr_elem elem_1d_tail
+                   |
 
-param_cont: (COMMA param)*
+// 2D array initialization (nested braces required)
+arr_init_opt_2d: ASSIGN LBRACE arr_init_content_2d RBRACE
+               |
 
-function_body: using_block local_block statement_list ret_stmt_opt
+arr_init_content_2d: LBRACE elem_list RBRACE elem_2d_tail
+                   |
 
-using_block: using_stmt*
+elem_2d_tail: COMMA LBRACE elem_list RBRACE elem_2d_tail
+            |
 
-using_stmt: USING ID using_cont SEMICOLON
+elem_list: arr_elem elem_1d_tail
+         |
 
-using_cont: (COMMA ID)*
+elem_1d_tail: COMMA arr_elem elem_1d_tail
+            |
 
-// ===== Local Declarations (Productions 238-269) =====
-local_block: (local_decl)*
+arr_elem: INT LPAREN value RPAREN
+        | LONG LPAREN value RPAREN
+        | FLOAT LPAREN value RPAREN
+        | DOUBLE LPAREN value RPAREN
+        | CHAR LPAREN value RPAREN
+        | STRING LPAREN value RPAREN
+        | BOOL LPAREN value RPAREN
+        | INTLIT
+        | LONGLIT
+        | FLOATLIT
+        | DOUBLELIT
+        | CHARLIT
+        | STRINGLIT
+        | TRUE
+        | FALSE
 
-local_decl: local_var_dec
-          | local_arr_dec
-          | weave_local_dec
+size: INTLIT
+    | ID
 
-// Type-specific local variable declarations per CFG
-// Each type requires its matching literal type only
-// CFG 259: <string_local_dec> → local<mutability> string id= stringlit <string_multi_dec>
-local_var_dec: LOCAL mutability INT ID ASSIGN INTLIT int_multi_dec_tail SEMICOLON
-             | LOCAL mutability LONG ID ASSIGN LONGLIT long_multi_dec_tail SEMICOLON
-             | LOCAL mutability FLOAT ID ASSIGN FLOATLIT float_multi_dec_tail SEMICOLON
-             | LOCAL mutability DOUBLE ID ASSIGN DOUBLELIT double_multi_dec_tail SEMICOLON
-             | LOCAL mutability CHAR ID ASSIGN CHARLIT char_multi_dec_tail SEMICOLON
-             | LOCAL mutability STRING ID ASSIGN STRINGLIT string_multi_dec_tail SEMICOLON
-             | LOCAL mutability BOOL ID ASSIGN bool_lit bool_multi_dec_tail SEMICOLON
+// ============================================
+// WEAVE (STRUCT) DEFINITIONS
+// ============================================
 
-local_arr_dec: LOCAL mutability dtype ID LBRACK INTLIT RBRACK arr_2d_opt arr_init_opt SEMICOLON
+field_list: field_dec field_list
+          |
 
-weave_local_dec: LOCAL mutability ID ID ASSIGN LBRACE value elem_list_tail RBRACE SEMICOLON
+field_dec: field_type ID field_arr_opt field_cont SEMICOLON
 
-string_expr: string_primary string_tail
+field_type: INT
+          | LONG
+          | FLOAT
+          | DOUBLE
+          | CHAR
+          | STRING
+          | BOOL
+          | ID
 
-// string_primary includes typecast for expressions like (string)'A'
-string_primary: STRINGLIT 
-              | CHARLIT 
-              | id_with_access
-              | function_call
-              | string_cast
+field_arr_opt: array_dims
+             |
 
-// Typecast to string: (dtype)value - allows (string)'A', (string)65, etc.
-string_cast: LPAREN dtype RPAREN string_cast_operand
+field_cont: COMMA ID field_arr_opt field_cont
+          |
 
-string_cast_operand: CHARLIT | INTLIT | LONGLIT | FLOATLIT | DOUBLELIT | id_with_access
+// ============================================
+// FUNCTIONS
+// ============================================
 
-string_tail: (CONCAT string_primary)*
+// Non-void return types (for functions that must return a value)
+nonvoid_ret_type: INT ret_type_suffix
+                | LONG ret_type_suffix
+                | FLOAT ret_type_suffix
+                | DOUBLE ret_type_suffix
+                | CHAR ret_type_suffix
+                | STRING ret_type_suffix
+                | BOOL ret_type_suffix
+                | ID ret_id_suffix
 
-// ===== Statements (Productions 270-275) =====
-// Production 270: <statement_list> → <statement><statement_list>
-// Production 271: <statement_list> → ε
-statement_list: statement*
+ret_type_suffix: array_dims
+               |
 
-// Production 272-275: statement alternatives
-// Note: Prod 275 <statement> → ε removed (not parseable with explicit statements)
-statement: expression SEMICOLON
-         | io_stmt
-         | ctrl_struct
-         | BREAK SEMICOLON
-         | ret_stmt
+ret_id_suffix: array_dims
+             | DOT ID
+             |
 
-// Removed assign_stmt SEMICOLON - handled by assign_expr in expression
+param_list: param_type ID param_arr_opt param_cont
+          |
 
-// ===== I/O (Productions 384-412) =====
-io_stmt: input_stmt | output_stmt
+param_type: INT
+          | LONG
+          | FLOAT
+          | DOUBLE
+          | CHAR
+          | STRING
+          | BOOL
+          | ID
 
-input_stmt: TRAP LPAREN id_with_access RPAREN SEMICOLON
+param_arr_opt: array_dims
+             |
 
-output_stmt: (THREAD | THREADLN) LPAREN print_args RPAREN SEMICOLON
+param_cont: COMMA param_type ID param_arr_opt param_cont
+          |
+
+// Non-void functions MUST return an expression
+// Restructured to eliminate nullable productions before RETURN
+function_body_nonvoid: func_content_nonvoid
+
+func_content_nonvoid: USING ID using_cont SEMICOLON func_content_nonvoid
+                    | LOCAL mutability local_dec_body func_content_nonvoid
+                    | statement_non_return func_content_nonvoid
+                    | RETURN expression SEMICOLON
+
+// Void functions MUST have a bare return statement
+function_body_void: func_content_void
+
+func_content_void: USING ID using_cont SEMICOLON func_content_void
+                 | LOCAL mutability local_dec_body func_content_void
+                 | statement_non_return func_content_void
+                 | RETURN SEMICOLON
+
+// ============================================
+// USING BLOCK
+// ============================================
+
+using_block: USING ID using_cont SEMICOLON using_block
+           |
+
+using_cont: COMMA ID using_cont
+          |
+
+// ============================================
+// LOCAL DECLARATIONS
+// ============================================
+
+local_block: LOCAL mutability local_dec_body local_block
+           |
+
+local_dec_body: INT ID typed_local_tail
+              | LONG ID typed_local_tail
+              | FLOAT ID typed_local_tail
+              | DOUBLE ID typed_local_tail
+              | CHAR ID typed_local_tail
+              | STRING ID typed_local_tail
+              | BOOL ID typed_local_tail
+              | ID ID weave_local_tail
+
+typed_local_tail: array_with_init SEMICOLON
+                | ASSIGN expression multi_local SEMICOLON
+
+multi_local: COMMA ID ASSIGN expression multi_local
+           |
+
+weave_local_tail: ASSIGN LBRACE weave_field_value weave_field_list_tail RBRACE weave_inst_cont SEMICOLON
+                | array_with_init weave_arr_cont SEMICOLON
+
+// ============================================
+// STATEMENTS (return excluded - enforced at CFG level)
+// ============================================
+
+// statement_non_return explicitly EXCLUDES return keyword
+statement_non_return: expression SEMICOLON
+                    | io_stmt
+                    | ctrl_struct
+                    | BREAK SEMICOLON
+
+// ============================================
+// UNIFIED EXPRESSION GRAMMAR
+// ============================================
+
+expression: assign_expr
+
+assign_expr: concat_expr assign_tail
+
+assign_tail: assign_op assign_expr
+           |
+
+assign_op: ASSIGN
+         | PLUSEQ
+         | MINUSEQ
+         | STAREQ
+         | SLASHEQ
+         | MODEQ
+
+concat_expr: or_expr concat_tail
+
+concat_tail: CONCAT or_expr concat_tail
+           |
+
+// ============================================
+// BOOLEAN / LOGICAL EXPRESSIONS
+// ============================================
+
+or_expr: and_expr or_tail
+
+or_tail: OR and_expr or_tail
+       |
+
+and_expr: eq_expr and_tail
+
+and_tail: AND eq_expr and_tail
+        |
+
+eq_expr: rel_expr eq_tail
+
+eq_tail: EQ rel_expr eq_tail
+       | NEQ rel_expr eq_tail
+       |
+
+rel_expr: add_expr rel_tail
+
+rel_tail: LT add_expr
+        | GT add_expr
+        | LTE add_expr
+        | GTE add_expr
+        |
+
+// ============================================
+// ARITHMETIC EXPRESSIONS
+// ============================================
+
+add_expr: mul_expr add_tail
+
+add_tail: PLUS mul_expr add_tail
+        | MINUS mul_expr add_tail
+        |
+
+mul_expr: unary_expr mul_tail
+
+mul_tail: STAR unary_expr mul_tail
+        | SLASH unary_expr mul_tail
+        | MOD unary_expr mul_tail
+        |
+
+unary_expr: NOT unary_expr
+          | INCR unary_expr
+          | DECR unary_expr
+          | postfix_expr
+
+postfix_expr: LPAREN expression RPAREN postfix_chain
+            | INT LPAREN expression RPAREN
+            | LONG LPAREN expression RPAREN
+            | FLOAT LPAREN expression RPAREN
+            | DOUBLE LPAREN expression RPAREN
+            | CHAR LPAREN expression RPAREN
+            | STRING LPAREN expression RPAREN
+            | BOOL LPAREN expression RPAREN
+            | ID postfix_chain
+            | INTLIT
+            | LONGLIT
+            | FLOATLIT
+            | DOUBLELIT
+            | CHARLIT
+            | STRINGLIT
+            | TRUE
+            | FALSE
+
+// ============================================
+// IDENTIFIER POSTFIX CHAIN (MAX 2D ARRAY ACCESS)
+// ============================================
+
+postfix_chain: array_access postfix_after_arr
+             | DOT ID postfix_chain
+             | LPAREN arg_list RPAREN postfix_chain
+             | INCR
+             | DECR
+             |
+
+array_access: LBRACK array_index RBRACK array_access_dim2
+
+array_access_dim2: LBRACK array_index RBRACK
+                 |
+
+postfix_after_arr: DOT ID postfix_chain
+                 | LPAREN arg_list RPAREN postfix_chain
+                 | INCR
+                 | DECR
+                 |
+
+array_index: INTLIT
+           | ID
+
+arg_list: expression arg_tail
+        |
+
+arg_tail: COMMA expression arg_tail
+        |
+
+// ============================================
+// I/O STATEMENTS
+// ============================================
+
+io_stmt: TRAP LPAREN expression RPAREN SEMICOLON
+       | THREAD LPAREN print_args RPAREN SEMICOLON
+       | THREADLN LPAREN print_args RPAREN SEMICOLON
 
 print_args: expression print_tail
 
-print_tail: (COMMA expression)*
+print_tail: COMMA expression print_tail
+          |
 
-// ===== Control Structures (Productions 413-475) =====
-ctrl_struct: if_stmt | switch_stmt | for_stmt | while_stmt | do_while_stmt
+// ============================================
+// CONTROL STRUCTURES
+// ============================================
 
-if_stmt: IF LPAREN condition RPAREN LBRACE statement_list RBRACE else_opt
+ctrl_struct: IF LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE else_opt
+           | SWITCH LPAREN expression RPAREN LBRACE case_list default_opt RBRACE
+           | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE ctrl_stmt_list RBRACE
+           | WHILE LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE
+           | DO LBRACE ctrl_stmt_list RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
-else_opt: (ELSE (LBRACE statement_list RBRACE | if_stmt))?
+// Statement list for control structures (return also excluded here)
+ctrl_stmt_list: statement_non_return ctrl_stmt_list
+              |
 
-condition: expression
+else_opt: ELSE else_body
+        |
 
-switch_stmt: SWITCH LPAREN expression RPAREN LBRACE case_list default_opt RBRACE
+else_body: LBRACE ctrl_stmt_list RBRACE
+         | IF LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE else_opt
 
-case_list: case_stmt+
+case_list: CASE case_val COLON ctrl_stmt_list break_opt case_list
+         |
 
-case_stmt: CASE unique_val COLON statement_list break_opt
+case_val: INTLIT
+        | LONGLIT
+        | CHARLIT
+        | TRUE
+        | FALSE
 
-unique_val: INTLIT | LONGLIT | CHARLIT | TRUE | FALSE
+default_opt: DEFAULT COLON ctrl_stmt_list break_opt
+           |
 
-default_opt: (DEFAULT COLON statement_list break_opt)?
+break_opt: BREAK SEMICOLON
+         |
 
-break_opt: (BREAK SEMICOLON)?
+for_init: LOCAL VAR for_init_type ID ASSIGN for_init_expr
+        | ID for_init_assign_tail
+        |
 
-for_stmt: FOR LPAREN initializer SEMICOLON condition SEMICOLON for_update_opt RPAREN LBRACE statement_list RBRACE
+for_init_assign_tail: assign_op for_init_expr
 
-// CFG Productions 469-471: <initializer> for for-loop
-// 469: <initializer> → local var <dtype> id = <value>
-// 470: <initializer> → <for_expr>
-// 471: <initializer> → λ
-// PREDICT: 469={local}, 470={id}, 471={;}
-initializer: for_local_init    // Production 469
-           | for_expr          // Production 470
-           |                   // Production 471 (empty/lambda)
+// Restricted expression for for_init: no assignment chaining
+for_init_expr: concat_expr
 
-// CFG Productions 472-473: <for_expr>
-// 472: <for_expr> → <assign_expr>
-// 473: <for_expr> → <function_call>
-// PREDICT: 472={id}, 473={id} - resolved by lookahead (id( vs id=)
-for_expr: assign_expr          // Production 472
-        | function_call        // Production 473
+for_init_type: INT
+             | LONG
+             | FLOAT
+             | DOUBLE
+             | CHAR
+             | STRING
+             | BOOL
 
-// For-loop specific local declaration (no trailing semicolon per CFG 469)
-// Type-specific to enforce correct literal types
-for_local_init: LOCAL mutability INT ID ASSIGN INTLIT int_multi_dec_tail
-              | LOCAL mutability LONG ID ASSIGN LONGLIT long_multi_dec_tail
-              | LOCAL mutability FLOAT ID ASSIGN FLOATLIT float_multi_dec_tail
-              | LOCAL mutability DOUBLE ID ASSIGN DOUBLELIT double_multi_dec_tail
-              | LOCAL mutability CHAR ID ASSIGN CHARLIT char_multi_dec_tail
-              | LOCAL mutability STRING ID ASSIGN STRINGLIT string_multi_dec_tail
-              | LOCAL mutability BOOL ID ASSIGN bool_lit bool_multi_dec_tail
+for_cond: condition
+        |
 
-// CFG Production 418: <condition> → <logical_op><logical_op_tail> (NOT nullable)
-// For-loops require a condition - no ε production exists for <condition>
-// condition_opt removed - for-loop must have explicit condition per CFG 464
+// // ============================================
+// CONDITION EXPRESSIONS (STRICT BOOLEAN)
+// ============================================
+// Conditions are strictly boolean - NOT arithmetic expressions
+// Valid conditions: comparisons, logical ops (&&, ||, !), bool literals, function calls
+// Invalid: standalone arithmetic (x, x+1, x*2) - must use comparison operator
+// Assignment operators (= += -= *= /= %=) are PROHIBITED in conditions
 
-// CFG Productions 468-471: <update> → ++id | --id | id<up_post> | ε
-// PREDICT: 468={++}, 469={--}, 470={id}, 471={)}
-// Only increment/decrement operations are valid, not general expressions
-for_update_opt: (for_update)?
-for_update: INCR ID     // Production 468: ++id
-          | DECR ID     // Production 469: --id
-          | ID INCR     // Production 470,472: id++
-          | ID DECR     // Production 470,473: id--
+condition: cond_or
 
-while_stmt: WHILE LPAREN condition RPAREN LBRACE statement_list RBRACE
+cond_or: cond_and cond_or_tail
+cond_or_tail: OR cond_and cond_or_tail
+            |
 
-do_while_stmt: DO LBRACE statement_list RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+cond_and: cond_not cond_and_tail
+cond_and_tail: AND cond_not cond_and_tail
+             |
 
-// ===== Expressions (Productions 276-279) =====
-// CFG has 4 alternatives but overlapping FIRST sets
-// Priority: assign (highest) → string → arith → bool
-?expression: assign_expr
-           | string_expr
-           | arith_expr
-           | bool_expr
+cond_not: NOT cond_not
+        | cond_atom
 
-// Arithmetic expressions (280-293)
-arith_expr: term add_min_cont*
+// Condition RHS expression: starts at concat_expr, bypassing assign_expr
+// This prohibits = += -= *= /= %= on the RHS of comparisons within conditions
+cond_rhs_expr: concat_expr
 
-add_min_cont: PLUS term | MINUS term
-
-term: primary mult_div_modulo_cont*
-
-mult_div_modulo_cont: STAR primary | SLASH primary | MOD primary
-
-primary: cast_val
-       | atom
-       | LPAREN arith_expr RPAREN
-       | MINUS LPAREN arith_expr RPAREN
-
-cast_val: LPAREN dtype RPAREN primary
-
-// Atoms (294-316)
-// Productions 294-299: atom alternatives
-// CONFLICT RESOLUTION: Prods 294 (<id_atom>) and 295 (<iden1>) both have PREDICT {id}
-// <id_atom> → id OR -id (prods 300-301)
-// <iden1> → id <iden1_suffix> where <iden1_suffix> can be ε (prod 366)
-// Solution: Merge into single ID-based atom WITHOUT arr_field_access_opt to avoid ε conflicts
-atom: ID                             // Simple ID reference
-    | MINUS ID                       // Prod 301: -id
-    | incdec_atom                    // Prod 296
-    | num_lit_type                   // Prod 297
-    | function_call                  // Prod 298
-    | MINUS function_call            // Prod 299
-
-incdec_atom: pre_incdec | post_incdec
-
-pre_incdec: INCR ID | DECR ID
-
-post_incdec: ID INCR | ID DECR
-
-num_lit_type: INTLIT | LONGLIT | FLOATLIT | DOUBLELIT
-
-// Boolean expressions (317-336)
-bool_expr: bool_term bool_cont*
-
-bool_cont: OR bool_term
-
-bool_term: bool_factor bool_term_cont*
-
-bool_term_cont: AND bool_factor
-
-bool_factor: NOT bool_factor | bool_atom
-
-bool_atom: TRUE
+// Condition atom: must be comparison, bool literal, bool function call, or parenthesized condition
+// Standalone arithmetic expressions are NOT valid
+cond_atom: TRUE
          | FALSE
-         | id_with_access
-         | LPAREN bool_expr RPAREN
-         | rel_compare
-         | eq_compare
+         | LPAREN condition RPAREN
+         | ID cond_after_id
+         | INTLIT mul_tail add_tail comp_op cond_rhs_expr
+         | LONGLIT mul_tail add_tail comp_op cond_rhs_expr
+         | FLOATLIT mul_tail add_tail comp_op cond_rhs_expr
+         | DOUBLELIT mul_tail add_tail comp_op cond_rhs_expr
+         | CHARLIT mul_tail add_tail comp_op cond_rhs_expr
+         | STRINGLIT mul_tail add_tail comp_op cond_rhs_expr
+         | INT LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
+         | LONG LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
+         | FLOAT LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
+         | DOUBLE LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
+         | CHAR LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
+         | STRING LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
+         | BOOL LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
 
-id_with_access: ID (array_or_field_access)*
+// After id in condition: function call (standalone bool or comparison) OR identifier for comparison
+cond_after_id: LPAREN arg_list RPAREN cond_after_call
+             | cond_after_id_no_call cond_comparison_opt
 
-array_or_field_access: LBRACK expression RBRACK array_2d_access?
-                     | DOT ID
+// After id(): standalone bool function OR continue to comparison
+cond_after_call: 
+               | postfix_chain mul_tail add_tail comp_op cond_rhs_expr
 
-array_2d_access: LBRACK expression RBRACK
+// After id not followed by ( : build expression then optionally compare
+// Standalone identifiers allowed (could be bool variables)
+cond_after_id_no_call: cond_postfix_no_call mul_tail add_tail
 
-rel_compare: arith_expr rel_op_strict arith_expr
+// Optional comparison - allows standalone bool identifiers
+cond_comparison_opt: comp_op cond_rhs_expr
+                   |
 
-rel_op_strict: LT | GT | LTE | GTE
+// Postfix operations after id (excluding direct call since that's handled separately)
+cond_postfix_no_call: LBRACK array_index RBRACK array_access_dim2 postfix_after_arr
+                    | DOT ID postfix_chain
+                    | INCR
+                    | DECR
+                    |
 
-eq_compare: arith_expr eq_op arith_expr
-          | bool_simple eq_op bool_simple
+comp_op: EQ
+       | NEQ
+       | LT
+       | GT
+       | LTE
+       | GTE
 
-bool_simple: TRUE | FALSE | id_with_access
+for_update: ID for_update_tail
+          | INCR ID
+          | DECR ID
+          |
 
-eq_op: EQ | NEQ
+for_update_tail: INCR
+               | DECR
+               | assign_op expression
 
-// Assignment expressions (346-370)
-assign_expr: ID (array_or_field_access)* assign_op expression
+// ============================================
+// MAIN FUNCTION BODY
+// ============================================
 
-assign_op: ASSIGN | PLUSEQ | MINUSEQ | STAREQ | SLASHEQ | MODEQ
+main_body: main_content
 
-// Function calls
-function_call: ID LPAREN arg_list_opt RPAREN
+main_content: USING ID using_cont SEMICOLON main_content
+            | LOCAL mutability local_dec_body main_content
+            | statement_non_return main_content
+            | RETURN INTLIT SEMICOLON
 
-arg_list_opt: (arg arg_tail)?
+// ============================================
+// TERMINALS
+// ============================================
 
-arg: value | ID
-
-arg_tail: (COMMA arg)*
-
-ret_stmt_opt: (ret_stmt)?
-
-ret_stmt: RETURN expression_opt SEMICOLON
-
-expression_opt: expression?
-
-// ===== Main Function (Production 481-482) =====
-main_func: INT MAIN LPAREN RPAREN LBRACE main_body RBRACE
-
-main_body: using_block local_block statement_list RETURN INTLIT SEMICOLON
-
-// ===== Terminals (matched by lexer) =====
 GLOBAL: "global"
 LOCAL: "local"
 FUNC: "func"
