@@ -10,19 +10,14 @@ class PortiaLarkParser:
         
         # Lark parses source code (we reconstruct from tokens)
         # Grammar terminals use actual source literals
-        # Using Earley parser with explicit ambiguity handling for CFG compliance
+        # LALR(1) parser - deterministic, no ambiguity
+        # Note: Lark doesn't have LL(1) mode; LALR(1) parses all LL(1) grammars
         self.parser = Lark(
             grammar,
-            parser='earley',
-            ambiguity='explicit',
+            parser='lalr',
             start='program',
-            propagate_positions=True,
-            lexer='basic',
-            keep_all_tokens=True
+            lexer='basic'
         )
-        
-        # Track ambiguities encountered during parsing
-        self.ambiguities_found = []
         
         # Map Lark terminal names -> Lexer token types
         # This ensures error messages show lexer token types
@@ -84,44 +79,6 @@ class PortiaLarkParser:
         Uses actual symbols for punctuation/operators, names for keywords/identifiers.
         """
         return self.token_to_symbol.get(token_name, token_name)
-    
-    def _detect_ambiguities(self, trees: List) -> None:
-        """
-        Analyze multiple parse trees to identify ambiguous nonterminals.
-        Collects ambiguity information for later cleanup.
-        """
-        if len(trees) < 2:
-            return
-        
-        # Compare trees to find divergence points
-        def get_rule_paths(tree, path=""):
-            """Extract all rule application paths from a tree."""
-            paths = set()
-            if hasattr(tree, 'data'):
-                current_path = f"{path}/{tree.data}" if path else tree.data
-                paths.add(current_path)
-                if hasattr(tree, 'children'):
-                    for child in tree.children:
-                        paths.update(get_rule_paths(child, current_path))
-            return paths
-        
-        # Get paths for each tree
-        tree_paths = [get_rule_paths(tree) for tree in trees]
-        
-        # Find divergent rules (present in some trees but not all)
-        all_rules = set().union(*tree_paths)
-        for rule_path in all_rules:
-            # Count how many trees have this rule path
-            count = sum(1 for paths in tree_paths if rule_path in paths)
-            if count < len(trees):
-                # This rule appears in some but not all trees - ambiguous
-                rule_name = rule_path.split('/')[-1]
-                if rule_name not in [a['nonterminal'] for a in self.ambiguities_found]:
-                    self.ambiguities_found.append({
-                        'nonterminal': rule_name,
-                        'path': rule_path,
-                        'tree_count': len(trees)
-                    })
     
     def _build_source_from_tokens(self, tokens: List[Dict[str, Any]]) -> str:
         """
@@ -201,41 +158,27 @@ class PortiaLarkParser:
     
     def parse(self, tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Parse tokens using Lark with CFG compliance.
+        Parse tokens using Lark LL(1) parser.
         Returns dict with success status, AST, and errors.
         """
         try:
             # Reconstruct source from tokens
             source = self._build_source_from_tokens(tokens)
             
-            # Parse with Earley - may return multiple trees if ambiguous
+            # Parse with LL(1) - deterministic, single parse tree
             tree = self.parser.parse(source)
-            
-            # Check for ambiguity - Earley with ambiguity='explicit' returns _ambig object
-            if hasattr(tree, 'data') and tree.data == '_ambig':
-                # Ambiguous parse detected - tree.children contains all alternatives
-                trees = list(tree.children)
-                self._detect_ambiguities(trees)
-                # Use first tree for now
-                tree = trees[0]
             
             # Transform tree to AST with exact lexer token data
             transformer = ASTTransformer(tokens)
             ast_dict = transformer.transform(tree)
             
-            result = {
+            return {
                 "success": True,
                 "status": "success",
                 "ast": ast_dict,
                 "errors": [],
                 "token_count": len(tokens)
             }
-            
-            # Include ambiguity warnings if any found
-            if self.ambiguities_found:
-                result["ambiguities"] = self.ambiguities_found
-            
-            return result
             
         except UnexpectedToken as e:
             # CFG-driven syntax error with PREDICT set expectations
@@ -331,17 +274,91 @@ class PortiaLarkParser:
             "token_count": len(tokens)
         }
     
+    def _detect_parse_context(self, expected_tokens: List[str], error) -> str:
+        """
+        Detect the parsing context from expected tokens using grammar-rule analysis.
+        Returns: 'array_index', 'condition', or 'general'
+        
+        Key insight: The PORTIA grammar uses separate expression hierarchies:
+        - General expressions: expression -> assign_expr -> concat_expr -> ... (allows =, +=, etc.)
+        - Condition expressions: cond_or_expr -> cond_and_expr -> ... (no assignments)
+        
+        We detect condition context by the ABSENCE of assignment operators in expected tokens,
+        combined with the PRESENCE of condition-specific operators.
+        """
+        token_set = set(expected_tokens)
+        
+        # Array index context: expects only intlit, id, and possibly close_bracket
+        array_index_tokens = {'intlit', 'id', 'close_bracket'}
+        if token_set and token_set.issubset(array_index_tokens):
+            return 'array_index'
+        
+        # Condition context detection based on grammar structure:
+        # In cond_or_expr hierarchy, the grammar NEVER includes assignment operators.
+        # So if expected tokens have condition ops but NO assignment ops -> condition context.
+        assignment_ops = {'assign', 'add_assign', 'minus_assign', 'mult_assign', 'div_assign', 'modulo_assign'}
+        
+        # Tokens that only appear in general expression context (not condition context)
+        general_only_tokens = assignment_ops | {'concat', 'dot', 'open_bracket', 'increment', 'decrement'}
+        
+        # Tokens that indicate condition expression context
+        condition_ops = {'logical_and', 'logical_or', 'equal', 'not_equal', 
+                        'less_than', 'greater_than', 'less_equal', 'greater_equal'}
+        
+        has_general_only = bool(token_set & general_only_tokens)
+        has_condition_ops = bool(token_set & condition_ops)
+        
+        # Condition context: has condition operators but NO general-only tokens
+        # This is a grammar-rule-based detection, not heuristic
+        if has_condition_ops and not has_general_only:
+            return 'condition'
+        
+        # Also detect condition when we expect close_paren (end of condition)
+        # but don't have any assignment or concat operators (distinguishes from general parens)
+        if 'close_paren' in token_set and not has_general_only:
+            return 'condition'
+        
+        return 'general'
+    
     def _filter_expected_tokens(self, expected_tokens: List[str], error) -> List[str]:
         """
         Filter expected tokens based on parse context to provide clearer error messages.
-        Prioritizes statement terminators and structural tokens over operators.
+        
+        For condition context: STRICTLY limit to condition-valid tokens only.
+        This ensures errors like 'if (x = 3)' show only: == != < > <= >= && || )
         """
         if not expected_tokens:
             return expected_tokens
         
-        # Define priority groups (higher priority = more important to show)
+        # Detect parsing context
+        context = self._detect_parse_context(expected_tokens, error)
+        
+        # Array index context: only show intlit, id, close_bracket
+        if context == 'array_index':
+            array_valid = {'intlit', 'id', 'close_bracket'}
+            return [t for t in expected_tokens if t in array_valid]
+        
+        # Condition context: STRICTLY limit to condition-valid tokens
+        # Per grammar: cond_or_expr hierarchy only allows these operators
+        if context == 'condition':
+            # Valid tokens in condition expressions (from cond_or_expr grammar rules)
+            condition_valid = {
+                # Comparison operators (from cond_eq_tail, cond_rel_tail)
+                'equal', 'not_equal',
+                'less_than', 'greater_than', 'less_equal', 'greater_equal',
+                # Logical operators (from cond_or_tail, cond_and_tail)
+                'logical_and', 'logical_or',
+                # Closing delimiter (end of condition)
+                'close_paren',
+                # Function call opening (cond_postfix allows function calls)
+                'open_paren',
+            }
+            filtered = [t for t in expected_tokens if t in condition_valid]
+            # Return filtered list, ensuring we have at least something useful
+            return filtered if filtered else ['close_paren']
+        
+        # General context: apply standard filtering
         statement_terminators = {'semicolon', 'close_brace', 'close_paren', 'close_bracket'}
-        structural_keywords = {'return', 'if', 'else', 'for', 'while', 'do', 'break', 'local', 'using'}
         operators = {'add', 'subtract', 'multiply', 'divide', 'modulo', 'equal', 'not_equal', 
                     'less_than', 'greater_than', 'less_equal', 'greater_equal', 
                     'logical_and', 'logical_or', 'logical_not'}
@@ -349,17 +366,13 @@ class PortiaLarkParser:
         # If statement terminators are in the expected list, prioritize them
         terminators_present = [t for t in expected_tokens if t in statement_terminators]
         if terminators_present:
-            # If we have terminators + many operators, filter to just terminators
             operators_present = [t for t in expected_tokens if t in operators]
             if len(operators_present) >= 3 and len(terminators_present) >= 1:
-                # Many operators + terminator = likely missing terminator
-                # Keep only terminators and a few key tokens
                 non_operators = [t for t in expected_tokens if t not in operators]
                 return non_operators if non_operators else expected_tokens
         
-        # If we have too many operators, group them
+        # If we have too many operators, filter them
         if len([t for t in expected_tokens if t in operators]) > 5:
-            # Keep non-operators and just mention "operator"
             filtered = [t for t in expected_tokens if t not in operators]
             if filtered:
                 return filtered
