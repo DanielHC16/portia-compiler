@@ -481,7 +481,6 @@ CONTROL STRUCTURES
 <for_init_type> → bool
 
 <for_cond> → <condition>
-<for_cond> → λ
 
 <for_update> → id <for_update_tail>
 <for_update> → ++ id
