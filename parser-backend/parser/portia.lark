@@ -138,7 +138,6 @@ arr_init_opt_2d: ASSIGN LBRACE arr_init_content_2d RBRACE
                |
 
 arr_init_content_2d: LBRACE elem_list RBRACE elem_2d_tail
-                   |
 
 elem_2d_tail: COMMA LBRACE elem_list RBRACE elem_2d_tail
             |

@@ -139,7 +139,6 @@ ARRAY DECLARATIONS
 <arr_init_opt_2d> → λ
 
 <arr_init_content_2d> → { <elem_list> } <elem_2d_tail>
-<arr_init_content_2d> → λ
 
 <elem_2d_tail> → , { <elem_list> } <elem_2d_tail>
 <elem_2d_tail> → λ

@@ -566,6 +566,12 @@ class PortiaLarkParser:
         if not expected_tokens:
             return expected_tokens
         
+        # 2D Array initialization: when { is expected, exclude } from expected tokens
+        # For 2D arrays like int grid[2][3] = {1,2,3}, the parser expects nested braces {{...}}
+        # When flat init is given, we should only suggest { not }
+        if 'open_brace' in expected_tokens and 'close_brace' in expected_tokens:
+            expected_tokens = [t for t in expected_tokens if t != 'close_brace']
+        
         # Detect parsing context
         context = self._detect_parse_context(expected_tokens, error)
         
