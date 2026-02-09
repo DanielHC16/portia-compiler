@@ -215,7 +215,8 @@ class PortiaLarkParser:
         condition_contexts = {'condition', 'cond_or', 'cond_and', 'cond_not', 
                              'cond_atom', 'cond_after_id', 'cond_after_call',
                              'cond_after_id_no_call', 'cond_postfix_no_call',
-                             'cond_comparison_opt', 'comp_op', 'for_cond'}
+                             'cond_arith_final', 'mul_arith', 'add_arith', 
+                             'comp_op', 'for_cond'}
         
         def find_assignment_in_condition(node, in_condition=False):
             """

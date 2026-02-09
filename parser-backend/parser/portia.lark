@@ -530,19 +530,28 @@ cond_atom: TRUE
 
 // After id in condition: function call (standalone bool or comparison) OR identifier for comparison
 cond_after_id: LPAREN arg_list RPAREN cond_after_call
-             | cond_after_id_no_call cond_comparison_opt
+             | cond_after_id_no_call
 
 // After id(): standalone bool function OR continue to comparison
 cond_after_call: 
                | postfix_chain mul_tail add_tail comp_op cond_rhs_expr
 
-// After id not followed by ( : build expression then optionally compare
-// Standalone identifiers allowed (could be bool variables)
-cond_after_id_no_call: cond_postfix_no_call mul_tail add_tail
+// After id not followed by ( : build expression with context-aware comparison requirement
+cond_after_id_no_call: cond_postfix_no_call cond_arith_final
 
-// Optional comparison - allows standalone bool identifiers
-cond_comparison_opt: comp_op cond_rhs_expr
-                   |
+// Arithmetic-aware comparison: standalone bool OR comparison OR arithmetic+mandatory comparison
+cond_arith_final: 
+                | comp_op cond_rhs_expr
+                | mul_arith add_tail comp_op cond_rhs_expr
+                | add_arith comp_op cond_rhs_expr
+
+// Non-empty arithmetic operations (require comparison)
+mul_arith: STAR unary_expr mul_tail
+         | SLASH unary_expr mul_tail
+         | MOD unary_expr mul_tail
+
+add_arith: PLUS mul_expr add_tail
+         | MINUS mul_expr add_tail
 
 // Postfix operations after id (excluding direct call since that's handled separately)
 cond_postfix_no_call: LBRACK array_index RBRACK array_access_dim2 postfix_after_arr
