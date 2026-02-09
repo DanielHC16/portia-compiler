@@ -34,7 +34,7 @@ PROGRAM STRUCTURE
 <other_decl> → weave id { <field_list> } ;
 <other_decl> → id <weave_inst_decl>
 <other_decl> → func <nonvoid_ret_type> id ( <param_list> ) { <function_body_nonvoid> }
-<other_decl> → func void id ( <param_list> ) { <function_body_void> }
+<other_decl> → func void id ( ) { <function_body_void> }
 
 // main_func rule for reference (matched via int_decl_or_main)
 <main_func> → int main ( ) { <main_body> }
@@ -139,7 +139,6 @@ ARRAY DECLARATIONS
 <arr_init_opt_2d> → λ
 
 <arr_init_content_2d> → { <elem_list> } <elem_2d_tail>
-<arr_init_content_2d> → λ
 
 <elem_2d_tail> → , { <elem_list> } <elem_2d_tail>
 <elem_2d_tail> → λ
@@ -482,7 +481,6 @@ CONTROL STRUCTURES
 <for_init_type> → bool
 
 <for_cond> → <condition>
-<for_cond> → λ
 
 <for_update> → id <for_update_tail>
 <for_update> → ++ id
@@ -540,19 +538,28 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN)
 
 // After id in condition: function call (standalone bool or comparison) OR identifier for comparison
 <cond_after_id> → ( <arg_list> ) <cond_after_call>
-<cond_after_id> → <cond_after_id_no_call> <cond_comparison_opt>
+<cond_after_id> → <cond_after_id_no_call>
 
 // After id(): standalone bool function OR continue to comparison
 <cond_after_call> → λ
 <cond_after_call> → <postfix_chain> <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
 
-// After id not followed by ( : build expression then optionally compare
-// Standalone identifiers allowed (could be bool variables)
-<cond_after_id_no_call> → <cond_postfix_no_call> <mul_tail> <add_tail>
+// After id not followed by ( : build expression with context-aware comparison requirement
+<cond_after_id_no_call> → <cond_postfix_no_call> <cond_arith_final>
 
-// Optional comparison - allows standalone bool identifiers
-<cond_comparison_opt> → <comp_op> <cond_rhs_expr>
-<cond_comparison_opt> → λ
+// Arithmetic-aware comparison: standalone bool OR comparison OR arithmetic+mandatory comparison
+<cond_arith_final> → λ
+<cond_arith_final> → <comp_op> <cond_rhs_expr>
+<cond_arith_final> → <mul_arith> <add_tail> <comp_op> <cond_rhs_expr>
+<cond_arith_final> → <add_arith> <comp_op> <cond_rhs_expr>
+
+// Non-empty arithmetic operations (require comparison)
+<mul_arith> → * <unary_expr> <mul_tail>
+<mul_arith> → / <unary_expr> <mul_tail>
+<mul_arith> → % <unary_expr> <mul_tail>
+
+<add_arith> → + <mul_expr> <add_tail>
+<add_arith> → - <mul_expr> <add_tail>
 
 // Postfix operations after id (excluding direct call since that's handled separately)
 <cond_postfix_no_call> → [ <array_index> ] <array_access_dim2> <postfix_after_arr>

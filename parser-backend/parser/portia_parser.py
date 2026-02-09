@@ -215,7 +215,8 @@ class PortiaLarkParser:
         condition_contexts = {'condition', 'cond_or', 'cond_and', 'cond_not', 
                              'cond_atom', 'cond_after_id', 'cond_after_call',
                              'cond_after_id_no_call', 'cond_postfix_no_call',
-                             'cond_comparison_opt', 'comp_op', 'for_cond'}
+                             'cond_arith_final', 'mul_arith', 'add_arith', 
+                             'comp_op', 'for_cond'}
         
         def find_assignment_in_condition(node, in_condition=False):
             """
@@ -358,6 +359,46 @@ class PortiaLarkParser:
             lexer_type = self.terminal_to_lexer_type.get(lark_terminal, lark_terminal)
             expected_lexer_types.append(lexer_type)
         
+        # Detect context BEFORE filtering for position adjustment
+        context = self._detect_parse_context(expected_lexer_types, error)
+        
+        # Get actual token info and map to lexer type
+        token_type_lark = unexpected_token.type if hasattr(unexpected_token, 'type') else "unknown"
+        token_type = self.terminal_to_lexer_type.get(token_type_lark, token_type_lark)
+        token_type_display = self._format_token_for_display(token_type)
+        token_value = unexpected_token.value if hasattr(unexpected_token, 'value') else ""
+        lark_line = unexpected_token.line if hasattr(unexpected_token, 'line') else 0
+        lark_column = unexpected_token.column if hasattr(unexpected_token, 'column') else 0
+        token_length = len(token_value) if token_value else 1
+        
+        # Look up original token to get correct column position
+        original_token = self._lookup_original_token(lark_line, token_value, lark_column)
+        if original_token:
+            line = original_token.get("line", lark_line)
+            column = original_token.get("column", lark_column)
+        else:
+            line = lark_line
+            column = lark_column
+        
+        # For_cond position fix: when unexpected is `;` and context is for_cond,
+        # the actual error is at the SECOND semicolon (where condition is required)
+        # Only adjust if we're at the FIRST semicolon (prev token is not a semicolon)
+        if (context == 'for_cond' and token_value == ';' and 
+            token_type in ('semicolon', ';') and original_token):
+            # Check if there's a semicolon BEFORE this one - if so, we're already at the second one
+            prev_token = self._get_previous_token(original_token)
+            if not (prev_token and prev_token.get("type") == ";"):
+                # At the first semicolon, find the next one
+                next_semicolon = self._get_next_token_of_type(
+                    original_token.get("line", 0),
+                    original_token.get("column", 0),
+                    ";"
+                )
+                if next_semicolon:
+                    # Adjust error position to the second semicolon
+                    line = next_semicolon.get("line", line)
+                    column = next_semicolon.get("column", column)
+        
         # Filter expected tokens based on context to reduce noise
         expected_lexer_types = self._filter_expected_tokens(expected_lexer_types, error)
         
@@ -379,24 +420,6 @@ class PortiaLarkParser:
                 else:
                     expected_display.append(self._format_token_for_display(t))
             expected_str = f"[ {', '.join(expected_display)} ]"
-        
-        # Get actual token info and map to lexer type
-        token_type_lark = unexpected_token.type if hasattr(unexpected_token, 'type') else "unknown"
-        token_type = self.terminal_to_lexer_type.get(token_type_lark, token_type_lark)
-        token_type_display = self._format_token_for_display(token_type)
-        token_value = unexpected_token.value if hasattr(unexpected_token, 'value') else ""
-        lark_line = unexpected_token.line if hasattr(unexpected_token, 'line') else 0
-        lark_column = unexpected_token.column if hasattr(unexpected_token, 'column') else 0
-        token_length = len(token_value) if token_value else 1
-        
-        # Look up original token to get correct column position
-        original_token = self._lookup_original_token(lark_line, token_value, lark_column)
-        if original_token:
-            line = original_token.get("line", lark_line)
-            column = original_token.get("column", lark_column)
-        else:
-            line = lark_line
-            column = lark_column
         
         # Format unexpected token: if display is a symbol matching the value, don't duplicate
         if token_type_display == token_value:
@@ -550,6 +573,27 @@ class PortiaLarkParser:
             if has_expr_ops and not has_stmt_keywords:
                 return 'for_init'
         
+        # For_cond context: expecting condition-starting tokens
+        # This is the mandatory condition slot in a for loop
+        # Since for_cond is non-nullable, expected tokens are ONLY condition starters
+        cond_starters = {'true', 'false', 'id', 'open_paren', 'logical_not',
+                        'intlit', 'longlit', 'floatlit', 'doublelit', 'charlit', 'stringlit',
+                        'int', 'long', 'float', 'double', 'char', 'string', 'bool'}
+        has_cond_starters = bool(token_set & cond_starters)
+        has_close_paren = 'close_paren' in token_set
+        
+        # For_cond detection: has condition starters, NOT close_paren or semicolon
+        # (close_paren would mean end of condition in if/while, semicolon in original nullable for_cond)
+        # Also no statement keywords (we're inside for control structure, not statement list)
+        statement_keywords = {'if', 'while', 'for', 'do', 'switch', 'break',
+                             'trap', 'thread', 'threadln', 'return', 'using', 'local'}
+        if has_cond_starters and not has_close_paren and not (token_set & statement_keywords):
+            # Additional check: make sure most expected tokens are condition starters
+            # This distinguishes for_cond from other contexts with id/intlit expected
+            cond_starter_count = len(token_set & cond_starters)
+            if cond_starter_count >= len(token_set) * 0.5:  # At least half are condition starters
+                return 'for_cond'
+        
         return 'general'
     
     def _filter_expected_tokens(self, expected_tokens: List[str], error) -> List[str]:
@@ -564,6 +608,12 @@ class PortiaLarkParser:
         """
         if not expected_tokens:
             return expected_tokens
+        
+        # 2D Array initialization: when { is expected, exclude } from expected tokens
+        # For 2D arrays like int grid[2][3] = {1,2,3}, the parser expects nested braces {{...}}
+        # When flat init is given, we should only suggest { not }
+        if 'open_brace' in expected_tokens and 'close_brace' in expected_tokens:
+            expected_tokens = [t for t in expected_tokens if t != 'close_brace']
         
         # Detect parsing context
         context = self._detect_parse_context(expected_tokens, error)
@@ -601,6 +651,18 @@ class PortiaLarkParser:
         if context == 'for_init':
             return ['semicolon']
         
+        # For_cond context: condition is required, filter out semicolon and close_paren
+        # This occurs when parser is at for loop's condition slot (now mandatory)
+        if context == 'for_cond':
+            # Condition-starting tokens only
+            cond_starters = {
+                'true', 'false', 'id', 'open_paren', 'logical_not',
+                'intlit', 'longlit', 'floatlit', 'doublelit', 'charlit', 'stringlit',
+                'int', 'long', 'float', 'double', 'char', 'string', 'bool'
+            }
+            filtered = [t for t in expected_tokens if t in cond_starters]
+            return filtered if filtered else expected_tokens
+        
         # General context: apply standard filtering (but never filter $END)
         statement_terminators = {'semicolon', 'close_brace', 'close_paren', 'close_bracket', '$END'}
         operators = {'add', 'subtract', 'multiply', 'divide', 'modulo', 'equal', 'not_equal', 
@@ -622,6 +684,32 @@ class PortiaLarkParser:
                 return filtered
         
         return expected_tokens
+    
+    def _get_next_token_of_type(self, after_line: int, after_column: int, token_type: str) -> Optional[Dict[str, Any]]:
+        """
+        Find the next token of the specified type that appears after the given position.
+        Returns the token dict or None if not found.
+        """
+        if not hasattr(self, '_original_tokens'):
+            return None
+        
+        skip_types = {"space", "newline", "tab", "single_comment", "multi_comment"}
+        
+        for token in self._original_tokens:
+            if token.get("type") in skip_types:
+                continue
+            
+            token_line = token.get("line", 0)
+            token_column = token.get("column", 0)
+            
+            # Check if this token is after the target position
+            if (token_line > after_line or 
+                (token_line == after_line and token_column > after_column)):
+                # Check if it matches the requested type
+                if token.get("type") == token_type:
+                    return token
+        
+        return None
     
     def handle_unexpected_input(self, error: UnexpectedInput, tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -654,10 +742,33 @@ class PortiaLarkParser:
         
         # Try to get expected tokens from parser state
         expected_str = "valid token"
+        expected_lexer = []
         if hasattr(error, 'expected') and error.expected:
             expected_lark = list(error.expected)
             expected_lexer = [self.terminal_to_lexer_type.get(t, t) for t in expected_lark]
-            # Apply same filtering
+            # Check context BEFORE filtering for position adjustment
+            context = self._detect_parse_context(expected_lexer, error)
+            
+            # For_cond position fix: when unexpected is `;` and context is for_cond,
+            # the actual error is at the SECOND semicolon (where condition is required)
+            # Only adjust if we're at the FIRST semicolon (prev token is not a semicolon)
+            if (context == 'for_cond' and token_value == ';' and 
+                token_type in ('semicolon', ';') and original_token):
+                # Check if there's a semicolon BEFORE this one - if so, we're already at the second one
+                prev_token = self._get_previous_token(original_token)
+                if not (prev_token and prev_token.get("type") == ";"):
+                    # At the first semicolon, find the next one
+                    next_semicolon = self._get_next_token_of_type(
+                        original_token.get("line", 0),
+                        original_token.get("column", 0),
+                        ";"
+                    )
+                    if next_semicolon:
+                        # Adjust error position to the second semicolon
+                        line = next_semicolon.get("line", line)
+                        column = next_semicolon.get("column", column)
+            
+            # Apply filtering for expected tokens
             expected_lexer = self._filter_expected_tokens(expected_lexer, error)
             expected_lexer = sorted(set(expected_lexer))
             
