@@ -34,7 +34,7 @@ PROGRAM STRUCTURE
 <other_decl> → weave id { <field_list> } ;
 <other_decl> → id <weave_inst_decl>
 <other_decl> → func <nonvoid_ret_type> id ( <param_list> ) { <function_body_nonvoid> }
-<other_decl> → func void id ( <param_list> ) { <function_body_void> }
+<other_decl> → func void id ( ) { <function_body_void> }
 
 // main_func rule for reference (matched via int_decl_or_main)
 <main_func> → int main ( ) { <main_body> }
