@@ -337,9 +337,9 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
       {/* Grid layout: Top row (Source + Tokens), Bottom row (Terminal) */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 16, flex: "1 1 auto", minHeight: 0 }}>
         {/* Top-Left: Source Code */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
           <h3 style={{ marginTop: 0, marginBottom: 8 }}>Source Code</h3>
-          <div style={{ position: "relative", flex: "1 1 auto", minHeight: 300, display: "flex" }}>
+          <div style={{ position: "relative", flex: "1 1 auto", minHeight: 0, display: "flex", overflow: "hidden" }}>
             {/* Line Numbers */}
             <div
               ref={lineNumbersRef}
@@ -436,7 +436,7 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
         </div>
 
         {/* Top-Right: Tokens or AST Panel */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <h3 style={{ margin: 0 }}>
               {viewMode === 'tokens' ? 'Tokens' : viewMode === 'tree' ? 'AST Tree' : 'AST JSON'}
@@ -490,7 +490,7 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
         </div>
 
         {/* Bottom: Terminal / Errors Panel (full width) */}
-        <div className="panel" style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div className="panel" style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h3 style={{ margin: 0 }}>Terminal</h3>
             <div className="small" style={{
