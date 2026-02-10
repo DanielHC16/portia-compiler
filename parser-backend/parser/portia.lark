@@ -35,9 +35,6 @@ other_decl: GLOBAL mutability dtype ID ASSIGN expression multi_global SEMICOLON
           | FUNC nonvoid_ret_type ID LPAREN param_list RPAREN LBRACE function_body_nonvoid RBRACE
           | FUNC VOID ID LPAREN RPAREN LBRACE function_body_void RBRACE
 
-// main_func rule for AST construction (matched via int_decl_or_main)
-main_func: INT MAIN LPAREN RPAREN LBRACE main_body RBRACE
-
 multi_global: COMMA ID ASSIGN expression multi_global
             |
 
@@ -103,9 +100,6 @@ value: INTLIT
      | STRINGLIT
      | TRUE
      | FALSE
-
-value_list_tail: COMMA value value_list_tail
-               |
 
 // ============================================
 // SHARED ARRAY DIMENSION RULES (MAX 2D)
@@ -251,18 +245,12 @@ func_content_void: USING ID using_cont SEMICOLON func_content_void
 // USING BLOCK
 // ============================================
 
-using_block: USING ID using_cont SEMICOLON using_block
-           |
-
 using_cont: COMMA ID using_cont
           |
 
 // ============================================
 // LOCAL DECLARATIONS
 // ============================================
-
-local_block: LOCAL mutability local_dec_body local_block
-           |
 
 local_dec_body: INT ID typed_local_tail
               | LONG ID typed_local_tail

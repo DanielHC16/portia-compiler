@@ -36,9 +36,6 @@ PROGRAM STRUCTURE
 <other_decl> → func <nonvoid_ret_type> id ( <param_list> ) { <function_body_nonvoid> }
 <other_decl> → func void id ( ) { <function_body_void> }
 
-// main_func rule for reference (matched via int_decl_or_main)
-<main_func> → int main ( ) { <main_body> }
-
 <multi_global> → , id = <expression> <multi_global>
 <multi_global> → λ
 
@@ -104,9 +101,6 @@ VALUES & LITERALS
 <value> → stringlit
 <value> → true
 <value> → false
-
-<value_list_tail> → , <value> <value_list_tail>
-<value_list_tail> → λ
 
 ============================================
 SHARED ARRAY DIMENSION RULES (MAX 2D)
@@ -252,18 +246,12 @@ FUNCTIONS
 USING BLOCK
 ============================================
 
-<using_block> → using id <using_cont> ; <using_block>
-<using_block> → λ
-
 <using_cont> → , id <using_cont>
 <using_cont> → λ
 
 ============================================
 LOCAL DECLARATIONS
 ============================================
-
-<local_block> → local <mutability> <local_dec_body> <local_block>
-<local_block> → λ
 
 <local_dec_body> → int id <typed_local_tail>
 <local_dec_body> → long id <typed_local_tail>
