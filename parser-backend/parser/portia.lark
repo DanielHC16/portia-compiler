@@ -42,7 +42,14 @@ other_decl: GLOBAL mutability INT ID ASSIGN INTLIT int_global_cont SEMICOLON
           | BOOL ID bool_decl_tail
           | WEAVE ID LBRACE field_list RBRACE SEMICOLON
           | ID weave_inst_decl
-          | FUNC nonvoid_ret_type ID LPAREN param_list RPAREN LBRACE function_body_nonvoid RBRACE
+          | FUNC INT func_ret_int
+          | FUNC LONG func_ret_long
+          | FUNC FLOAT func_ret_float
+          | FUNC DOUBLE func_ret_double
+          | FUNC CHAR func_ret_char
+          | FUNC STRING func_ret_string
+          | FUNC BOOL func_ret_bool
+          | FUNC ID func_ret_weave
           | FUNC VOID ID LPAREN RPAREN LBRACE function_body_void RBRACE
 
 // Boolean literal helper
@@ -408,23 +415,38 @@ field_cont: COMMA ID field_arr_opt field_cont
 // ============================================
 // FUNCTIONS
 // ============================================
+// R10 — Strict Return Type Enforcement
+// Return statements are syntactically restricted to the declared return type category
+// Scalar returns: type-specific expressions (literals and casts filtered at top level)
+// Array returns: identifier only (no literals, no expressions)
+// Weave returns: identifier only (no field access)
+// Void returns: bare return only
 
-// Non-void return types (for functions that must return a value)
-nonvoid_ret_type: INT ret_type_suffix
-                | LONG ret_type_suffix
-                | FLOAT ret_type_suffix
-                | DOUBLE ret_type_suffix
-                | CHAR ret_type_suffix
-                | STRING ret_type_suffix
-                | BOOL ret_type_suffix
-                | ID ret_id_suffix
+// Function return type tails - select appropriate body based on return type category
+func_ret_int: ID LPAREN param_list RPAREN LBRACE function_body_int RBRACE
+            | array_dims ID LPAREN param_list RPAREN LBRACE function_body_array RBRACE
 
-ret_type_suffix: array_dims
-               |
+func_ret_long: ID LPAREN param_list RPAREN LBRACE function_body_long RBRACE
+             | array_dims ID LPAREN param_list RPAREN LBRACE function_body_array RBRACE
 
-ret_id_suffix: array_dims
-             | DOT ID
-             |
+func_ret_float: ID LPAREN param_list RPAREN LBRACE function_body_float RBRACE
+              | array_dims ID LPAREN param_list RPAREN LBRACE function_body_array RBRACE
+
+func_ret_double: ID LPAREN param_list RPAREN LBRACE function_body_double RBRACE
+               | array_dims ID LPAREN param_list RPAREN LBRACE function_body_array RBRACE
+
+func_ret_char: ID LPAREN param_list RPAREN LBRACE function_body_char RBRACE
+             | array_dims ID LPAREN param_list RPAREN LBRACE function_body_array RBRACE
+
+func_ret_string: ID LPAREN param_list RPAREN LBRACE function_body_string RBRACE
+               | array_dims ID LPAREN param_list RPAREN LBRACE function_body_array RBRACE
+
+func_ret_bool: ID LPAREN param_list RPAREN LBRACE function_body_bool RBRACE
+             | array_dims ID LPAREN param_list RPAREN LBRACE function_body_array RBRACE
+
+func_ret_weave: ID LPAREN param_list RPAREN LBRACE function_body_weave RBRACE
+              | array_dims ID LPAREN param_list RPAREN LBRACE function_body_array RBRACE
+              | DOT ID ID LPAREN param_list RPAREN LBRACE function_body_weave RBRACE
 
 param_list: param_type ID param_arr_opt param_cont
           |
@@ -444,22 +466,594 @@ param_arr_opt: array_dims
 param_cont: COMMA param_type ID param_arr_opt param_cont
           |
 
-// Non-void functions MUST return an expression
-// Restructured to eliminate nullable productions before RETURN
-function_body_nonvoid: func_content_nonvoid
+// ============================================
+// TYPE-SPECIFIC FUNCTION BODIES
+// ============================================
+// Return statements can appear ANYWHERE within a function body or control structure.
+// This correctly supports multiple returns in distinct control paths per PORTIA spec.
+// Unreachable-code detection is semantic, NOT syntactic.
 
-func_content_nonvoid: USING ID using_cont SEMICOLON func_content_nonvoid
-                    | LOCAL mutability local_dec_body func_content_nonvoid
-                    | statement_non_return func_content_nonvoid
-                    | RETURN expression SEMICOLON
+// INT-returning function body
+function_body_int: func_content_int
 
-// Void functions MUST have a bare return statement
+func_content_int: USING ID using_cont SEMICOLON func_content_int
+                | LOCAL mutability local_dec_body func_content_int
+                | statement_int func_content_int
+                |
+
+// LONG-returning function body
+function_body_long: func_content_long
+
+func_content_long: USING ID using_cont SEMICOLON func_content_long
+                 | LOCAL mutability local_dec_body func_content_long
+                 | statement_long func_content_long
+                 |
+
+// FLOAT-returning function body
+function_body_float: func_content_float
+
+func_content_float: USING ID using_cont SEMICOLON func_content_float
+                  | LOCAL mutability local_dec_body func_content_float
+                  | statement_float func_content_float
+                  |
+
+// DOUBLE-returning function body
+function_body_double: func_content_double
+
+func_content_double: USING ID using_cont SEMICOLON func_content_double
+                   | LOCAL mutability local_dec_body func_content_double
+                   | statement_double func_content_double
+                   |
+
+// CHAR-returning function body
+function_body_char: func_content_char
+
+func_content_char: USING ID using_cont SEMICOLON func_content_char
+                 | LOCAL mutability local_dec_body func_content_char
+                 | statement_char func_content_char
+                 |
+
+// STRING-returning function body
+function_body_string: func_content_string
+
+func_content_string: USING ID using_cont SEMICOLON func_content_string
+                   | LOCAL mutability local_dec_body func_content_string
+                   | statement_string func_content_string
+                   |
+
+// BOOL-returning function body
+function_body_bool: func_content_bool
+
+func_content_bool: USING ID using_cont SEMICOLON func_content_bool
+                 | LOCAL mutability local_dec_body func_content_bool
+                 | statement_bool func_content_bool
+                 |
+
+// ARRAY-returning function body (any base type)
+function_body_array: func_content_array
+
+func_content_array: USING ID using_cont SEMICOLON func_content_array
+                  | LOCAL mutability local_dec_body func_content_array
+                  | statement_array func_content_array
+                  |
+
+// WEAVE-returning function body
+function_body_weave: func_content_weave
+
+func_content_weave: USING ID using_cont SEMICOLON func_content_weave
+                  | LOCAL mutability local_dec_body func_content_weave
+                  | statement_weave func_content_weave
+                  |
+
+// VOID function body
 function_body_void: func_content_void
 
 func_content_void: USING ID using_cont SEMICOLON func_content_void
                  | LOCAL mutability local_dec_body func_content_void
-                 | statement_non_return func_content_void
-                 | RETURN SEMICOLON
+                 | statement_void func_content_void
+                 |
+
+// ============================================
+// TYPE-SPECIFIC STATEMENTS
+// ============================================
+// Each return type has its own statement rule including type-appropriate return.
+// Return is a first-class statement, allowed anywhere.
+
+statement_int: expression SEMICOLON
+             | io_stmt
+             | ctrl_struct_int
+             | BREAK SEMICOLON
+             | RETURN int_return_expr SEMICOLON
+
+statement_long: expression SEMICOLON
+              | io_stmt
+              | ctrl_struct_long
+              | BREAK SEMICOLON
+              | RETURN long_return_expr SEMICOLON
+
+statement_float: expression SEMICOLON
+               | io_stmt
+               | ctrl_struct_float
+               | BREAK SEMICOLON
+               | RETURN float_return_expr SEMICOLON
+
+statement_double: expression SEMICOLON
+                | io_stmt
+                | ctrl_struct_double
+                | BREAK SEMICOLON
+                | RETURN double_return_expr SEMICOLON
+
+statement_char: expression SEMICOLON
+              | io_stmt
+              | ctrl_struct_char
+              | BREAK SEMICOLON
+              | RETURN char_return_expr SEMICOLON
+
+statement_string: expression SEMICOLON
+                | io_stmt
+                | ctrl_struct_string
+                | BREAK SEMICOLON
+                | RETURN string_return_expr SEMICOLON
+
+statement_bool: expression SEMICOLON
+              | io_stmt
+              | ctrl_struct_bool
+              | BREAK SEMICOLON
+              | RETURN bool_return_expr SEMICOLON
+
+statement_array: expression SEMICOLON
+               | io_stmt
+               | ctrl_struct_array
+               | BREAK SEMICOLON
+               | RETURN ID SEMICOLON
+
+statement_weave: expression SEMICOLON
+               | io_stmt
+               | ctrl_struct_weave
+               | BREAK SEMICOLON
+               | RETURN ID SEMICOLON
+
+statement_void: expression SEMICOLON
+              | io_stmt
+              | ctrl_struct_void
+              | BREAK SEMICOLON
+              | RETURN SEMICOLON
+
+// ============================================
+// TYPE-SPECIFIC CONTROL STRUCTURES
+// ============================================
+// Each return type has its own control structure rules.
+// This allows return statements inside if/else/while/for/switch/do-while.
+
+// INT control structures
+ctrl_struct_int: IF LPAREN condition RPAREN LBRACE stmt_list_int RBRACE else_opt_int
+               | SWITCH LPAREN expression RPAREN LBRACE case_list_int default_opt_int RBRACE
+               | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_int RBRACE
+               | WHILE LPAREN condition RPAREN LBRACE stmt_list_int RBRACE
+               | DO LBRACE stmt_list_int RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_int: statement_int stmt_list_int
+             |
+
+else_opt_int: ELSE else_body_int
+            |
+
+else_body_int: LBRACE stmt_list_int RBRACE
+             | IF LPAREN condition RPAREN LBRACE stmt_list_int RBRACE else_opt_int
+
+case_list_int: CASE case_val COLON stmt_list_int break_opt case_list_int
+             |
+
+default_opt_int: DEFAULT COLON stmt_list_int break_opt
+               |
+
+// LONG control structures
+ctrl_struct_long: IF LPAREN condition RPAREN LBRACE stmt_list_long RBRACE else_opt_long
+                | SWITCH LPAREN expression RPAREN LBRACE case_list_long default_opt_long RBRACE
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_long RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE stmt_list_long RBRACE
+                | DO LBRACE stmt_list_long RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_long: statement_long stmt_list_long
+              |
+
+else_opt_long: ELSE else_body_long
+             |
+
+else_body_long: LBRACE stmt_list_long RBRACE
+              | IF LPAREN condition RPAREN LBRACE stmt_list_long RBRACE else_opt_long
+
+case_list_long: CASE case_val COLON stmt_list_long break_opt case_list_long
+              |
+
+default_opt_long: DEFAULT COLON stmt_list_long break_opt
+                |
+
+// FLOAT control structures
+ctrl_struct_float: IF LPAREN condition RPAREN LBRACE stmt_list_float RBRACE else_opt_float
+                 | SWITCH LPAREN expression RPAREN LBRACE case_list_float default_opt_float RBRACE
+                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_float RBRACE
+                 | WHILE LPAREN condition RPAREN LBRACE stmt_list_float RBRACE
+                 | DO LBRACE stmt_list_float RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_float: statement_float stmt_list_float
+               |
+
+else_opt_float: ELSE else_body_float
+              |
+
+else_body_float: LBRACE stmt_list_float RBRACE
+               | IF LPAREN condition RPAREN LBRACE stmt_list_float RBRACE else_opt_float
+
+case_list_float: CASE case_val COLON stmt_list_float break_opt case_list_float
+               |
+
+default_opt_float: DEFAULT COLON stmt_list_float break_opt
+                 |
+
+// DOUBLE control structures
+ctrl_struct_double: IF LPAREN condition RPAREN LBRACE stmt_list_double RBRACE else_opt_double
+                  | SWITCH LPAREN expression RPAREN LBRACE case_list_double default_opt_double RBRACE
+                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_double RBRACE
+                  | WHILE LPAREN condition RPAREN LBRACE stmt_list_double RBRACE
+                  | DO LBRACE stmt_list_double RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_double: statement_double stmt_list_double
+                |
+
+else_opt_double: ELSE else_body_double
+               |
+
+else_body_double: LBRACE stmt_list_double RBRACE
+                | IF LPAREN condition RPAREN LBRACE stmt_list_double RBRACE else_opt_double
+
+case_list_double: CASE case_val COLON stmt_list_double break_opt case_list_double
+                |
+
+default_opt_double: DEFAULT COLON stmt_list_double break_opt
+                  |
+
+// CHAR control structures
+ctrl_struct_char: IF LPAREN condition RPAREN LBRACE stmt_list_char RBRACE else_opt_char
+                | SWITCH LPAREN expression RPAREN LBRACE case_list_char default_opt_char RBRACE
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_char RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE stmt_list_char RBRACE
+                | DO LBRACE stmt_list_char RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_char: statement_char stmt_list_char
+              |
+
+else_opt_char: ELSE else_body_char
+             |
+
+else_body_char: LBRACE stmt_list_char RBRACE
+              | IF LPAREN condition RPAREN LBRACE stmt_list_char RBRACE else_opt_char
+
+case_list_char: CASE case_val COLON stmt_list_char break_opt case_list_char
+              |
+
+default_opt_char: DEFAULT COLON stmt_list_char break_opt
+                |
+
+// STRING control structures
+ctrl_struct_string: IF LPAREN condition RPAREN LBRACE stmt_list_string RBRACE else_opt_string
+                  | SWITCH LPAREN expression RPAREN LBRACE case_list_string default_opt_string RBRACE
+                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_string RBRACE
+                  | WHILE LPAREN condition RPAREN LBRACE stmt_list_string RBRACE
+                  | DO LBRACE stmt_list_string RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_string: statement_string stmt_list_string
+                |
+
+else_opt_string: ELSE else_body_string
+               |
+
+else_body_string: LBRACE stmt_list_string RBRACE
+                | IF LPAREN condition RPAREN LBRACE stmt_list_string RBRACE else_opt_string
+
+case_list_string: CASE case_val COLON stmt_list_string break_opt case_list_string
+                |
+
+default_opt_string: DEFAULT COLON stmt_list_string break_opt
+                  |
+
+// BOOL control structures
+ctrl_struct_bool: IF LPAREN condition RPAREN LBRACE stmt_list_bool RBRACE else_opt_bool
+                | SWITCH LPAREN expression RPAREN LBRACE case_list_bool default_opt_bool RBRACE
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_bool RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE stmt_list_bool RBRACE
+                | DO LBRACE stmt_list_bool RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_bool: statement_bool stmt_list_bool
+              |
+
+else_opt_bool: ELSE else_body_bool
+             |
+
+else_body_bool: LBRACE stmt_list_bool RBRACE
+              | IF LPAREN condition RPAREN LBRACE stmt_list_bool RBRACE else_opt_bool
+
+case_list_bool: CASE case_val COLON stmt_list_bool break_opt case_list_bool
+              |
+
+default_opt_bool: DEFAULT COLON stmt_list_bool break_opt
+                |
+
+// ARRAY control structures
+ctrl_struct_array: IF LPAREN condition RPAREN LBRACE stmt_list_array RBRACE else_opt_array
+                 | SWITCH LPAREN expression RPAREN LBRACE case_list_array default_opt_array RBRACE
+                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_array RBRACE
+                 | WHILE LPAREN condition RPAREN LBRACE stmt_list_array RBRACE
+                 | DO LBRACE stmt_list_array RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_array: statement_array stmt_list_array
+               |
+
+else_opt_array: ELSE else_body_array
+              |
+
+else_body_array: LBRACE stmt_list_array RBRACE
+               | IF LPAREN condition RPAREN LBRACE stmt_list_array RBRACE else_opt_array
+
+case_list_array: CASE case_val COLON stmt_list_array break_opt case_list_array
+               |
+
+default_opt_array: DEFAULT COLON stmt_list_array break_opt
+                 |
+
+// WEAVE control structures
+ctrl_struct_weave: IF LPAREN condition RPAREN LBRACE stmt_list_weave RBRACE else_opt_weave
+                 | SWITCH LPAREN expression RPAREN LBRACE case_list_weave default_opt_weave RBRACE
+                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_weave RBRACE
+                 | WHILE LPAREN condition RPAREN LBRACE stmt_list_weave RBRACE
+                 | DO LBRACE stmt_list_weave RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_weave: statement_weave stmt_list_weave
+               |
+
+else_opt_weave: ELSE else_body_weave
+              |
+
+else_body_weave: LBRACE stmt_list_weave RBRACE
+               | IF LPAREN condition RPAREN LBRACE stmt_list_weave RBRACE else_opt_weave
+
+case_list_weave: CASE case_val COLON stmt_list_weave break_opt case_list_weave
+               |
+
+default_opt_weave: DEFAULT COLON stmt_list_weave break_opt
+                 |
+
+// VOID control structures
+ctrl_struct_void: IF LPAREN condition RPAREN LBRACE stmt_list_void RBRACE else_opt_void
+                | SWITCH LPAREN expression RPAREN LBRACE case_list_void default_opt_void RBRACE
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_void RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE stmt_list_void RBRACE
+                | DO LBRACE stmt_list_void RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+
+stmt_list_void: statement_void stmt_list_void
+              |
+
+else_opt_void: ELSE else_body_void
+             |
+
+else_body_void: LBRACE stmt_list_void RBRACE
+              | IF LPAREN condition RPAREN LBRACE stmt_list_void RBRACE else_opt_void
+
+case_list_void: CASE case_val COLON stmt_list_void break_opt case_list_void
+              |
+
+default_opt_void: DEFAULT COLON stmt_list_void break_opt
+                |
+
+// ============================================
+// TYPE-SPECIFIC RETURN EXPRESSIONS
+// ============================================
+// Top-level literals and casts restricted to declared return type
+// After operators, regular expression rules apply
+
+// INT RETURN EXPRESSION
+int_return_expr: int_ret_assign
+
+int_ret_assign: int_ret_concat assign_tail
+
+int_ret_concat: int_ret_or concat_tail
+
+int_ret_or: int_ret_and or_tail
+
+int_ret_and: int_ret_eq and_tail
+
+int_ret_eq: int_ret_rel eq_tail
+
+int_ret_rel: int_ret_add rel_tail
+
+int_ret_add: int_ret_mul add_tail
+
+int_ret_mul: int_ret_unary mul_tail
+
+int_ret_unary: NOT int_ret_unary
+             | int_ret_postfix
+
+int_ret_postfix: INTLIT
+               | INCR ID
+               | DECR ID
+               | ID id_postfix
+               | LPAREN expression RPAREN postfix_chain
+               | INT LPAREN expression RPAREN
+
+// LONG RETURN EXPRESSION
+long_return_expr: long_ret_assign
+
+long_ret_assign: long_ret_concat assign_tail
+
+long_ret_concat: long_ret_or concat_tail
+
+long_ret_or: long_ret_and or_tail
+
+long_ret_and: long_ret_eq and_tail
+
+long_ret_eq: long_ret_rel eq_tail
+
+long_ret_rel: long_ret_add rel_tail
+
+long_ret_add: long_ret_mul add_tail
+
+long_ret_mul: long_ret_unary mul_tail
+
+long_ret_unary: NOT long_ret_unary
+              | long_ret_postfix
+
+long_ret_postfix: LONGLIT
+                | INCR ID
+                | DECR ID
+                | ID id_postfix
+                | LPAREN expression RPAREN postfix_chain
+                | LONG LPAREN expression RPAREN
+
+// FLOAT RETURN EXPRESSION
+float_return_expr: float_ret_assign
+
+float_ret_assign: float_ret_concat assign_tail
+
+float_ret_concat: float_ret_or concat_tail
+
+float_ret_or: float_ret_and or_tail
+
+float_ret_and: float_ret_eq and_tail
+
+float_ret_eq: float_ret_rel eq_tail
+
+float_ret_rel: float_ret_add rel_tail
+
+float_ret_add: float_ret_mul add_tail
+
+float_ret_mul: float_ret_unary mul_tail
+
+float_ret_unary: NOT float_ret_unary
+               | float_ret_postfix
+
+float_ret_postfix: FLOATLIT
+                 | INCR ID
+                 | DECR ID
+                 | ID id_postfix
+                 | LPAREN expression RPAREN postfix_chain
+                 | FLOAT LPAREN expression RPAREN
+
+// DOUBLE RETURN EXPRESSION
+double_return_expr: double_ret_assign
+
+double_ret_assign: double_ret_concat assign_tail
+
+double_ret_concat: double_ret_or concat_tail
+
+double_ret_or: double_ret_and or_tail
+
+double_ret_and: double_ret_eq and_tail
+
+double_ret_eq: double_ret_rel eq_tail
+
+double_ret_rel: double_ret_add rel_tail
+
+double_ret_add: double_ret_mul add_tail
+
+double_ret_mul: double_ret_unary mul_tail
+
+double_ret_unary: NOT double_ret_unary
+                | double_ret_postfix
+
+double_ret_postfix: DOUBLELIT
+                  | INCR ID
+                  | DECR ID
+                  | ID id_postfix
+                  | LPAREN expression RPAREN postfix_chain
+                  | DOUBLE LPAREN expression RPAREN
+
+// CHAR RETURN EXPRESSION
+char_return_expr: char_ret_assign
+
+char_ret_assign: char_ret_concat assign_tail
+
+char_ret_concat: char_ret_or concat_tail
+
+char_ret_or: char_ret_and or_tail
+
+char_ret_and: char_ret_eq and_tail
+
+char_ret_eq: char_ret_rel eq_tail
+
+char_ret_rel: char_ret_add rel_tail
+
+char_ret_add: char_ret_mul add_tail
+
+char_ret_mul: char_ret_unary mul_tail
+
+char_ret_unary: NOT char_ret_unary
+              | char_ret_postfix
+
+char_ret_postfix: CHARLIT
+                | INCR ID
+                | DECR ID
+                | ID id_postfix
+                | LPAREN expression RPAREN postfix_chain
+                | CHAR LPAREN expression RPAREN
+
+// STRING RETURN EXPRESSION
+string_return_expr: string_ret_assign
+
+string_ret_assign: string_ret_concat assign_tail
+
+string_ret_concat: string_ret_or concat_tail
+
+string_ret_or: string_ret_and or_tail
+
+string_ret_and: string_ret_eq and_tail
+
+string_ret_eq: string_ret_rel eq_tail
+
+string_ret_rel: string_ret_add rel_tail
+
+string_ret_add: string_ret_mul add_tail
+
+string_ret_mul: string_ret_unary mul_tail
+
+string_ret_unary: NOT string_ret_unary
+                | string_ret_postfix
+
+string_ret_postfix: STRINGLIT
+                  | INCR ID
+                  | DECR ID
+                  | ID id_postfix
+                  | LPAREN expression RPAREN postfix_chain
+                  | STRING LPAREN expression RPAREN
+
+// BOOL RETURN EXPRESSION
+bool_return_expr: bool_ret_assign
+
+bool_ret_assign: bool_ret_concat assign_tail
+
+bool_ret_concat: bool_ret_or concat_tail
+
+bool_ret_or: bool_ret_and or_tail
+
+bool_ret_and: bool_ret_eq and_tail
+
+bool_ret_eq: bool_ret_rel eq_tail
+
+bool_ret_rel: bool_ret_add rel_tail
+
+bool_ret_add: bool_ret_mul add_tail
+
+bool_ret_mul: bool_ret_unary mul_tail
+
+bool_ret_unary: NOT bool_ret_unary
+              | bool_ret_postfix
+
+bool_ret_postfix: TRUE
+                | FALSE
+                | INCR ID
+                | DECR ID
+                | ID id_postfix
+                | LPAREN expression RPAREN postfix_chain
+                | BOOL LPAREN expression RPAREN
 
 // ============================================
 // USING BLOCK
@@ -537,10 +1131,11 @@ weave_local_tail: ASSIGN LBRACE weave_field_value weave_field_list_tail RBRACE w
                 | weave_array_with_init weave_arr_cont SEMICOLON
 
 // ============================================
-// STATEMENTS (return excluded - enforced at CFG level)
+// STATEMENTS (for main function only)
 // ============================================
+// statement_non_return is used ONLY in main function and its control structures
+// All other functions use type-specific statement rules (statement_int, etc.)
 
-// statement_non_return explicitly EXCLUDES return keyword
 statement_non_return: expression SEMICOLON
                     | io_stmt
                     | ctrl_struct
@@ -615,9 +1210,15 @@ mul_tail: STAR unary_expr mul_tail
         |
 
 unary_expr: NOT unary_expr
-          | INCR unary_expr
-          | DECR unary_expr
           | postfix_expr
+
+// ============================================
+// POSTFIX EXPRESSIONS
+// ============================================
+// Increment/decrement constrained to C-like semantics:
+// - ++id, --id, id++, id-- are the ONLY valid forms
+// - Operand must be bare identifier (not expression, not parenthesized)
+// - No chaining: ++id++, ++++id are syntactically impossible
 
 postfix_expr: LPAREN expression RPAREN postfix_chain
             | INT LPAREN expression RPAREN
@@ -627,7 +1228,9 @@ postfix_expr: LPAREN expression RPAREN postfix_chain
             | CHAR LPAREN expression RPAREN
             | STRING LPAREN expression RPAREN
             | BOOL LPAREN expression RPAREN
-            | ID postfix_chain
+            | INCR ID
+            | DECR ID
+            | ID id_postfix
             | INTLIT
             | LONGLIT
             | FLOATLIT
@@ -638,14 +1241,24 @@ postfix_expr: LPAREN expression RPAREN postfix_chain
             | FALSE
 
 // ============================================
-// IDENTIFIER POSTFIX CHAIN (MAX 2D ARRAY ACCESS)
+// IDENTIFIER POSTFIX (C-LIKE INCREMENT/DECREMENT)
 // ============================================
+// After bare ID: either terminal inc/dec OR regular postfix chain
+// This ensures ++id and id++ are valid but ++id++ is not
+
+id_postfix: INCR
+          | DECR
+          | postfix_chain
+
+// ============================================
+// POSTFIX CHAIN (NO INCREMENT/DECREMENT)
+// ============================================
+// Array access, field access, function calls - NO inc/dec allowed here
+// Inc/dec only valid on bare identifiers (handled by id_postfix)
 
 postfix_chain: array_access postfix_after_arr
              | DOT ID postfix_chain
              | LPAREN arg_list RPAREN postfix_chain
-             | INCR
-             | DECR
              |
 
 array_access: LBRACK array_index RBRACK array_access_dim2
@@ -655,8 +1268,6 @@ array_access_dim2: LBRACK array_index RBRACK
 
 postfix_after_arr: DOT ID postfix_chain
                  | LPAREN arg_list RPAREN postfix_chain
-                 | INCR
-                 | DECR
                  |
 
 array_index: INTLIT
@@ -682,8 +1293,10 @@ print_tail: COMMA expression print_tail
           |
 
 // ============================================
-// CONTROL STRUCTURES
+// CONTROL STRUCTURES (for main function only)
 // ============================================
+// These control structure rules are used ONLY in main function
+// All other functions use type-specific control structures (ctrl_struct_int, etc.)
 
 ctrl_struct: IF LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE else_opt
            | SWITCH LPAREN expression RPAREN LBRACE case_list default_opt RBRACE
@@ -691,7 +1304,7 @@ ctrl_struct: IF LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE else_opt
            | WHILE LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE
            | DO LBRACE ctrl_stmt_list RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
-// Statement list for control structures (return also excluded here)
+// Statement list for control structures in main function only
 ctrl_stmt_list: statement_non_return ctrl_stmt_list
               |
 
@@ -735,13 +1348,27 @@ for_init_type: INT
 
 for_cond: condition
 
-// // ============================================
-// CONDITION EXPRESSIONS (STRICT BOOLEAN)
 // ============================================
-// Conditions are strictly boolean - NOT arithmetic expressions
-// Valid conditions: comparisons, logical ops (&&, ||, !), bool literals, function calls
-// Invalid: standalone arithmetic (x, x+1, x*2) - must use comparison operator
-// Assignment operators (= += -= *= /= %=) are PROHIBITED in conditions
+// CONDITION EXPRESSIONS (DEFERRED BOOLEAN COMMITMENT)
+// ============================================
+// Conditions enforce syntactic boolean commitment:
+// - A condition MUST contain at least one boolean-producing operator
+// - Boolean-producing operators: relational (== != < <= > >=) or logical (&& ||)
+// - Pure arithmetic expressions cannot reduce as conditions
+//
+// Grammar architecture:
+// - Condition uses SEPARATE arithmetic rules isolated from expression rules
+// - cond_postfix uses LPAREN cond_paren_arith RPAREN, NOT LPAREN expression RPAREN
+// - This prevents expression rules from merging into condition context
+// - LALR conflicts are avoided by keeping contexts separate
+//
+// Deferred Boolean Commitment:
+// - Bare identifiers/function calls are allowed (might be boolean semantically)
+// - Once arithmetic operators (+,-,*,/,%) appear, comp_op MUST follow
+// - Expected tokens at any error point include all valid continuations
+//
+// After commitment (comp_op seen), RHS uses expression rules (cond_rhs: add_expr)
+// Function arguments in conditions use expression rules (nested context)
 
 condition: cond_or
 
@@ -749,68 +1376,92 @@ cond_or: cond_and cond_or_tail
 cond_or_tail: OR cond_and cond_or_tail
             |
 
-cond_and: cond_not cond_and_tail
-cond_and_tail: AND cond_not cond_and_tail
+cond_and: cond_comparison cond_and_tail
+cond_and_tail: AND cond_comparison cond_and_tail
              |
 
-cond_not: NOT cond_not
-        | cond_atom
+// cond_comparison: MANDATORY boolean commitment
+// 1. Parenthesized condition (recursively requires boolean)
+// 2. Negated comparison (recursively requires boolean)
+// 3. Primary + continuation (identifier may be bare OR with comparison)
+cond_comparison: LPAREN condition RPAREN
+               | NOT cond_comparison
+               | cond_primary cond_primary_continue
 
-// Condition RHS expression: starts at concat_expr, bypassing assign_expr
-// This prohibits = += -= *= /= %= on the RHS of comparisons within conditions
-cond_rhs_expr: concat_expr
+// Primary expression for condition (no binary operators)
+cond_primary: MINUS cond_primary
+            | cond_postfix
 
-// Condition atom: must be comparison, bool literal, bool function call, or parenthesized condition
-// Standalone arithmetic expressions are NOT valid
-cond_atom: TRUE
-         | FALSE
-         | LPAREN condition RPAREN
-         | ID cond_after_id
-         | INTLIT mul_tail add_tail comp_op cond_rhs_expr
-         | LONGLIT mul_tail add_tail comp_op cond_rhs_expr
-         | FLOATLIT mul_tail add_tail comp_op cond_rhs_expr
-         | DOUBLELIT mul_tail add_tail comp_op cond_rhs_expr
-         | CHARLIT mul_tail add_tail comp_op cond_rhs_expr
-         | STRINGLIT mul_tail add_tail comp_op cond_rhs_expr
-         | INT LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
-         | LONG LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
-         | FLOAT LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
-         | DOUBLE LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
-         | CHAR LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
-         | STRING LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
-         | BOOL LPAREN expression RPAREN mul_tail add_tail comp_op cond_rhs_expr
+// After cond_primary: either bare (epsilon), direct comparison, or arithmetic
+// Key rule: if arithmetic appears, must eventually have comp_op (via cond_must_commit)
+// FIRST(non-ε) = {+ - * / % == != < <= > >=}
+cond_primary_continue: PLUS cond_primary cond_must_commit
+                     | MINUS cond_primary cond_must_commit
+                     | STAR cond_primary cond_must_commit
+                     | SLASH cond_primary cond_must_commit
+                     | MOD cond_primary cond_must_commit
+                     | comp_op cond_rhs
+                     |
 
-// After id in condition: function call (standalone bool or comparison) OR identifier for comparison
-cond_after_id: LPAREN arg_list RPAREN cond_after_call
-             | cond_after_id_no_call
+// Once arithmetic operator appeared, MUST have comp_op eventually
+// NO EPSILON - must commit
+// FIRST = {+ - * / % == != < <= > >=}
+cond_must_commit: PLUS cond_primary cond_must_commit
+                | MINUS cond_primary cond_must_commit
+                | STAR cond_primary cond_must_commit
+                | SLASH cond_primary cond_must_commit
+                | MOD cond_primary cond_must_commit
+                | comp_op cond_rhs
 
-// After id(): standalone bool function OR continue to comparison
-cond_after_call: 
-               | postfix_chain mul_tail add_tail comp_op cond_rhs_expr
+// Condition postfix - NO parenthesized arithmetic (use cond_comparison LPAREN condition RPAREN)
+// This avoids LALR conflicts between LPAREN condition RPAREN and LPAREN arithmetic RPAREN
+// For arithmetic grouping, wrap the entire condition: (a + b > c) not ((a + b) > c)
+cond_postfix: INT LPAREN cond_cast_arg RPAREN
+            | LONG LPAREN cond_cast_arg RPAREN
+            | FLOAT LPAREN cond_cast_arg RPAREN
+            | DOUBLE LPAREN cond_cast_arg RPAREN
+            | CHAR LPAREN cond_cast_arg RPAREN
+            | STRING LPAREN cond_cast_arg RPAREN
+            | BOOL LPAREN cond_cast_arg RPAREN
+            | INCR ID
+            | DECR ID
+            | ID cond_id_post
+            | INTLIT
+            | LONGLIT
+            | FLOATLIT
+            | DOUBLELIT
+            | CHARLIT
+            | STRINGLIT
+            | TRUE
+            | FALSE
 
-// After id not followed by ( : build expression with context-aware comparison requirement
-cond_after_id_no_call: cond_postfix_no_call cond_arith_final
+// Type cast argument in condition - uses expression (nested context, commitment done at outer level)
+cond_cast_arg: expression
 
-// Arithmetic-aware comparison: standalone bool OR comparison OR arithmetic+mandatory comparison
-cond_arith_final: 
-                | comp_op cond_rhs_expr
-                | mul_arith add_tail comp_op cond_rhs_expr
-                | add_arith comp_op cond_rhs_expr
+cond_id_post: INCR
+            | DECR
+            | cond_post_chain
 
-// Non-empty arithmetic operations (require comparison)
-mul_arith: STAR unary_expr mul_tail
-         | SLASH unary_expr mul_tail
-         | MOD unary_expr mul_tail
+// Condition postfix chain - function arguments use expression (nested context)
+cond_post_chain: cond_arr_access cond_post_after_arr
+               | DOT ID cond_post_chain
+               | LPAREN arg_list RPAREN cond_post_chain
+               |
 
-add_arith: PLUS mul_expr add_tail
-         | MINUS mul_expr add_tail
+cond_arr_access: LBRACK cond_arr_index RBRACK cond_arr_access_dim2
 
-// Postfix operations after id (excluding direct call since that's handled separately)
-cond_postfix_no_call: LBRACK array_index RBRACK array_access_dim2 postfix_after_arr
-                    | DOT ID postfix_chain
-                    | INCR
-                    | DECR
+cond_arr_access_dim2: LBRACK cond_arr_index RBRACK
                     |
+
+cond_post_after_arr: DOT ID cond_post_chain
+                   | LPAREN arg_list RPAREN cond_post_chain
+                   |
+
+cond_arr_index: INTLIT
+              | ID
+
+// RHS after relational operator - uses expression rules (commitment done)
+cond_rhs: add_expr
 
 comp_op: EQ
        | NEQ
