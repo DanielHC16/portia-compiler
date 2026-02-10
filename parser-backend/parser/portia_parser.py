@@ -105,9 +105,12 @@ class PortiaLarkParser:
         """
         Reconstruct source code from lexer tokens PRESERVING LINE STRUCTURE.
         Maintains line breaks so Lark's line numbers match original source.
+        Also builds a column-to-token mapping for accurate error position lookup.
         """
         self._original_tokens = tokens
         self._tokens_by_line = {}
+        # Map (line, reconstructed_col) -> original_token for error lookup
+        self._reconstructed_col_to_token = {}
         
         for token in tokens:
             token_type = token.get("type", "")
@@ -118,7 +121,7 @@ class PortiaLarkParser:
                 self._tokens_by_line[line_num] = []
             self._tokens_by_line[line_num].append(token)
         
-        # Group tokens by line
+        # Group tokens by line and track reconstructed positions
         lines_dict = {}
         for token in tokens:
             token_type = token.get("type", "")
@@ -131,15 +134,23 @@ class PortiaLarkParser:
             if lexeme:
                 if line_num not in lines_dict:
                     lines_dict[line_num] = []
-                lines_dict[line_num].append(lexeme)
+                lines_dict[line_num].append((lexeme, token))
         
-        # Reconstruct maintaining line structure
+        # Reconstruct maintaining line structure and track column mappings
         max_line = max(lines_dict.keys()) if lines_dict else 1
         reconstructed_lines = []
         
         for line_num in range(1, max_line + 1):
             if line_num in lines_dict:
-                reconstructed_lines.append(" ".join(lines_dict[line_num]))
+                lexemes = []
+                col = 1  # Reconstructed column starts at 1
+                for lexeme, token in lines_dict[line_num]:
+                    # Map range of columns for this token
+                    for offset in range(len(lexeme)):
+                        self._reconstructed_col_to_token[(line_num, col + offset)] = token
+                    lexemes.append(lexeme)
+                    col += len(lexeme) + 1  # +1 for space separator
+                reconstructed_lines.append(" ".join(lexemes))
             else:
                 reconstructed_lines.append("")
         
@@ -147,8 +158,16 @@ class PortiaLarkParser:
     
     def _lookup_original_token(self, line: int, lexeme: str, lark_column: int = None) -> Dict[str, Any]:
         """
-        Look up original token by line and lexeme for accurate position reporting.
+        Look up original token by line and Lark's column from reconstructed source.
+        Uses the column-to-token mapping built during source reconstruction.
         """
+        # First try the direct column mapping
+        if lark_column is not None and hasattr(self, '_reconstructed_col_to_token'):
+            token = self._reconstructed_col_to_token.get((line, lark_column))
+            if token and token.get("lexeme") == lexeme:
+                return token
+        
+        # Fallback to line-based lookup
         if not hasattr(self, '_tokens_by_line') or line not in self._tokens_by_line:
             return None
         
@@ -160,11 +179,12 @@ class PortiaLarkParser:
         if len(matching_tokens) == 1:
             return matching_tokens[0]
         
-        # Multiple matches - find closest to lark_column
-        if lark_column is not None:
-            best_match = min(matching_tokens, 
-                           key=lambda t: (abs(t.get("column", 0) - lark_column), -t.get("column", 0)))
-            return best_match
+        # Multiple matches - find closest to lark_column using reconstructed position
+        if lark_column is not None and hasattr(self, '_reconstructed_col_to_token'):
+            # Find which token lark_column maps to
+            token_at_col = self._reconstructed_col_to_token.get((line, lark_column))
+            if token_at_col in matching_tokens:
+                return token_at_col
         
         return matching_tokens[0]
     
