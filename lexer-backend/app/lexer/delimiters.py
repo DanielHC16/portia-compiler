@@ -17,11 +17,11 @@ class Delimiters:
         self.chars = chars
 
         # DATA TYPE DELIMITER
-        # dtype_delim: allows ')' immediately after castable primitive type keywords
-        # Patterns: (int)x; (float)identifier -- NO whitespace required between type and ')'
+        # dtype_delim: allows '(' immediately after castable primitive type keywords
+        # Patterns: int(expr), float(x) -- function-style cast syntax
         # Also allows '[' for function parameters with arrays: int func(int arr[5])
         # Excludes 'void' and 'weave' (not valid cast targets)
-        self.dtype_delim = chars.whitespace + [')', '['] + chars.newline
+        self.dtype_delim = chars.whitespace + ['(', '['] + chars.newline
 
         # RESERVED SYMBOLS DELIMITER
         # Arithmetic and logical operator delimiters
