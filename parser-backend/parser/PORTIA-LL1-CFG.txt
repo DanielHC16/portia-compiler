@@ -12,6 +12,9 @@ PROGRAM STRUCTURE
 ============================================
 // Left-factored to resolve INT lookahead conflict between int_decl and main_func
 // main_func terminates program (nothing allowed after)
+// STRICT TYPE-LITERAL MATCHING: declarations accept only matching literal types
+// Expressions are FORBIDDEN in all declaration contexts
+// EMPTY INITIALIZERS FORBIDDEN: {} is syntactically impossible (R2 compliant)
 
 <program> → <decl_list>
 
@@ -19,32 +22,126 @@ PROGRAM STRUCTURE
 <decl_list> → int <int_decl_or_main>
 <decl_list> → <other_decl> <decl_list>
 
-// After INT: ID continues with typed_decl_tail then more decls, MAIN ends program
-<int_decl_or_main> → id <typed_decl_tail> <decl_list>
+// After INT: ID continues with int-specific decl tail, MAIN ends program
+<int_decl_or_main> → id <int_decl_tail> <decl_list>
 <int_decl_or_main> → main ( ) { <main_body> } $END
 
-// All non-INT declarations (no ambiguity)
-<other_decl> → global <mutability> <dtype> id = <expression> <multi_global> ;
-<other_decl> → long id <typed_decl_tail>
-<other_decl> → float id <typed_decl_tail>
-<other_decl> → double id <typed_decl_tail>
-<other_decl> → char id <typed_decl_tail>
-<other_decl> → string id <typed_decl_tail>
-<other_decl> → bool id <typed_decl_tail>
+// All non-INT declarations - type-specific initializers enforce strict matching
+// Global declarations: each type accepts ONLY its matching literal
+<other_decl> → global <mutability> int id = intlit <int_global_cont> ;
+<other_decl> → global <mutability> long id = longlit <long_global_cont> ;
+<other_decl> → global <mutability> float id = floatlit <float_global_cont> ;
+<other_decl> → global <mutability> double id = doublelit <double_global_cont> ;
+<other_decl> → global <mutability> char id = charlit <char_global_cont> ;
+<other_decl> → global <mutability> string id = stringlit <string_global_cont> ;
+<other_decl> → global <mutability> bool id = <bool_lit> <bool_global_cont> ;
+// Typed variable declarations with type-specific tails
+<other_decl> → long id <long_decl_tail>
+<other_decl> → float id <float_decl_tail>
+<other_decl> → double id <double_decl_tail>
+<other_decl> → char id <char_decl_tail>
+<other_decl> → string id <string_decl_tail>
+<other_decl> → bool id <bool_decl_tail>
+// Weave definitions and instances
 <other_decl> → weave id { <field_list> } ;
 <other_decl> → id <weave_inst_decl>
+// Functions
 <other_decl> → func <nonvoid_ret_type> id ( <param_list> ) { <function_body_nonvoid> }
 <other_decl> → func void id ( ) { <function_body_void> }
 
-<multi_global> → , id = <expression> <multi_global>
-<multi_global> → λ
+// Boolean literal helper (used where true/false is needed)
+<bool_lit> → true
+<bool_lit> → false
+
+============================================
+GLOBAL DECLARATION CONTINUATIONS
+============================================
+// Multi-variable global declarations - type-specific literal enforcement
+
+<int_global_cont> → , id = intlit <int_global_cont>
+<int_global_cont> → λ
+
+<long_global_cont> → , id = longlit <long_global_cont>
+<long_global_cont> → λ
+
+<float_global_cont> → , id = floatlit <float_global_cont>
+<float_global_cont> → λ
+
+<double_global_cont> → , id = doublelit <double_global_cont>
+<double_global_cont> → λ
+
+<char_global_cont> → , id = charlit <char_global_cont>
+<char_global_cont> → λ
+
+<string_global_cont> → , id = stringlit <string_global_cont>
+<string_global_cont> → λ
+
+<bool_global_cont> → , id = <bool_lit> <bool_global_cont>
+<bool_global_cont> → λ
+
+============================================
+TYPE-SPECIFIC DECLARATION TAILS
+============================================
+// Each type has dedicated rules - no generic <expression> fallback
+// Scalar init accepts ONLY matching literal type
+// Array init uses type-specific array rules
+
+<int_decl_tail> → <int_array_with_init> ;
+<int_decl_tail> → = intlit <int_multi_decl> ;
+
+<int_multi_decl> → , id = intlit <int_multi_decl>
+<int_multi_decl> → λ
+
+<long_decl_tail> → <long_array_with_init> ;
+<long_decl_tail> → = longlit <long_multi_decl> ;
+
+<long_multi_decl> → , id = longlit <long_multi_decl>
+<long_multi_decl> → λ
+
+<float_decl_tail> → <float_array_with_init> ;
+<float_decl_tail> → = floatlit <float_multi_decl> ;
+
+<float_multi_decl> → , id = floatlit <float_multi_decl>
+<float_multi_decl> → λ
+
+<double_decl_tail> → <double_array_with_init> ;
+<double_decl_tail> → = doublelit <double_multi_decl> ;
+
+<double_multi_decl> → , id = doublelit <double_multi_decl>
+<double_multi_decl> → λ
+
+<char_decl_tail> → <char_array_with_init> ;
+<char_decl_tail> → = charlit <char_multi_decl> ;
+
+<char_multi_decl> → , id = charlit <char_multi_decl>
+<char_multi_decl> → λ
+
+<string_decl_tail> → <string_array_with_init> ;
+<string_decl_tail> → = stringlit <string_multi_decl> ;
+
+<string_multi_decl> → , id = stringlit <string_multi_decl>
+<string_multi_decl> → λ
+
+<bool_decl_tail> → <bool_array_with_init> ;
+<bool_decl_tail> → = <bool_lit> <bool_multi_decl> ;
+
+<bool_multi_decl> → , id = <bool_lit> <bool_multi_decl>
+<bool_multi_decl> → λ
+
+============================================
+WEAVE INSTANCE DECLARATIONS
+============================================
+// Weave instances use literal-only field values
+// Type checking for weave fields is semantic (field types unknown at parse time)
 
 <weave_inst_decl> → id <weave_inst_tail> <weave_inst_cont> ;
-<weave_inst_decl> → <array_with_init> <weave_arr_cont> ;
+<weave_inst_decl> → <weave_array_with_init> <weave_arr_cont> ;
 
 <weave_inst_tail> → = { <weave_field_value> <weave_field_list_tail> }
-<weave_inst_tail> → <array_with_init>
+<weave_inst_tail> → <weave_array_with_init>
 
+// Weave field values support nested braces for arrays and nested weaves
+// Simplified recursive structure avoids LL(1)/LALR conflicts
 <weave_field_value> → intlit
 <weave_field_value> → longlit
 <weave_field_value> → floatlit
@@ -53,11 +150,14 @@ PROGRAM STRUCTURE
 <weave_field_value> → stringlit
 <weave_field_value> → true
 <weave_field_value> → false
-<weave_field_value> → { <weave_arr_content> }
+<weave_field_value> → { <weave_value_list> }
 
-<weave_arr_content> → { <elem_list> } <elem_2d_tail>
-<weave_arr_content> → <arr_elem> <elem_1d_tail>
-<weave_arr_content> → λ
+// Recursive comma-separated list of field values (handles 1D, 2D, nested weaves)
+// Non-nullable: nested braces must contain at least one value
+<weave_value_list> → <weave_field_value> <weave_value_tail>
+
+<weave_value_tail> → , <weave_field_value> <weave_value_tail>
+<weave_value_tail> → λ
 
 <weave_field_list_tail> → , <weave_field_value> <weave_field_list_tail>
 <weave_field_list_tail> → λ
@@ -65,102 +165,225 @@ PROGRAM STRUCTURE
 <weave_inst_cont> → , id <weave_inst_tail> <weave_inst_cont>
 <weave_inst_cont> → λ
 
-<weave_arr_cont> → , id <array_with_init> <weave_arr_cont>
+<weave_arr_cont> → , id <weave_array_with_init> <weave_arr_cont>
 <weave_arr_cont> → λ
 
-<typed_decl_tail> → <array_with_init> ;
-<typed_decl_tail> → = <expression> <multi_typed> ;
+<weave_array_with_init> → [ <size> ] <weave_array_init_tail>
 
-<multi_typed> → , id = <expression> <multi_typed>
-<multi_typed> → λ
+<weave_array_init_tail> → [ <size> ] <weave_arr_init_opt_2d>
+<weave_array_init_tail> → <weave_arr_init_opt_1d>
+
+<weave_arr_init_opt_1d> → = { <weave_arr_init_content_1d> }
+<weave_arr_init_opt_1d> → λ
+
+<weave_arr_init_content_1d> → { <weave_field_value> <weave_field_list_tail> } <weave_init_1d_tail>
+
+<weave_init_1d_tail> → , { <weave_field_value> <weave_field_list_tail> } <weave_init_1d_tail>
+<weave_init_1d_tail> → λ
+
+<weave_arr_init_opt_2d> → = { <weave_arr_init_content_2d> }
+<weave_arr_init_opt_2d> → λ
+
+<weave_arr_init_content_2d> → { <weave_init_row> } <weave_init_2d_tail>
+
+<weave_init_row> → { <weave_field_value> <weave_field_list_tail> } <weave_init_1d_tail>
+
+<weave_init_2d_tail> → , { <weave_init_row> } <weave_init_2d_tail>
+<weave_init_2d_tail> → λ
 
 ============================================
-MUTABILITY & TYPES
+MUTABILITY
 ============================================
 
 <mutability> → var
 <mutability> → const
 
-<dtype> → int
-<dtype> → long
-<dtype> → float
-<dtype> → double
-<dtype> → char
-<dtype> → string
-<dtype> → bool
-
 ============================================
-VALUES & LITERALS
+SHARED ARRAY DIMENSION RULES
 ============================================
-
-<value> → intlit
-<value> → longlit
-<value> → floatlit
-<value> → doublelit
-<value> → charlit
-<value> → stringlit
-<value> → true
-<value> → false
-
-============================================
-SHARED ARRAY DIMENSION RULES (MAX 2D)
-============================================
+// Used for field declarations and parameter types (no initializers)
 
 <array_dims> → [ <size> ] <array_dim2_opt>
 
 <array_dim2_opt> → [ <size> ]
 <array_dim2_opt> → λ
 
-// Combined array declaration with dimension-appropriate initialization
-<array_with_init> → [ <size> ] <array_init_tail>
-
-<array_init_tail> → [ <size> ] <arr_init_opt_2d>
-<array_init_tail> → <arr_init_opt_1d>
-
-============================================
-ARRAY DECLARATIONS
-============================================
-
-// 1D array initialization (flat elements only)
-<arr_init_opt_1d> → = { <arr_init_content_1d> }
-<arr_init_opt_1d> → λ
-
-<arr_init_content_1d> → <arr_elem> <elem_1d_tail>
-<arr_init_content_1d> → λ
-
-// 2D array initialization (nested braces required)
-<arr_init_opt_2d> → = { <arr_init_content_2d> }
-<arr_init_opt_2d> → λ
-
-<arr_init_content_2d> → { <elem_list> } <elem_2d_tail>
-
-<elem_2d_tail> → , { <elem_list> } <elem_2d_tail>
-<elem_2d_tail> → λ
-
-<elem_list> → <arr_elem> <elem_1d_tail>
-<elem_list> → λ
-
-<elem_1d_tail> → , <arr_elem> <elem_1d_tail>
-<elem_1d_tail> → λ
-
-<arr_elem> → int ( <value> )
-<arr_elem> → long ( <value> )
-<arr_elem> → float ( <value> )
-<arr_elem> → double ( <value> )
-<arr_elem> → char ( <value> )
-<arr_elem> → string ( <value> )
-<arr_elem> → bool ( <value> )
-<arr_elem> → intlit
-<arr_elem> → longlit
-<arr_elem> → floatlit
-<arr_elem> → doublelit
-<arr_elem> → charlit
-<arr_elem> → stringlit
-<arr_elem> → true
-<arr_elem> → false
-
 <size> → intlit
 <size> → id
+
+============================================
+TYPE-SPECIFIC ARRAY DECLARATIONS
+============================================
+// Each type has dedicated array rules - elements are raw literals only
+// NO type casts, NO expressions, NO identifiers in array initializers
+
+// INT ARRAYS
+<int_array_with_init> → [ <size> ] <int_array_init_tail>
+
+<int_array_init_tail> → [ <size> ] <int_arr_init_opt_2d>
+<int_array_init_tail> → <int_arr_init_opt_1d>
+
+<int_arr_init_opt_1d> → = { <int_arr_init_content_1d> }
+<int_arr_init_opt_1d> → λ
+
+<int_arr_init_content_1d> → intlit <int_elem_1d_tail>
+
+<int_elem_1d_tail> → , intlit <int_elem_1d_tail>
+<int_elem_1d_tail> → λ
+
+<int_arr_init_opt_2d> → = { <int_arr_init_content_2d> }
+<int_arr_init_opt_2d> → λ
+
+<int_arr_init_content_2d> → { <int_elem_list> } <int_elem_2d_tail>
+
+<int_elem_list> → intlit <int_elem_1d_tail>
+
+<int_elem_2d_tail> → , { <int_elem_list> } <int_elem_2d_tail>
+<int_elem_2d_tail> → λ
+
+// LONG ARRAYS
+<long_array_with_init> → [ <size> ] <long_array_init_tail>
+
+<long_array_init_tail> → [ <size> ] <long_arr_init_opt_2d>
+<long_array_init_tail> → <long_arr_init_opt_1d>
+
+<long_arr_init_opt_1d> → = { <long_arr_init_content_1d> }
+<long_arr_init_opt_1d> → λ
+
+<long_arr_init_content_1d> → longlit <long_elem_1d_tail>
+
+<long_elem_1d_tail> → , longlit <long_elem_1d_tail>
+<long_elem_1d_tail> → λ
+
+<long_arr_init_opt_2d> → = { <long_arr_init_content_2d> }
+<long_arr_init_opt_2d> → λ
+
+<long_arr_init_content_2d> → { <long_elem_list> } <long_elem_2d_tail>
+
+<long_elem_list> → longlit <long_elem_1d_tail>
+
+<long_elem_2d_tail> → , { <long_elem_list> } <long_elem_2d_tail>
+<long_elem_2d_tail> → λ
+
+// FLOAT ARRAYS
+<float_array_with_init> → [ <size> ] <float_array_init_tail>
+
+<float_array_init_tail> → [ <size> ] <float_arr_init_opt_2d>
+<float_array_init_tail> → <float_arr_init_opt_1d>
+
+<float_arr_init_opt_1d> → = { <float_arr_init_content_1d> }
+<float_arr_init_opt_1d> → λ
+
+<float_arr_init_content_1d> → floatlit <float_elem_1d_tail>
+
+<float_elem_1d_tail> → , floatlit <float_elem_1d_tail>
+<float_elem_1d_tail> → λ
+
+<float_arr_init_opt_2d> → = { <float_arr_init_content_2d> }
+<float_arr_init_opt_2d> → λ
+
+<float_arr_init_content_2d> → { <float_elem_list> } <float_elem_2d_tail>
+
+<float_elem_list> → floatlit <float_elem_1d_tail>
+
+<float_elem_2d_tail> → , { <float_elem_list> } <float_elem_2d_tail>
+<float_elem_2d_tail> → λ
+
+// DOUBLE ARRAYS
+<double_array_with_init> → [ <size> ] <double_array_init_tail>
+
+<double_array_init_tail> → [ <size> ] <double_arr_init_opt_2d>
+<double_array_init_tail> → <double_arr_init_opt_1d>
+
+<double_arr_init_opt_1d> → = { <double_arr_init_content_1d> }
+<double_arr_init_opt_1d> → λ
+
+<double_arr_init_content_1d> → doublelit <double_elem_1d_tail>
+
+<double_elem_1d_tail> → , doublelit <double_elem_1d_tail>
+<double_elem_1d_tail> → λ
+
+<double_arr_init_opt_2d> → = { <double_arr_init_content_2d> }
+<double_arr_init_opt_2d> → λ
+
+<double_arr_init_content_2d> → { <double_elem_list> } <double_elem_2d_tail>
+
+<double_elem_list> → doublelit <double_elem_1d_tail>
+
+<double_elem_2d_tail> → , { <double_elem_list> } <double_elem_2d_tail>
+<double_elem_2d_tail> → λ
+
+// CHAR ARRAYS
+<char_array_with_init> → [ <size> ] <char_array_init_tail>
+
+<char_array_init_tail> → [ <size> ] <char_arr_init_opt_2d>
+<char_array_init_tail> → <char_arr_init_opt_1d>
+
+<char_arr_init_opt_1d> → = { <char_arr_init_content_1d> }
+<char_arr_init_opt_1d> → λ
+
+<char_arr_init_content_1d> → charlit <char_elem_1d_tail>
+
+<char_elem_1d_tail> → , charlit <char_elem_1d_tail>
+<char_elem_1d_tail> → λ
+
+<char_arr_init_opt_2d> → = { <char_arr_init_content_2d> }
+<char_arr_init_opt_2d> → λ
+
+<char_arr_init_content_2d> → { <char_elem_list> } <char_elem_2d_tail>
+
+<char_elem_list> → charlit <char_elem_1d_tail>
+
+<char_elem_2d_tail> → , { <char_elem_list> } <char_elem_2d_tail>
+<char_elem_2d_tail> → λ
+
+// STRING ARRAYS
+<string_array_with_init> → [ <size> ] <string_array_init_tail>
+
+<string_array_init_tail> → [ <size> ] <string_arr_init_opt_2d>
+<string_array_init_tail> → <string_arr_init_opt_1d>
+
+<string_arr_init_opt_1d> → = { <string_arr_init_content_1d> }
+<string_arr_init_opt_1d> → λ
+
+<string_arr_init_content_1d> → stringlit <string_elem_1d_tail>
+
+<string_elem_1d_tail> → , stringlit <string_elem_1d_tail>
+<string_elem_1d_tail> → λ
+
+<string_arr_init_opt_2d> → = { <string_arr_init_content_2d> }
+<string_arr_init_opt_2d> → λ
+
+<string_arr_init_content_2d> → { <string_elem_list> } <string_elem_2d_tail>
+
+<string_elem_list> → stringlit <string_elem_1d_tail>
+
+<string_elem_2d_tail> → , { <string_elem_list> } <string_elem_2d_tail>
+<string_elem_2d_tail> → λ
+
+// BOOL ARRAYS
+<bool_array_with_init> → [ <size> ] <bool_array_init_tail>
+
+<bool_array_init_tail> → [ <size> ] <bool_arr_init_opt_2d>
+<bool_array_init_tail> → <bool_arr_init_opt_1d>
+
+<bool_arr_init_opt_1d> → = { <bool_arr_init_content_1d> }
+<bool_arr_init_opt_1d> → λ
+
+<bool_arr_init_content_1d> → <bool_lit> <bool_elem_1d_tail>
+
+<bool_elem_1d_tail> → , <bool_lit> <bool_elem_1d_tail>
+<bool_elem_1d_tail> → λ
+
+<bool_arr_init_opt_2d> → = { <bool_arr_init_content_2d> }
+<bool_arr_init_opt_2d> → λ
+
+<bool_arr_init_content_2d> → { <bool_elem_list> } <bool_elem_2d_tail>
+
+<bool_elem_list> → <bool_lit> <bool_elem_1d_tail>
+
+<bool_elem_2d_tail> → , { <bool_elem_list> } <bool_elem_2d_tail>
+<bool_elem_2d_tail> → λ
 
 ============================================
 WEAVE (STRUCT) DEFINITIONS
@@ -252,24 +475,70 @@ USING BLOCK
 ============================================
 LOCAL DECLARATIONS
 ============================================
+// Type-specific local declaration tails - no expressions allowed
+// Each type accepts ONLY its matching literal type
 
-<local_dec_body> → int id <typed_local_tail>
-<local_dec_body> → long id <typed_local_tail>
-<local_dec_body> → float id <typed_local_tail>
-<local_dec_body> → double id <typed_local_tail>
-<local_dec_body> → char id <typed_local_tail>
-<local_dec_body> → string id <typed_local_tail>
-<local_dec_body> → bool id <typed_local_tail>
+<local_dec_body> → int id <int_local_tail>
+<local_dec_body> → long id <long_local_tail>
+<local_dec_body> → float id <float_local_tail>
+<local_dec_body> → double id <double_local_tail>
+<local_dec_body> → char id <char_local_tail>
+<local_dec_body> → string id <string_local_tail>
+<local_dec_body> → bool id <bool_local_tail>
 <local_dec_body> → id id <weave_local_tail>
 
-<typed_local_tail> → <array_with_init> ;
-<typed_local_tail> → = <expression> <multi_local> ;
+// INT local declarations
+<int_local_tail> → <int_array_with_init> ;
+<int_local_tail> → = intlit <int_local_cont> ;
 
-<multi_local> → , id = <expression> <multi_local>
-<multi_local> → λ
+<int_local_cont> → , id = intlit <int_local_cont>
+<int_local_cont> → λ
 
+// LONG local declarations
+<long_local_tail> → <long_array_with_init> ;
+<long_local_tail> → = longlit <long_local_cont> ;
+
+<long_local_cont> → , id = longlit <long_local_cont>
+<long_local_cont> → λ
+
+// FLOAT local declarations
+<float_local_tail> → <float_array_with_init> ;
+<float_local_tail> → = floatlit <float_local_cont> ;
+
+<float_local_cont> → , id = floatlit <float_local_cont>
+<float_local_cont> → λ
+
+// DOUBLE local declarations
+<double_local_tail> → <double_array_with_init> ;
+<double_local_tail> → = doublelit <double_local_cont> ;
+
+<double_local_cont> → , id = doublelit <double_local_cont>
+<double_local_cont> → λ
+
+// CHAR local declarations
+<char_local_tail> → <char_array_with_init> ;
+<char_local_tail> → = charlit <char_local_cont> ;
+
+<char_local_cont> → , id = charlit <char_local_cont>
+<char_local_cont> → λ
+
+// STRING local declarations
+<string_local_tail> → <string_array_with_init> ;
+<string_local_tail> → = stringlit <string_local_cont> ;
+
+<string_local_cont> → , id = stringlit <string_local_cont>
+<string_local_cont> → λ
+
+// BOOL local declarations
+<bool_local_tail> → <bool_array_with_init> ;
+<bool_local_tail> → = <bool_lit> <bool_local_cont> ;
+
+<bool_local_cont> → , id = <bool_lit> <bool_local_cont>
+<bool_local_cont> → λ
+
+// Weave (struct) local declarations - literal field values only
 <weave_local_tail> → = { <weave_field_value> <weave_field_list_tail> } <weave_inst_cont> ;
-<weave_local_tail> → <array_with_init> <weave_arr_cont> ;
+<weave_local_tail> → <weave_array_with_init> <weave_arr_cont> ;
 
 ============================================
 STATEMENTS (return excluded - enforced at CFG level)

@@ -1,6 +1,9 @@
 // PORTIA Language Grammar for Lark LALR(1) Parser
 // Strict LL(1) grammar - no ambiguity, no left recursion, fully left-factored
 // Note: Lark uses LALR(1), which parses all LL(1) grammars deterministically
+// STRICT TYPE-LITERAL MATCHING: declarations accept ONLY matching literal types
+// Expressions are FORBIDDEN in all declaration contexts
+// EMPTY INITIALIZERS FORBIDDEN: {} is syntactically impossible (R2 compliant)
 
 // ============================================
 // PROGRAM STRUCTURE
@@ -18,32 +21,123 @@ program: decl_list
 decl_list: INT int_decl_or_main
          | other_decl decl_list
 
-// After INT: ID continues with typed_decl_tail then more decls, MAIN ends program
-int_decl_or_main: ID typed_decl_tail decl_list
+// After INT: ID continues with int-specific decl tail, MAIN ends program
+int_decl_or_main: ID int_decl_tail decl_list
                 | MAIN LPAREN RPAREN LBRACE main_body RBRACE
 
-// All non-INT declarations (no ambiguity)
-other_decl: GLOBAL mutability dtype ID ASSIGN expression multi_global SEMICOLON
-          | LONG ID typed_decl_tail
-          | FLOAT ID typed_decl_tail
-          | DOUBLE ID typed_decl_tail
-          | CHAR ID typed_decl_tail
-          | STRING ID typed_decl_tail
-          | BOOL ID typed_decl_tail
+// All non-INT declarations - type-specific initializers enforce strict matching
+// Global declarations: each type accepts ONLY its matching literal
+other_decl: GLOBAL mutability INT ID ASSIGN INTLIT int_global_cont SEMICOLON
+          | GLOBAL mutability LONG ID ASSIGN LONGLIT long_global_cont SEMICOLON
+          | GLOBAL mutability FLOAT ID ASSIGN FLOATLIT float_global_cont SEMICOLON
+          | GLOBAL mutability DOUBLE ID ASSIGN DOUBLELIT double_global_cont SEMICOLON
+          | GLOBAL mutability CHAR ID ASSIGN CHARLIT char_global_cont SEMICOLON
+          | GLOBAL mutability STRING ID ASSIGN STRINGLIT string_global_cont SEMICOLON
+          | GLOBAL mutability BOOL ID ASSIGN bool_lit bool_global_cont SEMICOLON
+          | LONG ID long_decl_tail
+          | FLOAT ID float_decl_tail
+          | DOUBLE ID double_decl_tail
+          | CHAR ID char_decl_tail
+          | STRING ID string_decl_tail
+          | BOOL ID bool_decl_tail
           | WEAVE ID LBRACE field_list RBRACE SEMICOLON
           | ID weave_inst_decl
           | FUNC nonvoid_ret_type ID LPAREN param_list RPAREN LBRACE function_body_nonvoid RBRACE
           | FUNC VOID ID LPAREN RPAREN LBRACE function_body_void RBRACE
 
-multi_global: COMMA ID ASSIGN expression multi_global
-            |
+// Boolean literal helper
+bool_lit: TRUE
+        | FALSE
+
+// ============================================
+// GLOBAL DECLARATION CONTINUATIONS
+// ============================================
+// Multi-variable global declarations - type-specific literal enforcement
+
+int_global_cont: COMMA ID ASSIGN INTLIT int_global_cont
+               |
+
+long_global_cont: COMMA ID ASSIGN LONGLIT long_global_cont
+                |
+
+float_global_cont: COMMA ID ASSIGN FLOATLIT float_global_cont
+                 |
+
+double_global_cont: COMMA ID ASSIGN DOUBLELIT double_global_cont
+                  |
+
+char_global_cont: COMMA ID ASSIGN CHARLIT char_global_cont
+                |
+
+string_global_cont: COMMA ID ASSIGN STRINGLIT string_global_cont
+                  |
+
+bool_global_cont: COMMA ID ASSIGN bool_lit bool_global_cont
+                |
+
+// ============================================
+// TYPE-SPECIFIC DECLARATION TAILS
+// ============================================
+// Each type has dedicated rules - no generic expression fallback
+// Scalar init accepts ONLY matching literal type
+// Array init uses type-specific array rules
+
+int_decl_tail: int_array_with_init SEMICOLON
+             | ASSIGN INTLIT int_multi_decl SEMICOLON
+
+int_multi_decl: COMMA ID ASSIGN INTLIT int_multi_decl
+              |
+
+long_decl_tail: long_array_with_init SEMICOLON
+              | ASSIGN LONGLIT long_multi_decl SEMICOLON
+
+long_multi_decl: COMMA ID ASSIGN LONGLIT long_multi_decl
+               |
+
+float_decl_tail: float_array_with_init SEMICOLON
+               | ASSIGN FLOATLIT float_multi_decl SEMICOLON
+
+float_multi_decl: COMMA ID ASSIGN FLOATLIT float_multi_decl
+                |
+
+double_decl_tail: double_array_with_init SEMICOLON
+                | ASSIGN DOUBLELIT double_multi_decl SEMICOLON
+
+double_multi_decl: COMMA ID ASSIGN DOUBLELIT double_multi_decl
+                 |
+
+char_decl_tail: char_array_with_init SEMICOLON
+              | ASSIGN CHARLIT char_multi_decl SEMICOLON
+
+char_multi_decl: COMMA ID ASSIGN CHARLIT char_multi_decl
+               |
+
+string_decl_tail: string_array_with_init SEMICOLON
+                | ASSIGN STRINGLIT string_multi_decl SEMICOLON
+
+string_multi_decl: COMMA ID ASSIGN STRINGLIT string_multi_decl
+                 |
+
+bool_decl_tail: bool_array_with_init SEMICOLON
+              | ASSIGN bool_lit bool_multi_decl SEMICOLON
+
+bool_multi_decl: COMMA ID ASSIGN bool_lit bool_multi_decl
+               |
+
+// ============================================
+// WEAVE INSTANCE DECLARATIONS
+// ============================================
+// Weave instances use literal-only field values
+// Type checking for weave fields is semantic (field types unknown at parse time)
 
 weave_inst_decl: ID weave_inst_tail weave_inst_cont SEMICOLON
-               | array_with_init weave_arr_cont SEMICOLON
+               | weave_array_with_init weave_arr_cont SEMICOLON
 
 weave_inst_tail: ASSIGN LBRACE weave_field_value weave_field_list_tail RBRACE
-               | array_with_init
+               | weave_array_with_init
 
+// Weave field values support nested braces for arrays and nested weaves
+// Simplified recursive structure avoids LALR conflicts
 weave_field_value: INTLIT
                  | LONGLIT
                  | FLOATLIT
@@ -52,11 +146,14 @@ weave_field_value: INTLIT
                  | STRINGLIT
                  | TRUE
                  | FALSE
-                 | LBRACE weave_arr_content RBRACE
+                 | LBRACE weave_value_list RBRACE
 
-weave_arr_content: LBRACE elem_list RBRACE elem_2d_tail
-                 | arr_elem elem_1d_tail
-                 |
+// Recursive comma-separated list of field values (handles 1D, 2D, nested weaves)
+// Non-nullable: nested braces must contain at least one value
+weave_value_list: weave_field_value weave_value_tail
+
+weave_value_tail: COMMA weave_field_value weave_value_tail
+                |
 
 weave_field_list_tail: COMMA weave_field_value weave_field_list_tail
                      |
@@ -64,102 +161,225 @@ weave_field_list_tail: COMMA weave_field_value weave_field_list_tail
 weave_inst_cont: COMMA ID weave_inst_tail weave_inst_cont
                |
 
-weave_arr_cont: COMMA ID array_with_init weave_arr_cont
+weave_arr_cont: COMMA ID weave_array_with_init weave_arr_cont
               |
 
-typed_decl_tail: array_with_init SEMICOLON
-               | ASSIGN expression multi_typed SEMICOLON
+weave_array_with_init: LBRACK size RBRACK weave_array_init_tail
 
-multi_typed: COMMA ID ASSIGN expression multi_typed
-           |
+weave_array_init_tail: LBRACK size RBRACK weave_arr_init_opt_2d
+                     | weave_arr_init_opt_1d
+
+weave_arr_init_opt_1d: ASSIGN LBRACE weave_arr_init_content_1d RBRACE
+                     |
+
+weave_arr_init_content_1d: LBRACE weave_field_value weave_field_list_tail RBRACE weave_init_1d_tail
+
+weave_init_1d_tail: COMMA LBRACE weave_field_value weave_field_list_tail RBRACE weave_init_1d_tail
+                  |
+
+weave_arr_init_opt_2d: ASSIGN LBRACE weave_arr_init_content_2d RBRACE
+                     |
+
+weave_arr_init_content_2d: LBRACE weave_init_row RBRACE weave_init_2d_tail
+
+weave_init_row: LBRACE weave_field_value weave_field_list_tail RBRACE weave_init_1d_tail
+
+weave_init_2d_tail: COMMA LBRACE weave_init_row RBRACE weave_init_2d_tail
+                  |
 
 // ============================================
-// MUTABILITY & TYPES
+// MUTABILITY
 // ============================================
 
 mutability: VAR
           | CONST
 
-dtype: INT
-     | LONG
-     | FLOAT
-     | DOUBLE
-     | CHAR
-     | STRING
-     | BOOL
-
 // ============================================
-// VALUES & LITERALS
+// SHARED ARRAY DIMENSION RULES
 // ============================================
-
-value: INTLIT
-     | LONGLIT
-     | FLOATLIT
-     | DOUBLELIT
-     | CHARLIT
-     | STRINGLIT
-     | TRUE
-     | FALSE
-
-// ============================================
-// SHARED ARRAY DIMENSION RULES (MAX 2D)
-// ============================================
+// Used for field declarations and parameter types (no initializers)
 
 array_dims: LBRACK size RBRACK array_dim2_opt
 
 array_dim2_opt: LBRACK size RBRACK
               |
 
-// Combined array declaration with dimension-appropriate initialization
-array_with_init: LBRACK size RBRACK array_init_tail
-
-array_init_tail: LBRACK size RBRACK arr_init_opt_2d
-               | arr_init_opt_1d
-
-// ============================================
-// ARRAY DECLARATIONS
-// ============================================
-
-// 1D array initialization (flat elements only)
-arr_init_opt_1d: ASSIGN LBRACE arr_init_content_1d RBRACE
-               |
-
-arr_init_content_1d: arr_elem elem_1d_tail
-                   |
-
-// 2D array initialization (nested braces required)
-arr_init_opt_2d: ASSIGN LBRACE arr_init_content_2d RBRACE
-               |
-
-arr_init_content_2d: LBRACE elem_list RBRACE elem_2d_tail
-
-elem_2d_tail: COMMA LBRACE elem_list RBRACE elem_2d_tail
-            |
-
-elem_list: arr_elem elem_1d_tail
-         |
-
-elem_1d_tail: COMMA arr_elem elem_1d_tail
-            |
-
-arr_elem: INT LPAREN value RPAREN
-        | LONG LPAREN value RPAREN
-        | FLOAT LPAREN value RPAREN
-        | DOUBLE LPAREN value RPAREN
-        | CHAR LPAREN value RPAREN
-        | STRING LPAREN value RPAREN
-        | BOOL LPAREN value RPAREN
-        | INTLIT
-        | LONGLIT
-        | FLOATLIT
-        | DOUBLELIT
-        | CHARLIT
-        | STRINGLIT
-        | TRUE
-        | FALSE
-
 size: INTLIT
     | ID
+
+// ============================================
+// TYPE-SPECIFIC ARRAY DECLARATIONS
+// ============================================
+// Each type has dedicated array rules - elements are raw literals only
+// NO type casts, NO expressions, NO identifiers in array initializers
+
+// INT ARRAYS
+int_array_with_init: LBRACK size RBRACK int_array_init_tail
+
+int_array_init_tail: LBRACK size RBRACK int_arr_init_opt_2d
+                   | int_arr_init_opt_1d
+
+int_arr_init_opt_1d: ASSIGN LBRACE int_arr_init_content_1d RBRACE
+                   |
+
+int_arr_init_content_1d: INTLIT int_elem_1d_tail
+
+int_elem_1d_tail: COMMA INTLIT int_elem_1d_tail
+                |
+
+int_arr_init_opt_2d: ASSIGN LBRACE int_arr_init_content_2d RBRACE
+                   |
+
+int_arr_init_content_2d: LBRACE int_elem_list RBRACE int_elem_2d_tail
+
+int_elem_list: INTLIT int_elem_1d_tail
+
+int_elem_2d_tail: COMMA LBRACE int_elem_list RBRACE int_elem_2d_tail
+                |
+
+// LONG ARRAYS
+long_array_with_init: LBRACK size RBRACK long_array_init_tail
+
+long_array_init_tail: LBRACK size RBRACK long_arr_init_opt_2d
+                    | long_arr_init_opt_1d
+
+long_arr_init_opt_1d: ASSIGN LBRACE long_arr_init_content_1d RBRACE
+                    |
+
+long_arr_init_content_1d: LONGLIT long_elem_1d_tail
+
+long_elem_1d_tail: COMMA LONGLIT long_elem_1d_tail
+                 |
+
+long_arr_init_opt_2d: ASSIGN LBRACE long_arr_init_content_2d RBRACE
+                    |
+
+long_arr_init_content_2d: LBRACE long_elem_list RBRACE long_elem_2d_tail
+
+long_elem_list: LONGLIT long_elem_1d_tail
+
+long_elem_2d_tail: COMMA LBRACE long_elem_list RBRACE long_elem_2d_tail
+                 |
+
+// FLOAT ARRAYS
+float_array_with_init: LBRACK size RBRACK float_array_init_tail
+
+float_array_init_tail: LBRACK size RBRACK float_arr_init_opt_2d
+                     | float_arr_init_opt_1d
+
+float_arr_init_opt_1d: ASSIGN LBRACE float_arr_init_content_1d RBRACE
+                     |
+
+float_arr_init_content_1d: FLOATLIT float_elem_1d_tail
+
+float_elem_1d_tail: COMMA FLOATLIT float_elem_1d_tail
+                  |
+
+float_arr_init_opt_2d: ASSIGN LBRACE float_arr_init_content_2d RBRACE
+                     |
+
+float_arr_init_content_2d: LBRACE float_elem_list RBRACE float_elem_2d_tail
+
+float_elem_list: FLOATLIT float_elem_1d_tail
+
+float_elem_2d_tail: COMMA LBRACE float_elem_list RBRACE float_elem_2d_tail
+                  |
+
+// DOUBLE ARRAYS
+double_array_with_init: LBRACK size RBRACK double_array_init_tail
+
+double_array_init_tail: LBRACK size RBRACK double_arr_init_opt_2d
+                      | double_arr_init_opt_1d
+
+double_arr_init_opt_1d: ASSIGN LBRACE double_arr_init_content_1d RBRACE
+                      |
+
+double_arr_init_content_1d: DOUBLELIT double_elem_1d_tail
+
+double_elem_1d_tail: COMMA DOUBLELIT double_elem_1d_tail
+                   |
+
+double_arr_init_opt_2d: ASSIGN LBRACE double_arr_init_content_2d RBRACE
+                      |
+
+double_arr_init_content_2d: LBRACE double_elem_list RBRACE double_elem_2d_tail
+
+double_elem_list: DOUBLELIT double_elem_1d_tail
+
+double_elem_2d_tail: COMMA LBRACE double_elem_list RBRACE double_elem_2d_tail
+                   |
+
+// CHAR ARRAYS
+char_array_with_init: LBRACK size RBRACK char_array_init_tail
+
+char_array_init_tail: LBRACK size RBRACK char_arr_init_opt_2d
+                    | char_arr_init_opt_1d
+
+char_arr_init_opt_1d: ASSIGN LBRACE char_arr_init_content_1d RBRACE
+                    |
+
+char_arr_init_content_1d: CHARLIT char_elem_1d_tail
+
+char_elem_1d_tail: COMMA CHARLIT char_elem_1d_tail
+                 |
+
+char_arr_init_opt_2d: ASSIGN LBRACE char_arr_init_content_2d RBRACE
+                    |
+
+char_arr_init_content_2d: LBRACE char_elem_list RBRACE char_elem_2d_tail
+
+char_elem_list: CHARLIT char_elem_1d_tail
+
+char_elem_2d_tail: COMMA LBRACE char_elem_list RBRACE char_elem_2d_tail
+                 |
+
+// STRING ARRAYS
+string_array_with_init: LBRACK size RBRACK string_array_init_tail
+
+string_array_init_tail: LBRACK size RBRACK string_arr_init_opt_2d
+                      | string_arr_init_opt_1d
+
+string_arr_init_opt_1d: ASSIGN LBRACE string_arr_init_content_1d RBRACE
+                      |
+
+string_arr_init_content_1d: STRINGLIT string_elem_1d_tail
+
+string_elem_1d_tail: COMMA STRINGLIT string_elem_1d_tail
+                   |
+
+string_arr_init_opt_2d: ASSIGN LBRACE string_arr_init_content_2d RBRACE
+                      |
+
+string_arr_init_content_2d: LBRACE string_elem_list RBRACE string_elem_2d_tail
+
+string_elem_list: STRINGLIT string_elem_1d_tail
+
+string_elem_2d_tail: COMMA LBRACE string_elem_list RBRACE string_elem_2d_tail
+                   |
+
+// BOOL ARRAYS
+bool_array_with_init: LBRACK size RBRACK bool_array_init_tail
+
+bool_array_init_tail: LBRACK size RBRACK bool_arr_init_opt_2d
+                    | bool_arr_init_opt_1d
+
+bool_arr_init_opt_1d: ASSIGN LBRACE bool_arr_init_content_1d RBRACE
+                    |
+
+bool_arr_init_content_1d: bool_lit bool_elem_1d_tail
+
+bool_elem_1d_tail: COMMA bool_lit bool_elem_1d_tail
+                 |
+
+bool_arr_init_opt_2d: ASSIGN LBRACE bool_arr_init_content_2d RBRACE
+                    |
+
+bool_arr_init_content_2d: LBRACE bool_elem_list RBRACE bool_elem_2d_tail
+
+bool_elem_list: bool_lit bool_elem_1d_tail
+
+bool_elem_2d_tail: COMMA LBRACE bool_elem_list RBRACE bool_elem_2d_tail
+                 |
 
 // ============================================
 // WEAVE (STRUCT) DEFINITIONS
@@ -251,24 +471,70 @@ using_cont: COMMA ID using_cont
 // ============================================
 // LOCAL DECLARATIONS
 // ============================================
+// Type-specific local declaration tails - no expressions allowed
+// Each type accepts ONLY its matching literal type
 
-local_dec_body: INT ID typed_local_tail
-              | LONG ID typed_local_tail
-              | FLOAT ID typed_local_tail
-              | DOUBLE ID typed_local_tail
-              | CHAR ID typed_local_tail
-              | STRING ID typed_local_tail
-              | BOOL ID typed_local_tail
+local_dec_body: INT ID int_local_tail
+              | LONG ID long_local_tail
+              | FLOAT ID float_local_tail
+              | DOUBLE ID double_local_tail
+              | CHAR ID char_local_tail
+              | STRING ID string_local_tail
+              | BOOL ID bool_local_tail
               | ID ID weave_local_tail
 
-typed_local_tail: array_with_init SEMICOLON
-                | ASSIGN expression multi_local SEMICOLON
+// INT local declarations
+int_local_tail: int_array_with_init SEMICOLON
+              | ASSIGN INTLIT int_local_cont SEMICOLON
 
-multi_local: COMMA ID ASSIGN expression multi_local
-           |
+int_local_cont: COMMA ID ASSIGN INTLIT int_local_cont
+              |
 
+// LONG local declarations
+long_local_tail: long_array_with_init SEMICOLON
+               | ASSIGN LONGLIT long_local_cont SEMICOLON
+
+long_local_cont: COMMA ID ASSIGN LONGLIT long_local_cont
+               |
+
+// FLOAT local declarations
+float_local_tail: float_array_with_init SEMICOLON
+                | ASSIGN FLOATLIT float_local_cont SEMICOLON
+
+float_local_cont: COMMA ID ASSIGN FLOATLIT float_local_cont
+                |
+
+// DOUBLE local declarations
+double_local_tail: double_array_with_init SEMICOLON
+                 | ASSIGN DOUBLELIT double_local_cont SEMICOLON
+
+double_local_cont: COMMA ID ASSIGN DOUBLELIT double_local_cont
+                 |
+
+// CHAR local declarations
+char_local_tail: char_array_with_init SEMICOLON
+               | ASSIGN CHARLIT char_local_cont SEMICOLON
+
+char_local_cont: COMMA ID ASSIGN CHARLIT char_local_cont
+               |
+
+// STRING local declarations
+string_local_tail: string_array_with_init SEMICOLON
+                 | ASSIGN STRINGLIT string_local_cont SEMICOLON
+
+string_local_cont: COMMA ID ASSIGN STRINGLIT string_local_cont
+                 |
+
+// BOOL local declarations
+bool_local_tail: bool_array_with_init SEMICOLON
+               | ASSIGN bool_lit bool_local_cont SEMICOLON
+
+bool_local_cont: COMMA ID ASSIGN bool_lit bool_local_cont
+               |
+
+// Weave (struct) local declarations - literal field values only
 weave_local_tail: ASSIGN LBRACE weave_field_value weave_field_list_tail RBRACE weave_inst_cont SEMICOLON
-                | array_with_init weave_arr_cont SEMICOLON
+                | weave_array_with_init weave_arr_cont SEMICOLON
 
 // ============================================
 // STATEMENTS (return excluded - enforced at CFG level)
