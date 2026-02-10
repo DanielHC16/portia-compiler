@@ -1,6 +1,10 @@
 PORTIA LL(1)-Compliant Context-Free Grammar
 ============================================
 
+This document is a STRICT MIRROR of the Lark grammar (portia.lark).
+Every production listed here corresponds directly to a rule in the implementation.
+The grammar, documentation, and parser describe the SAME language.
+
 Terminals: global, local, func, return, if, else, switch, case, default, for, while, do, break,
            trap, thread, threadln, using, weave, main, int, long, float, double, char, string,
            bool, void, var, const, true, false, id, intlit, longlit, floatlit, doublelit,
@@ -12,6 +16,9 @@ PROGRAM STRUCTURE
 ============================================
 // Left-factored to resolve INT lookahead conflict between int_decl and main_func
 // main_func terminates program (nothing allowed after)
+// STRICT TYPE-LITERAL MATCHING: declarations accept only matching literal types
+// Expressions are FORBIDDEN in all declaration contexts
+// EMPTY INITIALIZERS FORBIDDEN: {} is syntactically impossible (R2 compliant)
 
 <program> → <decl_list>
 
@@ -19,35 +26,134 @@ PROGRAM STRUCTURE
 <decl_list> → int <int_decl_or_main>
 <decl_list> → <other_decl> <decl_list>
 
-// After INT: ID continues with typed_decl_tail then more decls, MAIN ends program
-<int_decl_or_main> → id <typed_decl_tail> <decl_list>
-<int_decl_or_main> → main ( ) { <main_body> } $END
+// After INT: ID continues with int-specific decl tail, MAIN ends program
+<int_decl_or_main> → id <int_decl_tail> <decl_list>
+<int_decl_or_main> → main ( ) { <main_body> }
 
-// All non-INT declarations (no ambiguity)
-<other_decl> → global <mutability> <dtype> id = <expression> <multi_global> ;
-<other_decl> → long id <typed_decl_tail>
-<other_decl> → float id <typed_decl_tail>
-<other_decl> → double id <typed_decl_tail>
-<other_decl> → char id <typed_decl_tail>
-<other_decl> → string id <typed_decl_tail>
-<other_decl> → bool id <typed_decl_tail>
+// All non-INT declarations - type-specific initializers enforce strict matching
+// Global declarations: each type accepts ONLY its matching literal
+<other_decl> → global <mutability> int id = intlit <int_global_cont> ;
+<other_decl> → global <mutability> long id = longlit <long_global_cont> ;
+<other_decl> → global <mutability> float id = floatlit <float_global_cont> ;
+<other_decl> → global <mutability> double id = doublelit <double_global_cont> ;
+<other_decl> → global <mutability> char id = charlit <char_global_cont> ;
+<other_decl> → global <mutability> string id = stringlit <string_global_cont> ;
+<other_decl> → global <mutability> bool id = <bool_lit> <bool_global_cont> ;
+// Typed variable declarations with type-specific tails
+<other_decl> → long id <long_decl_tail>
+<other_decl> → float id <float_decl_tail>
+<other_decl> → double id <double_decl_tail>
+<other_decl> → char id <char_decl_tail>
+<other_decl> → string id <string_decl_tail>
+<other_decl> → bool id <bool_decl_tail>
+// Weave definitions and instances
 <other_decl> → weave id { <field_list> } ;
 <other_decl> → id <weave_inst_decl>
-<other_decl> → func <nonvoid_ret_type> id ( <param_list> ) { <function_body_nonvoid> }
+// Functions - R10 strict return type enforcement
+// Each return type category uses its own function body with type-specific return rules
+<other_decl> → func int <func_ret_int>
+<other_decl> → func long <func_ret_long>
+<other_decl> → func float <func_ret_float>
+<other_decl> → func double <func_ret_double>
+<other_decl> → func char <func_ret_char>
+<other_decl> → func string <func_ret_string>
+<other_decl> → func bool <func_ret_bool>
+<other_decl> → func id <func_ret_weave>
 <other_decl> → func void id ( ) { <function_body_void> }
 
-// main_func rule for reference (matched via int_decl_or_main)
-<main_func> → int main ( ) { <main_body> }
+// Boolean literal helper (used where true/false is needed)
+<bool_lit> → true
+<bool_lit> → false
 
-<multi_global> → , id = <expression> <multi_global>
-<multi_global> → λ
+============================================
+GLOBAL DECLARATION CONTINUATIONS
+============================================
+// Multi-variable global declarations - type-specific literal enforcement
+
+<int_global_cont> → , id = intlit <int_global_cont>
+<int_global_cont> → λ
+
+<long_global_cont> → , id = longlit <long_global_cont>
+<long_global_cont> → λ
+
+<float_global_cont> → , id = floatlit <float_global_cont>
+<float_global_cont> → λ
+
+<double_global_cont> → , id = doublelit <double_global_cont>
+<double_global_cont> → λ
+
+<char_global_cont> → , id = charlit <char_global_cont>
+<char_global_cont> → λ
+
+<string_global_cont> → , id = stringlit <string_global_cont>
+<string_global_cont> → λ
+
+<bool_global_cont> → , id = <bool_lit> <bool_global_cont>
+<bool_global_cont> → λ
+
+============================================
+TYPE-SPECIFIC DECLARATION TAILS
+============================================
+// Each type has dedicated rules - no generic <expression> fallback
+// Scalar init accepts ONLY matching literal type
+// Array init uses type-specific array rules
+
+<int_decl_tail> → <int_array_with_init> ;
+<int_decl_tail> → = intlit <int_multi_decl> ;
+
+<int_multi_decl> → , id = intlit <int_multi_decl>
+<int_multi_decl> → λ
+
+<long_decl_tail> → <long_array_with_init> ;
+<long_decl_tail> → = longlit <long_multi_decl> ;
+
+<long_multi_decl> → , id = longlit <long_multi_decl>
+<long_multi_decl> → λ
+
+<float_decl_tail> → <float_array_with_init> ;
+<float_decl_tail> → = floatlit <float_multi_decl> ;
+
+<float_multi_decl> → , id = floatlit <float_multi_decl>
+<float_multi_decl> → λ
+
+<double_decl_tail> → <double_array_with_init> ;
+<double_decl_tail> → = doublelit <double_multi_decl> ;
+
+<double_multi_decl> → , id = doublelit <double_multi_decl>
+<double_multi_decl> → λ
+
+<char_decl_tail> → <char_array_with_init> ;
+<char_decl_tail> → = charlit <char_multi_decl> ;
+
+<char_multi_decl> → , id = charlit <char_multi_decl>
+<char_multi_decl> → λ
+
+<string_decl_tail> → <string_array_with_init> ;
+<string_decl_tail> → = stringlit <string_multi_decl> ;
+
+<string_multi_decl> → , id = stringlit <string_multi_decl>
+<string_multi_decl> → λ
+
+<bool_decl_tail> → <bool_array_with_init> ;
+<bool_decl_tail> → = <bool_lit> <bool_multi_decl> ;
+
+<bool_multi_decl> → , id = <bool_lit> <bool_multi_decl>
+<bool_multi_decl> → λ
+
+============================================
+WEAVE INSTANCE DECLARATIONS
+============================================
+// Weave instances use literal-only field values
+// Type checking for weave fields is semantic (field types unknown at parse time)
 
 <weave_inst_decl> → id <weave_inst_tail> <weave_inst_cont> ;
-<weave_inst_decl> → <array_with_init> <weave_arr_cont> ;
+<weave_inst_decl> → <weave_array_with_init> <weave_arr_cont> ;
 
 <weave_inst_tail> → = { <weave_field_value> <weave_field_list_tail> }
-<weave_inst_tail> → <array_with_init>
+<weave_inst_tail> → <weave_array_with_init>
 
+// Weave field values support nested braces for arrays and nested weaves
+// Simplified recursive structure avoids LL(1)/LALR conflicts
 <weave_field_value> → intlit
 <weave_field_value> → longlit
 <weave_field_value> → floatlit
@@ -56,11 +162,14 @@ PROGRAM STRUCTURE
 <weave_field_value> → stringlit
 <weave_field_value> → true
 <weave_field_value> → false
-<weave_field_value> → { <weave_arr_content> }
+<weave_field_value> → { <weave_value_list> }
 
-<weave_arr_content> → { <elem_list> } <elem_2d_tail>
-<weave_arr_content> → <arr_elem> <elem_1d_tail>
-<weave_arr_content> → λ
+// Recursive comma-separated list of field values (handles 1D, 2D, nested weaves)
+// Non-nullable: nested braces must contain at least one value
+<weave_value_list> → <weave_field_value> <weave_value_tail>
+
+<weave_value_tail> → , <weave_field_value> <weave_value_tail>
+<weave_value_tail> → λ
 
 <weave_field_list_tail> → , <weave_field_value> <weave_field_list_tail>
 <weave_field_list_tail> → λ
@@ -68,105 +177,225 @@ PROGRAM STRUCTURE
 <weave_inst_cont> → , id <weave_inst_tail> <weave_inst_cont>
 <weave_inst_cont> → λ
 
-<weave_arr_cont> → , id <array_with_init> <weave_arr_cont>
+<weave_arr_cont> → , id <weave_array_with_init> <weave_arr_cont>
 <weave_arr_cont> → λ
 
-<typed_decl_tail> → <array_with_init> ;
-<typed_decl_tail> → = <expression> <multi_typed> ;
+<weave_array_with_init> → [ <size> ] <weave_array_init_tail>
 
-<multi_typed> → , id = <expression> <multi_typed>
-<multi_typed> → λ
+<weave_array_init_tail> → [ <size> ] <weave_arr_init_opt_2d>
+<weave_array_init_tail> → <weave_arr_init_opt_1d>
+
+<weave_arr_init_opt_1d> → = { <weave_arr_init_content_1d> }
+<weave_arr_init_opt_1d> → λ
+
+<weave_arr_init_content_1d> → { <weave_field_value> <weave_field_list_tail> } <weave_init_1d_tail>
+
+<weave_init_1d_tail> → , { <weave_field_value> <weave_field_list_tail> } <weave_init_1d_tail>
+<weave_init_1d_tail> → λ
+
+<weave_arr_init_opt_2d> → = { <weave_arr_init_content_2d> }
+<weave_arr_init_opt_2d> → λ
+
+<weave_arr_init_content_2d> → { <weave_init_row> } <weave_init_2d_tail>
+
+<weave_init_row> → { <weave_field_value> <weave_field_list_tail> } <weave_init_1d_tail>
+
+<weave_init_2d_tail> → , { <weave_init_row> } <weave_init_2d_tail>
+<weave_init_2d_tail> → λ
 
 ============================================
-MUTABILITY & TYPES
+MUTABILITY
 ============================================
 
 <mutability> → var
 <mutability> → const
 
-<dtype> → int
-<dtype> → long
-<dtype> → float
-<dtype> → double
-<dtype> → char
-<dtype> → string
-<dtype> → bool
-
 ============================================
-VALUES & LITERALS
+SHARED ARRAY DIMENSION RULES
 ============================================
-
-<value> → intlit
-<value> → longlit
-<value> → floatlit
-<value> → doublelit
-<value> → charlit
-<value> → stringlit
-<value> → true
-<value> → false
-
-<value_list_tail> → , <value> <value_list_tail>
-<value_list_tail> → λ
-
-============================================
-SHARED ARRAY DIMENSION RULES (MAX 2D)
-============================================
+// Used for field declarations and parameter types (no initializers)
 
 <array_dims> → [ <size> ] <array_dim2_opt>
 
 <array_dim2_opt> → [ <size> ]
 <array_dim2_opt> → λ
 
-// Combined array declaration with dimension-appropriate initialization
-<array_with_init> → [ <size> ] <array_init_tail>
-
-<array_init_tail> → [ <size> ] <arr_init_opt_2d>
-<array_init_tail> → <arr_init_opt_1d>
-
-============================================
-ARRAY DECLARATIONS
-============================================
-
-// 1D array initialization (flat elements only)
-<arr_init_opt_1d> → = { <arr_init_content_1d> }
-<arr_init_opt_1d> → λ
-
-<arr_init_content_1d> → <arr_elem> <elem_1d_tail>
-<arr_init_content_1d> → λ
-
-// 2D array initialization (nested braces required)
-<arr_init_opt_2d> → = { <arr_init_content_2d> }
-<arr_init_opt_2d> → λ
-
-<arr_init_content_2d> → { <elem_list> } <elem_2d_tail>
-
-<elem_2d_tail> → , { <elem_list> } <elem_2d_tail>
-<elem_2d_tail> → λ
-
-<elem_list> → <arr_elem> <elem_1d_tail>
-<elem_list> → λ
-
-<elem_1d_tail> → , <arr_elem> <elem_1d_tail>
-<elem_1d_tail> → λ
-
-<arr_elem> → int ( <value> )
-<arr_elem> → long ( <value> )
-<arr_elem> → float ( <value> )
-<arr_elem> → double ( <value> )
-<arr_elem> → char ( <value> )
-<arr_elem> → string ( <value> )
-<arr_elem> → bool ( <value> )
-<arr_elem> → intlit
-<arr_elem> → longlit
-<arr_elem> → floatlit
-<arr_elem> → doublelit
-<arr_elem> → charlit
-<arr_elem> → stringlit
-<arr_elem> → true
-<arr_elem> → false
-
 <size> → intlit
 <size> → id
+
+============================================
+TYPE-SPECIFIC ARRAY DECLARATIONS
+============================================
+// Each type has dedicated array rules - elements are raw literals only
+// NO type casts, NO expressions, NO identifiers in array initializers
+
+// INT ARRAYS
+<int_array_with_init> → [ <size> ] <int_array_init_tail>
+
+<int_array_init_tail> → [ <size> ] <int_arr_init_opt_2d>
+<int_array_init_tail> → <int_arr_init_opt_1d>
+
+<int_arr_init_opt_1d> → = { <int_arr_init_content_1d> }
+<int_arr_init_opt_1d> → λ
+
+<int_arr_init_content_1d> → intlit <int_elem_1d_tail>
+
+<int_elem_1d_tail> → , intlit <int_elem_1d_tail>
+<int_elem_1d_tail> → λ
+
+<int_arr_init_opt_2d> → = { <int_arr_init_content_2d> }
+<int_arr_init_opt_2d> → λ
+
+<int_arr_init_content_2d> → { <int_elem_list> } <int_elem_2d_tail>
+
+<int_elem_list> → intlit <int_elem_1d_tail>
+
+<int_elem_2d_tail> → , { <int_elem_list> } <int_elem_2d_tail>
+<int_elem_2d_tail> → λ
+
+// LONG ARRAYS
+<long_array_with_init> → [ <size> ] <long_array_init_tail>
+
+<long_array_init_tail> → [ <size> ] <long_arr_init_opt_2d>
+<long_array_init_tail> → <long_arr_init_opt_1d>
+
+<long_arr_init_opt_1d> → = { <long_arr_init_content_1d> }
+<long_arr_init_opt_1d> → λ
+
+<long_arr_init_content_1d> → longlit <long_elem_1d_tail>
+
+<long_elem_1d_tail> → , longlit <long_elem_1d_tail>
+<long_elem_1d_tail> → λ
+
+<long_arr_init_opt_2d> → = { <long_arr_init_content_2d> }
+<long_arr_init_opt_2d> → λ
+
+<long_arr_init_content_2d> → { <long_elem_list> } <long_elem_2d_tail>
+
+<long_elem_list> → longlit <long_elem_1d_tail>
+
+<long_elem_2d_tail> → , { <long_elem_list> } <long_elem_2d_tail>
+<long_elem_2d_tail> → λ
+
+// FLOAT ARRAYS
+<float_array_with_init> → [ <size> ] <float_array_init_tail>
+
+<float_array_init_tail> → [ <size> ] <float_arr_init_opt_2d>
+<float_array_init_tail> → <float_arr_init_opt_1d>
+
+<float_arr_init_opt_1d> → = { <float_arr_init_content_1d> }
+<float_arr_init_opt_1d> → λ
+
+<float_arr_init_content_1d> → floatlit <float_elem_1d_tail>
+
+<float_elem_1d_tail> → , floatlit <float_elem_1d_tail>
+<float_elem_1d_tail> → λ
+
+<float_arr_init_opt_2d> → = { <float_arr_init_content_2d> }
+<float_arr_init_opt_2d> → λ
+
+<float_arr_init_content_2d> → { <float_elem_list> } <float_elem_2d_tail>
+
+<float_elem_list> → floatlit <float_elem_1d_tail>
+
+<float_elem_2d_tail> → , { <float_elem_list> } <float_elem_2d_tail>
+<float_elem_2d_tail> → λ
+
+// DOUBLE ARRAYS
+<double_array_with_init> → [ <size> ] <double_array_init_tail>
+
+<double_array_init_tail> → [ <size> ] <double_arr_init_opt_2d>
+<double_array_init_tail> → <double_arr_init_opt_1d>
+
+<double_arr_init_opt_1d> → = { <double_arr_init_content_1d> }
+<double_arr_init_opt_1d> → λ
+
+<double_arr_init_content_1d> → doublelit <double_elem_1d_tail>
+
+<double_elem_1d_tail> → , doublelit <double_elem_1d_tail>
+<double_elem_1d_tail> → λ
+
+<double_arr_init_opt_2d> → = { <double_arr_init_content_2d> }
+<double_arr_init_opt_2d> → λ
+
+<double_arr_init_content_2d> → { <double_elem_list> } <double_elem_2d_tail>
+
+<double_elem_list> → doublelit <double_elem_1d_tail>
+
+<double_elem_2d_tail> → , { <double_elem_list> } <double_elem_2d_tail>
+<double_elem_2d_tail> → λ
+
+// CHAR ARRAYS
+<char_array_with_init> → [ <size> ] <char_array_init_tail>
+
+<char_array_init_tail> → [ <size> ] <char_arr_init_opt_2d>
+<char_array_init_tail> → <char_arr_init_opt_1d>
+
+<char_arr_init_opt_1d> → = { <char_arr_init_content_1d> }
+<char_arr_init_opt_1d> → λ
+
+<char_arr_init_content_1d> → charlit <char_elem_1d_tail>
+
+<char_elem_1d_tail> → , charlit <char_elem_1d_tail>
+<char_elem_1d_tail> → λ
+
+<char_arr_init_opt_2d> → = { <char_arr_init_content_2d> }
+<char_arr_init_opt_2d> → λ
+
+<char_arr_init_content_2d> → { <char_elem_list> } <char_elem_2d_tail>
+
+<char_elem_list> → charlit <char_elem_1d_tail>
+
+<char_elem_2d_tail> → , { <char_elem_list> } <char_elem_2d_tail>
+<char_elem_2d_tail> → λ
+
+// STRING ARRAYS
+<string_array_with_init> → [ <size> ] <string_array_init_tail>
+
+<string_array_init_tail> → [ <size> ] <string_arr_init_opt_2d>
+<string_array_init_tail> → <string_arr_init_opt_1d>
+
+<string_arr_init_opt_1d> → = { <string_arr_init_content_1d> }
+<string_arr_init_opt_1d> → λ
+
+<string_arr_init_content_1d> → stringlit <string_elem_1d_tail>
+
+<string_elem_1d_tail> → , stringlit <string_elem_1d_tail>
+<string_elem_1d_tail> → λ
+
+<string_arr_init_opt_2d> → = { <string_arr_init_content_2d> }
+<string_arr_init_opt_2d> → λ
+
+<string_arr_init_content_2d> → { <string_elem_list> } <string_elem_2d_tail>
+
+<string_elem_list> → stringlit <string_elem_1d_tail>
+
+<string_elem_2d_tail> → , { <string_elem_list> } <string_elem_2d_tail>
+<string_elem_2d_tail> → λ
+
+// BOOL ARRAYS
+<bool_array_with_init> → [ <size> ] <bool_array_init_tail>
+
+<bool_array_init_tail> → [ <size> ] <bool_arr_init_opt_2d>
+<bool_array_init_tail> → <bool_arr_init_opt_1d>
+
+<bool_arr_init_opt_1d> → = { <bool_arr_init_content_1d> }
+<bool_arr_init_opt_1d> → λ
+
+<bool_arr_init_content_1d> → <bool_lit> <bool_elem_1d_tail>
+
+<bool_elem_1d_tail> → , <bool_lit> <bool_elem_1d_tail>
+<bool_elem_1d_tail> → λ
+
+<bool_arr_init_opt_2d> → = { <bool_arr_init_content_2d> }
+<bool_arr_init_opt_2d> → λ
+
+<bool_arr_init_content_2d> → { <bool_elem_list> } <bool_elem_2d_tail>
+
+<bool_elem_list> → <bool_lit> <bool_elem_1d_tail>
+
+<bool_elem_2d_tail> → , { <bool_elem_list> } <bool_elem_2d_tail>
+<bool_elem_2d_tail> → λ
 
 ============================================
 WEAVE (STRUCT) DEFINITIONS
@@ -195,23 +424,38 @@ WEAVE (STRUCT) DEFINITIONS
 ============================================
 FUNCTIONS
 ============================================
+// R10 — Strict Return Type Enforcement
+// Return statements are syntactically restricted to the declared return type category
+// Scalar returns: type-specific expressions (literals and casts filtered at top level)
+// Array returns: identifier only (no literals, no expressions)
+// Weave returns: identifier only (no field access)
+// Void returns: bare return only
 
-// Non-void return types (for functions that must return a value)
-<nonvoid_ret_type> → int <ret_type_suffix>
-<nonvoid_ret_type> → long <ret_type_suffix>
-<nonvoid_ret_type> → float <ret_type_suffix>
-<nonvoid_ret_type> → double <ret_type_suffix>
-<nonvoid_ret_type> → char <ret_type_suffix>
-<nonvoid_ret_type> → string <ret_type_suffix>
-<nonvoid_ret_type> → bool <ret_type_suffix>
-<nonvoid_ret_type> → id <ret_id_suffix>
+// Function return type tails - select appropriate body based on return type category
+<func_ret_int> → id ( <param_list> ) { <function_body_int> }
+<func_ret_int> → <array_dims> id ( <param_list> ) { <function_body_array> }
 
-<ret_type_suffix> → <array_dims>
-<ret_type_suffix> → λ
+<func_ret_long> → id ( <param_list> ) { <function_body_long> }
+<func_ret_long> → <array_dims> id ( <param_list> ) { <function_body_array> }
 
-<ret_id_suffix> → <array_dims>
-<ret_id_suffix> → . id
-<ret_id_suffix> → λ
+<func_ret_float> → id ( <param_list> ) { <function_body_float> }
+<func_ret_float> → <array_dims> id ( <param_list> ) { <function_body_array> }
+
+<func_ret_double> → id ( <param_list> ) { <function_body_double> }
+<func_ret_double> → <array_dims> id ( <param_list> ) { <function_body_array> }
+
+<func_ret_char> → id ( <param_list> ) { <function_body_char> }
+<func_ret_char> → <array_dims> id ( <param_list> ) { <function_body_array> }
+
+<func_ret_string> → id ( <param_list> ) { <function_body_string> }
+<func_ret_string> → <array_dims> id ( <param_list> ) { <function_body_array> }
+
+<func_ret_bool> → id ( <param_list> ) { <function_body_bool> }
+<func_ret_bool> → <array_dims> id ( <param_list> ) { <function_body_array> }
+
+<func_ret_weave> → id ( <param_list> ) { <function_body_weave> }
+<func_ret_weave> → <array_dims> id ( <param_list> ) { <function_body_array> }
+<func_ret_weave> → . id id ( <param_list> ) { <function_body_weave> }
 
 <param_list> → <param_type> id <param_arr_opt> <param_cont>
 <param_list> → λ
@@ -231,29 +475,494 @@ FUNCTIONS
 <param_cont> → , <param_type> id <param_arr_opt> <param_cont>
 <param_cont> → λ
 
-// Non-void functions MUST return an expression
-// Restructured to eliminate nullable productions before RETURN
-<function_body_nonvoid> → <func_content_nonvoid>
+============================================
+TYPE-SPECIFIC FUNCTION BODIES
+============================================
 
-<func_content_nonvoid> → using id <using_cont> ; <func_content_nonvoid>
-<func_content_nonvoid> → local <mutability> <local_dec_body> <func_content_nonvoid>
-<func_content_nonvoid> → <statement_non_return> <func_content_nonvoid>
-<func_content_nonvoid> → return <expression> ;
+<function_body_int> → <func_content_int>
+<func_content_int> → using id <using_cont> ; <func_content_int>
+<func_content_int> → local <mutability> <local_dec_body> <func_content_int>
+<func_content_int> → <statement_int> <func_content_int>
+<func_content_int> → λ
 
-// Void functions MUST have a bare return statement
+<function_body_long> → <func_content_long>
+<func_content_long> → using id <using_cont> ; <func_content_long>
+<func_content_long> → local <mutability> <local_dec_body> <func_content_long>
+<func_content_long> → <statement_long> <func_content_long>
+<func_content_long> → λ
+
+<function_body_float> → <func_content_float>
+<func_content_float> → using id <using_cont> ; <func_content_float>
+<func_content_float> → local <mutability> <local_dec_body> <func_content_float>
+<func_content_float> → <statement_float> <func_content_float>
+<func_content_float> → λ
+
+<function_body_double> → <func_content_double>
+<func_content_double> → using id <using_cont> ; <func_content_double>
+<func_content_double> → local <mutability> <local_dec_body> <func_content_double>
+<func_content_double> → <statement_double> <func_content_double>
+<func_content_double> → λ
+
+<function_body_char> → <func_content_char>
+<func_content_char> → using id <using_cont> ; <func_content_char>
+<func_content_char> → local <mutability> <local_dec_body> <func_content_char>
+<func_content_char> → <statement_char> <func_content_char>
+<func_content_char> → λ
+
+<function_body_string> → <func_content_string>
+<func_content_string> → using id <using_cont> ; <func_content_string>
+<func_content_string> → local <mutability> <local_dec_body> <func_content_string>
+<func_content_string> → <statement_string> <func_content_string>
+<func_content_string> → λ
+
+<function_body_bool> → <func_content_bool>
+<func_content_bool> → using id <using_cont> ; <func_content_bool>
+<func_content_bool> → local <mutability> <local_dec_body> <func_content_bool>
+<func_content_bool> → <statement_bool> <func_content_bool>
+<func_content_bool> → λ
+
+<function_body_array> → <func_content_array>
+<func_content_array> → using id <using_cont> ; <func_content_array>
+<func_content_array> → local <mutability> <local_dec_body> <func_content_array>
+<func_content_array> → <statement_array> <func_content_array>
+<func_content_array> → λ
+
+<function_body_weave> → <func_content_weave>
+<func_content_weave> → using id <using_cont> ; <func_content_weave>
+<func_content_weave> → local <mutability> <local_dec_body> <func_content_weave>
+<func_content_weave> → <statement_weave> <func_content_weave>
+<func_content_weave> → λ
+
 <function_body_void> → <func_content_void>
-
 <func_content_void> → using id <using_cont> ; <func_content_void>
 <func_content_void> → local <mutability> <local_dec_body> <func_content_void>
-<func_content_void> → <statement_non_return> <func_content_void>
-<func_content_void> → return ;
+<func_content_void> → <statement_void> <func_content_void>
+<func_content_void> → λ
+
+============================================
+TYPE-SPECIFIC STATEMENTS
+============================================
+// NOTE: Statements use <effect_stmt> (effectful expression) instead of raw <expression>
+// This enforces that statement expressions must have side effects
+
+<statement_int> → <effect_stmt> ;
+<statement_int> → <io_stmt>
+<statement_int> → <ctrl_struct_int>
+<statement_int> → break ;
+<statement_int> → return <int_return_expr> ;
+
+<statement_long> → <effect_stmt> ;
+<statement_long> → <io_stmt>
+<statement_long> → <ctrl_struct_long>
+<statement_long> → break ;
+<statement_long> → return <long_return_expr> ;
+
+<statement_float> → <effect_stmt> ;
+<statement_float> → <io_stmt>
+<statement_float> → <ctrl_struct_float>
+<statement_float> → break ;
+<statement_float> → return <float_return_expr> ;
+
+<statement_double> → <effect_stmt> ;
+<statement_double> → <io_stmt>
+<statement_double> → <ctrl_struct_double>
+<statement_double> → break ;
+<statement_double> → return <double_return_expr> ;
+
+<statement_char> → <effect_stmt> ;
+<statement_char> → <io_stmt>
+<statement_char> → <ctrl_struct_char>
+<statement_char> → break ;
+<statement_char> → return <char_return_expr> ;
+
+<statement_string> → <effect_stmt> ;
+<statement_string> → <io_stmt>
+<statement_string> → <ctrl_struct_string>
+<statement_string> → break ;
+<statement_string> → return <string_return_expr> ;
+
+<statement_bool> → <effect_stmt> ;
+<statement_bool> → <io_stmt>
+<statement_bool> → <ctrl_struct_bool>
+<statement_bool> → break ;
+<statement_bool> → return <bool_return_expr> ;
+
+<statement_array> → <effect_stmt> ;
+<statement_array> → <io_stmt>
+<statement_array> → <ctrl_struct_array>
+<statement_array> → break ;
+<statement_array> → return id ;
+
+<statement_weave> → <effect_stmt> ;
+<statement_weave> → <io_stmt>
+<statement_weave> → <ctrl_struct_weave>
+<statement_weave> → break ;
+<statement_weave> → return id ;
+
+<statement_void> → <effect_stmt> ;
+<statement_void> → <io_stmt>
+<statement_void> → <ctrl_struct_void>
+<statement_void> → break ;
+<statement_void> → return ;
+
+============================================
+TYPE-SPECIFIC CONTROL STRUCTURES
+============================================
+// NOTE: switch uses <arg_expr> for the condition expression
+
+<ctrl_struct_int> → if ( <condition> ) { <stmt_list_int> } <else_opt_int>
+<ctrl_struct_int> → switch ( <arg_expr> ) { <case_list_int> <default_opt_int> }
+<ctrl_struct_int> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_int> }
+<ctrl_struct_int> → while ( <condition> ) { <stmt_list_int> }
+<ctrl_struct_int> → do { <stmt_list_int> } while ( <condition> ) ;
+
+<stmt_list_int> → <statement_int> <stmt_list_int>
+<stmt_list_int> → λ
+
+<else_opt_int> → else <else_body_int>
+<else_opt_int> → λ
+
+<else_body_int> → { <stmt_list_int> }
+<else_body_int> → if ( <condition> ) { <stmt_list_int> } <else_opt_int>
+
+<case_list_int> → case <case_val> : <stmt_list_int> <break_opt> <case_list_int>
+<case_list_int> → λ
+
+<default_opt_int> → default : <stmt_list_int> <break_opt>
+<default_opt_int> → λ
+
+// LONG control structures
+<ctrl_struct_long> → if ( <condition> ) { <stmt_list_long> } <else_opt_long>
+<ctrl_struct_long> → switch ( <arg_expr> ) { <case_list_long> <default_opt_long> }
+<ctrl_struct_long> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_long> }
+<ctrl_struct_long> → while ( <condition> ) { <stmt_list_long> }
+<ctrl_struct_long> → do { <stmt_list_long> } while ( <condition> ) ;
+
+<stmt_list_long> → <statement_long> <stmt_list_long>
+<stmt_list_long> → λ
+
+<else_opt_long> → else <else_body_long>
+<else_opt_long> → λ
+
+<else_body_long> → { <stmt_list_long> }
+<else_body_long> → if ( <condition> ) { <stmt_list_long> } <else_opt_long>
+
+<case_list_long> → case <case_val> : <stmt_list_long> <break_opt> <case_list_long>
+<case_list_long> → λ
+
+<default_opt_long> → default : <stmt_list_long> <break_opt>
+<default_opt_long> → λ
+
+// FLOAT control structures
+<ctrl_struct_float> → if ( <condition> ) { <stmt_list_float> } <else_opt_float>
+<ctrl_struct_float> → switch ( <arg_expr> ) { <case_list_float> <default_opt_float> }
+<ctrl_struct_float> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_float> }
+<ctrl_struct_float> → while ( <condition> ) { <stmt_list_float> }
+<ctrl_struct_float> → do { <stmt_list_float> } while ( <condition> ) ;
+
+<stmt_list_float> → <statement_float> <stmt_list_float>
+<stmt_list_float> → λ
+
+<else_opt_float> → else <else_body_float>
+<else_opt_float> → λ
+
+<else_body_float> → { <stmt_list_float> }
+<else_body_float> → if ( <condition> ) { <stmt_list_float> } <else_opt_float>
+
+<case_list_float> → case <case_val> : <stmt_list_float> <break_opt> <case_list_float>
+<case_list_float> → λ
+
+<default_opt_float> → default : <stmt_list_float> <break_opt>
+<default_opt_float> → λ
+
+// DOUBLE control structures
+<ctrl_struct_double> → if ( <condition> ) { <stmt_list_double> } <else_opt_double>
+<ctrl_struct_double> → switch ( <arg_expr> ) { <case_list_double> <default_opt_double> }
+<ctrl_struct_double> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_double> }
+<ctrl_struct_double> → while ( <condition> ) { <stmt_list_double> }
+<ctrl_struct_double> → do { <stmt_list_double> } while ( <condition> ) ;
+
+<stmt_list_double> → <statement_double> <stmt_list_double>
+<stmt_list_double> → λ
+
+<else_opt_double> → else <else_body_double>
+<else_opt_double> → λ
+
+<else_body_double> → { <stmt_list_double> }
+<else_body_double> → if ( <condition> ) { <stmt_list_double> } <else_opt_double>
+
+<case_list_double> → case <case_val> : <stmt_list_double> <break_opt> <case_list_double>
+<case_list_double> → λ
+
+<default_opt_double> → default : <stmt_list_double> <break_opt>
+<default_opt_double> → λ
+
+// CHAR control structures
+<ctrl_struct_char> → if ( <condition> ) { <stmt_list_char> } <else_opt_char>
+<ctrl_struct_char> → switch ( <arg_expr> ) { <case_list_char> <default_opt_char> }
+<ctrl_struct_char> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_char> }
+<ctrl_struct_char> → while ( <condition> ) { <stmt_list_char> }
+<ctrl_struct_char> → do { <stmt_list_char> } while ( <condition> ) ;
+
+<stmt_list_char> → <statement_char> <stmt_list_char>
+<stmt_list_char> → λ
+
+<else_opt_char> → else <else_body_char>
+<else_opt_char> → λ
+
+<else_body_char> → { <stmt_list_char> }
+<else_body_char> → if ( <condition> ) { <stmt_list_char> } <else_opt_char>
+
+<case_list_char> → case <case_val> : <stmt_list_char> <break_opt> <case_list_char>
+<case_list_char> → λ
+
+<default_opt_char> → default : <stmt_list_char> <break_opt>
+<default_opt_char> → λ
+
+// STRING control structures
+<ctrl_struct_string> → if ( <condition> ) { <stmt_list_string> } <else_opt_string>
+<ctrl_struct_string> → switch ( <arg_expr> ) { <case_list_string> <default_opt_string> }
+<ctrl_struct_string> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_string> }
+<ctrl_struct_string> → while ( <condition> ) { <stmt_list_string> }
+<ctrl_struct_string> → do { <stmt_list_string> } while ( <condition> ) ;
+
+<stmt_list_string> → <statement_string> <stmt_list_string>
+<stmt_list_string> → λ
+
+<else_opt_string> → else <else_body_string>
+<else_opt_string> → λ
+
+<else_body_string> → { <stmt_list_string> }
+<else_body_string> → if ( <condition> ) { <stmt_list_string> } <else_opt_string>
+
+<case_list_string> → case <case_val> : <stmt_list_string> <break_opt> <case_list_string>
+<case_list_string> → λ
+
+<default_opt_string> → default : <stmt_list_string> <break_opt>
+<default_opt_string> → λ
+
+// BOOL control structures
+<ctrl_struct_bool> → if ( <condition> ) { <stmt_list_bool> } <else_opt_bool>
+<ctrl_struct_bool> → switch ( <arg_expr> ) { <case_list_bool> <default_opt_bool> }
+<ctrl_struct_bool> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_bool> }
+<ctrl_struct_bool> → while ( <condition> ) { <stmt_list_bool> }
+<ctrl_struct_bool> → do { <stmt_list_bool> } while ( <condition> ) ;
+
+<stmt_list_bool> → <statement_bool> <stmt_list_bool>
+<stmt_list_bool> → λ
+
+<else_opt_bool> → else <else_body_bool>
+<else_opt_bool> → λ
+
+<else_body_bool> → { <stmt_list_bool> }
+<else_body_bool> → if ( <condition> ) { <stmt_list_bool> } <else_opt_bool>
+
+<case_list_bool> → case <case_val> : <stmt_list_bool> <break_opt> <case_list_bool>
+<case_list_bool> → λ
+
+<default_opt_bool> → default : <stmt_list_bool> <break_opt>
+<default_opt_bool> → λ
+
+// ARRAY control structures
+<ctrl_struct_array> → if ( <condition> ) { <stmt_list_array> } <else_opt_array>
+<ctrl_struct_array> → switch ( <arg_expr> ) { <case_list_array> <default_opt_array> }
+<ctrl_struct_array> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_array> }
+<ctrl_struct_array> → while ( <condition> ) { <stmt_list_array> }
+<ctrl_struct_array> → do { <stmt_list_array> } while ( <condition> ) ;
+
+<stmt_list_array> → <statement_array> <stmt_list_array>
+<stmt_list_array> → λ
+
+<else_opt_array> → else <else_body_array>
+<else_opt_array> → λ
+
+<else_body_array> → { <stmt_list_array> }
+<else_body_array> → if ( <condition> ) { <stmt_list_array> } <else_opt_array>
+
+<case_list_array> → case <case_val> : <stmt_list_array> <break_opt> <case_list_array>
+<case_list_array> → λ
+
+<default_opt_array> → default : <stmt_list_array> <break_opt>
+<default_opt_array> → λ
+
+// WEAVE control structures
+<ctrl_struct_weave> → if ( <condition> ) { <stmt_list_weave> } <else_opt_weave>
+<ctrl_struct_weave> → switch ( <arg_expr> ) { <case_list_weave> <default_opt_weave> }
+<ctrl_struct_weave> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_weave> }
+<ctrl_struct_weave> → while ( <condition> ) { <stmt_list_weave> }
+<ctrl_struct_weave> → do { <stmt_list_weave> } while ( <condition> ) ;
+
+<stmt_list_weave> → <statement_weave> <stmt_list_weave>
+<stmt_list_weave> → λ
+
+<else_opt_weave> → else <else_body_weave>
+<else_opt_weave> → λ
+
+<else_body_weave> → { <stmt_list_weave> }
+<else_body_weave> → if ( <condition> ) { <stmt_list_weave> } <else_opt_weave>
+
+<case_list_weave> → case <case_val> : <stmt_list_weave> <break_opt> <case_list_weave>
+<case_list_weave> → λ
+
+<default_opt_weave> → default : <stmt_list_weave> <break_opt>
+<default_opt_weave> → λ
+
+// VOID control structures
+<ctrl_struct_void> → if ( <condition> ) { <stmt_list_void> } <else_opt_void>
+<ctrl_struct_void> → switch ( <arg_expr> ) { <case_list_void> <default_opt_void> }
+<ctrl_struct_void> → for ( <for_init> ; <for_cond> ; <for_update> ) { <stmt_list_void> }
+<ctrl_struct_void> → while ( <condition> ) { <stmt_list_void> }
+<ctrl_struct_void> → do { <stmt_list_void> } while ( <condition> ) ;
+
+<stmt_list_void> → <statement_void> <stmt_list_void>
+<stmt_list_void> → λ
+
+<else_opt_void> → else <else_body_void>
+<else_opt_void> → λ
+
+<else_body_void> → { <stmt_list_void> }
+<else_body_void> → if ( <condition> ) { <stmt_list_void> } <else_opt_void>
+
+<case_list_void> → case <case_val> : <stmt_list_void> <break_opt> <case_list_void>
+<case_list_void> → λ
+
+<default_opt_void> → default : <stmt_list_void> <break_opt>
+<default_opt_void> → λ
+
+============================================
+TYPE-SPECIFIC RETURN EXPRESSIONS
+============================================
+
+<int_return_expr> → <int_ret_assign>
+<int_ret_assign> → <int_ret_concat> <assign_tail>
+<int_ret_concat> → <int_ret_or> <concat_tail>
+<int_ret_or> → <int_ret_and> <or_tail>
+<int_ret_and> → <int_ret_eq> <and_tail>
+<int_ret_eq> → <int_ret_rel> <eq_tail>
+<int_ret_rel> → <int_ret_add> <rel_tail>
+<int_ret_add> → <int_ret_mul> <add_tail>
+<int_ret_mul> → <int_ret_unary> <mul_tail>
+<int_ret_unary> → ! <int_ret_unary>
+<int_ret_unary> → <int_ret_postfix>
+<int_ret_postfix> → intlit
+<int_ret_postfix> → ++ id
+<int_ret_postfix> → -- id
+<int_ret_postfix> → id <id_postfix>
+<int_ret_postfix> → ( <expression> ) <postfix_chain>
+<int_ret_postfix> → int ( <expression> )
+
+<long_return_expr> → <long_ret_assign>
+<long_ret_assign> → <long_ret_concat> <assign_tail>
+<long_ret_concat> → <long_ret_or> <concat_tail>
+<long_ret_or> → <long_ret_and> <or_tail>
+<long_ret_and> → <long_ret_eq> <and_tail>
+<long_ret_eq> → <long_ret_rel> <eq_tail>
+<long_ret_rel> → <long_ret_add> <rel_tail>
+<long_ret_add> → <long_ret_mul> <add_tail>
+<long_ret_mul> → <long_ret_unary> <mul_tail>
+<long_ret_unary> → ! <long_ret_unary>
+<long_ret_unary> → <long_ret_postfix>
+<long_ret_postfix> → longlit
+<long_ret_postfix> → ++ id
+<long_ret_postfix> → -- id
+<long_ret_postfix> → id <id_postfix>
+<long_ret_postfix> → ( <expression> ) <postfix_chain>
+<long_ret_postfix> → long ( <expression> )
+
+<float_return_expr> → <float_ret_assign>
+<float_ret_assign> → <float_ret_concat> <assign_tail>
+<float_ret_concat> → <float_ret_or> <concat_tail>
+<float_ret_or> → <float_ret_and> <or_tail>
+<float_ret_and> → <float_ret_eq> <and_tail>
+<float_ret_eq> → <float_ret_rel> <eq_tail>
+<float_ret_rel> → <float_ret_add> <rel_tail>
+<float_ret_add> → <float_ret_mul> <add_tail>
+<float_ret_mul> → <float_ret_unary> <mul_tail>
+<float_ret_unary> → ! <float_ret_unary>
+<float_ret_unary> → <float_ret_postfix>
+<float_ret_postfix> → floatlit
+<float_ret_postfix> → ++ id
+<float_ret_postfix> → -- id
+<float_ret_postfix> → id <id_postfix>
+<float_ret_postfix> → ( <expression> ) <postfix_chain>
+<float_ret_postfix> → float ( <expression> )
+
+<double_return_expr> → <double_ret_assign>
+<double_ret_assign> → <double_ret_concat> <assign_tail>
+<double_ret_concat> → <double_ret_or> <concat_tail>
+<double_ret_or> → <double_ret_and> <or_tail>
+<double_ret_and> → <double_ret_eq> <and_tail>
+<double_ret_eq> → <double_ret_rel> <eq_tail>
+<double_ret_rel> → <double_ret_add> <rel_tail>
+<double_ret_add> → <double_ret_mul> <add_tail>
+<double_ret_mul> → <double_ret_unary> <mul_tail>
+<double_ret_unary> → ! <double_ret_unary>
+<double_ret_unary> → <double_ret_postfix>
+<double_ret_postfix> → doublelit
+<double_ret_postfix> → ++ id
+<double_ret_postfix> → -- id
+<double_ret_postfix> → id <id_postfix>
+<double_ret_postfix> → ( <expression> ) <postfix_chain>
+<double_ret_postfix> → double ( <expression> )
+
+<char_return_expr> → <char_ret_assign>
+<char_ret_assign> → <char_ret_concat> <assign_tail>
+<char_ret_concat> → <char_ret_or> <concat_tail>
+<char_ret_or> → <char_ret_and> <or_tail>
+<char_ret_and> → <char_ret_eq> <and_tail>
+<char_ret_eq> → <char_ret_rel> <eq_tail>
+<char_ret_rel> → <char_ret_add> <rel_tail>
+<char_ret_add> → <char_ret_mul> <add_tail>
+<char_ret_mul> → <char_ret_unary> <mul_tail>
+<char_ret_unary> → ! <char_ret_unary>
+<char_ret_unary> → <char_ret_postfix>
+<char_ret_postfix> → charlit
+<char_ret_postfix> → ++ id
+<char_ret_postfix> → -- id
+<char_ret_postfix> → id <id_postfix>
+<char_ret_postfix> → ( <expression> ) <postfix_chain>
+<char_ret_postfix> → char ( <expression> )
+
+<string_return_expr> → <string_ret_assign>
+<string_ret_assign> → <string_ret_concat> <assign_tail>
+<string_ret_concat> → <string_ret_or> <concat_tail>
+<string_ret_or> → <string_ret_and> <or_tail>
+<string_ret_and> → <string_ret_eq> <and_tail>
+<string_ret_eq> → <string_ret_rel> <eq_tail>
+<string_ret_rel> → <string_ret_add> <rel_tail>
+<string_ret_add> → <string_ret_mul> <add_tail>
+<string_ret_mul> → <string_ret_unary> <mul_tail>
+<string_ret_unary> → ! <string_ret_unary>
+<string_ret_unary> → <string_ret_postfix>
+<string_ret_postfix> → stringlit
+<string_ret_postfix> → ++ id
+<string_ret_postfix> → -- id
+<string_ret_postfix> → id <id_postfix>
+<string_ret_postfix> → ( <expression> ) <postfix_chain>
+<string_ret_postfix> → string ( <expression> )
+
+<bool_return_expr> → <bool_ret_assign>
+<bool_ret_assign> → <bool_ret_concat> <assign_tail>
+<bool_ret_concat> → <bool_ret_or> <concat_tail>
+<bool_ret_or> → <bool_ret_and> <or_tail>
+<bool_ret_and> → <bool_ret_eq> <and_tail>
+<bool_ret_eq> → <bool_ret_rel> <eq_tail>
+<bool_ret_rel> → <bool_ret_add> <rel_tail>
+<bool_ret_add> → <bool_ret_mul> <add_tail>
+<bool_ret_mul> → <bool_ret_unary> <mul_tail>
+<bool_ret_unary> → ! <bool_ret_unary>
+<bool_ret_unary> → <bool_ret_postfix>
+<bool_ret_postfix> → true
+<bool_ret_postfix> → false
+<bool_ret_postfix> → ++ id
+<bool_ret_postfix> → -- id
+<bool_ret_postfix> → id <id_postfix>
+<bool_ret_postfix> → ( <expression> ) <postfix_chain>
+<bool_ret_postfix> → bool ( <expression> )
 
 ============================================
 USING BLOCK
 ============================================
-
-<using_block> → using id <using_cont> ; <using_block>
-<using_block> → λ
 
 <using_cont> → , id <using_cont>
 <using_cont> → λ
@@ -262,49 +971,318 @@ USING BLOCK
 LOCAL DECLARATIONS
 ============================================
 
-<local_block> → local <mutability> <local_dec_body> <local_block>
-<local_block> → λ
-
-<local_dec_body> → int id <typed_local_tail>
-<local_dec_body> → long id <typed_local_tail>
-<local_dec_body> → float id <typed_local_tail>
-<local_dec_body> → double id <typed_local_tail>
-<local_dec_body> → char id <typed_local_tail>
-<local_dec_body> → string id <typed_local_tail>
-<local_dec_body> → bool id <typed_local_tail>
+<local_dec_body> → int id <int_local_tail>
+<local_dec_body> → long id <long_local_tail>
+<local_dec_body> → float id <float_local_tail>
+<local_dec_body> → double id <double_local_tail>
+<local_dec_body> → char id <char_local_tail>
+<local_dec_body> → string id <string_local_tail>
+<local_dec_body> → bool id <bool_local_tail>
 <local_dec_body> → id id <weave_local_tail>
 
-<typed_local_tail> → <array_with_init> ;
-<typed_local_tail> → = <expression> <multi_local> ;
+<int_local_tail> → <int_array_with_init> ;
+<int_local_tail> → = intlit <int_local_cont> ;
+<int_local_cont> → , id = intlit <int_local_cont>
+<int_local_cont> → λ
 
-<multi_local> → , id = <expression> <multi_local>
-<multi_local> → λ
+<long_local_tail> → <long_array_with_init> ;
+<long_local_tail> → = longlit <long_local_cont> ;
+<long_local_cont> → , id = longlit <long_local_cont>
+<long_local_cont> → λ
+
+<float_local_tail> → <float_array_with_init> ;
+<float_local_tail> → = floatlit <float_local_cont> ;
+<float_local_cont> → , id = floatlit <float_local_cont>
+<float_local_cont> → λ
+
+<double_local_tail> → <double_array_with_init> ;
+<double_local_tail> → = doublelit <double_local_cont> ;
+<double_local_cont> → , id = doublelit <double_local_cont>
+<double_local_cont> → λ
+
+<char_local_tail> → <char_array_with_init> ;
+<char_local_tail> → = charlit <char_local_cont> ;
+<char_local_cont> → , id = charlit <char_local_cont>
+<char_local_cont> → λ
+
+<string_local_tail> → <string_array_with_init> ;
+<string_local_tail> → = stringlit <string_local_cont> ;
+<string_local_cont> → , id = stringlit <string_local_cont>
+<string_local_cont> → λ
+
+<bool_local_tail> → <bool_array_with_init> ;
+<bool_local_tail> → = <bool_lit> <bool_local_cont> ;
+<bool_local_cont> → , id = <bool_lit> <bool_local_cont>
+<bool_local_cont> → λ
 
 <weave_local_tail> → = { <weave_field_value> <weave_field_list_tail> } <weave_inst_cont> ;
-<weave_local_tail> → <array_with_init> <weave_arr_cont> ;
+<weave_local_tail> → <weave_array_with_init> <weave_arr_cont> ;
 
 ============================================
-STATEMENTS (return excluded - enforced at CFG level)
+STATEMENTS (for main function only)
 ============================================
 
-// statement_non_return explicitly EXCLUDES return keyword
-<statement_non_return> → <expression> ;
+<statement_non_return> → <effect_stmt> ;
 <statement_non_return> → <io_stmt>
 <statement_non_return> → <ctrl_struct>
 <statement_non_return> → break ;
 
-// Statement list for control structures (return also excluded)
 <ctrl_stmt_list> → <statement_non_return> <ctrl_stmt_list>
 <ctrl_stmt_list> → λ
+
+============================================
+EFFECTFUL STATEMENT GRAMMAR
+============================================
+// Only allows constructs with side effects: assignment, ++/--, function calls
+
+<effect_stmt> → ++ id <effect_pre_chain>
+<effect_stmt> → -- id <effect_pre_chain>
+<effect_stmt> → id <effect_id_cont>
+
+<effect_pre_chain> → [ <stmt_array_index> ] <effect_pre_arr_chain>
+<effect_pre_chain> → . id <effect_pre_chain>
+<effect_pre_chain> → λ
+
+<effect_pre_arr_chain> → [ <stmt_array_index> ]
+<effect_pre_arr_chain> → . id <effect_pre_chain>
+<effect_pre_arr_chain> → λ
+
+<effect_id_cont> → <assign_op> <stmt_assign_expr>
+<effect_id_cont> → ++
+<effect_id_cont> → --
+<effect_id_cont> → ( <stmt_arg_list> ) <effect_post_call>
+<effect_id_cont> → [ <stmt_array_index> ] <effect_post_arr>
+<effect_id_cont> → . id <effect_post_member>
+
+<effect_post_call> → . id <effect_post_call_member>
+<effect_post_call> → [ <stmt_array_index> ] <effect_post_call_arr>
+<effect_post_call> → λ
+
+<effect_post_call_member> → ( <stmt_arg_list> ) <effect_post_call>
+<effect_post_call_member> → [ <stmt_array_index> ] <effect_post_call_arr>
+<effect_post_call_member> → . id <effect_post_call_member>
+<effect_post_call_member> → λ
+
+<effect_post_call_arr> → [ <stmt_array_index> ] <effect_post_call_arr_cont>
+<effect_post_call_arr> → <effect_post_call_arr_cont>
+
+<effect_post_call_arr_cont> → . id <effect_post_call_member>
+<effect_post_call_arr_cont> → ( <stmt_arg_list> ) <effect_post_call>
+<effect_post_call_arr_cont> → λ
+
+<effect_post_arr> → [ <stmt_array_index> ] <effect_post_arr_2d>
+<effect_post_arr> → <effect_arr_effect>
+
+<effect_post_arr_2d> → <effect_arr_effect>
+
+<effect_arr_effect> → <assign_op> <stmt_assign_expr>
+<effect_arr_effect> → ++
+<effect_arr_effect> → --
+<effect_arr_effect> → ( <stmt_arg_list> ) <effect_post_call>
+<effect_arr_effect> → . id <effect_post_member>
+
+<effect_post_member> → <assign_op> <stmt_assign_expr>
+<effect_post_member> → ++
+<effect_post_member> → --
+<effect_post_member> → ( <stmt_arg_list> ) <effect_post_call>
+<effect_post_member> → [ <stmt_array_index> ] <effect_post_arr>
+<effect_post_member> → . id <effect_post_member>
+
+============================================
+STATEMENT EXPRESSION RULES (ISOLATED FOLLOW SET)
+============================================
+// FOLLOW set isolated to {;} for statement contexts
+
+<stmt_assign_expr> → <stmt_concat_expr> <stmt_assign_tail>
+<stmt_assign_tail> → <assign_op> <stmt_assign_expr>
+<stmt_assign_tail> → λ
+
+<stmt_concat_expr> → <stmt_or_expr> <stmt_concat_tail>
+<stmt_concat_tail> → .. <stmt_or_expr> <stmt_concat_tail>
+<stmt_concat_tail> → λ
+
+<stmt_or_expr> → <stmt_and_expr> <stmt_or_tail>
+<stmt_or_tail> → || <stmt_and_expr> <stmt_or_tail>
+<stmt_or_tail> → λ
+
+<stmt_and_expr> → <stmt_eq_expr> <stmt_and_tail>
+<stmt_and_tail> → && <stmt_eq_expr> <stmt_and_tail>
+<stmt_and_tail> → λ
+
+<stmt_eq_expr> → <stmt_rel_expr> <stmt_eq_tail>
+<stmt_eq_tail> → == <stmt_rel_expr> <stmt_eq_tail>
+<stmt_eq_tail> → != <stmt_rel_expr> <stmt_eq_tail>
+<stmt_eq_tail> → λ
+
+<stmt_rel_expr> → <stmt_add_expr> <stmt_rel_tail>
+<stmt_rel_tail> → < <stmt_add_expr>
+<stmt_rel_tail> → > <stmt_add_expr>
+<stmt_rel_tail> → <= <stmt_add_expr>
+<stmt_rel_tail> → >= <stmt_add_expr>
+<stmt_rel_tail> → λ
+
+<stmt_add_expr> → <stmt_mul_expr> <stmt_add_tail>
+<stmt_add_tail> → + <stmt_mul_expr> <stmt_add_tail>
+<stmt_add_tail> → - <stmt_mul_expr> <stmt_add_tail>
+<stmt_add_tail> → λ
+
+<stmt_mul_expr> → <stmt_unary_expr> <stmt_mul_tail>
+<stmt_mul_tail> → * <stmt_unary_expr> <stmt_mul_tail>
+<stmt_mul_tail> → / <stmt_unary_expr> <stmt_mul_tail>
+<stmt_mul_tail> → % <stmt_unary_expr> <stmt_mul_tail>
+<stmt_mul_tail> → λ
+
+<stmt_unary_expr> → ! <stmt_unary_expr>
+<stmt_unary_expr> → - <stmt_unary_expr>
+<stmt_unary_expr> → <stmt_postfix_expr>
+
+<stmt_postfix_expr> → ( <arg_expr> ) <stmt_postfix_chain>
+<stmt_postfix_expr> → int ( <arg_expr> )
+<stmt_postfix_expr> → long ( <arg_expr> )
+<stmt_postfix_expr> → float ( <arg_expr> )
+<stmt_postfix_expr> → double ( <arg_expr> )
+<stmt_postfix_expr> → char ( <arg_expr> )
+<stmt_postfix_expr> → string ( <arg_expr> )
+<stmt_postfix_expr> → bool ( <arg_expr> )
+<stmt_postfix_expr> → ++ id
+<stmt_postfix_expr> → -- id
+<stmt_postfix_expr> → id <stmt_id_postfix>
+<stmt_postfix_expr> → intlit
+<stmt_postfix_expr> → longlit
+<stmt_postfix_expr> → floatlit
+<stmt_postfix_expr> → doublelit
+<stmt_postfix_expr> → charlit
+<stmt_postfix_expr> → stringlit
+<stmt_postfix_expr> → true
+<stmt_postfix_expr> → false
+
+<stmt_id_postfix> → ++
+<stmt_id_postfix> → --
+<stmt_id_postfix> → <stmt_postfix_chain>
+
+<stmt_postfix_chain> → <stmt_array_access> <stmt_postfix_after_arr>
+<stmt_postfix_chain> → . id <stmt_postfix_chain>
+<stmt_postfix_chain> → ( <stmt_arg_list> ) <stmt_postfix_chain>
+<stmt_postfix_chain> → λ
+
+<stmt_array_access> → [ <stmt_array_index> ] <stmt_array_access_dim2>
+<stmt_array_access_dim2> → [ <stmt_array_index> ]
+<stmt_array_access_dim2> → λ
+
+<stmt_postfix_after_arr> → . id <stmt_postfix_chain>
+<stmt_postfix_after_arr> → ( <stmt_arg_list> ) <stmt_postfix_chain>
+<stmt_postfix_after_arr> → λ
+
+<stmt_array_index> → intlit
+<stmt_array_index> → id
+
+<stmt_arg_list> → <arg_expr> <stmt_arg_tail>
+<stmt_arg_list> → λ
+
+<stmt_arg_tail> → , <arg_expr> <stmt_arg_tail>
+<stmt_arg_tail> → λ
+
+============================================
+ARGUMENT EXPRESSION RULES (ISOLATED FOLLOW SET)
+============================================
+// FOLLOW set isolated to {, )} for argument contexts
+
+<arg_expr> → <arg_assign_expr>
+<arg_assign_expr> → <arg_concat_expr> <arg_assign_tail>
+<arg_assign_tail> → <assign_op> <arg_assign_expr>
+<arg_assign_tail> → λ
+
+<arg_concat_expr> → <arg_or_expr> <arg_concat_tail>
+<arg_concat_tail> → .. <arg_or_expr> <arg_concat_tail>
+<arg_concat_tail> → λ
+
+<arg_or_expr> → <arg_and_expr> <arg_or_tail>
+<arg_or_tail> → || <arg_and_expr> <arg_or_tail>
+<arg_or_tail> → λ
+
+<arg_and_expr> → <arg_eq_expr> <arg_and_tail>
+<arg_and_tail> → && <arg_eq_expr> <arg_and_tail>
+<arg_and_tail> → λ
+
+<arg_eq_expr> → <arg_rel_expr> <arg_eq_tail>
+<arg_eq_tail> → == <arg_rel_expr> <arg_eq_tail>
+<arg_eq_tail> → != <arg_rel_expr> <arg_eq_tail>
+<arg_eq_tail> → λ
+
+<arg_rel_expr> → <arg_add_expr> <arg_rel_tail>
+<arg_rel_tail> → < <arg_add_expr>
+<arg_rel_tail> → > <arg_add_expr>
+<arg_rel_tail> → <= <arg_add_expr>
+<arg_rel_tail> → >= <arg_add_expr>
+<arg_rel_tail> → λ
+
+<arg_add_expr> → <arg_mul_expr> <arg_add_tail>
+<arg_add_tail> → + <arg_mul_expr> <arg_add_tail>
+<arg_add_tail> → - <arg_mul_expr> <arg_add_tail>
+<arg_add_tail> → λ
+
+<arg_mul_expr> → <arg_unary_expr> <arg_mul_tail>
+<arg_mul_tail> → * <arg_unary_expr> <arg_mul_tail>
+<arg_mul_tail> → / <arg_unary_expr> <arg_mul_tail>
+<arg_mul_tail> → % <arg_unary_expr> <arg_mul_tail>
+<arg_mul_tail> → λ
+
+<arg_unary_expr> → ! <arg_unary_expr>
+<arg_unary_expr> → - <arg_unary_expr>
+<arg_unary_expr> → <arg_postfix_expr>
+
+<arg_postfix_expr> → ( <arg_expr> ) <arg_postfix_chain>
+<arg_postfix_expr> → int ( <arg_expr> )
+<arg_postfix_expr> → long ( <arg_expr> )
+<arg_postfix_expr> → float ( <arg_expr> )
+<arg_postfix_expr> → double ( <arg_expr> )
+<arg_postfix_expr> → char ( <arg_expr> )
+<arg_postfix_expr> → string ( <arg_expr> )
+<arg_postfix_expr> → bool ( <arg_expr> )
+<arg_postfix_expr> → ++ id
+<arg_postfix_expr> → -- id
+<arg_postfix_expr> → id <arg_id_postfix>
+<arg_postfix_expr> → intlit
+<arg_postfix_expr> → longlit
+<arg_postfix_expr> → floatlit
+<arg_postfix_expr> → doublelit
+<arg_postfix_expr> → charlit
+<arg_postfix_expr> → stringlit
+<arg_postfix_expr> → true
+<arg_postfix_expr> → false
+
+<arg_id_postfix> → ++
+<arg_id_postfix> → --
+<arg_id_postfix> → <arg_postfix_chain>
+
+<arg_postfix_chain> → <arg_array_access> <arg_postfix_after_arr>
+<arg_postfix_chain> → . id <arg_postfix_chain>
+<arg_postfix_chain> → ( <arg_nested_list> ) <arg_postfix_chain>
+<arg_postfix_chain> → λ
+
+<arg_array_access> → [ <arg_array_index> ] <arg_array_access_dim2>
+<arg_array_access_dim2> → [ <arg_array_index> ]
+<arg_array_access_dim2> → λ
+
+<arg_postfix_after_arr> → . id <arg_postfix_chain>
+<arg_postfix_after_arr> → ( <arg_nested_list> ) <arg_postfix_chain>
+<arg_postfix_after_arr> → λ
+
+<arg_array_index> → intlit
+<arg_array_index> → id
+
+<arg_nested_list> → <arg_expr> <arg_nested_tail>
+<arg_nested_list> → λ
+
+<arg_nested_tail> → , <arg_expr> <arg_nested_tail>
+<arg_nested_tail> → λ
 
 ============================================
 UNIFIED EXPRESSION GRAMMAR
 ============================================
 
 <expression> → <assign_expr>
-
 <assign_expr> → <concat_expr> <assign_tail>
-
 <assign_tail> → <assign_op> <assign_expr>
 <assign_tail> → λ
 
@@ -316,58 +1294,41 @@ UNIFIED EXPRESSION GRAMMAR
 <assign_op> → %=
 
 <concat_expr> → <or_expr> <concat_tail>
-
 <concat_tail> → .. <or_expr> <concat_tail>
 <concat_tail> → λ
 
-============================================
-BOOLEAN / LOGICAL EXPRESSIONS
-============================================
-
 <or_expr> → <and_expr> <or_tail>
-
 <or_tail> → || <and_expr> <or_tail>
 <or_tail> → λ
 
 <and_expr> → <eq_expr> <and_tail>
-
 <and_tail> → && <eq_expr> <and_tail>
 <and_tail> → λ
 
 <eq_expr> → <rel_expr> <eq_tail>
-
 <eq_tail> → == <rel_expr> <eq_tail>
 <eq_tail> → != <rel_expr> <eq_tail>
 <eq_tail> → λ
 
 <rel_expr> → <add_expr> <rel_tail>
-
 <rel_tail> → < <add_expr>
 <rel_tail> → > <add_expr>
 <rel_tail> → <= <add_expr>
 <rel_tail> → >= <add_expr>
 <rel_tail> → λ
 
-============================================
-ARITHMETIC EXPRESSIONS
-============================================
-
 <add_expr> → <mul_expr> <add_tail>
-
 <add_tail> → + <mul_expr> <add_tail>
 <add_tail> → - <mul_expr> <add_tail>
 <add_tail> → λ
 
 <mul_expr> → <unary_expr> <mul_tail>
-
 <mul_tail> → * <unary_expr> <mul_tail>
 <mul_tail> → / <unary_expr> <mul_tail>
 <mul_tail> → % <unary_expr> <mul_tail>
 <mul_tail> → λ
 
 <unary_expr> → ! <unary_expr>
-<unary_expr> → ++ <unary_expr>
-<unary_expr> → -- <unary_expr>
 <unary_expr> → <postfix_expr>
 
 <postfix_expr> → ( <expression> ) <postfix_chain>
@@ -378,7 +1339,9 @@ ARITHMETIC EXPRESSIONS
 <postfix_expr> → char ( <expression> )
 <postfix_expr> → string ( <expression> )
 <postfix_expr> → bool ( <expression> )
-<postfix_expr> → id <postfix_chain>
+<postfix_expr> → ++ id
+<postfix_expr> → -- id
+<postfix_expr> → id <id_postfix>
 <postfix_expr> → intlit
 <postfix_expr> → longlit
 <postfix_expr> → floatlit
@@ -388,56 +1351,50 @@ ARITHMETIC EXPRESSIONS
 <postfix_expr> → true
 <postfix_expr> → false
 
-============================================
-IDENTIFIER POSTFIX CHAIN (MAX 2D ARRAY ACCESS)
-============================================
+<id_postfix> → ++
+<id_postfix> → --
+<id_postfix> → <postfix_chain>
 
 <postfix_chain> → <array_access> <postfix_after_arr>
 <postfix_chain> → . id <postfix_chain>
 <postfix_chain> → ( <arg_list> ) <postfix_chain>
-<postfix_chain> → ++
-<postfix_chain> → --
 <postfix_chain> → λ
 
 <array_access> → [ <array_index> ] <array_access_dim2>
-
 <array_access_dim2> → [ <array_index> ]
 <array_access_dim2> → λ
 
 <postfix_after_arr> → . id <postfix_chain>
 <postfix_after_arr> → ( <arg_list> ) <postfix_chain>
-<postfix_after_arr> → ++
-<postfix_after_arr> → --
 <postfix_after_arr> → λ
 
 <array_index> → intlit
 <array_index> → id
 
-<arg_list> → <expression> <arg_tail>
+<arg_list> → <arg_expr> <arg_tail>
 <arg_list> → λ
 
-<arg_tail> → , <expression> <arg_tail>
+<arg_tail> → , <arg_expr> <arg_tail>
 <arg_tail> → λ
 
 ============================================
 I/O STATEMENTS
 ============================================
 
-<io_stmt> → trap ( <expression> ) ;
+<io_stmt> → trap ( <arg_expr> ) ;
 <io_stmt> → thread ( <print_args> ) ;
 <io_stmt> → threadln ( <print_args> ) ;
 
-<print_args> → <expression> <print_tail>
-
-<print_tail> → , <expression> <print_tail>
+<print_args> → <arg_expr> <print_tail>
+<print_tail> → , <arg_expr> <print_tail>
 <print_tail> → λ
 
 ============================================
-CONTROL STRUCTURES
+CONTROL STRUCTURES (for main function only)
 ============================================
 
 <ctrl_struct> → if ( <condition> ) { <ctrl_stmt_list> } <else_opt>
-<ctrl_struct> → switch ( <expression> ) { <case_list> <default_opt> }
+<ctrl_struct> → switch ( <arg_expr> ) { <case_list> <default_opt> }
 <ctrl_struct> → for ( <for_init> ; <for_cond> ; <for_update> ) { <ctrl_stmt_list> }
 <ctrl_struct> → while ( <condition> ) { <ctrl_stmt_list> }
 <ctrl_struct> → do { <ctrl_stmt_list> } while ( <condition> ) ;
@@ -469,8 +1426,7 @@ CONTROL STRUCTURES
 
 <for_init_assign_tail> → <assign_op> <for_init_expr>
 
-// Restricted expression for for_init: no assignment chaining
-<for_init_expr> → <concat_expr>
+<for_init_expr> → <stmt_concat_expr>
 
 <for_init_type> → int
 <for_init_type> → long
@@ -489,84 +1445,85 @@ CONTROL STRUCTURES
 
 <for_update_tail> → ++
 <for_update_tail> → --
-<for_update_tail> → <assign_op> <expression>
+<for_update_tail> → <assign_op> <arg_expr>
 
 ============================================
-CONDITION EXPRESSIONS (STRICT BOOLEAN)
+CONDITION EXPRESSIONS (DEFERRED BOOLEAN COMMITMENT)
 ============================================
-// Conditions are strictly boolean - NOT arithmetic expressions
-// Valid conditions: comparisons, logical ops (&&, ||, !), bool literals, function calls
-// Invalid: standalone arithmetic (x, x+1, x*2) - must use comparison operator
-// Assignment operators (= += -= *= /= %=) are PROHIBITED in conditions
 
 <condition> → <cond_or>
-
 <cond_or> → <cond_and> <cond_or_tail>
 <cond_or_tail> → || <cond_and> <cond_or_tail>
 <cond_or_tail> → λ
 
-<cond_and> → <cond_not> <cond_and_tail>
-<cond_and_tail> → && <cond_not> <cond_and_tail>
+<cond_and> → <cond_comparison> <cond_and_tail>
+<cond_and_tail> → && <cond_comparison> <cond_and_tail>
 <cond_and_tail> → λ
 
-<cond_not> → ! <cond_not>
-<cond_not> → <cond_atom>
+<cond_comparison> → ( <condition> )
+<cond_comparison> → ! <cond_comparison>
+<cond_comparison> → <cond_primary> <cond_primary_continue>
 
-// Condition RHS expression: starts at concat_expr, bypassing assign_expr
-// This prohibits = += -= *= /= %= on the RHS of comparisons within conditions
-<cond_rhs_expr> → <concat_expr>
+<cond_primary> → - <cond_primary>
+<cond_primary> → <cond_postfix>
 
-// Condition atom: must be comparison, bool literal, bool function call, or parenthesized condition
-// Standalone arithmetic expressions are NOT valid
-<cond_atom> → true
-<cond_atom> → false
-<cond_atom> → ( <condition> )
-<cond_atom> → id <cond_after_id>
-<cond_atom> → intlit <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → longlit <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → floatlit <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → doublelit <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → charlit <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → stringlit <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → int ( <expression> ) <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → long ( <expression> ) <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → float ( <expression> ) <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → double ( <expression> ) <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → char ( <expression> ) <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → string ( <expression> ) <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_atom> → bool ( <expression> ) <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
+<cond_primary_continue> → + <cond_primary> <cond_must_commit>
+<cond_primary_continue> → - <cond_primary> <cond_must_commit>
+<cond_primary_continue> → * <cond_primary> <cond_must_commit>
+<cond_primary_continue> → / <cond_primary> <cond_must_commit>
+<cond_primary_continue> → % <cond_primary> <cond_must_commit>
+<cond_primary_continue> → <comp_op> <cond_rhs>
+<cond_primary_continue> → λ
 
-// After id in condition: function call (standalone bool or comparison) OR identifier for comparison
-<cond_after_id> → ( <arg_list> ) <cond_after_call>
-<cond_after_id> → <cond_after_id_no_call>
+<cond_must_commit> → + <cond_primary> <cond_must_commit>
+<cond_must_commit> → - <cond_primary> <cond_must_commit>
+<cond_must_commit> → * <cond_primary> <cond_must_commit>
+<cond_must_commit> → / <cond_primary> <cond_must_commit>
+<cond_must_commit> → % <cond_primary> <cond_must_commit>
+<cond_must_commit> → <comp_op> <cond_rhs>
 
-// After id(): standalone bool function OR continue to comparison
-<cond_after_call> → λ
-<cond_after_call> → <postfix_chain> <mul_tail> <add_tail> <comp_op> <cond_rhs_expr>
+<cond_postfix> → int ( <cond_cast_arg> )
+<cond_postfix> → long ( <cond_cast_arg> )
+<cond_postfix> → float ( <cond_cast_arg> )
+<cond_postfix> → double ( <cond_cast_arg> )
+<cond_postfix> → char ( <cond_cast_arg> )
+<cond_postfix> → string ( <cond_cast_arg> )
+<cond_postfix> → bool ( <cond_cast_arg> )
+<cond_postfix> → ++ id
+<cond_postfix> → -- id
+<cond_postfix> → id <cond_id_post>
+<cond_postfix> → intlit
+<cond_postfix> → longlit
+<cond_postfix> → floatlit
+<cond_postfix> → doublelit
+<cond_postfix> → charlit
+<cond_postfix> → stringlit
+<cond_postfix> → true
+<cond_postfix> → false
 
-// After id not followed by ( : build expression with context-aware comparison requirement
-<cond_after_id_no_call> → <cond_postfix_no_call> <cond_arith_final>
+<cond_cast_arg> → <arg_expr>
 
-// Arithmetic-aware comparison: standalone bool OR comparison OR arithmetic+mandatory comparison
-<cond_arith_final> → λ
-<cond_arith_final> → <comp_op> <cond_rhs_expr>
-<cond_arith_final> → <mul_arith> <add_tail> <comp_op> <cond_rhs_expr>
-<cond_arith_final> → <add_arith> <comp_op> <cond_rhs_expr>
+<cond_id_post> → ++
+<cond_id_post> → --
+<cond_id_post> → <cond_post_chain>
 
-// Non-empty arithmetic operations (require comparison)
-<mul_arith> → * <unary_expr> <mul_tail>
-<mul_arith> → / <unary_expr> <mul_tail>
-<mul_arith> → % <unary_expr> <mul_tail>
+<cond_post_chain> → <cond_arr_access> <cond_post_after_arr>
+<cond_post_chain> → . id <cond_post_chain>
+<cond_post_chain> → ( <arg_list> ) <cond_post_chain>
+<cond_post_chain> → λ
 
-<add_arith> → + <mul_expr> <add_tail>
-<add_arith> → - <mul_expr> <add_tail>
+<cond_arr_access> → [ <cond_arr_index> ] <cond_arr_access_dim2>
+<cond_arr_access_dim2> → [ <cond_arr_index> ]
+<cond_arr_access_dim2> → λ
 
-// Postfix operations after id (excluding direct call since that's handled separately)
-<cond_postfix_no_call> → [ <array_index> ] <array_access_dim2> <postfix_after_arr>
-<cond_postfix_no_call> → . id <postfix_chain>
-<cond_postfix_no_call> → ++
-<cond_postfix_no_call> → --
-<cond_postfix_no_call> → λ
+<cond_post_after_arr> → . id <cond_post_chain>
+<cond_post_after_arr> → ( <arg_list> ) <cond_post_chain>
+<cond_post_after_arr> → λ
+
+<cond_arr_index> → intlit
+<cond_arr_index> → id
+
+<cond_rhs> → <arg_add_expr>
 
 <comp_op> → ==
 <comp_op> → !=
@@ -580,7 +1537,6 @@ MAIN FUNCTION BODY
 ============================================
 
 <main_body> → <main_content>
-
 <main_content> → using id <using_cont> ; <main_content>
 <main_content> → local <mutability> <local_dec_body> <main_content>
 <main_content> → <statement_non_return> <main_content>
