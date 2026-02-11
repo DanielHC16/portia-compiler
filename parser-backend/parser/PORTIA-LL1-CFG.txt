@@ -451,49 +451,49 @@ TYPE-SPECIFIC FUNCTION BODIES
 <func_content_int> → local <mutability> <local_dec_body> <func_content_int>
 <func_content_int> → <statement_int_no_ret> <func_content_int>
 <func_content_int> → <mandatory_int_return>
-<mandatory_int_return> → return <int_return_expr> ;
+<mandatory_int_return> → return <typed_numeric_ret_expr> ;
 
 <function_body_long> → <func_content_long>
 <func_content_long> → using id <using_cont> ; <func_content_long>
 <func_content_long> → local <mutability> <local_dec_body> <func_content_long>
 <func_content_long> → <statement_long_no_ret> <func_content_long>
 <func_content_long> → <mandatory_long_return>
-<mandatory_long_return> → return <long_return_expr> ;
+<mandatory_long_return> → return <typed_numeric_ret_expr> ;
 
 <function_body_float> → <func_content_float>
 <func_content_float> → using id <using_cont> ; <func_content_float>
 <func_content_float> → local <mutability> <local_dec_body> <func_content_float>
 <func_content_float> → <statement_float_no_ret> <func_content_float>
 <func_content_float> → <mandatory_float_return>
-<mandatory_float_return> → return <float_return_expr> ;
+<mandatory_float_return> → return <typed_numeric_ret_expr> ;
 
 <function_body_double> → <func_content_double>
 <func_content_double> → using id <using_cont> ; <func_content_double>
 <func_content_double> → local <mutability> <local_dec_body> <func_content_double>
 <func_content_double> → <statement_double_no_ret> <func_content_double>
 <func_content_double> → <mandatory_double_return>
-<mandatory_double_return> → return <double_return_expr> ;
+<mandatory_double_return> → return <typed_numeric_ret_expr> ;
 
 <function_body_char> → <func_content_char>
 <func_content_char> → using id <using_cont> ; <func_content_char>
 <func_content_char> → local <mutability> <local_dec_body> <func_content_char>
 <func_content_char> → <statement_char_no_ret> <func_content_char>
 <func_content_char> → <mandatory_char_return>
-<mandatory_char_return> → return <char_return_expr> ;
+<mandatory_char_return> → return <typed_string_ret_expr> ;
 
 <function_body_string> → <func_content_string>
 <func_content_string> → using id <using_cont> ; <func_content_string>
 <func_content_string> → local <mutability> <local_dec_body> <func_content_string>
 <func_content_string> → <statement_string_no_ret> <func_content_string>
 <func_content_string> → <mandatory_string_return>
-<mandatory_string_return> → return <string_return_expr> ;
+<mandatory_string_return> → return <typed_string_ret_expr> ;
 
 <function_body_bool> → <func_content_bool>
 <func_content_bool> → using id <using_cont> ; <func_content_bool>
 <func_content_bool> → local <mutability> <local_dec_body> <func_content_bool>
 <func_content_bool> → <statement_bool_no_ret> <func_content_bool>
 <func_content_bool> → <mandatory_bool_return>
-<mandatory_bool_return> → return <bool_return_expr> ;
+<mandatory_bool_return> → return <typed_bool_ret_expr> ;
 
 <function_body_array> → <func_content_array>
 <func_content_array> → using id <using_cont> ; <func_content_array>
@@ -526,37 +526,37 @@ TYPE-SPECIFIC STATEMENTS
 <statement_int> → <effect_stmt> ;
 <statement_int> → <io_stmt>
 <statement_int> → <ctrl_struct_int>
-<statement_int> → return <int_return_expr> ;
+<statement_int> → return <typed_numeric_ret_expr> ;
 
 <statement_long> → <effect_stmt> ;
 <statement_long> → <io_stmt>
 <statement_long> → <ctrl_struct_long>
-<statement_long> → return <long_return_expr> ;
+<statement_long> → return <typed_numeric_ret_expr> ;
 
 <statement_float> → <effect_stmt> ;
 <statement_float> → <io_stmt>
 <statement_float> → <ctrl_struct_float>
-<statement_float> → return <float_return_expr> ;
+<statement_float> → return <typed_numeric_ret_expr> ;
 
 <statement_double> → <effect_stmt> ;
 <statement_double> → <io_stmt>
 <statement_double> → <ctrl_struct_double>
-<statement_double> → return <double_return_expr> ;
+<statement_double> → return <typed_numeric_ret_expr> ;
 
 <statement_char> → <effect_stmt> ;
 <statement_char> → <io_stmt>
 <statement_char> → <ctrl_struct_char>
-<statement_char> → return <char_return_expr> ;
+<statement_char> → return <typed_string_ret_expr> ;
 
 <statement_string> → <effect_stmt> ;
 <statement_string> → <io_stmt>
 <statement_string> → <ctrl_struct_string>
-<statement_string> → return <string_return_expr> ;
+<statement_string> → return <typed_string_ret_expr> ;
 
 <statement_bool> → <effect_stmt> ;
 <statement_bool> → <io_stmt>
 <statement_bool> → <ctrl_struct_bool>
-<statement_bool> → return <bool_return_expr> ;
+<statement_bool> → return <typed_bool_ret_expr> ;
 
 <statement_array> → <effect_stmt> ;
 <statement_array> → <io_stmt>
@@ -967,135 +967,54 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <default_opt_void> → λ
 
 ============================================
-TYPE-SPECIFIC RETURN EXPRESSIONS
+TYPED RETURN EXPRESSIONS
 ============================================
+// Strict return type enforcement using typed expression discipline
+// NO assignment allowed in return expressions
+// Each return type routes to type-appropriate expression rules
 
-<int_return_expr> → <int_ret_assign>
-<int_ret_assign> → <int_ret_concat> <assign_tail>
-<int_ret_concat> → <int_ret_or> <concat_tail>
-<int_ret_or> → <int_ret_and> <or_tail>
-<int_ret_and> → <int_ret_eq> <and_tail>
-<int_ret_eq> → <int_ret_rel> <eq_tail>
-<int_ret_rel> → <int_ret_add> <rel_tail>
-<int_ret_add> → <int_ret_mul> <add_tail>
-<int_ret_mul> → <int_ret_unary> <mul_tail>
-<int_ret_unary> → ! <int_ret_unary>
-<int_ret_unary> → <int_ret_postfix>
-<int_ret_postfix> → intlit
-<int_ret_postfix> → ++ id
-<int_ret_postfix> → -- id
-<int_ret_postfix> → id <id_postfix>
-<int_ret_postfix> → ( <expression> ) <postfix_chain>
-<int_ret_postfix> → int ( <expression> )
+// NUMERIC RETURN (for int, long, float, double functions)
+// Uses typed arithmetic expressions - rejects string/bool literals at top level
+<typed_numeric_ret_expr> → <typed_numeric_add_expr>
 
-<long_return_expr> → <long_ret_assign>
-<long_ret_assign> → <long_ret_concat> <assign_tail>
-<long_ret_concat> → <long_ret_or> <concat_tail>
-<long_ret_or> → <long_ret_and> <or_tail>
-<long_ret_and> → <long_ret_eq> <and_tail>
-<long_ret_eq> → <long_ret_rel> <eq_tail>
-<long_ret_rel> → <long_ret_add> <rel_tail>
-<long_ret_add> → <long_ret_mul> <add_tail>
-<long_ret_mul> → <long_ret_unary> <mul_tail>
-<long_ret_unary> → ! <long_ret_unary>
-<long_ret_unary> → <long_ret_postfix>
-<long_ret_postfix> → longlit
-<long_ret_postfix> → ++ id
-<long_ret_postfix> → -- id
-<long_ret_postfix> → id <id_postfix>
-<long_ret_postfix> → ( <expression> ) <postfix_chain>
-<long_ret_postfix> → long ( <expression> )
+// STRING RETURN (for char, string functions)
+// String/char literals with concat, IDs with postfix, parens
+<typed_string_ret_expr> → <typed_string_ret_primary> <typed_string_cont>
 
-<float_return_expr> → <float_ret_assign>
-<float_ret_assign> → <float_ret_concat> <assign_tail>
-<float_ret_concat> → <float_ret_or> <concat_tail>
-<float_ret_or> → <float_ret_and> <or_tail>
-<float_ret_and> → <float_ret_eq> <and_tail>
-<float_ret_eq> → <float_ret_rel> <eq_tail>
-<float_ret_rel> → <float_ret_add> <rel_tail>
-<float_ret_add> → <float_ret_mul> <add_tail>
-<float_ret_mul> → <float_ret_unary> <mul_tail>
-<float_ret_unary> → ! <float_ret_unary>
-<float_ret_unary> → <float_ret_postfix>
-<float_ret_postfix> → floatlit
-<float_ret_postfix> → ++ id
-<float_ret_postfix> → -- id
-<float_ret_postfix> → id <id_postfix>
-<float_ret_postfix> → ( <expression> ) <postfix_chain>
-<float_ret_postfix> → float ( <expression> )
+<typed_string_ret_primary> → stringlit
+<typed_string_ret_primary> → charlit
+<typed_string_ret_primary> → id <typed_postfix_chain>
+<typed_string_ret_primary> → string ( <expression> )
+<typed_string_ret_primary> → char ( <expression> )
+<typed_string_ret_primary> → ( <expression> ) <typed_postfix_chain>
 
-<double_return_expr> → <double_ret_assign>
-<double_ret_assign> → <double_ret_concat> <assign_tail>
-<double_ret_concat> → <double_ret_or> <concat_tail>
-<double_ret_or> → <double_ret_and> <or_tail>
-<double_ret_and> → <double_ret_eq> <and_tail>
-<double_ret_eq> → <double_ret_rel> <eq_tail>
-<double_ret_rel> → <double_ret_add> <rel_tail>
-<double_ret_add> → <double_ret_mul> <add_tail>
-<double_ret_mul> → <double_ret_unary> <mul_tail>
-<double_ret_unary> → ! <double_ret_unary>
-<double_ret_unary> → <double_ret_postfix>
-<double_ret_postfix> → doublelit
-<double_ret_postfix> → ++ id
-<double_ret_postfix> → -- id
-<double_ret_postfix> → id <id_postfix>
-<double_ret_postfix> → ( <expression> ) <postfix_chain>
-<double_ret_postfix> → double ( <expression> )
+// BOOL RETURN (for bool functions)
+// Boolean expressions with && || == != and comparisons
+// Numeric literals MUST have comparison operator to become boolean
+// BOOL cast supported for return expressions
+<typed_bool_ret_expr> → <typed_bool_ret_primary> <typed_bool_ret_tail>
 
-<char_return_expr> → <char_ret_assign>
-<char_ret_assign> → <char_ret_concat> <assign_tail>
-<char_ret_concat> → <char_ret_or> <concat_tail>
-<char_ret_or> → <char_ret_and> <or_tail>
-<char_ret_and> → <char_ret_eq> <and_tail>
-<char_ret_eq> → <char_ret_rel> <eq_tail>
-<char_ret_rel> → <char_ret_add> <rel_tail>
-<char_ret_add> → <char_ret_mul> <add_tail>
-<char_ret_mul> → <char_ret_unary> <mul_tail>
-<char_ret_unary> → ! <char_ret_unary>
-<char_ret_unary> → <char_ret_postfix>
-<char_ret_postfix> → charlit
-<char_ret_postfix> → ++ id
-<char_ret_postfix> → -- id
-<char_ret_postfix> → id <id_postfix>
-<char_ret_postfix> → ( <expression> ) <postfix_chain>
-<char_ret_postfix> → char ( <expression> )
+<typed_bool_ret_primary> → true
+<typed_bool_ret_primary> → false
+<typed_bool_ret_primary> → ! <typed_bool_factor>
+<typed_bool_ret_primary> → id <typed_bool_id_cont>
+<typed_bool_ret_primary> → ( <typed_bool_paren> )
+<typed_bool_ret_primary> → bool ( <expression> )
+<typed_bool_ret_primary> → intlit <typed_numeric_cmp_required>
+<typed_bool_ret_primary> → longlit <typed_numeric_cmp_required>
+<typed_bool_ret_primary> → floatlit <typed_numeric_cmp_required>
+<typed_bool_ret_primary> → doublelit <typed_numeric_cmp_required>
+<typed_bool_ret_primary> → - <typed_numeric_neg_cmp>
+<typed_bool_ret_primary> → int ( <expression> ) <typed_numeric_cmp_required>
+<typed_bool_ret_primary> → long ( <expression> ) <typed_numeric_cmp_required>
+<typed_bool_ret_primary> → float ( <expression> ) <typed_numeric_cmp_required>
+<typed_bool_ret_primary> → double ( <expression> ) <typed_numeric_cmp_required>
 
-<string_return_expr> → <string_ret_assign>
-<string_ret_assign> → <string_ret_concat> <assign_tail>
-<string_ret_concat> → <string_ret_or> <concat_tail>
-<string_ret_or> → <string_ret_and> <or_tail>
-<string_ret_and> → <string_ret_eq> <and_tail>
-<string_ret_eq> → <string_ret_rel> <eq_tail>
-<string_ret_rel> → <string_ret_add> <rel_tail>
-<string_ret_add> → <string_ret_mul> <add_tail>
-<string_ret_mul> → <string_ret_unary> <mul_tail>
-<string_ret_unary> → ! <string_ret_unary>
-<string_ret_unary> → <string_ret_postfix>
-<string_ret_postfix> → stringlit
-<string_ret_postfix> → ++ id
-<string_ret_postfix> → -- id
-<string_ret_postfix> → id <id_postfix>
-<string_ret_postfix> → ( <expression> ) <postfix_chain>
-<string_ret_postfix> → string ( <expression> )
-
-<bool_return_expr> → <bool_ret_assign>
-<bool_ret_assign> → <bool_ret_concat> <assign_tail>
-<bool_ret_concat> → <bool_ret_or> <concat_tail>
-<bool_ret_or> → <bool_ret_and> <or_tail>
-<bool_ret_and> → <bool_ret_eq> <and_tail>
-<bool_ret_eq> → <bool_ret_rel> <eq_tail>
-<bool_ret_rel> → <bool_ret_add> <rel_tail>
-<bool_ret_add> → <bool_ret_mul> <add_tail>
-<bool_ret_mul> → <bool_ret_unary> <mul_tail>
-<bool_ret_unary> → ! <bool_ret_unary>
-<bool_ret_unary> → <bool_ret_postfix>
-<bool_ret_postfix> → true
-<bool_ret_postfix> → false
-<bool_ret_postfix> → ++ id
-<bool_ret_postfix> → -- id
-<bool_ret_postfix> → id <id_postfix>
-<bool_ret_postfix> → ( <expression> ) <postfix_chain>
-<bool_ret_postfix> → bool ( <expression> )
+<typed_bool_ret_tail> → && <typed_bool_term> <typed_bool_and_tail> <typed_bool_or_tail_opt>
+<typed_bool_ret_tail> → || <typed_bool_term> <typed_bool_or_tail>
+<typed_bool_ret_tail> → == <typed_bool_factor> <typed_bool_eq_tail> <typed_bool_ret_tail>
+<typed_bool_ret_tail> → != <typed_bool_factor> <typed_bool_eq_tail> <typed_bool_ret_tail>
+<typed_bool_ret_tail> → λ
 
 ============================================
 USING BLOCK
@@ -1500,13 +1419,22 @@ ARGUMENT EXPRESSION RULES (ISOLATED FOLLOW SET)
 <arg_nested_tail> → λ
 
 ============================================
-UNIFIED EXPRESSION GRAMMAR
+TYPED EXPRESSION DISPATCH SYSTEM
 ============================================
+// expression routes through typed_assign_expr to typed_concat_expr
+// which dispatches based on starting token to maintain type discipline
+// - Assignment does NOT chain (a = b = c is syntax error)
+// - Boolean operators (&&, ||) require boolean operands
+// - Concat (..) requires string-like operands
+// - Relational (<, >, <=, >=) require numeric operands
+// - Arithmetic (+, -, *, /, %) require numeric operands
 
-<expression> → <assign_expr>
-<assign_expr> → <concat_expr> <assign_tail>
-<assign_tail> → <assign_op> <assign_expr>
-<assign_tail> → λ
+<expression> → <typed_assign_expr>
+
+<typed_assign_expr> → <typed_concat_expr> <typed_assign_tail>
+
+<typed_assign_tail> → <assign_op> <typed_rhs_expr>
+<typed_assign_tail> → λ
 
 <assign_op> → =
 <assign_op> → +=
@@ -1515,80 +1443,39 @@ UNIFIED EXPRESSION GRAMMAR
 <assign_op> → /=
 <assign_op> → %=
 
-<concat_expr> → <or_expr> <concat_tail>
-<concat_tail> → .. <or_expr> <concat_tail>
-<concat_tail> → λ
+<typed_rhs_expr> → <typed_concat_expr>
 
-<or_expr> → <and_expr> <or_tail>
-<or_tail> → || <and_expr> <or_tail>
-<or_tail> → λ
+// typed_concat_expr dispatches based on starting token
+<typed_concat_expr> → stringlit <typed_string_cont>
+<typed_concat_expr> → charlit <typed_string_cont>
+<typed_concat_expr> → intlit <typed_numeric_cont>
+<typed_concat_expr> → longlit <typed_numeric_cont>
+<typed_concat_expr> → floatlit <typed_numeric_cont>
+<typed_concat_expr> → doublelit <typed_numeric_cont>
+<typed_concat_expr> → true <typed_bool_cont>
+<typed_concat_expr> → false <typed_bool_cont>
+<typed_concat_expr> → ! <typed_bool_factor> <typed_bool_tail_opt>
+<typed_concat_expr> → - <typed_neg_numeric_cont>
+<typed_concat_expr> → id <typed_id_cont>
+<typed_concat_expr> → ( <typed_paren_cont>
+<typed_concat_expr> → int ( <expression> ) <typed_numeric_cont>
+<typed_concat_expr> → long ( <expression> ) <typed_numeric_cont>
+<typed_concat_expr> → float ( <expression> ) <typed_numeric_cont>
+<typed_concat_expr> → double ( <expression> ) <typed_numeric_cont>
+<typed_concat_expr> → char ( <expression> ) <typed_string_cont>
+<typed_concat_expr> → string ( <expression> ) <typed_string_cont>
+<typed_concat_expr> → bool ( <expression> ) <typed_bool_cont>
+<typed_concat_expr> → ++ id
+<typed_concat_expr> → -- id
 
-<and_expr> → <eq_expr> <and_tail>
-<and_tail> → && <eq_expr> <and_tail>
-<and_tail> → λ
+// See portia.lark for complete typed expression continuation rules:
+// - typed_string_cont, typed_numeric_cont, typed_bool_cont
+// - typed_id_cont, typed_paren_cont
+// - typed_postfix_chain, typed_numeric_add_expr, etc.
 
-<eq_expr> → <rel_expr> <eq_tail>
-<eq_tail> → == <rel_expr> <eq_tail>
-<eq_tail> → != <rel_expr> <eq_tail>
-<eq_tail> → λ
-
-<rel_expr> → <add_expr> <rel_tail>
-<rel_tail> → < <add_expr>
-<rel_tail> → > <add_expr>
-<rel_tail> → <= <add_expr>
-<rel_tail> → >= <add_expr>
-<rel_tail> → λ
-
-<add_expr> → <mul_expr> <add_tail>
-<add_tail> → + <mul_expr> <add_tail>
-<add_tail> → - <mul_expr> <add_tail>
-<add_tail> → λ
-
-<mul_expr> → <unary_expr> <mul_tail>
-<mul_tail> → * <unary_expr> <mul_tail>
-<mul_tail> → / <unary_expr> <mul_tail>
-<mul_tail> → % <unary_expr> <mul_tail>
-<mul_tail> → λ
-
-<unary_expr> → ! <unary_expr>
-<unary_expr> → <postfix_expr>
-
-<postfix_expr> → ( <expression> ) <postfix_chain>
-<postfix_expr> → int ( <expression> )
-<postfix_expr> → long ( <expression> )
-<postfix_expr> → float ( <expression> )
-<postfix_expr> → double ( <expression> )
-<postfix_expr> → char ( <expression> )
-<postfix_expr> → string ( <expression> )
-<postfix_expr> → bool ( <expression> )
-<postfix_expr> → ++ id
-<postfix_expr> → -- id
-<postfix_expr> → id <id_postfix>
-<postfix_expr> → intlit
-<postfix_expr> → longlit
-<postfix_expr> → floatlit
-<postfix_expr> → doublelit
-<postfix_expr> → charlit
-<postfix_expr> → stringlit
-<postfix_expr> → true
-<postfix_expr> → false
-
-<id_postfix> → ++
-<id_postfix> → --
-<id_postfix> → <postfix_chain>
-
-<postfix_chain> → <array_access> <postfix_after_arr>
-<postfix_chain> → . id <postfix_chain>
-<postfix_chain> → ( <arg_list> ) <postfix_chain>
-<postfix_chain> → λ
-
-<array_access> → [ <array_index> ] <array_access_dim2>
-<array_access_dim2> → [ <array_index> ]
-<array_access_dim2> → λ
-
-<postfix_after_arr> → . id <postfix_chain>
-<postfix_after_arr> → ( <arg_list> ) <postfix_chain>
-<postfix_after_arr> → λ
+============================================
+SHARED EXPRESSION PRIMITIVES
+============================================
 
 <array_index> → intlit
 <array_index> → id

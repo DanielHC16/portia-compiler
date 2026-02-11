@@ -446,7 +446,7 @@ func_content_int: USING ID using_cont SEMICOLON func_content_int
                 | statement_int_no_ret func_content_int
                 | mandatory_int_return
 
-mandatory_int_return: RETURN int_return_expr SEMICOLON
+mandatory_int_return: RETURN typed_numeric_ret_expr SEMICOLON
 
 // LONG-returning function body
 function_body_long: func_content_long
@@ -456,7 +456,7 @@ func_content_long: USING ID using_cont SEMICOLON func_content_long
                  | statement_long_no_ret func_content_long
                  | mandatory_long_return
 
-mandatory_long_return: RETURN long_return_expr SEMICOLON
+mandatory_long_return: RETURN typed_numeric_ret_expr SEMICOLON
 
 // FLOAT-returning function body
 function_body_float: func_content_float
@@ -466,7 +466,7 @@ func_content_float: USING ID using_cont SEMICOLON func_content_float
                   | statement_float_no_ret func_content_float
                   | mandatory_float_return
 
-mandatory_float_return: RETURN float_return_expr SEMICOLON
+mandatory_float_return: RETURN typed_numeric_ret_expr SEMICOLON
 
 // DOUBLE-returning function body
 function_body_double: func_content_double
@@ -476,7 +476,7 @@ func_content_double: USING ID using_cont SEMICOLON func_content_double
                    | statement_double_no_ret func_content_double
                    | mandatory_double_return
 
-mandatory_double_return: RETURN double_return_expr SEMICOLON
+mandatory_double_return: RETURN typed_numeric_ret_expr SEMICOLON
 
 // CHAR-returning function body
 function_body_char: func_content_char
@@ -486,7 +486,7 @@ func_content_char: USING ID using_cont SEMICOLON func_content_char
                  | statement_char_no_ret func_content_char
                  | mandatory_char_return
 
-mandatory_char_return: RETURN char_return_expr SEMICOLON
+mandatory_char_return: RETURN typed_string_ret_expr SEMICOLON
 
 // STRING-returning function body
 function_body_string: func_content_string
@@ -496,7 +496,7 @@ func_content_string: USING ID using_cont SEMICOLON func_content_string
                    | statement_string_no_ret func_content_string
                    | mandatory_string_return
 
-mandatory_string_return: RETURN string_return_expr SEMICOLON
+mandatory_string_return: RETURN typed_string_ret_expr SEMICOLON
 
 // BOOL-returning function body
 function_body_bool: func_content_bool
@@ -506,7 +506,7 @@ func_content_bool: USING ID using_cont SEMICOLON func_content_bool
                  | statement_bool_no_ret func_content_bool
                  | mandatory_bool_return
 
-mandatory_bool_return: RETURN bool_return_expr SEMICOLON
+mandatory_bool_return: RETURN typed_bool_ret_expr SEMICOLON
 
 // ARRAY-returning function body (any base type)
 function_body_array: func_content_array
@@ -547,37 +547,37 @@ mandatory_void_return: RETURN SEMICOLON
 statement_int: effect_stmt SEMICOLON
              | io_stmt
              | ctrl_struct_int
-             | RETURN int_return_expr SEMICOLON
+             | RETURN typed_numeric_ret_expr SEMICOLON
 
 statement_long: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_long
-              | RETURN long_return_expr SEMICOLON
+              | RETURN typed_numeric_ret_expr SEMICOLON
 
 statement_float: effect_stmt SEMICOLON
                | io_stmt
                | ctrl_struct_float
-               | RETURN float_return_expr SEMICOLON
+               | RETURN typed_numeric_ret_expr SEMICOLON
 
 statement_double: effect_stmt SEMICOLON
                 | io_stmt
                 | ctrl_struct_double
-                | RETURN double_return_expr SEMICOLON
+                | RETURN typed_numeric_ret_expr SEMICOLON
 
 statement_char: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_char
-              | RETURN char_return_expr SEMICOLON
+              | RETURN typed_string_ret_expr SEMICOLON
 
 statement_string: effect_stmt SEMICOLON
                 | io_stmt
                 | ctrl_struct_string
-                | RETURN string_return_expr SEMICOLON
+                | RETURN typed_string_ret_expr SEMICOLON
 
 statement_bool: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_bool
-              | RETURN bool_return_expr SEMICOLON
+              | RETURN typed_bool_ret_expr SEMICOLON
 
 statement_array: effect_stmt SEMICOLON
                | io_stmt
@@ -989,214 +989,54 @@ default_opt_void: DEFAULT COLON non_empty_loop_stmt_list_void break_opt
                 |
 
 // ============================================
-// TYPE-SPECIFIC RETURN EXPRESSIONS
+// TYPED RETURN EXPRESSIONS
 // ============================================
-// Top-level literals and casts restricted to declared return type
-// After operators, regular expression rules apply
-
-// INT RETURN EXPRESSION
-int_return_expr: int_ret_assign
-
-int_ret_assign: int_ret_concat assign_tail
-
-int_ret_concat: int_ret_or concat_tail
-
-int_ret_or: int_ret_and or_tail
-
-int_ret_and: int_ret_eq and_tail
-
-int_ret_eq: int_ret_rel eq_tail
-
-int_ret_rel: int_ret_add rel_tail
-
-int_ret_add: int_ret_mul add_tail
-
-int_ret_mul: int_ret_unary mul_tail
-
-int_ret_unary: NOT int_ret_unary
-             | int_ret_postfix
-
-int_ret_postfix: INTLIT
-               | INCR ID
-               | DECR ID
-               | ID id_postfix
-               | LPAREN expression RPAREN postfix_chain
-               | INT LPAREN expression RPAREN
-
-// LONG RETURN EXPRESSION
-long_return_expr: long_ret_assign
-
-long_ret_assign: long_ret_concat assign_tail
-
-long_ret_concat: long_ret_or concat_tail
-
-long_ret_or: long_ret_and or_tail
-
-long_ret_and: long_ret_eq and_tail
-
-long_ret_eq: long_ret_rel eq_tail
-
-long_ret_rel: long_ret_add rel_tail
-
-long_ret_add: long_ret_mul add_tail
-
-long_ret_mul: long_ret_unary mul_tail
-
-long_ret_unary: NOT long_ret_unary
-              | long_ret_postfix
-
-long_ret_postfix: LONGLIT
-                | INCR ID
-                | DECR ID
-                | ID id_postfix
-                | LPAREN expression RPAREN postfix_chain
-                | LONG LPAREN expression RPAREN
-
-// FLOAT RETURN EXPRESSION
-float_return_expr: float_ret_assign
-
-float_ret_assign: float_ret_concat assign_tail
-
-float_ret_concat: float_ret_or concat_tail
-
-float_ret_or: float_ret_and or_tail
-
-float_ret_and: float_ret_eq and_tail
-
-float_ret_eq: float_ret_rel eq_tail
-
-float_ret_rel: float_ret_add rel_tail
-
-float_ret_add: float_ret_mul add_tail
-
-float_ret_mul: float_ret_unary mul_tail
-
-float_ret_unary: NOT float_ret_unary
-               | float_ret_postfix
-
-float_ret_postfix: FLOATLIT
-                 | INCR ID
-                 | DECR ID
-                 | ID id_postfix
-                 | LPAREN expression RPAREN postfix_chain
-                 | FLOAT LPAREN expression RPAREN
-
-// DOUBLE RETURN EXPRESSION
-double_return_expr: double_ret_assign
-
-double_ret_assign: double_ret_concat assign_tail
-
-double_ret_concat: double_ret_or concat_tail
-
-double_ret_or: double_ret_and or_tail
-
-double_ret_and: double_ret_eq and_tail
-
-double_ret_eq: double_ret_rel eq_tail
-
-double_ret_rel: double_ret_add rel_tail
-
-double_ret_add: double_ret_mul add_tail
-
-double_ret_mul: double_ret_unary mul_tail
-
-double_ret_unary: NOT double_ret_unary
-                | double_ret_postfix
-
-double_ret_postfix: DOUBLELIT
-                  | INCR ID
-                  | DECR ID
-                  | ID id_postfix
-                  | LPAREN expression RPAREN postfix_chain
-                  | DOUBLE LPAREN expression RPAREN
-
-// CHAR RETURN EXPRESSION
-char_return_expr: char_ret_assign
-
-char_ret_assign: char_ret_concat assign_tail
-
-char_ret_concat: char_ret_or concat_tail
-
-char_ret_or: char_ret_and or_tail
-
-char_ret_and: char_ret_eq and_tail
-
-char_ret_eq: char_ret_rel eq_tail
-
-char_ret_rel: char_ret_add rel_tail
-
-char_ret_add: char_ret_mul add_tail
-
-char_ret_mul: char_ret_unary mul_tail
-
-char_ret_unary: NOT char_ret_unary
-              | char_ret_postfix
-
-char_ret_postfix: CHARLIT
-                | INCR ID
-                | DECR ID
-                | ID id_postfix
-                | LPAREN expression RPAREN postfix_chain
-                | CHAR LPAREN expression RPAREN
-
-// STRING RETURN EXPRESSION
-string_return_expr: string_ret_assign
-
-string_ret_assign: string_ret_concat assign_tail
-
-string_ret_concat: string_ret_or concat_tail
-
-string_ret_or: string_ret_and or_tail
-
-string_ret_and: string_ret_eq and_tail
-
-string_ret_eq: string_ret_rel eq_tail
-
-string_ret_rel: string_ret_add rel_tail
-
-string_ret_add: string_ret_mul add_tail
-
-string_ret_mul: string_ret_unary mul_tail
-
-string_ret_unary: NOT string_ret_unary
-                | string_ret_postfix
-
-string_ret_postfix: STRINGLIT
-                  | INCR ID
-                  | DECR ID
-                  | ID id_postfix
-                  | LPAREN expression RPAREN postfix_chain
-                  | STRING LPAREN expression RPAREN
-
-// BOOL RETURN EXPRESSION
-bool_return_expr: bool_ret_assign
-
-bool_ret_assign: bool_ret_concat assign_tail
-
-bool_ret_concat: bool_ret_or concat_tail
-
-bool_ret_or: bool_ret_and or_tail
-
-bool_ret_and: bool_ret_eq and_tail
-
-bool_ret_eq: bool_ret_rel eq_tail
-
-bool_ret_rel: bool_ret_add rel_tail
-
-bool_ret_add: bool_ret_mul add_tail
-
-bool_ret_mul: bool_ret_unary mul_tail
-
-bool_ret_unary: NOT bool_ret_unary
-              | bool_ret_postfix
-
-bool_ret_postfix: TRUE
-                | FALSE
-                | INCR ID
-                | DECR ID
-                | ID id_postfix
-                | LPAREN expression RPAREN postfix_chain
-                | BOOL LPAREN expression RPAREN
+// Strict return type enforcement using typed expression discipline
+// NO assignment allowed in return expressions
+// Each return type routes to type-appropriate expression rules
+
+// NUMERIC RETURN (for int, long, float, double functions)
+// Uses typed arithmetic expressions - rejects string/bool literals at top level
+typed_numeric_ret_expr: typed_numeric_add_expr
+
+// STRING RETURN (for char, string functions)
+// String/char literals with concat, IDs with postfix, parens
+typed_string_ret_expr: typed_string_ret_primary typed_string_cont
+
+typed_string_ret_primary: STRINGLIT
+                        | CHARLIT
+                        | ID typed_postfix_chain
+                        | STRING LPAREN expression RPAREN
+                        | CHAR LPAREN expression RPAREN
+                        | LPAREN expression RPAREN typed_postfix_chain
+
+// BOOL RETURN (for bool functions)
+// Boolean expressions with && || == != and comparisons
+// Numeric literals MUST have comparison operator to become boolean
+// BOOL cast supported for return expressions
+typed_bool_ret_expr: typed_bool_ret_primary typed_bool_ret_tail
+
+typed_bool_ret_primary: TRUE
+                      | FALSE
+                      | NOT typed_bool_factor
+                      | ID typed_bool_id_cont
+                      | LPAREN typed_bool_paren RPAREN
+                      | BOOL LPAREN expression RPAREN
+                      | INTLIT typed_numeric_cmp_required
+                      | LONGLIT typed_numeric_cmp_required
+                      | FLOATLIT typed_numeric_cmp_required
+                      | DOUBLELIT typed_numeric_cmp_required
+                      | MINUS typed_numeric_neg_cmp
+                      | INT LPAREN expression RPAREN typed_numeric_cmp_required
+                      | LONG LPAREN expression RPAREN typed_numeric_cmp_required
+                      | FLOAT LPAREN expression RPAREN typed_numeric_cmp_required
+                      | DOUBLE LPAREN expression RPAREN typed_numeric_cmp_required
+
+typed_bool_ret_tail: AND typed_bool_term typed_bool_and_tail typed_bool_or_tail_opt
+                   | OR typed_bool_term typed_bool_or_tail
+                   | EQ typed_bool_factor typed_bool_eq_tail typed_bool_ret_tail
+                   | NEQ typed_bool_factor typed_bool_eq_tail typed_bool_ret_tail
+                   |
 
 // ============================================
 // USING BLOCK
@@ -1285,15 +1125,29 @@ statement_non_return: effect_stmt SEMICOLON
                     | ctrl_struct
 
 // ============================================
-// UNIFIED EXPRESSION GRAMMAR
+// UNIFIED EXPRESSION GRAMMAR (BATCH 4 - TYPED DISPATCH)
 // ============================================
+// Typed Expression Discipline:
+// - Assignment does NOT chain (a = b = c is syntax error)
+// - Boolean operators (&&, ||) require boolean operands
+// - Concat (..) requires string-like operands
+// - Relational (<, >, <=, >=) require numeric operands
+// - Arithmetic (+, -, *, /, %) require numeric operands
+// 
+// Structure:
+// - expression → typed_assign_expr
+// - typed_assign_expr → typed_concat_expr typed_assign_tail
+// - typed_assign_tail → assign_op typed_rhs_expr | λ
+// - typed_concat_expr: left-factored dispatch for full precedence
+// - typed_rhs_expr: strict dispatcher for assignment RHS
 
-expression: assign_expr
+expression: typed_assign_expr
 
-assign_expr: concat_expr assign_tail
+typed_assign_expr: typed_concat_expr typed_assign_tail
 
-assign_tail: assign_op assign_expr
-           |
+// typed_assign_tail uses typed_rhs_expr - blocks chained assignment
+typed_assign_tail: assign_op typed_rhs_expr
+                 |
 
 assign_op: ASSIGN
          | PLUSEQ
@@ -1302,116 +1156,336 @@ assign_op: ASSIGN
          | SLASHEQ
          | MODEQ
 
-concat_expr: or_expr concat_tail
-
-concat_tail: CONCAT or_expr concat_tail
+// Legacy assign_tail for return expressions - does NOT chain
+assign_tail: assign_op typed_rhs_expr
            |
 
 // ============================================
-// BOOLEAN / LOGICAL EXPRESSIONS
+// TYPED_RHS_EXPR - Strict Dispatcher
 // ============================================
+// Entry point for assignment RHS - dispatches to typed_concat_expr
+// Separate rule to clearly mark non-recursive assignment semantics
 
-or_expr: and_expr or_tail
-
-or_tail: OR and_expr or_tail
-       |
-
-and_expr: eq_expr and_tail
-
-and_tail: AND eq_expr and_tail
-        |
-
-eq_expr: rel_expr eq_tail
-
-eq_tail: EQ rel_expr eq_tail
-       | NEQ rel_expr eq_tail
-       |
-
-rel_expr: add_expr rel_tail
-
-rel_tail: LT add_expr
-        | GT add_expr
-        | LTE add_expr
-        | GTE add_expr
-        |
+typed_rhs_expr: typed_concat_expr
 
 // ============================================
-// ARITHMETIC EXPRESSIONS
+// TYPED_CONCAT_EXPR - Left-factored Precedence Chain
 // ============================================
+// Routes based on starting token to enforce type discipline
+// Dispatches to: typed_numeric | typed_string | typed_bool | id | paren
 
-add_expr: mul_expr add_tail
-
-add_tail: PLUS mul_expr add_tail
-        | MINUS mul_expr add_tail
-        |
-
-mul_expr: unary_expr mul_tail
-
-mul_tail: STAR unary_expr mul_tail
-        | SLASH unary_expr mul_tail
-        | MOD unary_expr mul_tail
-        |
-
-unary_expr: NOT unary_expr
-          | postfix_expr
-
-// ============================================
-// POSTFIX EXPRESSIONS
-// ============================================
-// Increment/decrement constrained to C-like semantics:
-// - ++id, --id, id++, id-- are the ONLY valid forms
-// - Operand must be bare identifier (not expression, not parenthesized)
-// - No chaining: ++id++, ++++id are syntactically impossible
-
-postfix_expr: LPAREN expression RPAREN postfix_chain
-            | INT LPAREN expression RPAREN
-            | LONG LPAREN expression RPAREN
-            | FLOAT LPAREN expression RPAREN
-            | DOUBLE LPAREN expression RPAREN
-            | CHAR LPAREN expression RPAREN
-            | STRING LPAREN expression RPAREN
-            | BOOL LPAREN expression RPAREN
-            | INCR ID
-            | DECR ID
-            | ID id_postfix
-            | INTLIT
-            | LONGLIT
-            | FLOATLIT
-            | DOUBLELIT
-            | CHARLIT
-            | STRINGLIT
-            | TRUE
-            | FALSE
+typed_concat_expr: STRINGLIT typed_string_cont
+                 | CHARLIT typed_string_cont
+                 | INTLIT typed_numeric_cont
+                 | LONGLIT typed_numeric_cont
+                 | FLOATLIT typed_numeric_cont
+                 | DOUBLELIT typed_numeric_cont
+                 | TRUE typed_bool_cont
+                 | FALSE typed_bool_cont
+                 | NOT typed_bool_factor typed_bool_tail_opt
+                 | MINUS typed_neg_numeric_cont
+                 | ID typed_id_cont
+                 | LPAREN typed_paren_cont
+                 | INT LPAREN expression RPAREN typed_numeric_cont
+                 | LONG LPAREN expression RPAREN typed_numeric_cont
+                 | FLOAT LPAREN expression RPAREN typed_numeric_cont
+                 | DOUBLE LPAREN expression RPAREN typed_numeric_cont
+                 | CHAR LPAREN expression RPAREN typed_string_cont
+                 | STRING LPAREN expression RPAREN typed_string_cont
+                 | BOOL LPAREN expression RPAREN typed_bool_cont
+                 | INCR ID
+                 | DECR ID
 
 // ============================================
-// IDENTIFIER POSTFIX (C-LIKE INCREMENT/DECREMENT)
+// STRING/CHAR CONTINUATION (concat only)
 // ============================================
-// After bare ID: either terminal inc/dec OR regular postfix chain
-// This ensures ++id and id++ are valid but ++id++ is not
 
-id_postfix: INCR
-          | DECR
-          | postfix_chain
-
-// ============================================
-// POSTFIX CHAIN (NO INCREMENT/DECREMENT)
-// ============================================
-// Array access, field access, function calls - NO inc/dec allowed here
-// Inc/dec only valid on bare identifiers (handled by id_postfix)
-
-postfix_chain: array_access postfix_after_arr
-             | DOT ID postfix_chain
-             | LPAREN arg_list RPAREN postfix_chain
-             |
-
-array_access: LBRACK array_index RBRACK array_access_dim2
-
-array_access_dim2: LBRACK array_index RBRACK
+typed_string_cont: CONCAT typed_string_operand typed_string_cont
                  |
 
-postfix_after_arr: DOT ID postfix_chain
-                 | LPAREN arg_list RPAREN postfix_chain
-                 |
+typed_string_operand: STRINGLIT
+                    | CHARLIT
+                    | ID
+                    | STRING LPAREN expression RPAREN
+                    | CHAR LPAREN expression RPAREN
+                    | LPAREN typed_string_operand typed_string_cont RPAREN
+                    | INTLIT
+                    | LONGLIT
+                    | FLOATLIT
+                    | DOUBLELIT
+                    | TRUE
+                    | FALSE
+                    | INT LPAREN expression RPAREN
+                    | LONG LPAREN expression RPAREN
+                    | FLOAT LPAREN expression RPAREN
+                    | DOUBLE LPAREN expression RPAREN
+                    | BOOL LPAREN expression RPAREN
+
+// ============================================
+// NUMERIC CONTINUATION (arithmetic + optional cmp/bool)
+// ============================================
+
+typed_numeric_cont: typed_arith_ops typed_after_arith
+                  | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                  | typed_bool_tail_opt
+
+// Arithmetic operators (first operand already parsed)
+typed_arith_ops: PLUS typed_numeric_mul_expr typed_numeric_add_ops
+               | MINUS typed_numeric_mul_expr typed_numeric_add_ops
+               | STAR typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_ops
+               | SLASH typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_ops
+               | MOD typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_ops
+
+typed_numeric_add_ops: PLUS typed_numeric_mul_expr typed_numeric_add_ops
+                     | MINUS typed_numeric_mul_expr typed_numeric_add_ops
+                     |
+
+// After arithmetic: optional comparison, then optional boolean
+typed_after_arith: typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                 | typed_bool_tail_opt
+
+// Negated numeric continuation
+typed_neg_numeric_cont: typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_ops typed_after_arith
+
+// ============================================
+// BOOLEAN CONTINUATION (&&, ||, ==, != only)
+// ============================================
+
+typed_bool_cont: typed_bool_tail_opt
+
+// Boolean tail (AND/OR) - optional  
+typed_bool_tail_opt: AND typed_bool_term typed_bool_and_tail typed_bool_or_tail_opt
+                   | OR typed_bool_term typed_bool_or_tail
+                   |
+
+typed_bool_or_tail_opt: OR typed_bool_term typed_bool_or_tail
+                      |
+
+// Boolean term for operand of &&/||
+typed_bool_term: typed_bool_eq typed_bool_and_tail
+
+typed_bool_and_tail: AND typed_bool_eq typed_bool_and_tail
+                   |
+
+typed_bool_or_tail: OR typed_bool_term typed_bool_or_tail
+                  |
+
+// Equality level for boolean expressions
+typed_bool_eq: typed_bool_factor typed_bool_eq_tail
+
+typed_bool_eq_tail: EQ typed_bool_factor typed_bool_eq_tail
+                  | NEQ typed_bool_factor typed_bool_eq_tail
+                  |
+
+// Boolean factor - NOT or atom
+typed_bool_factor: NOT typed_bool_factor
+                 | typed_bool_atom
+
+// Boolean atom - must produce boolean value
+// Numeric literals MUST have comparison to become boolean
+typed_bool_atom: TRUE
+               | FALSE
+               | ID typed_bool_id_cont
+               | INTLIT typed_numeric_cmp_required
+               | LONGLIT typed_numeric_cmp_required
+               | FLOATLIT typed_numeric_cmp_required
+               | DOUBLELIT typed_numeric_cmp_required
+               | MINUS typed_numeric_neg_cmp
+               | LPAREN typed_bool_paren RPAREN
+               | INT LPAREN expression RPAREN typed_numeric_cmp_required
+               | LONG LPAREN expression RPAREN typed_numeric_cmp_required
+               | FLOAT LPAREN expression RPAREN typed_numeric_cmp_required
+               | DOUBLE LPAREN expression RPAREN typed_numeric_cmp_required
+
+// Parenthesized content in boolean atom context
+typed_bool_paren: typed_bool_term typed_bool_and_or_tail
+
+typed_bool_and_or_tail: AND typed_bool_term typed_bool_and_or_tail
+                      | OR typed_bool_term typed_bool_and_or_tail
+                      |
+
+// After ID in boolean atom context
+typed_bool_id_cont: typed_numeric_arith_cmp
+                  | INCR
+                  | DECR
+                  | typed_postfix_chain
+
+// Numeric arithmetic followed by mandatory comparison (boolean context)
+typed_numeric_arith_cmp: PLUS typed_numeric_mul_expr typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | MINUS typed_numeric_mul_expr typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | STAR typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | SLASH typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | MOD typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | typed_cmp_op typed_numeric_add_expr
+
+typed_numeric_add_cmp: PLUS typed_numeric_mul_expr typed_numeric_add_cmp
+                     | MINUS typed_numeric_mul_expr typed_numeric_add_cmp
+                     |
+
+// Numeric literal requires comparison to become boolean
+typed_numeric_cmp_required: typed_numeric_lit_arith typed_cmp_op typed_numeric_add_expr
+
+typed_numeric_lit_arith: STAR typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp
+                       | SLASH typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp
+                       | MOD typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp
+                       | PLUS typed_numeric_mul_expr typed_numeric_add_cmp
+                       | MINUS typed_numeric_mul_expr typed_numeric_add_cmp
+                       |
+
+// Negated numeric requires comparison (boolean context)
+typed_numeric_neg_cmp: typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+
+// ============================================
+// ID CONTINUATION (type unknown - allow all)
+// ============================================
+// Left-factored to avoid reduce/reduce conflicts
+// Postfix operations are inlined to eliminate epsilon chains
+
+typed_id_cont: typed_arith_ops typed_after_arith
+             | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+             | INCR
+             | DECR
+             | LBRACK array_index RBRACK typed_id_arr_cont
+             | DOT ID typed_id_field_cont
+             | LPAREN arg_list RPAREN typed_id_call_cont
+             | CONCAT typed_string_operand typed_string_cont
+             | typed_bool_tail_opt
+
+// After array access on ID
+typed_id_arr_cont: LBRACK array_index RBRACK typed_id_arr2_cont
+                 | typed_id_postfix_cont
+
+typed_id_arr2_cont: typed_id_postfix_cont
+
+typed_id_postfix_cont: DOT ID typed_id_field_cont
+                     | LPAREN arg_list RPAREN typed_id_call_cont
+                     | typed_arith_ops typed_after_arith
+                     | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                     | CONCAT typed_string_operand typed_string_cont
+                     | typed_bool_tail_opt
+
+// After field access on ID
+typed_id_field_cont: LBRACK array_index RBRACK typed_id_arr_cont
+                   | DOT ID typed_id_field_cont
+                   | LPAREN arg_list RPAREN typed_id_call_cont
+                   | typed_arith_ops typed_after_arith
+                   | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                   | CONCAT typed_string_operand typed_string_cont
+                   | typed_bool_tail_opt
+
+// After function call on ID
+typed_id_call_cont: LBRACK array_index RBRACK typed_id_arr_cont
+                  | DOT ID typed_id_field_cont
+                  | LPAREN arg_list RPAREN typed_id_call_cont
+                  | typed_arith_ops typed_after_arith
+                  | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                  | CONCAT typed_string_operand typed_string_cont
+                  | typed_bool_tail_opt
+
+// ============================================
+// PARENTHESIZED CONTINUATION
+// ============================================
+
+typed_paren_cont: typed_concat_expr RPAREN typed_paren_after
+
+// After (expr): inline postfix to avoid epsilon chain conflicts
+typed_paren_after: typed_arith_ops typed_after_arith
+                 | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                 | CONCAT typed_string_operand typed_string_cont
+                 | LBRACK array_index RBRACK typed_paren_arr_cont
+                 | DOT ID typed_paren_field_cont
+                 | LPAREN arg_list RPAREN typed_paren_call_cont
+                 | typed_bool_tail_opt
+
+typed_paren_arr_cont: LBRACK array_index RBRACK typed_paren_arr2_cont
+                    | typed_paren_postfix_cont
+
+typed_paren_arr2_cont: typed_paren_postfix_cont
+
+typed_paren_postfix_cont: DOT ID typed_paren_field_cont
+                        | LPAREN arg_list RPAREN typed_paren_call_cont
+                        | typed_arith_ops typed_after_arith
+                        | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                        |
+
+typed_paren_field_cont: LBRACK array_index RBRACK typed_paren_arr_cont
+                      | DOT ID typed_paren_field_cont
+                      | LPAREN arg_list RPAREN typed_paren_call_cont
+                      | typed_arith_ops typed_after_arith
+                      | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                      |
+
+typed_paren_call_cont: LBRACK array_index RBRACK typed_paren_arr_cont
+                     | DOT ID typed_paren_field_cont
+                     | LPAREN arg_list RPAREN typed_paren_call_cont
+                     | typed_arith_ops typed_after_arith
+                     | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                     |
+
+// ============================================
+// NUMERIC EXPRESSION RULES
+// ============================================
+
+typed_numeric_add_expr: typed_numeric_mul_expr typed_numeric_add_tail
+
+typed_numeric_add_tail: PLUS typed_numeric_mul_expr typed_numeric_add_tail
+                      | MINUS typed_numeric_mul_expr typed_numeric_add_tail
+                      |
+
+typed_numeric_mul_expr: typed_numeric_unary_expr typed_numeric_mul_tail
+
+typed_numeric_mul_tail: STAR typed_numeric_unary_expr typed_numeric_mul_tail
+                      | SLASH typed_numeric_unary_expr typed_numeric_mul_tail
+                      | MOD typed_numeric_unary_expr typed_numeric_mul_tail
+                      |
+
+typed_numeric_unary_expr: NOT typed_numeric_unary_expr
+                        | MINUS typed_numeric_unary_expr
+                        | typed_numeric_postfix_expr
+
+// Numeric-only postfix - excludes CHARLIT, STRINGLIT, TRUE, FALSE
+typed_numeric_postfix_expr: INTLIT
+                          | LONGLIT
+                          | FLOATLIT
+                          | DOUBLELIT
+                          | ID typed_postfix_chain
+                          | LPAREN expression RPAREN typed_postfix_chain
+                          | INT LPAREN expression RPAREN
+                          | LONG LPAREN expression RPAREN
+                          | FLOAT LPAREN expression RPAREN
+                          | DOUBLE LPAREN expression RPAREN
+                          | INCR ID
+                          | DECR ID
+
+// ============================================
+// COMPARISON OPERATORS
+// ============================================
+
+typed_cmp_op: LT
+            | GT
+            | LTE
+            | GTE
+            | EQ
+            | NEQ
+
+// ============================================
+// POSTFIX CHAIN
+// ============================================
+
+typed_postfix_chain: LBRACK array_index RBRACK typed_postfix_after_arr
+                   | DOT ID typed_postfix_chain
+                   | LPAREN arg_list RPAREN typed_postfix_chain
+                   |
+
+typed_postfix_after_arr: LBRACK array_index RBRACK
+                       | DOT ID typed_postfix_chain
+                       | LPAREN arg_list RPAREN typed_postfix_chain
+                       |
+
+// ============================================
+// SHARED EXPRESSION PRIMITIVES
+// ============================================
+// array_index, arg_list, arg_tail used by typed_postfix_chain and other live rules
 
 array_index: INTLIT
            | ID
@@ -1491,38 +1565,303 @@ effect_post_member: assign_op stmt_assign_expr
 // ============================================
 // STATEMENT EXPRESSION RULES (ISOLATED FOLLOW SET)
 // ============================================
-// These rules isolate FOLLOW set to {;} for statement contexts
-// Used by effect_stmt for RHS expressions (after assignment operators)
-// Error messages will correctly show: operators, ; (not , ) from arg contexts)
+// BATCH 3 - Typed Expression Discipline
+// - Assignment does NOT chain (a = b = c is invalid)
+// - Boolean operators (&&, ||, !) require boolean operands
+// - Concat (..) requires string-like operands (STRINGLIT, CHARLIT, ID, casts)
+// - Relational (<, >, <=, >=) require numeric operands (already enforced)
+// - Arithmetic (+, -, *, /, %) require numeric operands (already enforced)
+// FOLLOW set isolated to {;} for statement contexts
 
-stmt_assign_expr: stmt_concat_expr stmt_assign_tail
+// Top-level: assignment with NO CHAINING
+// effect_id_cont already provides the assign_op, so RHS is just the expression
+stmt_assign_expr: stmt_typed_rhs
 
-stmt_assign_tail: assign_op stmt_assign_expr
-                |
+// Typed RHS - entry point after assignment operator
+// Routes to concat for string-like, or bool for everything else
+stmt_typed_rhs: stmt_bool_or_concat
 
-stmt_concat_expr: stmt_or_expr stmt_concat_tail
+// Top-level typed: either concat chain, numeric expression, or boolean expression
+// Left-factored for LALR
+stmt_bool_or_concat: STRINGLIT stmt_concat_tail_typed
+                   | CHARLIT stmt_concat_tail_typed
+                   | STRING LPAREN arg_expr RPAREN stmt_concat_tail_typed
+                   | INTLIT stmt_numeric_or_bool
+                   | LONGLIT stmt_numeric_or_bool
+                   | FLOATLIT stmt_numeric_or_bool
+                   | DOUBLELIT stmt_numeric_or_bool
+                   | MINUS stmt_neg_numeric_or_bool
+                   | TRUE stmt_bool_tail_opt
+                   | FALSE stmt_bool_tail_opt
+                   | NOT stmt_bool_factor stmt_bool_tail_opt
+                   | INT LPAREN arg_expr RPAREN stmt_numeric_or_bool
+                   | LONG LPAREN arg_expr RPAREN stmt_numeric_or_bool
+                   | FLOAT LPAREN arg_expr RPAREN stmt_numeric_or_bool
+                   | DOUBLE LPAREN arg_expr RPAREN stmt_numeric_or_bool
+                   | CHAR LPAREN arg_expr RPAREN
+                   | BOOL LPAREN arg_expr RPAREN stmt_bool_tail_opt
+                   | ID stmt_id_toplevel_cont
+                   | LPAREN stmt_paren_typed_content
+                   | INCR ID
+                   | DECR ID
 
-stmt_concat_tail: CONCAT stmt_or_expr stmt_concat_tail
-                |
+// After numeric literal at top level: can be arithmetic, relational, or boolean ops
+stmt_numeric_or_bool: stmt_arith_ops stmt_after_arith
+                    | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                    | stmt_bool_tail_opt
 
-stmt_or_expr: stmt_and_expr stmt_or_tail
+// Arithmetic operators
+stmt_arith_ops: PLUS numeric_mul_expr_stmt stmt_numeric_add_ops
+              | MINUS numeric_mul_expr_stmt stmt_numeric_add_ops
+              | STAR numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops
+              | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops
+              | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops
 
-stmt_or_tail: OR stmt_and_expr stmt_or_tail
-            |
+stmt_numeric_add_ops: PLUS numeric_mul_expr_stmt stmt_numeric_add_ops
+                    | MINUS numeric_mul_expr_stmt stmt_numeric_add_ops
+                    |
 
-stmt_and_expr: stmt_eq_expr stmt_and_tail
+// After arithmetic: may have comparison, then optionally boolean ops
+stmt_after_arith: stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                | stmt_bool_tail_opt
 
-stmt_and_tail: AND stmt_eq_expr stmt_and_tail
-             |
+// Negated numeric: arithmetic then optional comparison and boolean
+stmt_neg_numeric_or_bool: numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_after_arith
 
-stmt_eq_expr: stmt_rel_expr stmt_eq_tail
+// Boolean tail (AND/OR) - optional
+stmt_bool_tail_opt: AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt
+                  | OR stmt_bool_term stmt_bool_or_tail
+                  |
 
-stmt_eq_tail: EQ stmt_rel_expr stmt_eq_tail
-            | NEQ stmt_rel_expr stmt_eq_tail
-            |
+stmt_bool_or_tail_opt: OR stmt_bool_term stmt_bool_or_tail
+                     |
 
-// Relational uses full add_expr base to allow string comparisons like s == "hello" to chain
-// But relational operators (<, >, etc.) require numeric operands
+// After ID at top level
+stmt_id_toplevel_cont: stmt_arith_ops stmt_after_arith
+                     | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                     | INCR
+                     | DECR
+                     | stmt_postfix_chain stmt_id_after_postfix
+
+stmt_id_after_postfix: stmt_arith_ops stmt_after_arith
+                     | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                     | CONCAT stmt_string_operand stmt_concat_tail_typed
+                     | stmt_bool_tail_opt
+
+// ============================================
+// TYPE-TRACKING PARENTHESIZED EXPRESSIONS
+// ============================================
+// Tracks what type the paren content produces, routes to appropriate continuations
+// - Numeric content → allows arithmetic, comparison, boolean after )
+// - Boolean content (has comparison or starts with true/false) → only allows && || after )
+// - String content → only allows concat after )
+// - ID/nested paren → permissive (semantic analysis catches type errors)
+
+stmt_paren_typed_content: STRINGLIT stmt_concat_tail_typed RPAREN stmt_paren_string_cont
+                        | CHARLIT stmt_concat_tail_typed RPAREN stmt_paren_string_cont
+                        | STRING LPAREN arg_expr RPAREN stmt_concat_tail_typed RPAREN stmt_paren_string_cont
+                        | CHAR LPAREN arg_expr RPAREN RPAREN stmt_paren_string_cont
+                        | INTLIT stmt_paren_num_start
+                        | LONGLIT stmt_paren_num_start
+                        | FLOATLIT stmt_paren_num_start
+                        | DOUBLELIT stmt_paren_num_start
+                        | MINUS stmt_paren_neg_num
+                        | INT LPAREN arg_expr RPAREN stmt_paren_num_start
+                        | LONG LPAREN arg_expr RPAREN stmt_paren_num_start
+                        | FLOAT LPAREN arg_expr RPAREN stmt_paren_num_start
+                        | DOUBLE LPAREN arg_expr RPAREN stmt_paren_num_start
+                        | TRUE stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                        | FALSE stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                        | NOT stmt_bool_factor stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                        | BOOL LPAREN arg_expr RPAREN stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                        | ID stmt_paren_id_cont
+                        | LPAREN stmt_paren_typed_content RPAREN stmt_paren_any_cont
+                        | INCR ID stmt_paren_num_after_incr
+                        | DECR ID stmt_paren_num_after_incr
+
+// String continuation after paren - only concat allowed
+stmt_paren_string_cont: CONCAT stmt_string_operand stmt_concat_tail_typed
+                      |
+
+// Numeric starting in paren - may stay numeric or become boolean via comparison
+stmt_paren_num_start: stmt_paren_arith_ops
+                    | stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                    | RPAREN stmt_paren_num_cont
+
+stmt_paren_arith_ops: PLUS numeric_mul_expr_stmt stmt_numeric_add_ops stmt_paren_after_arith
+                    | MINUS numeric_mul_expr_stmt stmt_numeric_add_ops stmt_paren_after_arith
+                    | STAR numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_paren_after_arith
+                    | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_paren_after_arith
+                    | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_paren_after_arith
+
+stmt_paren_after_arith: stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                      | RPAREN stmt_paren_num_cont
+
+// Negated numeric in paren
+stmt_paren_neg_num: numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_paren_after_arith
+
+// After ++id or --id in paren
+stmt_paren_num_after_incr: stmt_paren_arith_ops
+                         | stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                         | RPAREN stmt_paren_num_cont
+
+// Numeric continuation after ) - allows arithmetic, comparison, and bool ops
+stmt_paren_num_cont: stmt_arith_ops stmt_after_arith
+                   | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                   | stmt_bool_tail_opt
+
+// Boolean tail inside paren (before closing)
+stmt_paren_bool_tail: AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt
+                    | OR stmt_bool_term stmt_bool_or_tail
+                    |
+
+// Boolean continuation after ) - ONLY && and || allowed, NO arithmetic
+stmt_paren_bool_cont: AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt
+                    | OR stmt_bool_term stmt_bool_or_tail
+                    |
+
+// ID in paren - type unknown, dispatch based on what follows
+// Uses stmt_paren_postfix_nonnull to avoid reduce/reduce with empty bool_tail
+stmt_paren_id_cont: stmt_paren_arith_ops
+                  | stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                  | stmt_paren_postfix_nonnull stmt_paren_id_after_postfix
+                  | INCR RPAREN stmt_paren_num_cont
+                  | DECR RPAREN stmt_paren_num_cont
+                  | AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt RPAREN stmt_paren_any_cont
+                  | OR stmt_bool_term stmt_bool_or_tail RPAREN stmt_paren_any_cont
+                  | RPAREN stmt_paren_any_cont
+
+// Non-nullable postfix chain for use inside parens (avoids conflict with bool_tail)
+stmt_paren_postfix_nonnull: LBRACK array_index RBRACK stmt_postfix_after_arr
+                          | DOT ID stmt_postfix_chain
+                          | LPAREN arg_list RPAREN stmt_postfix_chain
+
+stmt_paren_id_after_postfix: stmt_paren_arith_ops
+                           | stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                           | CONCAT stmt_string_operand stmt_concat_tail_typed RPAREN stmt_paren_string_cont
+                           | AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt RPAREN stmt_paren_any_cont
+                           | OR stmt_bool_term stmt_bool_or_tail RPAREN stmt_paren_any_cont
+                           | RPAREN stmt_paren_any_cont
+
+// Any continuation after ) - for ID and nested parens where type is unknown
+stmt_paren_any_cont: stmt_arith_ops stmt_after_arith
+                   | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                   | CONCAT stmt_string_operand stmt_concat_tail_typed
+                   | stmt_bool_tail_opt
+
+// Concat tail - string-only continuation
+stmt_concat_tail_typed: CONCAT stmt_string_operand stmt_concat_tail_typed
+                      |
+
+// String operand for concat RHS - allows any value (implicit string conversion)
+stmt_string_operand: STRINGLIT
+                   | CHARLIT
+                   | ID
+                   | STRING LPAREN arg_expr RPAREN
+                   | CHAR LPAREN arg_expr RPAREN
+                   | LPAREN stmt_string_operand stmt_concat_tail_typed RPAREN
+                   | INTLIT
+                   | LONGLIT
+                   | FLOATLIT
+                   | DOUBLELIT
+                   | TRUE
+                   | FALSE
+                   | INT LPAREN arg_expr RPAREN
+                   | LONG LPAREN arg_expr RPAREN
+                   | FLOAT LPAREN arg_expr RPAREN
+                   | DOUBLE LPAREN arg_expr RPAREN
+                   | BOOL LPAREN arg_expr RPAREN
+
+// Boolean term for operand of OR (enforces boolean discipline)
+stmt_bool_term: stmt_bool_eq stmt_bool_and_tail
+
+stmt_bool_and_tail: AND stmt_bool_eq stmt_bool_and_tail
+                  |
+
+stmt_bool_or_tail: OR stmt_bool_term stmt_bool_or_tail
+                 |
+
+// Equality level for boolean expressions
+// At this level, comparisons produce boolean results
+stmt_bool_eq: stmt_bool_factor stmt_bool_eq_tail
+
+stmt_bool_eq_tail: EQ stmt_bool_factor stmt_bool_eq_tail
+                 | NEQ stmt_bool_factor stmt_bool_eq_tail
+                 |
+
+// Boolean factor - NOT or atom
+stmt_bool_factor: NOT stmt_bool_factor
+                | stmt_bool_atom
+
+// Boolean atom - the base boolean-producing constructs
+// Left-factored: ID handled specially, numeric literals require comparison
+stmt_bool_atom: TRUE
+              | FALSE
+              | ID stmt_bool_id_cont
+              | INTLIT stmt_numeric_cmp_required
+              | LONGLIT stmt_numeric_cmp_required
+              | FLOATLIT stmt_numeric_cmp_required
+              | DOUBLELIT stmt_numeric_cmp_required
+              | MINUS stmt_numeric_neg_cmp
+              | LPAREN stmt_bool_paren RPAREN
+              | INT LPAREN arg_expr RPAREN stmt_numeric_cmp_required
+              | LONG LPAREN arg_expr RPAREN stmt_numeric_cmp_required
+              | FLOAT LPAREN arg_expr RPAREN stmt_numeric_cmp_required
+              | DOUBLE LPAREN arg_expr RPAREN stmt_numeric_cmp_required
+
+// After ID in boolean context: could be boolean var, or start of comparison
+// Note: empty case handled by stmt_postfix_chain which can be empty
+stmt_bool_id_cont: stmt_numeric_arith_cmp
+                 | INCR
+                 | DECR
+                 | stmt_postfix_chain
+
+// Numeric arithmetic followed by mandatory comparison (for ID start)
+stmt_numeric_arith_cmp: PLUS numeric_mul_expr_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | MINUS numeric_mul_expr_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | STAR numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | stmt_cmp_op numeric_add_expr_stmt
+
+stmt_numeric_add_cmp: PLUS numeric_mul_expr_stmt stmt_numeric_add_cmp
+                    | MINUS numeric_mul_expr_stmt stmt_numeric_add_cmp
+                    |
+
+// Numeric literal MUST be followed by comparison (can't use as bare bool)
+stmt_numeric_cmp_required: stmt_numeric_lit_arith stmt_cmp_op numeric_add_expr_stmt
+
+stmt_numeric_lit_arith: STAR numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp
+                      | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp
+                      | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp
+                      | PLUS numeric_mul_expr_stmt stmt_numeric_add_cmp
+                      | MINUS numeric_mul_expr_stmt stmt_numeric_add_cmp
+                      |
+
+// Negated numeric - must have comparison
+stmt_numeric_neg_cmp: numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+
+// Comparison operators
+stmt_cmp_op: LT
+           | GT
+           | LTE
+           | GTE
+           | EQ
+           | NEQ
+
+// Parenthesized expression in boolean context
+// Parenthesized content in boolean atom context
+stmt_bool_paren: stmt_bool_term stmt_bool_and_or_tail
+
+stmt_bool_and_or_tail: AND stmt_bool_term stmt_bool_and_or_tail
+                     | OR stmt_bool_term stmt_bool_and_or_tail
+                     |
+
+// ============================================
+// LEGACY STMT RULES (for compatibility with effect_stmt)
+// ============================================
+// These remain for effect_stmt transitions but route through typed layers
+
 stmt_rel_expr: stmt_add_expr stmt_rel_tail
 
 stmt_rel_tail: LT numeric_add_expr_stmt
@@ -1636,40 +1975,194 @@ stmt_arg_tail: COMMA arg_expr stmt_arg_tail
 // ============================================
 // ARGUMENT EXPRESSION (ISOLATED FOLLOW SET)
 // ============================================
-// arg_expr is used where expression is in argument position (followed by , or ))
-// Isolates FOLLOW set so expected tokens don't include ; from statement context
-// Error messages will correctly show: operators, , )
+// BATCH 3 - Typed Expression Discipline for arg context
+// - Assignment does NOT chain (a = b = c is invalid)
+// - Boolean operators (&&, ||, !) require boolean operands
+// - Concat (..) requires string-like operands
+// - Relational (<, >, <=, >=) require numeric operands
+// - Arithmetic (+, -, *, /, %) require numeric operands
+// FOLLOW set isolated to {, )} for argument contexts
 
-arg_expr: arg_assign_expr
+arg_expr: arg_typed_rhs arg_assign_tail
 
-arg_assign_expr: arg_concat_expr arg_assign_tail
-
-arg_assign_tail: assign_op arg_assign_expr
+// assign_tail does NOT recurse to arg_assign_expr - prevents a = b = c
+arg_assign_tail: assign_op arg_typed_rhs
                |
 
-arg_concat_expr: arg_or_expr arg_concat_tail
+// Typed RHS - entry point after assignment operator
+arg_typed_rhs: arg_bool_or_concat
 
-arg_concat_tail: CONCAT arg_or_expr arg_concat_tail
-               |
+// Top-level typed: either concat chain, numeric expression, or boolean expression
+arg_bool_or_concat: STRINGLIT arg_concat_tail_typed
+                  | CHARLIT arg_concat_tail_typed
+                  | STRING LPAREN arg_expr RPAREN arg_concat_tail_typed
+                  | INTLIT arg_numeric_or_bool
+                  | LONGLIT arg_numeric_or_bool
+                  | FLOATLIT arg_numeric_or_bool
+                  | DOUBLELIT arg_numeric_or_bool
+                  | MINUS arg_neg_numeric_or_bool
+                  | TRUE arg_bool_tail_opt
+                  | FALSE arg_bool_tail_opt
+                  | NOT arg_bool_factor arg_bool_tail_opt
+                  | INT LPAREN arg_expr RPAREN arg_numeric_or_bool
+                  | LONG LPAREN arg_expr RPAREN arg_numeric_or_bool
+                  | FLOAT LPAREN arg_expr RPAREN arg_numeric_or_bool
+                  | DOUBLE LPAREN arg_expr RPAREN arg_numeric_or_bool
+                  | CHAR LPAREN arg_expr RPAREN
+                  | BOOL LPAREN arg_expr RPAREN arg_bool_tail_opt
+                  | ID arg_id_toplevel_cont
+                  | LPAREN arg_toplevel_paren RPAREN arg_toplevel_paren_cont
+                  | INCR ID
+                  | DECR ID
 
-arg_or_expr: arg_and_expr arg_or_tail
+// After numeric literal at top level: arithmetic, relational, or boolean ops
+arg_numeric_or_bool: arg_arith_ops arg_after_arith
+                   | arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+                   | arg_bool_tail_opt
 
-arg_or_tail: OR arg_and_expr arg_or_tail
-           |
+// Arithmetic operators
+arg_arith_ops: PLUS numeric_mul_expr_arg arg_numeric_add_ops
+             | MINUS numeric_mul_expr_arg arg_numeric_add_ops
+             | STAR numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_ops
+             | SLASH numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_ops
+             | MOD numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_ops
 
-arg_and_expr: arg_eq_expr arg_and_tail
+arg_numeric_add_ops: PLUS numeric_mul_expr_arg arg_numeric_add_ops
+                   | MINUS numeric_mul_expr_arg arg_numeric_add_ops
+                   |
 
-arg_and_tail: AND arg_eq_expr arg_and_tail
-            |
+// After arithmetic: may have comparison, then optionally boolean ops
+arg_after_arith: arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+               | arg_bool_tail_opt
 
-arg_eq_expr: arg_rel_expr arg_eq_tail
+// Negated numeric: arithmetic then optional comparison and boolean
+arg_neg_numeric_or_bool: numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_ops arg_after_arith
 
-arg_eq_tail: EQ arg_rel_expr arg_eq_tail
-           | NEQ arg_rel_expr arg_eq_tail
-           |
+// Boolean tail (AND/OR) - optional
+arg_bool_tail_opt: AND arg_bool_term arg_bool_and_tail arg_bool_or_tail_opt
+                 | OR arg_bool_term arg_bool_or_tail
+                 |
 
-// Relational uses full add_expr base to allow string comparisons to chain
-// But relational operators (<, >, etc.) require numeric operands
+arg_bool_or_tail_opt: OR arg_bool_term arg_bool_or_tail
+                    |
+
+// After ID at top level
+arg_id_toplevel_cont: arg_arith_ops arg_after_arith
+                    | arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+                    | INCR
+                    | DECR
+                    | arg_postfix_chain arg_id_after_postfix
+
+arg_id_after_postfix: arg_arith_ops arg_after_arith
+                    | arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+                    | CONCAT arg_string_operand arg_concat_tail_typed
+                    | arg_bool_tail_opt
+
+// Parenthesized at top level
+arg_toplevel_paren: arg_bool_or_concat
+
+arg_toplevel_paren_cont: arg_arith_ops arg_after_arith
+                       | arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+                       | CONCAT arg_string_operand arg_concat_tail_typed
+                       | arg_bool_tail_opt
+
+// Concat tail - string-only continuation
+arg_concat_tail_typed: CONCAT arg_string_operand arg_concat_tail_typed
+                     |
+
+// String operand for concat RHS
+arg_string_operand: STRINGLIT
+                  | CHARLIT
+                  | ID
+                  | STRING LPAREN arg_expr RPAREN
+                  | CHAR LPAREN arg_expr RPAREN
+                  | LPAREN arg_string_operand arg_concat_tail_typed RPAREN
+
+// Boolean term for operand of OR (enforces boolean discipline)
+arg_bool_term: arg_bool_eq arg_bool_and_tail
+
+arg_bool_and_tail: AND arg_bool_eq arg_bool_and_tail
+                 |
+
+arg_bool_or_tail: OR arg_bool_term arg_bool_or_tail
+                |
+
+// Equality level for boolean expressions
+arg_bool_eq: arg_bool_factor arg_bool_eq_tail
+
+arg_bool_eq_tail: EQ arg_bool_factor arg_bool_eq_tail
+                | NEQ arg_bool_factor arg_bool_eq_tail
+                |
+
+// Boolean factor - NOT or atom
+arg_bool_factor: NOT arg_bool_factor
+               | arg_bool_atom
+
+// Boolean atom - the base boolean-producing constructs
+arg_bool_atom: TRUE
+             | FALSE
+             | ID arg_bool_id_cont
+             | INTLIT arg_numeric_cmp_required
+             | LONGLIT arg_numeric_cmp_required
+             | FLOATLIT arg_numeric_cmp_required
+             | DOUBLELIT arg_numeric_cmp_required
+             | MINUS arg_numeric_neg_cmp
+             | LPAREN arg_bool_paren RPAREN
+             | INT LPAREN arg_expr RPAREN arg_numeric_cmp_required
+             | LONG LPAREN arg_expr RPAREN arg_numeric_cmp_required
+             | FLOAT LPAREN arg_expr RPAREN arg_numeric_cmp_required
+             | DOUBLE LPAREN arg_expr RPAREN arg_numeric_cmp_required
+
+// Parenthesized content in boolean atom context
+arg_bool_paren: arg_bool_term arg_bool_and_or_tail
+
+arg_bool_and_or_tail: AND arg_bool_term arg_bool_and_or_tail
+                    | OR arg_bool_term arg_bool_and_or_tail
+                    |
+
+// After ID in boolean context
+arg_bool_id_cont: arg_numeric_arith_cmp
+                | INCR
+                | DECR
+                | arg_postfix_chain
+
+// Numeric arithmetic followed by mandatory comparison (for ID start)
+arg_numeric_arith_cmp: PLUS numeric_mul_expr_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | MINUS numeric_mul_expr_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | STAR numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | SLASH numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | MOD numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | arg_cmp_op numeric_add_expr_arg
+
+arg_numeric_add_cmp: PLUS numeric_mul_expr_arg arg_numeric_add_cmp
+                   | MINUS numeric_mul_expr_arg arg_numeric_add_cmp
+                   |
+
+// Numeric literal MUST be followed by comparison (can't use as bare bool)
+arg_numeric_cmp_required: arg_numeric_lit_arith arg_cmp_op numeric_add_expr_arg
+
+arg_numeric_lit_arith: STAR numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp
+                     | SLASH numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp
+                     | MOD numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp
+                     | PLUS numeric_mul_expr_arg arg_numeric_add_cmp
+                     | MINUS numeric_mul_expr_arg arg_numeric_add_cmp
+                     |
+
+// Negated numeric - must have comparison
+arg_numeric_neg_cmp: numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+
+// Comparison operators for arg context
+arg_cmp_op: LT
+          | GT
+          | LTE
+          | GTE
+          | EQ
+          | NEQ
+
+// ============================================
+// ARG LAYER NUMERIC RULES (kept for compatibility)
+// ============================================
+
 arg_rel_expr: arg_add_expr arg_rel_tail
 
 arg_rel_tail: LT numeric_add_expr_arg
@@ -1859,8 +2352,8 @@ for_init: LOCAL VAR for_init_type ID ASSIGN for_init_expr
 for_init_assign_tail: assign_op for_init_expr
 
 // Restricted expression for for_init: no assignment chaining
-// Uses stmt_concat_expr since for_init is followed by SEMICOLON
-for_init_expr: stmt_concat_expr
+// Uses stmt_typed_rhs since for_init is followed by SEMICOLON
+for_init_expr: stmt_typed_rhs
 
 for_init_type: INT
              | LONG
@@ -1873,485 +2366,204 @@ for_init_type: INT
 for_cond: condition
 
 // ============================================
-// CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
+// BATCH 2 – CONDITION SYSTEM REPLACED
 // ============================================
-// Complete redesign for strict boolean enforcement:
-// - ONLY boolean-producing constructs allowed
-// - Relational expressions ALWAYS require comparison operator
-// - Arithmetic expressions FORBIDDEN without comparison
-// - Type casts FORBIDDEN without comparison
-// - Numeric literals FORBIDDEN standalone
-//
-// Allowed:
-// - Boolean identifiers: if (x)
-// - Boolean literals: if (true), if (false)
-// - Relational expressions: if (x < 5), if (a == b)
-// - Logical combinations: if (x && y), if (a || b)
-// - Negation: if (!x), if (!(a < b))
-// - Nested parentheses: if ((a && b) || c)
-//
-// Disallowed:
-// - Standalone numeric literals: if (2), if (3.14)
-// - Standalone arithmetic: if (x + 5), if (a * b)
-// - Arithmetic in logical without comparison: if (x && 2)
-// - Type casts without comparison: if (int(5))
+// Self-contained typed boolean system for conditions.
+// Strict boolean discipline: only boolean-producing constructs allowed.
+// Arithmetic requires comparison. Logical ops only on booleans.
+// Left-factored to be LALR(1)-compatible.
 
-condition: bool_or
+condition: cond_or
 
-bool_or: bool_and bool_or_tail
-bool_or_tail: OR bool_and bool_or_tail
+cond_or: cond_and cond_or_tail
+
+cond_or_tail: OR cond_and cond_or_tail
             |
 
-bool_and: bool_not bool_and_tail
-bool_and_tail: AND bool_not bool_and_tail
+cond_and: cond_not cond_and_tail
+
+cond_and_tail: AND cond_not cond_and_tail
              |
 
-bool_not: NOT bool_not
-        | bool_primary
+cond_not: NOT cond_not
+        | cond_atom
 
-// bool_primary: Only boolean-producing constructs
-// - true/false literals
-// - Identifiers (semantic verifies bool type)
-// - Parenthesized conditions (recursive boolean context)
-// - Relational expressions (comparison required)
-bool_primary: TRUE
-            | FALSE
-            | ID bool_id_options
-            | LPAREN bool_paren_complete
-            | relational_lhs_no_id relational_op_and_rhs
+// Left-factored atom: ID and LPAREN handled specially
+cond_atom: TRUE
+         | FALSE
+         | ID cond_id_cont
+         | LPAREN cond_paren_inner RPAREN cond_paren_tail
+         | cond_lit_cmp
 
-// Parenthesized condition - handles RPAREN internally
-// Some paths (ID+arith with outside compare) consume RPAREN themselves
-bool_paren_complete: paren_outer_start_complete
+// Content inside parentheses - unified for left-factoring
+// Supports: (x), (x<5), (x+5)>10, (!flag), (a&&b)
+cond_paren_inner: cond_paren_start cond_paren_cont
 
-// After ID in condition: dispatch based on what follows
-// - If ++/-- appears: comparison is REQUIRED (no standalone postincrement/decrement)
-// - If only [, ., () appear (no ++/--): can standalone or compare
-// - If comparison op: comparison
-// - If nothing: standalone ID (semantic checks bool type)
-// FIX: Prevents for(; j++; ) from being accepted - ++/-- must have comparison
-bool_id_options: INCR bool_must_compare_cont
-               | DECR bool_must_compare_cont
-               | LBRACK arg_expr RBRACK bool_after_bracket
-               | DOT ID bool_id_options
-               | LPAREN arg_list RPAREN bool_id_options
-               | relational_op_and_rhs
-               |
+cond_paren_start: ID
+                | INTLIT
+                | LONGLIT
+                | FLOATLIT
+                | DOUBLELIT
+                | TRUE
+                | FALSE
+                | NOT cond_not
+                | MINUS cond_paren_unary
+                | LPAREN cond_paren_inner RPAREN
 
-// After [expr] - decide path based on next token
-bool_after_bracket: LBRACK arg_expr RBRACK bool_after_2d_bracket
-                  | INCR bool_must_compare_cont
-                  | DECR bool_must_compare_cont
-                  | DOT ID bool_id_options
-                  | LPAREN arg_list RPAREN bool_id_options
-                  | relational_op_and_rhs
+// After initial token inside parens: arithmetic ops, comparison ops, or logical ops
+cond_paren_cont: cond_paren_arith_ops cond_paren_after_arith
+               | cond_cmp cond_rhs cond_paren_logic
+               | cond_paren_logic
+
+// Arithmetic operations inside parens
+cond_paren_arith_ops: PLUS cond_paren_unary cond_paren_mul_ops
+                    | MINUS cond_paren_unary cond_paren_mul_ops
+                    | STAR cond_paren_unary cond_paren_mul_ops
+                    | SLASH cond_paren_unary cond_paren_mul_ops
+                    | MOD cond_paren_unary cond_paren_mul_ops
+
+cond_paren_mul_ops: STAR cond_paren_unary cond_paren_mul_ops
+                  | SLASH cond_paren_unary cond_paren_mul_ops
+                  | MOD cond_paren_unary cond_paren_mul_ops
+                  | PLUS cond_paren_unary cond_paren_mul_ops
+                  | MINUS cond_paren_unary cond_paren_mul_ops
                   |
 
-// After [expr][expr] - 2D array access complete
-bool_after_2d_bracket: INCR bool_must_compare_cont
-                     | DECR bool_must_compare_cont
-                     | DOT ID bool_id_options
-                     | LPAREN arg_list RPAREN bool_id_options
-                     | relational_op_and_rhs
-                     |
+cond_paren_unary: MINUS cond_paren_unary
+                | cond_paren_primary
 
-// After ++/--, comparison is REQUIRED (no epsilon - enforces the fix)
-// May have additional postfix after ++/-- (e.g., id++.field, id++[i])
-bool_must_compare_cont: LBRACK arg_expr RBRACK bool_must_compare_after_bracket
-                      | DOT ID bool_must_compare_cont
-                      | LPAREN arg_list RPAREN bool_must_compare_cont
-                      | relational_op_and_rhs
-
-// After [expr] when comparison required - check for 2D or continue
-bool_must_compare_after_bracket: LBRACK arg_expr RBRACK bool_must_compare_after_2d
-                               | DOT ID bool_must_compare_cont
-                               | LPAREN arg_list RPAREN bool_must_compare_cont
-                               | relational_op_and_rhs
-
-// After [expr][expr] when comparison required - no more array dims
-bool_must_compare_after_2d: DOT ID bool_must_compare_cont
-                          | LPAREN arg_list RPAREN bool_must_compare_cont
-                          | relational_op_and_rhs
-
-// ID postfix: field access, array subscript, function call, increment/decrement
-// NOTE: Used by parenthesized condition rules (paren_outer_id_complete, paren_inner_*)
-bool_id_postfix: INCR
-               | DECR
-               | LBRACK arg_expr RBRACK bool_id_arr_dim2
-               | DOT ID bool_id_postfix
-               | LPAREN arg_list RPAREN bool_id_postfix
-               |
-
-bool_id_arr_dim2: LBRACK arg_expr RBRACK
-                |
-
-// ============================================
-// PARENTHESIZED CONDITION CONTENT (STRICT)
-// ============================================
-// Strict parsing for paren content:
-// - TRUE/FALSE/!expr: pure boolean, can terminate
-// - ID: can terminate (semantic validates) OR arithmetic with deferred comparison
-// - Literal/cast: MUST have comparison inside (no deferral)
-// - Nested parens: NO deferral - comparison must be inside if arithmetic present
-//
-// Valid: (x), (x && y), (x < 5), (x + 5 > 10), (x + 5) > 10, ((x)), ((x < 5))
-// Invalid: (3), (3 + 2), ((x + 5)), (x + 5) without comparison
-
-// Outer paren content - handles RPAREN and possible outside comparison
-// All paths consume RPAREN internally
-paren_outer_start_complete: TRUE paren_bool_tail RPAREN paren_outside_opt
-                          | FALSE paren_bool_tail RPAREN paren_outside_opt
-                          | NOT bool_not paren_bool_tail RPAREN paren_outside_opt
-                          | ID paren_outer_id_complete
-                          | LPAREN paren_inner_content RPAREN paren_after_nested_outer RPAREN paren_outside_opt
-                          | paren_arith_lhs paren_must_compare_inside RPAREN paren_outside_opt
-
-// Optional outside comparison for committed content (pure boolean or relational)
-paren_outside_opt: relational_continue_ops
-                 |
-
-// After TRUE/FALSE/!expr - can continue with logical or end
-paren_bool_tail: OR bool_and bool_or_tail
-               | AND bool_not bool_and_tail
-               |
-
-// After ID in outer paren - dispatch based on postfix
-// FIX: ++/-- paths MUST compare (no bare RPAREN option)
-paren_outer_id_complete: INCR paren_outer_must_compare_cont
-                       | DECR paren_outer_must_compare_cont
-                       | LBRACK arg_expr RBRACK paren_outer_after_bracket
-                       | DOT ID paren_outer_id_complete
-                       | LPAREN arg_list RPAREN paren_outer_id_complete
-                       | paren_outer_id_after_plain
-
-// After plain ID (no ++/--) - can terminate or compare
-paren_outer_id_after_plain: OR bool_and bool_or_tail RPAREN paren_outside_opt
-                          | AND bool_not bool_and_tail RPAREN paren_outside_opt
-                          | comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
-                          | paren_id_arith_path
-                          | RPAREN paren_outside_opt
-
-// After [expr] in outer paren - decide path
-paren_outer_after_bracket: LBRACK arg_expr RBRACK paren_outer_after_2d_bracket
-                         | INCR paren_outer_must_compare_cont
-                         | DECR paren_outer_must_compare_cont
-                         | DOT ID paren_outer_id_complete
-                         | LPAREN arg_list RPAREN paren_outer_id_complete
-                         | paren_outer_id_after_plain
-
-// After [expr][expr] in outer paren
-paren_outer_after_2d_bracket: INCR paren_outer_must_compare_cont
-                            | DECR paren_outer_must_compare_cont
-                            | DOT ID paren_outer_id_complete
-                            | LPAREN arg_list RPAREN paren_outer_id_complete
-                            | paren_outer_id_after_plain
-
-// After ++/-- in outer paren, comparison REQUIRED - no bare RPAREN
-paren_outer_must_compare_cont: LBRACK arg_expr RBRACK paren_outer_must_compare_after_bracket
-                             | DOT ID paren_outer_must_compare_cont
-                             | LPAREN arg_list RPAREN paren_outer_must_compare_cont
-                             | comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
-                             | paren_id_arith_path
-
-// After [expr] when comparison required in outer paren
-paren_outer_must_compare_after_bracket: LBRACK arg_expr RBRACK paren_outer_must_compare_after_2d
-                                      | DOT ID paren_outer_must_compare_cont
-                                      | LPAREN arg_list RPAREN paren_outer_must_compare_cont
-                                      | comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
-                                      | paren_id_arith_path
-
-// After [expr][expr] when comparison required in outer paren
-paren_outer_must_compare_after_2d: DOT ID paren_outer_must_compare_cont
-                                 | LPAREN arg_list RPAREN paren_outer_must_compare_cont
-                                 | comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
-                                 | paren_id_arith_path
-
-// ID + arithmetic - comparison REQUIRED (inside paren OR outside paren)
-// NO path allows termination without comparison
-// Uses numeric variant to disallow string/char literals in arithmetic
-paren_id_arith_path: PLUS numeric_relational_unary relational_arith_tail paren_arith_ending
-                   | MINUS numeric_relational_unary relational_arith_tail paren_arith_ending
-                   | STAR numeric_relational_unary relational_arith_tail paren_arith_ending
-                   | SLASH numeric_relational_unary relational_arith_tail paren_arith_ending
-                   | MOD numeric_relational_unary relational_arith_tail paren_arith_ending
-
-// After arithmetic in paren: comparison INSIDE or close and compare OUTSIDE
-// Both paths require comparison - NO bare termination allowed
-// Both paths consume RPAREN
-paren_arith_ending: comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
-                  | RPAREN relational_continue_ops
-
-// After nested parens at outer level - arithmetic must compare, boolean can end
-paren_after_nested_outer: OR bool_and bool_or_tail
-                        | AND bool_not bool_and_tail
-                        | comp_op arg_add_expr paren_rel_tail
-                        | paren_nested_arith_must_compare
-                        |
-
-// Arithmetic after nested parens - comparison REQUIRED (no defer from nested)
-paren_nested_arith_must_compare: PLUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                               | MINUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                               | STAR numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                               | SLASH numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                               | MOD numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-
-// ============================================
-// INNER PAREN CONTENT (NO DEFERRAL)
-// ============================================
-// Used for nested parens - NO deferred comparison allowed
-// Arithmetic MUST have comparison inside
-
-paren_inner_content: paren_inner_start
-
-paren_inner_start: TRUE paren_bool_tail
-                 | FALSE paren_bool_tail
-                 | NOT paren_inner_not paren_bool_tail
-                 | ID paren_inner_id_path
-                 | LPAREN paren_inner_content RPAREN paren_after_nested_inner
-                 | paren_arith_lhs paren_must_compare_inside
-
-// NOT in inner paren context
-paren_inner_not: NOT paren_inner_not
-               | paren_inner_primary
-
-paren_inner_primary: TRUE
-                   | FALSE
-                   | ID paren_inner_id_options_simple
-                   | LPAREN paren_inner_content RPAREN
-
-// After ID in inner primary - dispatch based on postfix
-// FIX: ++/-- paths have no epsilon (comparison required eventually)
-paren_inner_id_options_simple: INCR paren_inner_must_compare_cont_simple
-                             | DECR paren_inner_must_compare_cont_simple
-                             | LBRACK arg_expr RBRACK paren_inner_after_bracket_simple
-                             | DOT ID paren_inner_id_options_simple
-                             | LPAREN arg_list RPAREN paren_inner_id_options_simple
-                             |
-
-paren_inner_after_bracket_simple: LBRACK arg_expr RBRACK paren_inner_after_2d_simple
-                                | INCR paren_inner_must_compare_cont_simple
-                                | DECR paren_inner_must_compare_cont_simple
-                                | DOT ID paren_inner_id_options_simple
-                                | LPAREN arg_list RPAREN paren_inner_id_options_simple
-                                |
-
-paren_inner_after_2d_simple: INCR paren_inner_must_compare_cont_simple
-                           | DECR paren_inner_must_compare_cont_simple
-                           | DOT ID paren_inner_id_options_simple
-                           | LPAREN arg_list RPAREN paren_inner_id_options_simple
-                           |
-
-// After ++/-- in inner simple - must eventually compare (no epsilon here)
-paren_inner_must_compare_cont_simple: LBRACK arg_expr RBRACK paren_inner_must_compare_cont_simple
-                                    | DOT ID paren_inner_must_compare_cont_simple
-                                    | LPAREN arg_list RPAREN paren_inner_must_compare_cont_simple
-                                    | comp_op arg_add_expr
-
-// After ID in inner paren - dispatch based on postfix
-// FIX: ++/-- paths MUST compare (no bare epsilon)
-paren_inner_id_path: INCR paren_inner_must_compare_cont
-                   | DECR paren_inner_must_compare_cont
-                   | LBRACK arg_expr RBRACK paren_inner_after_bracket
-                   | DOT ID paren_inner_id_path
-                   | LPAREN arg_list RPAREN paren_inner_id_path
-                   | paren_inner_id_after_plain
-
-// After plain ID (no ++/--) in inner paren - can terminate or compare
-paren_inner_id_after_plain: OR paren_inner_and paren_inner_or_tail
-                          | AND paren_inner_not paren_inner_and_tail
-                          | comp_op arg_add_expr paren_rel_tail
-                          | paren_id_arith_must_compare
-                          |
-
-// After [expr] in inner paren - decide path
-paren_inner_after_bracket: LBRACK arg_expr RBRACK paren_inner_after_2d_bracket
-                         | INCR paren_inner_must_compare_cont
-                         | DECR paren_inner_must_compare_cont
-                         | DOT ID paren_inner_id_path
-                         | LPAREN arg_list RPAREN paren_inner_id_path
-                         | paren_inner_id_after_plain
-
-// After [expr][expr] in inner paren
-paren_inner_after_2d_bracket: INCR paren_inner_must_compare_cont
-                            | DECR paren_inner_must_compare_cont
-                            | DOT ID paren_inner_id_path
-                            | LPAREN arg_list RPAREN paren_inner_id_path
-                            | paren_inner_id_after_plain
-
-// After ++/-- in inner paren, comparison REQUIRED - no epsilon
-paren_inner_must_compare_cont: LBRACK arg_expr RBRACK paren_inner_must_compare_after_bracket
-                             | DOT ID paren_inner_must_compare_cont
-                             | LPAREN arg_list RPAREN paren_inner_must_compare_cont
-                             | comp_op arg_add_expr paren_rel_tail
-                             | paren_id_arith_must_compare
-
-// After [expr] when comparison required in inner paren
-paren_inner_must_compare_after_bracket: LBRACK arg_expr RBRACK paren_inner_must_compare_after_2d
-                                      | DOT ID paren_inner_must_compare_cont
-                                      | LPAREN arg_list RPAREN paren_inner_must_compare_cont
-                                      | comp_op arg_add_expr paren_rel_tail
-                                      | paren_id_arith_must_compare
-
-// After [expr][expr] when comparison required in inner paren
-paren_inner_must_compare_after_2d: DOT ID paren_inner_must_compare_cont
-                                 | LPAREN arg_list RPAREN paren_inner_must_compare_cont
-                                 | comp_op arg_add_expr paren_rel_tail
-                                 | paren_id_arith_must_compare
-
-// Inner paren logical continuations
-paren_inner_or_tail: OR paren_inner_and paren_inner_or_tail
-                   |
-
-paren_inner_and: paren_inner_not paren_inner_and_tail
-
-paren_inner_and_tail: AND paren_inner_not paren_inner_and_tail
-                    |
-
-// ID + arithmetic in inner paren - comparison REQUIRED (no defer)
-paren_id_arith_must_compare: PLUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                           | MINUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                           | STAR numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                           | SLASH numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                           | MOD numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-
-// After nested parens in inner context - same rules, no defer
-paren_after_nested_inner: OR paren_inner_and paren_inner_or_tail
-                        | AND paren_inner_not paren_inner_and_tail
-                        | comp_op arg_add_expr paren_rel_tail
-                        | paren_nested_arith_must_compare
-                        |
-
-// ============================================
-// ARITHMETIC LHS (MUST COMPARE)
-// ============================================
-// Literal/cast/unary-minus/prefix-incr-decr starters
-// These ALWAYS require comparison - no deferral
-// MINUS path uses numeric variant to disallow string/char in arithmetic
-
-paren_arith_lhs: MINUS numeric_relational_unary relational_arith_tail
-               | INCR ID relational_id_postfix_opt relational_arith_tail
-               | DECR ID relational_id_postfix_opt relational_arith_tail
-               | relational_literal relational_arith_tail
-               | relational_cast relational_arith_tail
-
-// Must have comparison inside paren (NO epsilon)
-paren_must_compare_inside: comp_op arg_add_expr paren_rel_tail
-
-// After relational in paren - can continue with logical or end
-paren_rel_tail: OR bool_and bool_or_tail
-              | AND bool_not bool_and_tail
-              |
-
-// Relational expression left-hand side (excludes ID which is handled separately)
-// These MUST be followed by comparison operator
-// MINUS path uses numeric variant - disallows string/char in arithmetic
-relational_lhs_no_id: MINUS numeric_relational_unary
-                    | INCR ID relational_id_postfix_opt
-                    | DECR ID relational_id_postfix_opt
-                    | relational_literal
-                    | relational_cast
-
-// Literals in relational context
-relational_literal: INTLIT
+cond_paren_primary: INTLIT
                   | LONGLIT
                   | FLOATLIT
                   | DOUBLELIT
-                  | CHARLIT
-                  | STRINGLIT
+                  | ID cond_rhs_id_tail
+                  | LPAREN cond_paren_inner RPAREN
 
-// Type casts in relational context
-relational_cast: INT LPAREN arg_expr RPAREN
-               | LONG LPAREN arg_expr RPAREN
-               | FLOAT LPAREN arg_expr RPAREN
-               | DOUBLE LPAREN arg_expr RPAREN
-               | CHAR LPAREN arg_expr RPAREN
-               | STRING LPAREN arg_expr RPAREN
-               | BOOL LPAREN arg_expr RPAREN
-
-// Unary expression in relational
-relational_unary: relational_unary_primary relational_arith_tail
-
-relational_unary_primary: MINUS relational_unary_primary
-                        | relational_postfix
-
-relational_postfix: relational_literal
-                  | relational_cast
-                  | INCR ID relational_id_postfix_opt
-                  | DECR ID relational_id_postfix_opt
-                  | ID relational_id_postfix_opt
-                  | LPAREN arg_add_expr RPAREN
-
-// Numeric-only variants for relational arithmetic (excludes CHARLIT, STRINGLIT)
-numeric_relational_literal: INTLIT
-                          | LONGLIT
-                          | FLOATLIT
-                          | DOUBLELIT
-
-// Numeric casts (excludes CHAR, STRING, BOOL casts from arithmetic)
-numeric_relational_cast: INT LPAREN arg_expr RPAREN
-                       | LONG LPAREN arg_expr RPAREN
-                       | FLOAT LPAREN arg_expr RPAREN
-                       | DOUBLE LPAREN arg_expr RPAREN
-
-numeric_relational_postfix: numeric_relational_literal
-                          | numeric_relational_cast
-                          | INCR ID relational_id_postfix_opt
-                          | DECR ID relational_id_postfix_opt
-                          | ID relational_id_postfix_opt
-                          | LPAREN arg_add_expr RPAREN
-
-numeric_relational_unary_primary: MINUS numeric_relational_unary_primary
-                                | numeric_relational_postfix
-
-numeric_relational_unary: numeric_relational_unary_primary numeric_relational_arith_tail
-
-numeric_relational_arith_tail: STAR numeric_relational_unary numeric_relational_arith_tail
-                             | SLASH numeric_relational_unary numeric_relational_arith_tail
-                             | MOD numeric_relational_unary numeric_relational_arith_tail
-                             | PLUS numeric_relational_unary numeric_relational_arith_tail
-                             | MINUS numeric_relational_unary numeric_relational_arith_tail
-                             |
-
-relational_id_postfix_opt: INCR
-                         | DECR
-                         | LBRACK arg_expr RBRACK relational_id_arr_dim2
-                         | DOT ID relational_id_postfix_opt
-                         | LPAREN arg_list RPAREN relational_id_postfix_opt
-                         |
-
-relational_id_arr_dim2: LBRACK arg_expr RBRACK
+// After arithmetic inside parens: might have comparison, then logic
+cond_paren_after_arith: cond_cmp cond_rhs cond_paren_logic
                       |
 
-// Arithmetic continuation in relational expression (uses numeric variants)
-relational_arith_tail: STAR numeric_relational_unary relational_arith_tail
-                     | SLASH numeric_relational_unary relational_arith_tail
-                     | MOD numeric_relational_unary relational_arith_tail
-                     | PLUS numeric_relational_unary relational_arith_tail
-                     | MINUS numeric_relational_unary relational_arith_tail
-                     |
+// Logical operations inside parens (for full boolean expressions)
+cond_paren_logic: AND cond_and
+               | OR cond_or
+               |
 
-// Continue from arithmetic to comparison (handles (x+5) > y patterns)
-relational_continue_ops: STAR numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                       | SLASH numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                       | MOD numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                       | PLUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                       | MINUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                       | comp_op arg_add_expr
+// What follows RPAREN: nothing (was boolean) or comparison (was arithmetic LHS)
+cond_paren_tail: cond_cmp cond_rhs
+               |
 
-// Comparison operator then RHS (mandatory comparison)
-relational_op_and_rhs: STAR numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                     | SLASH numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                     | MOD numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                     | PLUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                     | MINUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr
-                     | comp_op arg_add_expr
+// After ID in condition: bare boolean OR comparison with arithmetic
+// String comparisons disallowed in conditions
+// Array access supported: arr[i] > 0
+cond_id_cont: LBRACK cond_arr_index RBRACK cond_id_arr_cont
+            | PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | STAR cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | SLASH cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | MOD cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | LT cond_rhs
+            | GT cond_rhs
+            | LTE cond_rhs
+            | GTE cond_rhs
+            | EQ cond_rhs
+            | NEQ cond_rhs
+            |
 
-comp_op: EQ
-       | NEQ
-       | LT
-       | GT
-       | LTE
-       | GTE
+// Array index expression (numeric)
+cond_arr_index: cond_rhs
+
+// After arr[i]: optional 2D access, then arithmetic/comparison
+cond_id_arr_cont: LBRACK cond_arr_index RBRACK cond_id_arr_after
+                | cond_id_arr_after
+
+cond_id_arr_after: PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | STAR cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | SLASH cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | MOD cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | LT cond_rhs
+                 | GT cond_rhs
+                 | LTE cond_rhs
+                 | GTE cond_rhs
+                 | EQ cond_rhs
+                 | NEQ cond_rhs
+                 |
+
+// Literal-starting comparison (MUST have comparison - no bare literals allowed)
+// String/char literals disallowed in conditions
+cond_lit_cmp: INTLIT cond_lit_mul cond_lit_add cond_cmp cond_rhs
+            | LONGLIT cond_lit_mul cond_lit_add cond_cmp cond_rhs
+            | FLOATLIT cond_lit_mul cond_lit_add cond_cmp cond_rhs
+            | DOUBLELIT cond_lit_mul cond_lit_add cond_cmp cond_rhs
+            | MINUS cond_lit_unary cond_lit_mul cond_lit_add cond_cmp cond_rhs
+
+// LHS-specific tail rules (isolated from RHS to avoid conflicts)
+cond_lit_mul: STAR cond_lit_unary cond_lit_mul
+            | SLASH cond_lit_unary cond_lit_mul
+            | MOD cond_lit_unary cond_lit_mul
+            |
+
+cond_lit_add: PLUS cond_lit_unary cond_lit_mul cond_lit_add
+            | MINUS cond_lit_unary cond_lit_mul cond_lit_add
+            |
+
+cond_lit_unary: MINUS cond_lit_unary
+              | cond_lit_primary
+
+cond_lit_primary: INTLIT
+                | LONGLIT
+                | FLOATLIT
+                | DOUBLELIT
+                | ID cond_rhs_id_tail
+                | LPAREN cond_lit_expr RPAREN
+
+cond_lit_expr: cond_lit_unary cond_lit_mul cond_lit_add
+
+// RHS expression rules (after comparison operator)
+cond_rhs: cond_rhs_unary cond_rhs_mul cond_rhs_add
+
+cond_rhs_unary: MINUS cond_rhs_unary
+              | cond_rhs_primary
+
+cond_rhs_primary: INTLIT
+                | LONGLIT
+                | FLOATLIT
+                | DOUBLELIT
+                | ID cond_rhs_id_tail
+                | LPAREN cond_rhs RPAREN
+
+// Optional array access after ID in RHS
+cond_rhs_id_tail: LBRACK cond_arr_index RBRACK cond_rhs_arr_tail
+                |
+
+cond_rhs_arr_tail: LBRACK cond_arr_index RBRACK
+                 |
+
+cond_rhs_mul: STAR cond_rhs_unary cond_rhs_mul
+            | SLASH cond_rhs_unary cond_rhs_mul
+            | MOD cond_rhs_unary cond_rhs_mul
+            |
+
+cond_rhs_add: PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add
+            | MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add
+            |
+
+// Comparable value (for == and !=) - can be numeric or string, left-factored for ID
+// Comparable value (numeric only - strings disallowed)
+cond_comparable: cond_rhs
+
+// Comparison operators (numeric only)
+cond_cmp: LT
+        | GT
+        | LTE
+        | GTE
+        | EQ
+        | NEQ
+
+cond_str_cmp: EQ
+            | NEQ
+
+////////////////////////////////////////////////////////
 
 for_update: ID for_update_tail
           | INCR ID
