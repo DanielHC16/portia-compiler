@@ -478,66 +478,69 @@ FUNCTIONS
 ============================================
 TYPE-SPECIFIC FUNCTION BODIES
 ============================================
+// MANDATORY RETURN: Every function must end with exactly one return statement.
+// Return statements inside control structures are still allowed via ctrl_struct rules.
+// No statements allowed after the mandatory return.
 
-<function_body_int> → <func_content_int>
-<func_content_int> → using id <using_cont> ; <func_content_int>
-<func_content_int> → local <mutability> <local_dec_body> <func_content_int>
-<func_content_int> → <statement_int> <func_content_int>
-<func_content_int> → λ
+<function_body_int> → <func_content_int_no_ret> return <int_return_expr> ;
+<func_content_int_no_ret> → using id <using_cont> ; <func_content_int_no_ret>
+<func_content_int_no_ret> → local <mutability> <local_dec_body> <func_content_int_no_ret>
+<func_content_int_no_ret> → <statement_int_no_ret> <func_content_int_no_ret>
+<func_content_int_no_ret> → λ
 
-<function_body_long> → <func_content_long>
-<func_content_long> → using id <using_cont> ; <func_content_long>
-<func_content_long> → local <mutability> <local_dec_body> <func_content_long>
-<func_content_long> → <statement_long> <func_content_long>
-<func_content_long> → λ
+<function_body_long> → <func_content_long_no_ret> return <long_return_expr> ;
+<func_content_long_no_ret> → using id <using_cont> ; <func_content_long_no_ret>
+<func_content_long_no_ret> → local <mutability> <local_dec_body> <func_content_long_no_ret>
+<func_content_long_no_ret> → <statement_long_no_ret> <func_content_long_no_ret>
+<func_content_long_no_ret> → λ
 
-<function_body_float> → <func_content_float>
-<func_content_float> → using id <using_cont> ; <func_content_float>
-<func_content_float> → local <mutability> <local_dec_body> <func_content_float>
-<func_content_float> → <statement_float> <func_content_float>
-<func_content_float> → λ
+<function_body_float> → <func_content_float_no_ret> return <float_return_expr> ;
+<func_content_float_no_ret> → using id <using_cont> ; <func_content_float_no_ret>
+<func_content_float_no_ret> → local <mutability> <local_dec_body> <func_content_float_no_ret>
+<func_content_float_no_ret> → <statement_float_no_ret> <func_content_float_no_ret>
+<func_content_float_no_ret> → λ
 
-<function_body_double> → <func_content_double>
-<func_content_double> → using id <using_cont> ; <func_content_double>
-<func_content_double> → local <mutability> <local_dec_body> <func_content_double>
-<func_content_double> → <statement_double> <func_content_double>
-<func_content_double> → λ
+<function_body_double> → <func_content_double_no_ret> return <double_return_expr> ;
+<func_content_double_no_ret> → using id <using_cont> ; <func_content_double_no_ret>
+<func_content_double_no_ret> → local <mutability> <local_dec_body> <func_content_double_no_ret>
+<func_content_double_no_ret> → <statement_double_no_ret> <func_content_double_no_ret>
+<func_content_double_no_ret> → λ
 
-<function_body_char> → <func_content_char>
-<func_content_char> → using id <using_cont> ; <func_content_char>
-<func_content_char> → local <mutability> <local_dec_body> <func_content_char>
-<func_content_char> → <statement_char> <func_content_char>
-<func_content_char> → λ
+<function_body_char> → <func_content_char_no_ret> return <char_return_expr> ;
+<func_content_char_no_ret> → using id <using_cont> ; <func_content_char_no_ret>
+<func_content_char_no_ret> → local <mutability> <local_dec_body> <func_content_char_no_ret>
+<func_content_char_no_ret> → <statement_char_no_ret> <func_content_char_no_ret>
+<func_content_char_no_ret> → λ
 
-<function_body_string> → <func_content_string>
-<func_content_string> → using id <using_cont> ; <func_content_string>
-<func_content_string> → local <mutability> <local_dec_body> <func_content_string>
-<func_content_string> → <statement_string> <func_content_string>
-<func_content_string> → λ
+<function_body_string> → <func_content_string_no_ret> return <string_return_expr> ;
+<func_content_string_no_ret> → using id <using_cont> ; <func_content_string_no_ret>
+<func_content_string_no_ret> → local <mutability> <local_dec_body> <func_content_string_no_ret>
+<func_content_string_no_ret> → <statement_string_no_ret> <func_content_string_no_ret>
+<func_content_string_no_ret> → λ
 
-<function_body_bool> → <func_content_bool>
-<func_content_bool> → using id <using_cont> ; <func_content_bool>
-<func_content_bool> → local <mutability> <local_dec_body> <func_content_bool>
-<func_content_bool> → <statement_bool> <func_content_bool>
-<func_content_bool> → λ
+<function_body_bool> → <func_content_bool_no_ret> return <bool_return_expr> ;
+<func_content_bool_no_ret> → using id <using_cont> ; <func_content_bool_no_ret>
+<func_content_bool_no_ret> → local <mutability> <local_dec_body> <func_content_bool_no_ret>
+<func_content_bool_no_ret> → <statement_bool_no_ret> <func_content_bool_no_ret>
+<func_content_bool_no_ret> → λ
 
-<function_body_array> → <func_content_array>
-<func_content_array> → using id <using_cont> ; <func_content_array>
-<func_content_array> → local <mutability> <local_dec_body> <func_content_array>
-<func_content_array> → <statement_array> <func_content_array>
-<func_content_array> → λ
+<function_body_array> → <func_content_array_no_ret> return id ;
+<func_content_array_no_ret> → using id <using_cont> ; <func_content_array_no_ret>
+<func_content_array_no_ret> → local <mutability> <local_dec_body> <func_content_array_no_ret>
+<func_content_array_no_ret> → <statement_array_no_ret> <func_content_array_no_ret>
+<func_content_array_no_ret> → λ
 
-<function_body_weave> → <func_content_weave>
-<func_content_weave> → using id <using_cont> ; <func_content_weave>
-<func_content_weave> → local <mutability> <local_dec_body> <func_content_weave>
-<func_content_weave> → <statement_weave> <func_content_weave>
-<func_content_weave> → λ
+<function_body_weave> → <func_content_weave_no_ret> return id ;
+<func_content_weave_no_ret> → using id <using_cont> ; <func_content_weave_no_ret>
+<func_content_weave_no_ret> → local <mutability> <local_dec_body> <func_content_weave_no_ret>
+<func_content_weave_no_ret> → <statement_weave_no_ret> <func_content_weave_no_ret>
+<func_content_weave_no_ret> → λ
 
-<function_body_void> → <func_content_void>
-<func_content_void> → using id <using_cont> ; <func_content_void>
-<func_content_void> → local <mutability> <local_dec_body> <func_content_void>
-<func_content_void> → <statement_void> <func_content_void>
-<func_content_void> → λ
+<function_body_void> → <func_content_void_no_ret> return ;
+<func_content_void_no_ret> → using id <using_cont> ; <func_content_void_no_ret>
+<func_content_void_no_ret> → local <mutability> <local_dec_body> <func_content_void_no_ret>
+<func_content_void_no_ret> → <statement_void_no_ret> <func_content_void_no_ret>
+<func_content_void_no_ret> → λ
 
 ============================================
 TYPE-SPECIFIC STATEMENTS
@@ -604,6 +607,63 @@ TYPE-SPECIFIC STATEMENTS
 <statement_void> → <ctrl_struct_void>
 <statement_void> → break ;
 <statement_void> → return ;
+
+============================================
+TYPE-SPECIFIC STATEMENTS (NO RETURN)
+============================================
+// These rules exclude RETURN from direct statements in function bodies.
+// Returns inside control structures (if/else/while/for/switch) are still allowed
+// via ctrl_struct_* rules which use stmt_list_* with full statement_* rules.
+
+<statement_int_no_ret> → <effect_stmt> ;
+<statement_int_no_ret> → <io_stmt>
+<statement_int_no_ret> → <ctrl_struct_int>
+<statement_int_no_ret> → break ;
+
+<statement_long_no_ret> → <effect_stmt> ;
+<statement_long_no_ret> → <io_stmt>
+<statement_long_no_ret> → <ctrl_struct_long>
+<statement_long_no_ret> → break ;
+
+<statement_float_no_ret> → <effect_stmt> ;
+<statement_float_no_ret> → <io_stmt>
+<statement_float_no_ret> → <ctrl_struct_float>
+<statement_float_no_ret> → break ;
+
+<statement_double_no_ret> → <effect_stmt> ;
+<statement_double_no_ret> → <io_stmt>
+<statement_double_no_ret> → <ctrl_struct_double>
+<statement_double_no_ret> → break ;
+
+<statement_char_no_ret> → <effect_stmt> ;
+<statement_char_no_ret> → <io_stmt>
+<statement_char_no_ret> → <ctrl_struct_char>
+<statement_char_no_ret> → break ;
+
+<statement_string_no_ret> → <effect_stmt> ;
+<statement_string_no_ret> → <io_stmt>
+<statement_string_no_ret> → <ctrl_struct_string>
+<statement_string_no_ret> → break ;
+
+<statement_bool_no_ret> → <effect_stmt> ;
+<statement_bool_no_ret> → <io_stmt>
+<statement_bool_no_ret> → <ctrl_struct_bool>
+<statement_bool_no_ret> → break ;
+
+<statement_array_no_ret> → <effect_stmt> ;
+<statement_array_no_ret> → <io_stmt>
+<statement_array_no_ret> → <ctrl_struct_array>
+<statement_array_no_ret> → break ;
+
+<statement_weave_no_ret> → <effect_stmt> ;
+<statement_weave_no_ret> → <io_stmt>
+<statement_weave_no_ret> → <ctrl_struct_weave>
+<statement_weave_no_ret> → break ;
+
+<statement_void_no_ret> → <effect_stmt> ;
+<statement_void_no_ret> → <io_stmt>
+<statement_void_no_ret> → <ctrl_struct_void>
+<statement_void_no_ret> → break ;
 
 ============================================
 TYPE-SPECIFIC CONTROL STRUCTURES

@@ -469,89 +469,89 @@ param_cont: COMMA param_type ID param_arr_opt param_cont
 // ============================================
 // TYPE-SPECIFIC FUNCTION BODIES
 // ============================================
-// Return statements can appear ANYWHERE within a function body or control structure.
-// This correctly supports multiple returns in distinct control paths per PORTIA spec.
-// Unreachable-code detection is semantic, NOT syntactic.
+// MANDATORY RETURN: Every function must end with exactly one return statement.
+// Return statements inside control structures are still allowed via ctrl_struct rules.
+// No statements allowed after the mandatory return.
 
 // INT-returning function body
-function_body_int: func_content_int
+function_body_int: func_content_int_no_ret RETURN int_return_expr SEMICOLON
 
-func_content_int: USING ID using_cont SEMICOLON func_content_int
-                | LOCAL mutability local_dec_body func_content_int
-                | statement_int func_content_int
-                |
+func_content_int_no_ret: USING ID using_cont SEMICOLON func_content_int_no_ret
+                       | LOCAL mutability local_dec_body func_content_int_no_ret
+                       | statement_int_no_ret func_content_int_no_ret
+                       |
 
 // LONG-returning function body
-function_body_long: func_content_long
+function_body_long: func_content_long_no_ret RETURN long_return_expr SEMICOLON
 
-func_content_long: USING ID using_cont SEMICOLON func_content_long
-                 | LOCAL mutability local_dec_body func_content_long
-                 | statement_long func_content_long
-                 |
+func_content_long_no_ret: USING ID using_cont SEMICOLON func_content_long_no_ret
+                        | LOCAL mutability local_dec_body func_content_long_no_ret
+                        | statement_long_no_ret func_content_long_no_ret
+                        |
 
 // FLOAT-returning function body
-function_body_float: func_content_float
+function_body_float: func_content_float_no_ret RETURN float_return_expr SEMICOLON
 
-func_content_float: USING ID using_cont SEMICOLON func_content_float
-                  | LOCAL mutability local_dec_body func_content_float
-                  | statement_float func_content_float
-                  |
+func_content_float_no_ret: USING ID using_cont SEMICOLON func_content_float_no_ret
+                         | LOCAL mutability local_dec_body func_content_float_no_ret
+                         | statement_float_no_ret func_content_float_no_ret
+                         |
 
 // DOUBLE-returning function body
-function_body_double: func_content_double
+function_body_double: func_content_double_no_ret RETURN double_return_expr SEMICOLON
 
-func_content_double: USING ID using_cont SEMICOLON func_content_double
-                   | LOCAL mutability local_dec_body func_content_double
-                   | statement_double func_content_double
-                   |
+func_content_double_no_ret: USING ID using_cont SEMICOLON func_content_double_no_ret
+                          | LOCAL mutability local_dec_body func_content_double_no_ret
+                          | statement_double_no_ret func_content_double_no_ret
+                          |
 
 // CHAR-returning function body
-function_body_char: func_content_char
+function_body_char: func_content_char_no_ret RETURN char_return_expr SEMICOLON
 
-func_content_char: USING ID using_cont SEMICOLON func_content_char
-                 | LOCAL mutability local_dec_body func_content_char
-                 | statement_char func_content_char
-                 |
+func_content_char_no_ret: USING ID using_cont SEMICOLON func_content_char_no_ret
+                        | LOCAL mutability local_dec_body func_content_char_no_ret
+                        | statement_char_no_ret func_content_char_no_ret
+                        |
 
 // STRING-returning function body
-function_body_string: func_content_string
+function_body_string: func_content_string_no_ret RETURN string_return_expr SEMICOLON
 
-func_content_string: USING ID using_cont SEMICOLON func_content_string
-                   | LOCAL mutability local_dec_body func_content_string
-                   | statement_string func_content_string
-                   |
+func_content_string_no_ret: USING ID using_cont SEMICOLON func_content_string_no_ret
+                          | LOCAL mutability local_dec_body func_content_string_no_ret
+                          | statement_string_no_ret func_content_string_no_ret
+                          |
 
 // BOOL-returning function body
-function_body_bool: func_content_bool
+function_body_bool: func_content_bool_no_ret RETURN bool_return_expr SEMICOLON
 
-func_content_bool: USING ID using_cont SEMICOLON func_content_bool
-                 | LOCAL mutability local_dec_body func_content_bool
-                 | statement_bool func_content_bool
-                 |
+func_content_bool_no_ret: USING ID using_cont SEMICOLON func_content_bool_no_ret
+                        | LOCAL mutability local_dec_body func_content_bool_no_ret
+                        | statement_bool_no_ret func_content_bool_no_ret
+                        |
 
 // ARRAY-returning function body (any base type)
-function_body_array: func_content_array
+function_body_array: func_content_array_no_ret RETURN ID SEMICOLON
 
-func_content_array: USING ID using_cont SEMICOLON func_content_array
-                  | LOCAL mutability local_dec_body func_content_array
-                  | statement_array func_content_array
-                  |
+func_content_array_no_ret: USING ID using_cont SEMICOLON func_content_array_no_ret
+                         | LOCAL mutability local_dec_body func_content_array_no_ret
+                         | statement_array_no_ret func_content_array_no_ret
+                         |
 
 // WEAVE-returning function body
-function_body_weave: func_content_weave
+function_body_weave: func_content_weave_no_ret RETURN ID SEMICOLON
 
-func_content_weave: USING ID using_cont SEMICOLON func_content_weave
-                  | LOCAL mutability local_dec_body func_content_weave
-                  | statement_weave func_content_weave
-                  |
+func_content_weave_no_ret: USING ID using_cont SEMICOLON func_content_weave_no_ret
+                         | LOCAL mutability local_dec_body func_content_weave_no_ret
+                         | statement_weave_no_ret func_content_weave_no_ret
+                         |
 
 // VOID function body
-function_body_void: func_content_void
+function_body_void: func_content_void_no_ret RETURN SEMICOLON
 
-func_content_void: USING ID using_cont SEMICOLON func_content_void
-                 | LOCAL mutability local_dec_body func_content_void
-                 | statement_void func_content_void
-                 |
+func_content_void_no_ret: USING ID using_cont SEMICOLON func_content_void_no_ret
+                        | LOCAL mutability local_dec_body func_content_void_no_ret
+                        | statement_void_no_ret func_content_void_no_ret
+                        |
 
 // ============================================
 // TYPE-SPECIFIC STATEMENTS
@@ -618,6 +618,63 @@ statement_void: effect_stmt SEMICOLON
               | ctrl_struct_void
               | BREAK SEMICOLON
               | RETURN SEMICOLON
+
+// ============================================
+// TYPE-SPECIFIC STATEMENTS (NO RETURN)
+// ============================================
+// These rules exclude RETURN from direct statements in function bodies.
+// Returns inside control structures (if/else/while/for/switch) are still allowed
+// via ctrl_struct_* rules which use stmt_list_* with full statement_* rules.
+
+statement_int_no_ret: effect_stmt SEMICOLON
+                    | io_stmt
+                    | ctrl_struct_int
+                    | BREAK SEMICOLON
+
+statement_long_no_ret: effect_stmt SEMICOLON
+                     | io_stmt
+                     | ctrl_struct_long
+                     | BREAK SEMICOLON
+
+statement_float_no_ret: effect_stmt SEMICOLON
+                      | io_stmt
+                      | ctrl_struct_float
+                      | BREAK SEMICOLON
+
+statement_double_no_ret: effect_stmt SEMICOLON
+                       | io_stmt
+                       | ctrl_struct_double
+                       | BREAK SEMICOLON
+
+statement_char_no_ret: effect_stmt SEMICOLON
+                     | io_stmt
+                     | ctrl_struct_char
+                     | BREAK SEMICOLON
+
+statement_string_no_ret: effect_stmt SEMICOLON
+                       | io_stmt
+                       | ctrl_struct_string
+                       | BREAK SEMICOLON
+
+statement_bool_no_ret: effect_stmt SEMICOLON
+                     | io_stmt
+                     | ctrl_struct_bool
+                     | BREAK SEMICOLON
+
+statement_array_no_ret: effect_stmt SEMICOLON
+                      | io_stmt
+                      | ctrl_struct_array
+                      | BREAK SEMICOLON
+
+statement_weave_no_ret: effect_stmt SEMICOLON
+                      | io_stmt
+                      | ctrl_struct_weave
+                      | BREAK SEMICOLON
+
+statement_void_no_ret: effect_stmt SEMICOLON
+                     | io_stmt
+                     | ctrl_struct_void
+                     | BREAK SEMICOLON
 
 // ============================================
 // TYPE-SPECIFIC CONTROL STRUCTURES
