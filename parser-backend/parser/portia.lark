@@ -1672,119 +1672,294 @@ for_init_type: INT
 for_cond: condition
 
 // ============================================
-// CONDITION EXPRESSIONS (DEFERRED BOOLEAN COMMITMENT)
+// CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 // ============================================
-// Conditions enforce syntactic boolean commitment:
-// - A condition MUST contain at least one boolean-producing operator
-// - Boolean-producing operators: relational (== != < <= > >=) or logical (&& ||)
-// - Pure arithmetic expressions cannot reduce as conditions
+// Complete redesign for strict boolean enforcement:
+// - ONLY boolean-producing constructs allowed
+// - Relational expressions ALWAYS require comparison operator
+// - Arithmetic expressions FORBIDDEN without comparison
+// - Type casts FORBIDDEN without comparison
+// - Numeric literals FORBIDDEN standalone
 //
-// Grammar architecture:
-// - Condition uses SEPARATE arithmetic rules isolated from expression rules
-// - cond_postfix uses LPAREN cond_paren_arith RPAREN, NOT LPAREN expression RPAREN
-// - This prevents expression rules from merging into condition context
-// - LALR conflicts are avoided by keeping contexts separate
+// Allowed:
+// - Boolean identifiers: if (x)
+// - Boolean literals: if (true), if (false)
+// - Relational expressions: if (x < 5), if (a == b)
+// - Logical combinations: if (x && y), if (a || b)
+// - Negation: if (!x), if (!(a < b))
+// - Nested parentheses: if ((a && b) || c)
 //
-// Deferred Boolean Commitment:
-// - Bare identifiers/function calls are allowed (might be boolean semantically)
-// - Once arithmetic operators (+,-,*,/,%) appear, comp_op MUST follow
-// - Expected tokens at any error point include all valid continuations
-//
-// After commitment (comp_op seen), RHS uses expression rules (cond_rhs: add_expr)
-// Function arguments in conditions use expression rules (nested context)
+// Disallowed:
+// - Standalone numeric literals: if (2), if (3.14)
+// - Standalone arithmetic: if (x + 5), if (a * b)
+// - Arithmetic in logical without comparison: if (x && 2)
+// - Type casts without comparison: if (int(5))
 
-condition: cond_or
+condition: bool_or
 
-cond_or: cond_and cond_or_tail
-cond_or_tail: OR cond_and cond_or_tail
+bool_or: bool_and bool_or_tail
+bool_or_tail: OR bool_and bool_or_tail
             |
 
-cond_and: cond_comparison cond_and_tail
-cond_and_tail: AND cond_comparison cond_and_tail
+bool_and: bool_not bool_and_tail
+bool_and_tail: AND bool_not bool_and_tail
              |
 
-// cond_comparison: MANDATORY boolean commitment
-// 1. Parenthesized condition (recursively requires boolean)
-// 2. Negated comparison (recursively requires boolean)
-// 3. Primary + continuation (identifier may be bare OR with comparison)
-cond_comparison: LPAREN condition RPAREN
-               | NOT cond_comparison
-               | cond_primary cond_primary_continue
+bool_not: NOT bool_not
+        | bool_primary
 
-// Primary expression for condition (no binary operators)
-cond_primary: MINUS cond_primary
-            | cond_postfix
-
-// After cond_primary: either bare (epsilon), direct comparison, or arithmetic
-// Key rule: if arithmetic appears, must eventually have comp_op (via cond_must_commit)
-// FIRST(non-ε) = {+ - * / % == != < <= > >=}
-cond_primary_continue: PLUS cond_primary cond_must_commit
-                     | MINUS cond_primary cond_must_commit
-                     | STAR cond_primary cond_must_commit
-                     | SLASH cond_primary cond_must_commit
-                     | MOD cond_primary cond_must_commit
-                     | comp_op cond_rhs
-                     |
-
-// Once arithmetic operator appeared, MUST have comp_op eventually
-// NO EPSILON - must commit
-// FIRST = {+ - * / % == != < <= > >=}
-cond_must_commit: PLUS cond_primary cond_must_commit
-                | MINUS cond_primary cond_must_commit
-                | STAR cond_primary cond_must_commit
-                | SLASH cond_primary cond_must_commit
-                | MOD cond_primary cond_must_commit
-                | comp_op cond_rhs
-
-// Condition postfix - NO parenthesized arithmetic (use cond_comparison LPAREN condition RPAREN)
-// This avoids LALR conflicts between LPAREN condition RPAREN and LPAREN arithmetic RPAREN
-// For arithmetic grouping, wrap the entire condition: (a + b > c) not ((a + b) > c)
-cond_postfix: INT LPAREN cond_cast_arg RPAREN
-            | LONG LPAREN cond_cast_arg RPAREN
-            | FLOAT LPAREN cond_cast_arg RPAREN
-            | DOUBLE LPAREN cond_cast_arg RPAREN
-            | CHAR LPAREN cond_cast_arg RPAREN
-            | STRING LPAREN cond_cast_arg RPAREN
-            | BOOL LPAREN cond_cast_arg RPAREN
-            | INCR ID
-            | DECR ID
-            | ID cond_id_post
-            | INTLIT
-            | LONGLIT
-            | FLOATLIT
-            | DOUBLELIT
-            | CHARLIT
-            | STRINGLIT
-            | TRUE
+// bool_primary: Only boolean-producing constructs
+// - true/false literals
+// - Identifiers (semantic verifies bool type)
+// - Parenthesized conditions (recursive boolean context)
+// - Relational expressions (comparison required)
+bool_primary: TRUE
             | FALSE
+            | ID bool_id_tail
+            | LPAREN bool_paren_complete
+            | relational_lhs_no_id relational_op_and_rhs
 
-// Type cast argument in condition - uses arg_expr for clean FOLLOW
-cond_cast_arg: arg_expr
+// Parenthesized condition - handles RPAREN internally
+// Some paths (ID+arith with outside compare) consume RPAREN themselves
+bool_paren_complete: paren_outer_start_complete
 
-cond_id_post: INCR
-            | DECR
-            | cond_post_chain
+// After ID: determines path
+// - Direct termination (semantic checks bool type)
+// - Postfix chain then termination
+// - Start of relational expression (comparison required)
+bool_id_tail: bool_id_postfix bool_id_after_postfix
 
-// Condition postfix chain - function arguments use expression (nested context)
-cond_post_chain: cond_arr_access cond_post_after_arr
-               | DOT ID cond_post_chain
-               | LPAREN arg_list RPAREN cond_post_chain
+// ID postfix: field access, array subscript, function call, increment/decrement
+bool_id_postfix: INCR
+               | DECR
+               | LBRACK arg_expr RBRACK bool_id_arr_dim2
+               | DOT ID bool_id_postfix
+               | LPAREN arg_list RPAREN bool_id_postfix
                |
 
-cond_arr_access: LBRACK cond_arr_index RBRACK cond_arr_access_dim2
+bool_id_arr_dim2: LBRACK arg_expr RBRACK
+                |
 
-cond_arr_access_dim2: LBRACK cond_arr_index RBRACK
+// After ID with postfix: terminate or become relational LHS
+bool_id_after_postfix: relational_op_and_rhs
+                     |
+
+// ============================================
+// PARENTHESIZED CONDITION CONTENT (STRICT)
+// ============================================
+// Strict parsing for paren content:
+// - TRUE/FALSE/!expr: pure boolean, can terminate
+// - ID: can terminate (semantic validates) OR arithmetic with deferred comparison
+// - Literal/cast: MUST have comparison inside (no deferral)
+// - Nested parens: NO deferral - comparison must be inside if arithmetic present
+//
+// Valid: (x), (x && y), (x < 5), (x + 5 > 10), (x + 5) > 10, ((x)), ((x < 5))
+// Invalid: (3), (3 + 2), ((x + 5)), (x + 5) without comparison
+
+// Outer paren content - handles RPAREN and possible outside comparison
+// All paths consume RPAREN internally
+paren_outer_start_complete: TRUE paren_bool_tail RPAREN paren_outside_opt
+                          | FALSE paren_bool_tail RPAREN paren_outside_opt
+                          | NOT bool_not paren_bool_tail RPAREN paren_outside_opt
+                          | ID paren_outer_id_complete
+                          | LPAREN paren_inner_content RPAREN paren_after_nested_outer RPAREN paren_outside_opt
+                          | paren_arith_lhs paren_must_compare_inside RPAREN paren_outside_opt
+
+// Optional outside comparison for committed content (pure boolean or relational)
+paren_outside_opt: relational_continue_ops
+                 |
+
+// After TRUE/FALSE/!expr - can continue with logical or end
+paren_bool_tail: OR bool_and bool_or_tail
+               | AND bool_not bool_and_tail
+               |
+
+// After ID in outer paren - handles RPAREN for all paths
+paren_outer_id_complete: bool_id_postfix paren_outer_id_after_complete
+
+paren_outer_id_after_complete: OR bool_and bool_or_tail RPAREN paren_outside_opt
+                             | AND bool_not bool_and_tail RPAREN paren_outside_opt
+                             | comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
+                             | paren_id_arith_path
+                             | RPAREN paren_outside_opt
+
+// ID + arithmetic - comparison REQUIRED (inside paren OR outside paren)
+// NO path allows termination without comparison
+paren_id_arith_path: PLUS relational_unary relational_arith_tail paren_arith_ending
+                   | MINUS relational_unary relational_arith_tail paren_arith_ending
+                   | STAR relational_unary relational_arith_tail paren_arith_ending
+                   | SLASH relational_unary relational_arith_tail paren_arith_ending
+                   | MOD relational_unary relational_arith_tail paren_arith_ending
+
+// After arithmetic in paren: comparison INSIDE or close and compare OUTSIDE
+// Both paths require comparison - NO bare termination allowed
+// Both paths consume RPAREN
+paren_arith_ending: comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
+                  | RPAREN relational_continue_ops
+
+// After nested parens at outer level - arithmetic must compare, boolean can end
+paren_after_nested_outer: OR bool_and bool_or_tail
+                        | AND bool_not bool_and_tail
+                        | comp_op arg_add_expr paren_rel_tail
+                        | paren_nested_arith_must_compare
+                        |
+
+// Arithmetic after nested parens - comparison REQUIRED (no defer from nested)
+paren_nested_arith_must_compare: PLUS relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                               | MINUS relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                               | STAR relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                               | SLASH relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                               | MOD relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+
+// ============================================
+// INNER PAREN CONTENT (NO DEFERRAL)
+// ============================================
+// Used for nested parens - NO deferred comparison allowed
+// Arithmetic MUST have comparison inside
+
+paren_inner_content: paren_inner_start
+
+paren_inner_start: TRUE paren_bool_tail
+                 | FALSE paren_bool_tail
+                 | NOT paren_inner_not paren_bool_tail
+                 | ID paren_inner_id_path
+                 | LPAREN paren_inner_content RPAREN paren_after_nested_inner
+                 | paren_arith_lhs paren_must_compare_inside
+
+// NOT in inner paren context
+paren_inner_not: NOT paren_inner_not
+               | paren_inner_primary
+
+paren_inner_primary: TRUE
+                   | FALSE
+                   | ID paren_inner_id_tail_simple
+                   | LPAREN paren_inner_content RPAREN
+
+paren_inner_id_tail_simple: bool_id_postfix
+
+// After ID in inner paren - can terminate, logical, or arithmetic with REQUIRED comparison
+paren_inner_id_path: bool_id_postfix paren_inner_id_after
+
+paren_inner_id_after: OR paren_inner_and paren_inner_or_tail
+                    | AND paren_inner_not paren_inner_and_tail
+                    | comp_op arg_add_expr paren_rel_tail
+                    | paren_id_arith_must_compare
                     |
 
-cond_post_after_arr: DOT ID cond_post_chain
-                   | LPAREN arg_list RPAREN cond_post_chain
+// Inner paren logical continuations
+paren_inner_or_tail: OR paren_inner_and paren_inner_or_tail
                    |
 
-cond_arr_index: INTLIT
-              | ID
+paren_inner_and: paren_inner_not paren_inner_and_tail
 
-// RHS after relational operator - uses arg_add_expr for clean FOLLOW
-cond_rhs: arg_add_expr
+paren_inner_and_tail: AND paren_inner_not paren_inner_and_tail
+                    |
+
+// ID + arithmetic in inner paren - comparison REQUIRED (no defer)
+paren_id_arith_must_compare: PLUS relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                           | MINUS relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                           | STAR relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                           | SLASH relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                           | MOD relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+
+// After nested parens in inner context - same rules, no defer
+paren_after_nested_inner: OR paren_inner_and paren_inner_or_tail
+                        | AND paren_inner_not paren_inner_and_tail
+                        | comp_op arg_add_expr paren_rel_tail
+                        | paren_nested_arith_must_compare
+                        |
+
+// ============================================
+// ARITHMETIC LHS (MUST COMPARE)
+// ============================================
+// Literal/cast/unary-minus/prefix-incr-decr starters
+// These ALWAYS require comparison - no deferral
+
+paren_arith_lhs: MINUS relational_unary relational_arith_tail
+               | INCR ID relational_id_postfix_opt relational_arith_tail
+               | DECR ID relational_id_postfix_opt relational_arith_tail
+               | relational_literal relational_arith_tail
+               | relational_cast relational_arith_tail
+
+// Must have comparison inside paren (NO epsilon)
+paren_must_compare_inside: comp_op arg_add_expr paren_rel_tail
+
+// After relational in paren - can continue with logical or end
+paren_rel_tail: OR bool_and bool_or_tail
+              | AND bool_not bool_and_tail
+              |
+
+// Relational expression left-hand side (excludes ID which is handled separately)
+// These MUST be followed by comparison operator
+relational_lhs_no_id: MINUS relational_unary
+                    | INCR ID relational_id_postfix_opt
+                    | DECR ID relational_id_postfix_opt
+                    | relational_literal
+                    | relational_cast
+
+// Literals in relational context
+relational_literal: INTLIT
+                  | LONGLIT
+                  | FLOATLIT
+                  | DOUBLELIT
+                  | CHARLIT
+                  | STRINGLIT
+
+// Type casts in relational context
+relational_cast: INT LPAREN arg_expr RPAREN
+               | LONG LPAREN arg_expr RPAREN
+               | FLOAT LPAREN arg_expr RPAREN
+               | DOUBLE LPAREN arg_expr RPAREN
+               | CHAR LPAREN arg_expr RPAREN
+               | STRING LPAREN arg_expr RPAREN
+               | BOOL LPAREN arg_expr RPAREN
+
+// Unary expression in relational
+relational_unary: relational_unary_primary relational_arith_tail
+
+relational_unary_primary: MINUS relational_unary_primary
+                        | relational_postfix
+
+relational_postfix: relational_literal
+                  | relational_cast
+                  | INCR ID relational_id_postfix_opt
+                  | DECR ID relational_id_postfix_opt
+                  | ID relational_id_postfix_opt
+                  | LPAREN arg_add_expr RPAREN
+
+relational_id_postfix_opt: INCR
+                         | DECR
+                         | LBRACK arg_expr RBRACK relational_id_arr_dim2
+                         | DOT ID relational_id_postfix_opt
+                         | LPAREN arg_list RPAREN relational_id_postfix_opt
+                         |
+
+relational_id_arr_dim2: LBRACK arg_expr RBRACK
+                      |
+
+// Arithmetic continuation in relational expression
+relational_arith_tail: STAR relational_unary relational_arith_tail
+                     | SLASH relational_unary relational_arith_tail
+                     | MOD relational_unary relational_arith_tail
+                     | PLUS relational_unary relational_arith_tail
+                     | MINUS relational_unary relational_arith_tail
+                     |
+
+// Continue from arithmetic to comparison (handles (x+5) > y patterns)
+relational_continue_ops: STAR relational_unary relational_arith_tail comp_op arg_add_expr
+                       | SLASH relational_unary relational_arith_tail comp_op arg_add_expr
+                       | MOD relational_unary relational_arith_tail comp_op arg_add_expr
+                       | PLUS relational_unary relational_arith_tail comp_op arg_add_expr
+                       | MINUS relational_unary relational_arith_tail comp_op arg_add_expr
+                       | comp_op arg_add_expr
+
+// Comparison operator then RHS (mandatory comparison)
+relational_op_and_rhs: STAR relational_unary relational_arith_tail comp_op arg_add_expr
+                     | SLASH relational_unary relational_arith_tail comp_op arg_add_expr
+                     | MOD relational_unary relational_arith_tail comp_op arg_add_expr
+                     | PLUS relational_unary relational_arith_tail comp_op arg_add_expr
+                     | MINUS relational_unary relational_arith_tail comp_op arg_add_expr
+                     | comp_op arg_add_expr
 
 comp_op: EQ
        | NEQ
@@ -1889,7 +2064,12 @@ COMMA: ","
 COLON: ":"
 DOT: "."
 
-ID: /[a-zA-Z_][a-zA-Z0-9_]*/
+// ID MUST NOT match reserved keywords. Using negative lookahead.
+// Keywords: int, long, float, double, char, string, bool, void, var, const,
+//           true, false, if, else, while, for, switch, case, default, return,
+//           func, global, local, do, break, trap, thread, threadln, using,
+//           weave, main, array
+ID: /(?!(int|long|float|double|char|string|bool|void|var|const|true|false|if|else|while|for|switch|case|default|return|func|global|local|do|break|trap|thread|threadln|using|weave|main|array)\b)[a-zA-Z_][a-zA-Z0-9_]*/
 INTLIT: /-?[0-9]{1,10}/
 LONGLIT: /-?[0-9]{11,19}/
 FLOATLIT: /-?[0-9]+\.[0-9]{1,7}/

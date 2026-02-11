@@ -1482,82 +1482,231 @@ CONTROL STRUCTURES (for main function only)
 <for_update_tail> → <assign_op> <arg_expr>
 
 ============================================
-CONDITION EXPRESSIONS (DEFERRED BOOLEAN COMMITMENT)
+CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 ============================================
+// Complete redesign for strict boolean enforcement:
+// - ONLY boolean-producing constructs allowed at top level
+// - Relational expressions ALWAYS require comparison operator
+// - Arithmetic expressions FORBIDDEN without comparison
+// - Type casts FORBIDDEN without comparison  
+// - Numeric literals FORBIDDEN standalone
+// - Parenthesized arithmetic MUST have comparison (inside OR outside)
+//
+// Allowed:
+// - Boolean identifiers: if (x)
+// - Boolean literals: if (true), if (false)
+// - Relational expressions: if (x < 5), if (a == b), if (2 < 3)
+// - Logical combinations: if (x && y), if (a || b)
+// - Negation: if (!x), if (!(a < b))
+// - Paren arithmetic with compare inside: if ((x + 5 > 10))
+// - Paren arithmetic with compare outside: if ((x + 5) > 10)
+//
+// Disallowed (syntax error):
+// - Standalone numeric literals: if (2), if (3.14)
+// - Standalone arithmetic: if (x + 5), if (a * b)
+// - Standalone type casts: if (int(5))
+// - Paren arithmetic without comparison: if ((x + 5)), if ((3 + 2))
+// - Mixed: if ((x < 5) || (3 + 2))
 
-<condition> → <cond_or>
-<cond_or> → <cond_and> <cond_or_tail>
-<cond_or_tail> → || <cond_and> <cond_or_tail>
-<cond_or_tail> → λ
+<condition> → <bool_or>
 
-<cond_and> → <cond_comparison> <cond_and_tail>
-<cond_and_tail> → && <cond_comparison> <cond_and_tail>
-<cond_and_tail> → λ
+<bool_or> → <bool_and> <bool_or_tail>
+<bool_or_tail> → || <bool_and> <bool_or_tail>
+<bool_or_tail> → λ
 
-<cond_comparison> → ( <condition> )
-<cond_comparison> → ! <cond_comparison>
-<cond_comparison> → <cond_primary> <cond_primary_continue>
+<bool_and> → <bool_not> <bool_and_tail>
+<bool_and_tail> → && <bool_not> <bool_and_tail>
+<bool_and_tail> → λ
 
-<cond_primary> → - <cond_primary>
-<cond_primary> → <cond_postfix>
+<bool_not> → ! <bool_not>
+<bool_not> → <bool_primary>
 
-<cond_primary_continue> → + <cond_primary> <cond_must_commit>
-<cond_primary_continue> → - <cond_primary> <cond_must_commit>
-<cond_primary_continue> → * <cond_primary> <cond_must_commit>
-<cond_primary_continue> → / <cond_primary> <cond_must_commit>
-<cond_primary_continue> → % <cond_primary> <cond_must_commit>
-<cond_primary_continue> → <comp_op> <cond_rhs>
-<cond_primary_continue> → λ
+// bool_primary: Only boolean-producing constructs
+<bool_primary> → true
+<bool_primary> → false
+<bool_primary> → id <bool_id_tail>
+<bool_primary> → ( <bool_paren_complete>
+<bool_primary> → <relational_lhs_no_id> <relational_op_and_rhs>
 
-<cond_must_commit> → + <cond_primary> <cond_must_commit>
-<cond_must_commit> → - <cond_primary> <cond_must_commit>
-<cond_must_commit> → * <cond_primary> <cond_must_commit>
-<cond_must_commit> → / <cond_primary> <cond_must_commit>
-<cond_must_commit> → % <cond_primary> <cond_must_commit>
-<cond_must_commit> → <comp_op> <cond_rhs>
+// After ID: postfix chain and optional relational continuation
+<bool_id_tail> → <bool_id_postfix> <bool_id_after_postfix>
 
-<cond_postfix> → int ( <cond_cast_arg> )
-<cond_postfix> → long ( <cond_cast_arg> )
-<cond_postfix> → float ( <cond_cast_arg> )
-<cond_postfix> → double ( <cond_cast_arg> )
-<cond_postfix> → char ( <cond_cast_arg> )
-<cond_postfix> → string ( <cond_cast_arg> )
-<cond_postfix> → bool ( <cond_cast_arg> )
-<cond_postfix> → ++ id
-<cond_postfix> → -- id
-<cond_postfix> → id <cond_id_post>
-<cond_postfix> → intlit
-<cond_postfix> → longlit
-<cond_postfix> → floatlit
-<cond_postfix> → doublelit
-<cond_postfix> → charlit
-<cond_postfix> → stringlit
-<cond_postfix> → true
-<cond_postfix> → false
+<bool_id_postfix> → ++
+<bool_id_postfix> → --
+<bool_id_postfix> → [ <arg_expr> ] <bool_id_arr_dim2>
+<bool_id_postfix> → . id <bool_id_postfix>
+<bool_id_postfix> → ( <arg_list> ) <bool_id_postfix>
+<bool_id_postfix> → λ
 
-<cond_cast_arg> → <arg_expr>
+<bool_id_arr_dim2> → [ <arg_expr> ]
+<bool_id_arr_dim2> → λ
 
-<cond_id_post> → ++
-<cond_id_post> → --
-<cond_id_post> → <cond_post_chain>
+<bool_id_after_postfix> → <relational_op_and_rhs>
+<bool_id_after_postfix> → λ
 
-<cond_post_chain> → <cond_arr_access> <cond_post_after_arr>
-<cond_post_chain> → . id <cond_post_chain>
-<cond_post_chain> → ( <arg_list> ) <cond_post_chain>
-<cond_post_chain> → λ
+// Paren content - handles RPAREN internally
+<bool_paren_complete> → <paren_outer_start_complete>
 
-<cond_arr_access> → [ <cond_arr_index> ] <cond_arr_access_dim2>
-<cond_arr_access_dim2> → [ <cond_arr_index> ]
-<cond_arr_access_dim2> → λ
+// Outer paren: each path consumes RPAREN
+<paren_outer_start_complete> → true <paren_bool_tail> ) <paren_outside_opt>
+<paren_outer_start_complete> → false <paren_bool_tail> ) <paren_outside_opt>
+<paren_outer_start_complete> → ! <bool_not> <paren_bool_tail> ) <paren_outside_opt>
+<paren_outer_start_complete> → id <paren_outer_id_complete>
+<paren_outer_start_complete> → ( <paren_inner_content> ) <paren_after_nested_outer> ) <paren_outside_opt>
+<paren_outer_start_complete> → <paren_arith_lhs> <paren_must_compare_inside> ) <paren_outside_opt>
 
-<cond_post_after_arr> → . id <cond_post_chain>
-<cond_post_after_arr> → ( <arg_list> ) <cond_post_chain>
-<cond_post_after_arr> → λ
+// After boolean content - optional outside comparison
+<paren_outside_opt> → <relational_continue_ops>
+<paren_outside_opt> → λ
 
-<cond_arr_index> → intlit
-<cond_arr_index> → id
+<paren_bool_tail> → || <bool_and> <bool_or_tail>
+<paren_bool_tail> → && <bool_not> <bool_and_tail>
+<paren_bool_tail> → λ
 
-<cond_rhs> → <arg_add_expr>
+// After ID in outer paren
+<paren_outer_id_complete> → <bool_id_postfix> <paren_outer_id_after_complete>
+
+<paren_outer_id_after_complete> → || <bool_and> <bool_or_tail> ) <paren_outside_opt>
+<paren_outer_id_after_complete> → && <bool_not> <bool_and_tail> ) <paren_outside_opt>
+<paren_outer_id_after_complete> → <comp_op> <arg_add_expr> <paren_rel_tail> ) <paren_outside_opt>
+<paren_outer_id_after_complete> → <paren_id_arith_path>
+<paren_outer_id_after_complete> → ) <paren_outside_opt>
+
+// ID + arithmetic - comparison REQUIRED (inside OR outside)
+<paren_id_arith_path> → + <relational_unary> <relational_arith_tail> <paren_arith_ending>
+<paren_id_arith_path> → - <relational_unary> <relational_arith_tail> <paren_arith_ending>
+<paren_id_arith_path> → * <relational_unary> <relational_arith_tail> <paren_arith_ending>
+<paren_id_arith_path> → / <relational_unary> <relational_arith_tail> <paren_arith_ending>
+<paren_id_arith_path> → % <relational_unary> <relational_arith_tail> <paren_arith_ending>
+
+// Arithmetic ending: compare inside OR close and compare outside (NO bare termination)
+<paren_arith_ending> → <comp_op> <arg_add_expr> <paren_rel_tail> ) <paren_outside_opt>
+<paren_arith_ending> → ) <relational_continue_ops>
+
+<paren_rel_tail> → || <bool_and> <bool_or_tail>
+<paren_rel_tail> → && <bool_not> <bool_and_tail>
+<paren_rel_tail> → λ
+
+// After nested parens
+<paren_after_nested_outer> → || <bool_and> <bool_or_tail>
+<paren_after_nested_outer> → && <bool_not> <bool_and_tail>
+<paren_after_nested_outer> → <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_after_nested_outer> → <paren_nested_arith_must_compare>
+<paren_after_nested_outer> → λ
+
+// Nested arithmetic MUST compare inside (no defer from nested)
+<paren_nested_arith_must_compare> → + <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_nested_arith_must_compare> → - <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_nested_arith_must_compare> → * <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_nested_arith_must_compare> → / <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_nested_arith_must_compare> → % <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+
+// Inner paren content (for nested parens - NO defer allowed)
+<paren_inner_content> → <paren_inner_start>
+
+<paren_inner_start> → true <paren_bool_tail>
+<paren_inner_start> → false <paren_bool_tail>
+<paren_inner_start> → ! <paren_inner_not> <paren_bool_tail>
+<paren_inner_start> → id <paren_inner_id_path>
+<paren_inner_start> → ( <paren_inner_content> ) <paren_after_nested_inner>
+<paren_inner_start> → <paren_arith_lhs> <paren_must_compare_inside>
+
+<paren_inner_id_path> → <bool_id_postfix> <paren_inner_id_after>
+
+<paren_inner_id_after> → || <paren_inner_and> <paren_inner_or_tail>
+<paren_inner_id_after> → && <paren_inner_not> <paren_inner_and_tail>
+<paren_inner_id_after> → <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_inner_id_after> → <paren_id_arith_must_compare>
+<paren_inner_id_after> → λ
+
+// ID + arith in inner paren: compare REQUIRED (no defer)
+<paren_id_arith_must_compare> → + <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_id_arith_must_compare> → - <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_id_arith_must_compare> → * <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_id_arith_must_compare> → / <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_id_arith_must_compare> → % <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+
+<paren_after_nested_inner> → || <paren_inner_and> <paren_inner_or_tail>
+<paren_after_nested_inner> → && <paren_inner_not> <paren_inner_and_tail>
+<paren_after_nested_inner> → <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_after_nested_inner> → <paren_nested_arith_must_compare>
+<paren_after_nested_inner> → λ
+
+// Arithmetic LHS (literal/cast starters - MUST compare)
+<paren_arith_lhs> → - <relational_unary> <relational_arith_tail>
+<paren_arith_lhs> → ++ id <relational_id_postfix_opt> <relational_arith_tail>
+<paren_arith_lhs> → -- id <relational_id_postfix_opt> <relational_arith_tail>
+<paren_arith_lhs> → <relational_literal> <relational_arith_tail>
+<paren_arith_lhs> → <relational_cast> <relational_arith_tail>
+
+<paren_must_compare_inside> → <comp_op> <arg_add_expr> <paren_rel_tail>
+
+// Relational LHS (excludes ID)
+<relational_lhs_no_id> → - <relational_unary>
+<relational_lhs_no_id> → ++ id <relational_id_postfix_opt>
+<relational_lhs_no_id> → -- id <relational_id_postfix_opt>
+<relational_lhs_no_id> → <relational_literal>
+<relational_lhs_no_id> → <relational_cast>
+
+<relational_literal> → intlit
+<relational_literal> → longlit
+<relational_literal> → floatlit
+<relational_literal> → doublelit
+<relational_literal> → charlit
+<relational_literal> → stringlit
+
+<relational_cast> → int ( <arg_expr> )
+<relational_cast> → long ( <arg_expr> )
+<relational_cast> → float ( <arg_expr> )
+<relational_cast> → double ( <arg_expr> )
+<relational_cast> → char ( <arg_expr> )
+<relational_cast> → string ( <arg_expr> )
+<relational_cast> → bool ( <arg_expr> )
+
+<relational_unary> → <relational_unary_primary> <relational_arith_tail>
+
+<relational_unary_primary> → - <relational_unary_primary>
+<relational_unary_primary> → <relational_postfix>
+
+<relational_postfix> → <relational_literal>
+<relational_postfix> → <relational_cast>
+<relational_postfix> → ++ id <relational_id_postfix_opt>
+<relational_postfix> → -- id <relational_id_postfix_opt>
+<relational_postfix> → id <relational_id_postfix_opt>
+<relational_postfix> → ( <arg_add_expr> )
+
+<relational_id_postfix_opt> → ++
+<relational_id_postfix_opt> → --
+<relational_id_postfix_opt> → [ <arg_expr> ] <relational_id_arr_dim2>
+<relational_id_postfix_opt> → . id <relational_id_postfix_opt>
+<relational_id_postfix_opt> → ( <arg_list> ) <relational_id_postfix_opt>
+<relational_id_postfix_opt> → λ
+
+<relational_id_arr_dim2> → [ <arg_expr> ]
+<relational_id_arr_dim2> → λ
+
+<relational_arith_tail> → * <relational_unary> <relational_arith_tail>
+<relational_arith_tail> → / <relational_unary> <relational_arith_tail>
+<relational_arith_tail> → % <relational_unary> <relational_arith_tail>
+<relational_arith_tail> → + <relational_unary> <relational_arith_tail>
+<relational_arith_tail> → - <relational_unary> <relational_arith_tail>
+<relational_arith_tail> → λ
+
+// Continue from arithmetic to comparison (handles (x+5) > y patterns)
+<relational_continue_ops> → * <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → / <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → % <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → + <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → - <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → <comp_op> <arg_add_expr>
+
+// Mandatory comparison
+<relational_op_and_rhs> → * <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → / <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → % <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → + <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → - <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → <comp_op> <arg_add_expr>
 
 <comp_op> → ==
 <comp_op> → !=
