@@ -1156,10 +1156,6 @@ assign_op: ASSIGN
          | SLASHEQ
          | MODEQ
 
-// Legacy assign_tail for return expressions - does NOT chain
-assign_tail: assign_op typed_rhs_expr
-           |
-
 // ============================================
 // TYPED_RHS_EXPR - Strict Dispatcher
 // ============================================
@@ -1858,26 +1854,10 @@ stmt_bool_and_or_tail: AND stmt_bool_term stmt_bool_and_or_tail
                      |
 
 // ============================================
-// LEGACY STMT RULES (for compatibility with effect_stmt)
+// STMT LAYER NUMERIC RULES
 // ============================================
-// These remain for effect_stmt transitions but route through typed layers
+// Used by typed expression dispatch for arithmetic operations
 
-stmt_rel_expr: stmt_add_expr stmt_rel_tail
-
-stmt_rel_tail: LT numeric_add_expr_stmt
-             | GT numeric_add_expr_stmt
-             | LTE numeric_add_expr_stmt
-             | GTE numeric_add_expr_stmt
-             |
-
-stmt_add_expr: stmt_mul_expr stmt_add_tail
-
-// Add tail uses numeric mul expr to prevent i + "3"
-stmt_add_tail: PLUS numeric_mul_expr_stmt stmt_add_tail
-             | MINUS numeric_mul_expr_stmt stmt_add_tail
-             |
-
-// Numeric mul expr - for use as RHS of + and -
 numeric_mul_expr_stmt: numeric_unary_expr_stmt numeric_mul_tail_stmt
 
 numeric_mul_tail_stmt: STAR numeric_unary_expr_stmt numeric_mul_tail_stmt
@@ -1885,22 +1865,12 @@ numeric_mul_tail_stmt: STAR numeric_unary_expr_stmt numeric_mul_tail_stmt
                      | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt
                      |
 
-// Numeric add expr - for use as RHS of <, >, <=, >=
 numeric_add_expr_stmt: numeric_mul_expr_stmt numeric_add_tail_stmt
 
 numeric_add_tail_stmt: PLUS numeric_mul_expr_stmt numeric_add_tail_stmt
                      | MINUS numeric_mul_expr_stmt numeric_add_tail_stmt
                      |
 
-// Mul expr uses full unary for first operand, numeric for tail
-stmt_mul_expr: stmt_unary_expr stmt_mul_tail
-
-stmt_mul_tail: STAR numeric_unary_expr_stmt stmt_mul_tail
-             | SLASH numeric_unary_expr_stmt stmt_mul_tail
-             | MOD numeric_unary_expr_stmt stmt_mul_tail
-             |
-
-// Numeric-only unary for arithmetic contexts (excludes CHARLIT, STRINGLIT, TRUE, FALSE)
 numeric_unary_expr_stmt: NOT numeric_unary_expr_stmt
                        | MINUS numeric_unary_expr_stmt
                        | numeric_postfix_expr_stmt
@@ -1918,31 +1888,6 @@ numeric_postfix_expr_stmt: LPAREN arg_expr RPAREN stmt_postfix_chain
                          | LONGLIT
                          | FLOATLIT
                          | DOUBLELIT
-
-// Full stmt_unary_expr for first operand positions (allows all literals)
-stmt_unary_expr: NOT stmt_unary_expr
-               | MINUS stmt_unary_expr
-               | stmt_postfix_expr
-
-stmt_postfix_expr: LPAREN arg_expr RPAREN stmt_postfix_chain
-                 | INT LPAREN arg_expr RPAREN
-                 | LONG LPAREN arg_expr RPAREN
-                 | FLOAT LPAREN arg_expr RPAREN
-                 | DOUBLE LPAREN arg_expr RPAREN
-                 | CHAR LPAREN arg_expr RPAREN
-                 | STRING LPAREN arg_expr RPAREN
-                 | BOOL LPAREN arg_expr RPAREN
-                 | INCR ID
-                 | DECR ID
-                 | ID stmt_id_postfix
-                 | INTLIT
-                 | LONGLIT
-                 | FLOATLIT
-                 | DOUBLELIT
-                 | CHARLIT
-                 | STRINGLIT
-                 | TRUE
-                 | FALSE
 
 stmt_id_postfix: INCR
                | DECR
@@ -2160,25 +2105,10 @@ arg_cmp_op: LT
           | NEQ
 
 // ============================================
-// ARG LAYER NUMERIC RULES (kept for compatibility)
+// ARG LAYER NUMERIC RULES
 // ============================================
+// Used by typed expression dispatch for arithmetic in argument contexts
 
-arg_rel_expr: arg_add_expr arg_rel_tail
-
-arg_rel_tail: LT numeric_add_expr_arg
-            | GT numeric_add_expr_arg
-            | LTE numeric_add_expr_arg
-            | GTE numeric_add_expr_arg
-            |
-
-arg_add_expr: arg_mul_expr arg_add_tail
-
-// Add tail uses numeric mul expr to prevent i + "3"
-arg_add_tail: PLUS numeric_mul_expr_arg arg_add_tail
-            | MINUS numeric_mul_expr_arg arg_add_tail
-            |
-
-// Numeric mul expr - for use as RHS of + and -
 numeric_mul_expr_arg: numeric_unary_expr_arg numeric_mul_tail_arg
 
 numeric_mul_tail_arg: STAR numeric_unary_expr_arg numeric_mul_tail_arg
@@ -2186,22 +2116,12 @@ numeric_mul_tail_arg: STAR numeric_unary_expr_arg numeric_mul_tail_arg
                     | MOD numeric_unary_expr_arg numeric_mul_tail_arg
                     |
 
-// Numeric add expr - for use as RHS of <, >, <=, >=
 numeric_add_expr_arg: numeric_mul_expr_arg numeric_add_tail_arg
 
 numeric_add_tail_arg: PLUS numeric_mul_expr_arg numeric_add_tail_arg
                     | MINUS numeric_mul_expr_arg numeric_add_tail_arg
                     |
 
-// Mul expr uses full unary for first operand, numeric for tail
-arg_mul_expr: arg_unary_expr arg_mul_tail
-
-arg_mul_tail: STAR numeric_unary_expr_arg arg_mul_tail
-            | SLASH numeric_unary_expr_arg arg_mul_tail
-            | MOD numeric_unary_expr_arg arg_mul_tail
-            |
-
-// Numeric-only unary for arithmetic contexts (excludes CHARLIT, STRINGLIT, TRUE, FALSE)
 numeric_unary_expr_arg: NOT numeric_unary_expr_arg
                       | MINUS numeric_unary_expr_arg
                       | numeric_postfix_expr_arg
@@ -2219,31 +2139,6 @@ numeric_postfix_expr_arg: LPAREN arg_expr RPAREN arg_postfix_chain
                         | LONGLIT
                         | FLOATLIT
                         | DOUBLELIT
-
-// Full arg_unary_expr for first operand positions (allows all literals)
-arg_unary_expr: NOT arg_unary_expr
-              | MINUS arg_unary_expr
-              | arg_postfix_expr
-
-arg_postfix_expr: LPAREN arg_expr RPAREN arg_postfix_chain
-                | INT LPAREN arg_expr RPAREN
-                | LONG LPAREN arg_expr RPAREN
-                | FLOAT LPAREN arg_expr RPAREN
-                | DOUBLE LPAREN arg_expr RPAREN
-                | CHAR LPAREN arg_expr RPAREN
-                | STRING LPAREN arg_expr RPAREN
-                | BOOL LPAREN arg_expr RPAREN
-                | INCR ID
-                | DECR ID
-                | ID arg_id_postfix
-                | INTLIT
-                | LONGLIT
-                | FLOATLIT
-                | DOUBLELIT
-                | CHARLIT
-                | STRINGLIT
-                | TRUE
-                | FALSE
 
 arg_id_postfix: INCR
               | DECR
@@ -2548,20 +2443,12 @@ cond_rhs_add: PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add
             | MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add
             |
 
-// Comparable value (for == and !=) - can be numeric or string, left-factored for ID
-// Comparable value (numeric only - strings disallowed)
-cond_comparable: cond_rhs
-
-// Comparison operators (numeric only)
 cond_cmp: LT
         | GT
         | LTE
         | GTE
         | EQ
         | NEQ
-
-cond_str_cmp: EQ
-            | NEQ
 
 ////////////////////////////////////////////////////////
 
