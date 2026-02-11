@@ -1461,27 +1461,66 @@ stmt_eq_tail: EQ stmt_rel_expr stmt_eq_tail
             | NEQ stmt_rel_expr stmt_eq_tail
             |
 
+// Relational uses full add_expr base to allow string comparisons like s == "hello" to chain
+// But relational operators (<, >, etc.) require numeric operands
 stmt_rel_expr: stmt_add_expr stmt_rel_tail
 
-stmt_rel_tail: LT stmt_add_expr
-             | GT stmt_add_expr
-             | LTE stmt_add_expr
-             | GTE stmt_add_expr
+stmt_rel_tail: LT numeric_add_expr_stmt
+             | GT numeric_add_expr_stmt
+             | LTE numeric_add_expr_stmt
+             | GTE numeric_add_expr_stmt
              |
 
 stmt_add_expr: stmt_mul_expr stmt_add_tail
 
-stmt_add_tail: PLUS stmt_mul_expr stmt_add_tail
-             | MINUS stmt_mul_expr stmt_add_tail
+// Add tail uses numeric mul expr to prevent i + "3"
+stmt_add_tail: PLUS numeric_mul_expr_stmt stmt_add_tail
+             | MINUS numeric_mul_expr_stmt stmt_add_tail
              |
 
+// Numeric mul expr - for use as RHS of + and -
+numeric_mul_expr_stmt: numeric_unary_expr_stmt numeric_mul_tail_stmt
+
+numeric_mul_tail_stmt: STAR numeric_unary_expr_stmt numeric_mul_tail_stmt
+                     | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt
+                     | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt
+                     |
+
+// Numeric add expr - for use as RHS of <, >, <=, >=
+numeric_add_expr_stmt: numeric_mul_expr_stmt numeric_add_tail_stmt
+
+numeric_add_tail_stmt: PLUS numeric_mul_expr_stmt numeric_add_tail_stmt
+                     | MINUS numeric_mul_expr_stmt numeric_add_tail_stmt
+                     |
+
+// Mul expr uses full unary for first operand, numeric for tail
 stmt_mul_expr: stmt_unary_expr stmt_mul_tail
 
-stmt_mul_tail: STAR stmt_unary_expr stmt_mul_tail
-             | SLASH stmt_unary_expr stmt_mul_tail
-             | MOD stmt_unary_expr stmt_mul_tail
+stmt_mul_tail: STAR numeric_unary_expr_stmt stmt_mul_tail
+             | SLASH numeric_unary_expr_stmt stmt_mul_tail
+             | MOD numeric_unary_expr_stmt stmt_mul_tail
              |
 
+// Numeric-only unary for arithmetic contexts (excludes CHARLIT, STRINGLIT, TRUE, FALSE)
+numeric_unary_expr_stmt: NOT numeric_unary_expr_stmt
+                       | MINUS numeric_unary_expr_stmt
+                       | numeric_postfix_expr_stmt
+
+// Numeric postfix - only numeric literals, id, parens, numeric casts
+numeric_postfix_expr_stmt: LPAREN arg_expr RPAREN stmt_postfix_chain
+                         | INT LPAREN arg_expr RPAREN
+                         | LONG LPAREN arg_expr RPAREN
+                         | FLOAT LPAREN arg_expr RPAREN
+                         | DOUBLE LPAREN arg_expr RPAREN
+                         | INCR ID
+                         | DECR ID
+                         | ID stmt_id_postfix
+                         | INTLIT
+                         | LONGLIT
+                         | FLOATLIT
+                         | DOUBLELIT
+
+// Full stmt_unary_expr for first operand positions (allows all literals)
 stmt_unary_expr: NOT stmt_unary_expr
                | MINUS stmt_unary_expr
                | stmt_postfix_expr
@@ -1569,27 +1608,66 @@ arg_eq_tail: EQ arg_rel_expr arg_eq_tail
            | NEQ arg_rel_expr arg_eq_tail
            |
 
+// Relational uses full add_expr base to allow string comparisons to chain
+// But relational operators (<, >, etc.) require numeric operands
 arg_rel_expr: arg_add_expr arg_rel_tail
 
-arg_rel_tail: LT arg_add_expr
-            | GT arg_add_expr
-            | LTE arg_add_expr
-            | GTE arg_add_expr
+arg_rel_tail: LT numeric_add_expr_arg
+            | GT numeric_add_expr_arg
+            | LTE numeric_add_expr_arg
+            | GTE numeric_add_expr_arg
             |
 
 arg_add_expr: arg_mul_expr arg_add_tail
 
-arg_add_tail: PLUS arg_mul_expr arg_add_tail
-            | MINUS arg_mul_expr arg_add_tail
+// Add tail uses numeric mul expr to prevent i + "3"
+arg_add_tail: PLUS numeric_mul_expr_arg arg_add_tail
+            | MINUS numeric_mul_expr_arg arg_add_tail
             |
 
+// Numeric mul expr - for use as RHS of + and -
+numeric_mul_expr_arg: numeric_unary_expr_arg numeric_mul_tail_arg
+
+numeric_mul_tail_arg: STAR numeric_unary_expr_arg numeric_mul_tail_arg
+                    | SLASH numeric_unary_expr_arg numeric_mul_tail_arg
+                    | MOD numeric_unary_expr_arg numeric_mul_tail_arg
+                    |
+
+// Numeric add expr - for use as RHS of <, >, <=, >=
+numeric_add_expr_arg: numeric_mul_expr_arg numeric_add_tail_arg
+
+numeric_add_tail_arg: PLUS numeric_mul_expr_arg numeric_add_tail_arg
+                    | MINUS numeric_mul_expr_arg numeric_add_tail_arg
+                    |
+
+// Mul expr uses full unary for first operand, numeric for tail
 arg_mul_expr: arg_unary_expr arg_mul_tail
 
-arg_mul_tail: STAR arg_unary_expr arg_mul_tail
-            | SLASH arg_unary_expr arg_mul_tail
-            | MOD arg_unary_expr arg_mul_tail
+arg_mul_tail: STAR numeric_unary_expr_arg arg_mul_tail
+            | SLASH numeric_unary_expr_arg arg_mul_tail
+            | MOD numeric_unary_expr_arg arg_mul_tail
             |
 
+// Numeric-only unary for arithmetic contexts (excludes CHARLIT, STRINGLIT, TRUE, FALSE)
+numeric_unary_expr_arg: NOT numeric_unary_expr_arg
+                      | MINUS numeric_unary_expr_arg
+                      | numeric_postfix_expr_arg
+
+// Numeric postfix - only numeric literals, id, parens, numeric casts
+numeric_postfix_expr_arg: LPAREN arg_expr RPAREN arg_postfix_chain
+                        | INT LPAREN arg_expr RPAREN
+                        | LONG LPAREN arg_expr RPAREN
+                        | FLOAT LPAREN arg_expr RPAREN
+                        | DOUBLE LPAREN arg_expr RPAREN
+                        | INCR ID
+                        | DECR ID
+                        | ID arg_id_postfix
+                        | INTLIT
+                        | LONGLIT
+                        | FLOATLIT
+                        | DOUBLELIT
+
+// Full arg_unary_expr for first operand positions (allows all literals)
 arg_unary_expr: NOT arg_unary_expr
               | MINUS arg_unary_expr
               | arg_postfix_expr
@@ -1924,11 +2002,12 @@ paren_outer_must_compare_after_2d: DOT ID paren_outer_must_compare_cont
 
 // ID + arithmetic - comparison REQUIRED (inside paren OR outside paren)
 // NO path allows termination without comparison
-paren_id_arith_path: PLUS relational_unary relational_arith_tail paren_arith_ending
-                   | MINUS relational_unary relational_arith_tail paren_arith_ending
-                   | STAR relational_unary relational_arith_tail paren_arith_ending
-                   | SLASH relational_unary relational_arith_tail paren_arith_ending
-                   | MOD relational_unary relational_arith_tail paren_arith_ending
+// Uses numeric variant to disallow string/char literals in arithmetic
+paren_id_arith_path: PLUS numeric_relational_unary relational_arith_tail paren_arith_ending
+                   | MINUS numeric_relational_unary relational_arith_tail paren_arith_ending
+                   | STAR numeric_relational_unary relational_arith_tail paren_arith_ending
+                   | SLASH numeric_relational_unary relational_arith_tail paren_arith_ending
+                   | MOD numeric_relational_unary relational_arith_tail paren_arith_ending
 
 // After arithmetic in paren: comparison INSIDE or close and compare OUTSIDE
 // Both paths require comparison - NO bare termination allowed
@@ -1944,11 +2023,11 @@ paren_after_nested_outer: OR bool_and bool_or_tail
                         |
 
 // Arithmetic after nested parens - comparison REQUIRED (no defer from nested)
-paren_nested_arith_must_compare: PLUS relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                               | MINUS relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                               | STAR relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                               | SLASH relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                               | MOD relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+paren_nested_arith_must_compare: PLUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                               | MINUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                               | STAR numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                               | SLASH numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                               | MOD numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
 
 // ============================================
 // INNER PAREN CONTENT (NO DEFERRAL)
@@ -2063,11 +2142,11 @@ paren_inner_and_tail: AND paren_inner_not paren_inner_and_tail
                     |
 
 // ID + arithmetic in inner paren - comparison REQUIRED (no defer)
-paren_id_arith_must_compare: PLUS relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                           | MINUS relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                           | STAR relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                           | SLASH relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
-                           | MOD relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+paren_id_arith_must_compare: PLUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                           | MINUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                           | STAR numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                           | SLASH numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
+                           | MOD numeric_relational_unary relational_arith_tail comp_op arg_add_expr paren_rel_tail
 
 // After nested parens in inner context - same rules, no defer
 paren_after_nested_inner: OR paren_inner_and paren_inner_or_tail
@@ -2081,8 +2160,9 @@ paren_after_nested_inner: OR paren_inner_and paren_inner_or_tail
 // ============================================
 // Literal/cast/unary-minus/prefix-incr-decr starters
 // These ALWAYS require comparison - no deferral
+// MINUS path uses numeric variant to disallow string/char in arithmetic
 
-paren_arith_lhs: MINUS relational_unary relational_arith_tail
+paren_arith_lhs: MINUS numeric_relational_unary relational_arith_tail
                | INCR ID relational_id_postfix_opt relational_arith_tail
                | DECR ID relational_id_postfix_opt relational_arith_tail
                | relational_literal relational_arith_tail
@@ -2098,7 +2178,8 @@ paren_rel_tail: OR bool_and bool_or_tail
 
 // Relational expression left-hand side (excludes ID which is handled separately)
 // These MUST be followed by comparison operator
-relational_lhs_no_id: MINUS relational_unary
+// MINUS path uses numeric variant - disallows string/char in arithmetic
+relational_lhs_no_id: MINUS numeric_relational_unary
                     | INCR ID relational_id_postfix_opt
                     | DECR ID relational_id_postfix_opt
                     | relational_literal
@@ -2134,6 +2215,37 @@ relational_postfix: relational_literal
                   | ID relational_id_postfix_opt
                   | LPAREN arg_add_expr RPAREN
 
+// Numeric-only variants for relational arithmetic (excludes CHARLIT, STRINGLIT)
+numeric_relational_literal: INTLIT
+                          | LONGLIT
+                          | FLOATLIT
+                          | DOUBLELIT
+
+// Numeric casts (excludes CHAR, STRING, BOOL casts from arithmetic)
+numeric_relational_cast: INT LPAREN arg_expr RPAREN
+                       | LONG LPAREN arg_expr RPAREN
+                       | FLOAT LPAREN arg_expr RPAREN
+                       | DOUBLE LPAREN arg_expr RPAREN
+
+numeric_relational_postfix: numeric_relational_literal
+                          | numeric_relational_cast
+                          | INCR ID relational_id_postfix_opt
+                          | DECR ID relational_id_postfix_opt
+                          | ID relational_id_postfix_opt
+                          | LPAREN arg_add_expr RPAREN
+
+numeric_relational_unary_primary: MINUS numeric_relational_unary_primary
+                                | numeric_relational_postfix
+
+numeric_relational_unary: numeric_relational_unary_primary numeric_relational_arith_tail
+
+numeric_relational_arith_tail: STAR numeric_relational_unary numeric_relational_arith_tail
+                             | SLASH numeric_relational_unary numeric_relational_arith_tail
+                             | MOD numeric_relational_unary numeric_relational_arith_tail
+                             | PLUS numeric_relational_unary numeric_relational_arith_tail
+                             | MINUS numeric_relational_unary numeric_relational_arith_tail
+                             |
+
 relational_id_postfix_opt: INCR
                          | DECR
                          | LBRACK arg_expr RBRACK relational_id_arr_dim2
@@ -2144,28 +2256,28 @@ relational_id_postfix_opt: INCR
 relational_id_arr_dim2: LBRACK arg_expr RBRACK
                       |
 
-// Arithmetic continuation in relational expression
-relational_arith_tail: STAR relational_unary relational_arith_tail
-                     | SLASH relational_unary relational_arith_tail
-                     | MOD relational_unary relational_arith_tail
-                     | PLUS relational_unary relational_arith_tail
-                     | MINUS relational_unary relational_arith_tail
+// Arithmetic continuation in relational expression (uses numeric variants)
+relational_arith_tail: STAR numeric_relational_unary relational_arith_tail
+                     | SLASH numeric_relational_unary relational_arith_tail
+                     | MOD numeric_relational_unary relational_arith_tail
+                     | PLUS numeric_relational_unary relational_arith_tail
+                     | MINUS numeric_relational_unary relational_arith_tail
                      |
 
 // Continue from arithmetic to comparison (handles (x+5) > y patterns)
-relational_continue_ops: STAR relational_unary relational_arith_tail comp_op arg_add_expr
-                       | SLASH relational_unary relational_arith_tail comp_op arg_add_expr
-                       | MOD relational_unary relational_arith_tail comp_op arg_add_expr
-                       | PLUS relational_unary relational_arith_tail comp_op arg_add_expr
-                       | MINUS relational_unary relational_arith_tail comp_op arg_add_expr
+relational_continue_ops: STAR numeric_relational_unary relational_arith_tail comp_op arg_add_expr
+                       | SLASH numeric_relational_unary relational_arith_tail comp_op arg_add_expr
+                       | MOD numeric_relational_unary relational_arith_tail comp_op arg_add_expr
+                       | PLUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr
+                       | MINUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr
                        | comp_op arg_add_expr
 
 // Comparison operator then RHS (mandatory comparison)
-relational_op_and_rhs: STAR relational_unary relational_arith_tail comp_op arg_add_expr
-                     | SLASH relational_unary relational_arith_tail comp_op arg_add_expr
-                     | MOD relational_unary relational_arith_tail comp_op arg_add_expr
-                     | PLUS relational_unary relational_arith_tail comp_op arg_add_expr
-                     | MINUS relational_unary relational_arith_tail comp_op arg_add_expr
+relational_op_and_rhs: STAR numeric_relational_unary relational_arith_tail comp_op arg_add_expr
+                     | SLASH numeric_relational_unary relational_arith_tail comp_op arg_add_expr
+                     | MOD numeric_relational_unary relational_arith_tail comp_op arg_add_expr
+                     | PLUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr
+                     | MINUS numeric_relational_unary relational_arith_tail comp_op arg_add_expr
                      | comp_op arg_add_expr
 
 comp_op: EQ

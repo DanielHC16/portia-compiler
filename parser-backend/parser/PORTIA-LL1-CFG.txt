@@ -1195,24 +1195,61 @@ STATEMENT EXPRESSION RULES (ISOLATED FOLLOW SET)
 <stmt_eq_tail> → != <stmt_rel_expr> <stmt_eq_tail>
 <stmt_eq_tail> → λ
 
+// Relational uses full add_expr base to allow string comparisons to chain
+// But relational operators (<, >, etc.) require numeric operands
 <stmt_rel_expr> → <stmt_add_expr> <stmt_rel_tail>
-<stmt_rel_tail> → < <stmt_add_expr>
-<stmt_rel_tail> → > <stmt_add_expr>
-<stmt_rel_tail> → <= <stmt_add_expr>
-<stmt_rel_tail> → >= <stmt_add_expr>
+<stmt_rel_tail> → < <numeric_add_expr_stmt>
+<stmt_rel_tail> → > <numeric_add_expr_stmt>
+<stmt_rel_tail> → <= <numeric_add_expr_stmt>
+<stmt_rel_tail> → >= <numeric_add_expr_stmt>
 <stmt_rel_tail> → λ
 
 <stmt_add_expr> → <stmt_mul_expr> <stmt_add_tail>
-<stmt_add_tail> → + <stmt_mul_expr> <stmt_add_tail>
-<stmt_add_tail> → - <stmt_mul_expr> <stmt_add_tail>
+// Add tail uses numeric mul expr to prevent i + "3"
+<stmt_add_tail> → + <numeric_mul_expr_stmt> <stmt_add_tail>
+<stmt_add_tail> → - <numeric_mul_expr_stmt> <stmt_add_tail>
 <stmt_add_tail> → λ
 
+// Numeric mul expr - for use as RHS of + and -
+<numeric_mul_expr_stmt> → <numeric_unary_expr_stmt> <numeric_mul_tail_stmt>
+<numeric_mul_tail_stmt> → * <numeric_unary_expr_stmt> <numeric_mul_tail_stmt>
+<numeric_mul_tail_stmt> → / <numeric_unary_expr_stmt> <numeric_mul_tail_stmt>
+<numeric_mul_tail_stmt> → % <numeric_unary_expr_stmt> <numeric_mul_tail_stmt>
+<numeric_mul_tail_stmt> → λ
+
+// Numeric add expr - for use as RHS of <, >, <=, >=
+<numeric_add_expr_stmt> → <numeric_mul_expr_stmt> <numeric_add_tail_stmt>
+<numeric_add_tail_stmt> → + <numeric_mul_expr_stmt> <numeric_add_tail_stmt>
+<numeric_add_tail_stmt> → - <numeric_mul_expr_stmt> <numeric_add_tail_stmt>
+<numeric_add_tail_stmt> → λ
+
+// Mul expr uses full unary for first operand, numeric for tail
 <stmt_mul_expr> → <stmt_unary_expr> <stmt_mul_tail>
-<stmt_mul_tail> → * <stmt_unary_expr> <stmt_mul_tail>
-<stmt_mul_tail> → / <stmt_unary_expr> <stmt_mul_tail>
-<stmt_mul_tail> → % <stmt_unary_expr> <stmt_mul_tail>
+<stmt_mul_tail> → * <numeric_unary_expr_stmt> <stmt_mul_tail>
+<stmt_mul_tail> → / <numeric_unary_expr_stmt> <stmt_mul_tail>
+<stmt_mul_tail> → % <numeric_unary_expr_stmt> <stmt_mul_tail>
 <stmt_mul_tail> → λ
 
+// Numeric-only unary for arithmetic contexts (excludes charlit, stringlit, true, false)
+<numeric_unary_expr_stmt> → ! <numeric_unary_expr_stmt>
+<numeric_unary_expr_stmt> → - <numeric_unary_expr_stmt>
+<numeric_unary_expr_stmt> → <numeric_postfix_expr_stmt>
+
+// Numeric postfix - only numeric literals, id, parens, numeric casts
+<numeric_postfix_expr_stmt> → ( <arg_expr> ) <stmt_postfix_chain>
+<numeric_postfix_expr_stmt> → int ( <arg_expr> )
+<numeric_postfix_expr_stmt> → long ( <arg_expr> )
+<numeric_postfix_expr_stmt> → float ( <arg_expr> )
+<numeric_postfix_expr_stmt> → double ( <arg_expr> )
+<numeric_postfix_expr_stmt> → ++ id
+<numeric_postfix_expr_stmt> → -- id
+<numeric_postfix_expr_stmt> → id <stmt_id_postfix>
+<numeric_postfix_expr_stmt> → intlit
+<numeric_postfix_expr_stmt> → longlit
+<numeric_postfix_expr_stmt> → floatlit
+<numeric_postfix_expr_stmt> → doublelit
+
+// Full stmt_unary_expr for first operand positions (allows all literals)
 <stmt_unary_expr> → ! <stmt_unary_expr>
 <stmt_unary_expr> → - <stmt_unary_expr>
 <stmt_unary_expr> → <stmt_postfix_expr>
@@ -1290,24 +1327,61 @@ ARGUMENT EXPRESSION RULES (ISOLATED FOLLOW SET)
 <arg_eq_tail> → != <arg_rel_expr> <arg_eq_tail>
 <arg_eq_tail> → λ
 
+// Relational uses full add_expr base to allow string comparisons to chain
+// But relational operators (<, >, etc.) require numeric operands
 <arg_rel_expr> → <arg_add_expr> <arg_rel_tail>
-<arg_rel_tail> → < <arg_add_expr>
-<arg_rel_tail> → > <arg_add_expr>
-<arg_rel_tail> → <= <arg_add_expr>
-<arg_rel_tail> → >= <arg_add_expr>
+<arg_rel_tail> → < <numeric_add_expr_arg>
+<arg_rel_tail> → > <numeric_add_expr_arg>
+<arg_rel_tail> → <= <numeric_add_expr_arg>
+<arg_rel_tail> → >= <numeric_add_expr_arg>
 <arg_rel_tail> → λ
 
 <arg_add_expr> → <arg_mul_expr> <arg_add_tail>
-<arg_add_tail> → + <arg_mul_expr> <arg_add_tail>
-<arg_add_tail> → - <arg_mul_expr> <arg_add_tail>
+// Add tail uses numeric mul expr to prevent i + "3"
+<arg_add_tail> → + <numeric_mul_expr_arg> <arg_add_tail>
+<arg_add_tail> → - <numeric_mul_expr_arg> <arg_add_tail>
 <arg_add_tail> → λ
 
+// Numeric mul expr - for use as RHS of + and -
+<numeric_mul_expr_arg> → <numeric_unary_expr_arg> <numeric_mul_tail_arg>
+<numeric_mul_tail_arg> → * <numeric_unary_expr_arg> <numeric_mul_tail_arg>
+<numeric_mul_tail_arg> → / <numeric_unary_expr_arg> <numeric_mul_tail_arg>
+<numeric_mul_tail_arg> → % <numeric_unary_expr_arg> <numeric_mul_tail_arg>
+<numeric_mul_tail_arg> → λ
+
+// Numeric add expr - for use as RHS of <, >, <=, >=
+<numeric_add_expr_arg> → <numeric_mul_expr_arg> <numeric_add_tail_arg>
+<numeric_add_tail_arg> → + <numeric_mul_expr_arg> <numeric_add_tail_arg>
+<numeric_add_tail_arg> → - <numeric_mul_expr_arg> <numeric_add_tail_arg>
+<numeric_add_tail_arg> → λ
+
+// Mul expr uses full unary for first operand, numeric for tail
 <arg_mul_expr> → <arg_unary_expr> <arg_mul_tail>
-<arg_mul_tail> → * <arg_unary_expr> <arg_mul_tail>
-<arg_mul_tail> → / <arg_unary_expr> <arg_mul_tail>
-<arg_mul_tail> → % <arg_unary_expr> <arg_mul_tail>
+<arg_mul_tail> → * <numeric_unary_expr_arg> <arg_mul_tail>
+<arg_mul_tail> → / <numeric_unary_expr_arg> <arg_mul_tail>
+<arg_mul_tail> → % <numeric_unary_expr_arg> <arg_mul_tail>
 <arg_mul_tail> → λ
 
+// Numeric-only unary for arithmetic contexts (excludes charlit, stringlit, true, false)
+<numeric_unary_expr_arg> → ! <numeric_unary_expr_arg>
+<numeric_unary_expr_arg> → - <numeric_unary_expr_arg>
+<numeric_unary_expr_arg> → <numeric_postfix_expr_arg>
+
+// Numeric postfix - only numeric literals, id, parens, numeric casts
+<numeric_postfix_expr_arg> → ( <arg_expr> ) <arg_postfix_chain>
+<numeric_postfix_expr_arg> → int ( <arg_expr> )
+<numeric_postfix_expr_arg> → long ( <arg_expr> )
+<numeric_postfix_expr_arg> → float ( <arg_expr> )
+<numeric_postfix_expr_arg> → double ( <arg_expr> )
+<numeric_postfix_expr_arg> → ++ id
+<numeric_postfix_expr_arg> → -- id
+<numeric_postfix_expr_arg> → id <arg_id_postfix>
+<numeric_postfix_expr_arg> → intlit
+<numeric_postfix_expr_arg> → longlit
+<numeric_postfix_expr_arg> → floatlit
+<numeric_postfix_expr_arg> → doublelit
+
+// Full arg_unary_expr for first operand positions (allows all literals)
 <arg_unary_expr> → ! <arg_unary_expr>
 <arg_unary_expr> → - <arg_unary_expr>
 <arg_unary_expr> → <arg_postfix_expr>
@@ -1710,11 +1784,13 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <paren_outer_must_compare_after_2d> → <paren_id_arith_path>
 
 // ID + arithmetic - comparison REQUIRED (inside OR outside)
-<paren_id_arith_path> → + <relational_unary> <relational_arith_tail> <paren_arith_ending>
-<paren_id_arith_path> → - <relational_unary> <relational_arith_tail> <paren_arith_ending>
-<paren_id_arith_path> → * <relational_unary> <relational_arith_tail> <paren_arith_ending>
-<paren_id_arith_path> → / <relational_unary> <relational_arith_tail> <paren_arith_ending>
-<paren_id_arith_path> → % <relational_unary> <relational_arith_tail> <paren_arith_ending>
+// ID + arithmetic - comparison REQUIRED (inside paren OR outside paren)
+// Uses numeric variant to disallow string/char literals in arithmetic
+<paren_id_arith_path> → + <numeric_relational_unary> <relational_arith_tail> <paren_arith_ending>
+<paren_id_arith_path> → - <numeric_relational_unary> <relational_arith_tail> <paren_arith_ending>
+<paren_id_arith_path> → * <numeric_relational_unary> <relational_arith_tail> <paren_arith_ending>
+<paren_id_arith_path> → / <numeric_relational_unary> <relational_arith_tail> <paren_arith_ending>
+<paren_id_arith_path> → % <numeric_relational_unary> <relational_arith_tail> <paren_arith_ending>
 
 // Arithmetic ending: compare inside OR close and compare outside (NO bare termination)
 <paren_arith_ending> → <comp_op> <arg_add_expr> <paren_rel_tail> ) <paren_outside_opt>
@@ -1732,11 +1808,11 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <paren_after_nested_outer> → λ
 
 // Nested arithmetic MUST compare inside (no defer from nested)
-<paren_nested_arith_must_compare> → + <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
-<paren_nested_arith_must_compare> → - <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
-<paren_nested_arith_must_compare> → * <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
-<paren_nested_arith_must_compare> → / <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
-<paren_nested_arith_must_compare> → % <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_nested_arith_must_compare> → + <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_nested_arith_must_compare> → - <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_nested_arith_must_compare> → * <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_nested_arith_must_compare> → / <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_nested_arith_must_compare> → % <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
 
 // Inner paren content (for nested parens - NO defer allowed)
 <paren_inner_content> → <paren_inner_start>
@@ -1800,11 +1876,11 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <paren_inner_must_compare_after_2d> → <paren_id_arith_must_compare>
 
 // ID + arith in inner paren: compare REQUIRED (no defer)
-<paren_id_arith_must_compare> → + <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
-<paren_id_arith_must_compare> → - <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
-<paren_id_arith_must_compare> → * <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
-<paren_id_arith_must_compare> → / <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
-<paren_id_arith_must_compare> → % <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_id_arith_must_compare> → + <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_id_arith_must_compare> → - <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_id_arith_must_compare> → * <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_id_arith_must_compare> → / <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_id_arith_must_compare> → % <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
 
 <paren_after_nested_inner> → || <paren_inner_and> <paren_inner_or_tail>
 <paren_after_nested_inner> → && <paren_inner_not> <paren_inner_and_tail>
@@ -1813,7 +1889,8 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <paren_after_nested_inner> → λ
 
 // Arithmetic LHS (literal/cast starters - MUST compare)
-<paren_arith_lhs> → - <relational_unary> <relational_arith_tail>
+// MINUS path uses numeric variant to disallow string/char in arithmetic
+<paren_arith_lhs> → - <numeric_relational_unary> <relational_arith_tail>
 <paren_arith_lhs> → ++ id <relational_id_postfix_opt> <relational_arith_tail>
 <paren_arith_lhs> → -- id <relational_id_postfix_opt> <relational_arith_tail>
 <paren_arith_lhs> → <relational_literal> <relational_arith_tail>
@@ -1822,7 +1899,8 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <paren_must_compare_inside> → <comp_op> <arg_add_expr> <paren_rel_tail>
 
 // Relational LHS (excludes ID)
-<relational_lhs_no_id> → - <relational_unary>
+// MINUS path uses numeric variant - disallows string/char in arithmetic
+<relational_lhs_no_id> → - <numeric_relational_unary>
 <relational_lhs_no_id> → ++ id <relational_id_postfix_opt>
 <relational_lhs_no_id> → -- id <relational_id_postfix_opt>
 <relational_lhs_no_id> → <relational_literal>
@@ -1855,6 +1933,37 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <relational_postfix> → id <relational_id_postfix_opt>
 <relational_postfix> → ( <arg_add_expr> )
 
+// Numeric-only variants for relational arithmetic (excludes CHARLIT, STRINGLIT)
+<numeric_relational_literal> → intlit
+<numeric_relational_literal> → longlit
+<numeric_relational_literal> → floatlit
+<numeric_relational_literal> → doublelit
+
+// Numeric casts (excludes CHAR, STRING, BOOL casts from arithmetic)
+<numeric_relational_cast> → int ( <arg_expr> )
+<numeric_relational_cast> → long ( <arg_expr> )
+<numeric_relational_cast> → float ( <arg_expr> )
+<numeric_relational_cast> → double ( <arg_expr> )
+
+<numeric_relational_postfix> → <numeric_relational_literal>
+<numeric_relational_postfix> → <numeric_relational_cast>
+<numeric_relational_postfix> → ++ id <relational_id_postfix_opt>
+<numeric_relational_postfix> → -- id <relational_id_postfix_opt>
+<numeric_relational_postfix> → id <relational_id_postfix_opt>
+<numeric_relational_postfix> → ( <arg_add_expr> )
+
+<numeric_relational_unary_primary> → - <numeric_relational_unary_primary>
+<numeric_relational_unary_primary> → <numeric_relational_postfix>
+
+<numeric_relational_unary> → <numeric_relational_unary_primary> <numeric_relational_arith_tail>
+
+<numeric_relational_arith_tail> → * <numeric_relational_unary> <numeric_relational_arith_tail>
+<numeric_relational_arith_tail> → / <numeric_relational_unary> <numeric_relational_arith_tail>
+<numeric_relational_arith_tail> → % <numeric_relational_unary> <numeric_relational_arith_tail>
+<numeric_relational_arith_tail> → + <numeric_relational_unary> <numeric_relational_arith_tail>
+<numeric_relational_arith_tail> → - <numeric_relational_unary> <numeric_relational_arith_tail>
+<numeric_relational_arith_tail> → λ
+
 <relational_id_postfix_opt> → ++
 <relational_id_postfix_opt> → --
 <relational_id_postfix_opt> → [ <arg_expr> ] <relational_id_arr_dim2>
@@ -1865,27 +1974,28 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <relational_id_arr_dim2> → [ <arg_expr> ]
 <relational_id_arr_dim2> → λ
 
-<relational_arith_tail> → * <relational_unary> <relational_arith_tail>
-<relational_arith_tail> → / <relational_unary> <relational_arith_tail>
-<relational_arith_tail> → % <relational_unary> <relational_arith_tail>
-<relational_arith_tail> → + <relational_unary> <relational_arith_tail>
-<relational_arith_tail> → - <relational_unary> <relational_arith_tail>
+// Arithmetic continuation in relational expression (uses numeric variants)
+<relational_arith_tail> → * <numeric_relational_unary> <relational_arith_tail>
+<relational_arith_tail> → / <numeric_relational_unary> <relational_arith_tail>
+<relational_arith_tail> → % <numeric_relational_unary> <relational_arith_tail>
+<relational_arith_tail> → + <numeric_relational_unary> <relational_arith_tail>
+<relational_arith_tail> → - <numeric_relational_unary> <relational_arith_tail>
 <relational_arith_tail> → λ
 
 // Continue from arithmetic to comparison (handles (x+5) > y patterns)
-<relational_continue_ops> → * <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
-<relational_continue_ops> → / <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
-<relational_continue_ops> → % <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
-<relational_continue_ops> → + <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
-<relational_continue_ops> → - <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → * <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → / <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → % <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → + <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_continue_ops> → - <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
 <relational_continue_ops> → <comp_op> <arg_add_expr>
 
 // Mandatory comparison
-<relational_op_and_rhs> → * <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
-<relational_op_and_rhs> → / <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
-<relational_op_and_rhs> → % <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
-<relational_op_and_rhs> → + <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
-<relational_op_and_rhs> → - <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → * <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → / <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → % <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → + <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
+<relational_op_and_rhs> → - <numeric_relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr>
 <relational_op_and_rhs> → <comp_op> <arg_add_expr>
 
 <comp_op> → ==
