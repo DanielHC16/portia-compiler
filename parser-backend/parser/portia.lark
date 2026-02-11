@@ -8,49 +8,61 @@
 // ============================================
 // PROGRAM STRUCTURE
 // ============================================
-// Grammar enforces: declarations followed by main_func (nothing after main)
-// Left-factored to resolve INT lookahead conflict between int_decl and main_func
-// decl_list must end with main_func (not epsilon) - main is REQUIRED
+// STRICT SECTION ORDERING:
+// 1. Global declarations (0 or more) - must start with GLOBAL keyword
+// 2. Bare top-level arrays (0 or more) - type id[size] = {...};
+// 3. Weave definitions (0 or more) - weave type definitions
+// 4. Weave instances (0 or more) - instances of weave types
+// 5. Function declarations (0 or more) - all func definitions
+// 6. Main block (exactly one, required, must be last)
+// BARE SCALAR DECLARATIONS FORBIDDEN at top level (e.g., "int x = 5;" is illegal)
+// Bare arrays allowed: int arr[3] = {1,2,3}; (array bracket required after id)
 
 ?start: program
 
-program: decl_list
+program: global_section
 
-// Left-factored: when we see INT, look ahead to MAIN vs ID
-// main_func terminates the program (no more decl_list after it)
-decl_list: INT int_decl_or_main
-         | other_decl decl_list
+// Global section: processes globals/weaves/arrays, then transitions to functions or main
+// TYPE ID at top level requires [ (array) - scalar declarations forbidden
+// INT MAIN is the main function entry point
+global_section: global_decl global_section
+              | INT ID int_array_with_init SEMICOLON global_section
+              | LONG ID long_array_with_init SEMICOLON global_section
+              | FLOAT ID float_array_with_init SEMICOLON global_section
+              | DOUBLE ID double_array_with_init SEMICOLON global_section
+              | CHAR ID char_array_with_init SEMICOLON global_section
+              | STRING ID string_array_with_init SEMICOLON global_section
+              | BOOL ID bool_array_with_init SEMICOLON global_section
+              | WEAVE ID LBRACE field_list RBRACE SEMICOLON global_section
+              | ID weave_inst_decl global_section
+              | function_decl func_and_main
+              | INT MAIN LPAREN RPAREN LBRACE main_body RBRACE
 
-// After INT: ID continues with int-specific decl tail, MAIN ends program
-int_decl_or_main: ID int_decl_tail decl_list
-                | MAIN LPAREN RPAREN LBRACE main_body RBRACE
+// Function section: one or more functions, then mandatory main
+// Once here, no more globals allowed - strict section ordering enforced
+func_and_main: function_decl func_and_main
+             | INT MAIN LPAREN RPAREN LBRACE main_body RBRACE
 
-// All non-INT declarations - type-specific initializers enforce strict matching
-// Global declarations: each type accepts ONLY its matching literal
-other_decl: GLOBAL mutability INT ID ASSIGN INTLIT int_global_cont SEMICOLON
-          | GLOBAL mutability LONG ID ASSIGN LONGLIT long_global_cont SEMICOLON
-          | GLOBAL mutability FLOAT ID ASSIGN FLOATLIT float_global_cont SEMICOLON
-          | GLOBAL mutability DOUBLE ID ASSIGN DOUBLELIT double_global_cont SEMICOLON
-          | GLOBAL mutability CHAR ID ASSIGN CHARLIT char_global_cont SEMICOLON
-          | GLOBAL mutability STRING ID ASSIGN STRINGLIT string_global_cont SEMICOLON
-          | GLOBAL mutability BOOL ID ASSIGN bool_lit bool_global_cont SEMICOLON
-          | LONG ID long_decl_tail
-          | FLOAT ID float_decl_tail
-          | DOUBLE ID double_decl_tail
-          | CHAR ID char_decl_tail
-          | STRING ID string_decl_tail
-          | BOOL ID bool_decl_tail
-          | WEAVE ID LBRACE field_list RBRACE SEMICOLON
-          | ID weave_inst_decl
-          | FUNC INT func_ret_int
-          | FUNC LONG func_ret_long
-          | FUNC FLOAT func_ret_float
-          | FUNC DOUBLE func_ret_double
-          | FUNC CHAR func_ret_char
-          | FUNC STRING func_ret_string
-          | FUNC BOOL func_ret_bool
-          | FUNC ID func_ret_weave
-          | FUNC VOID ID LPAREN RPAREN LBRACE function_body_void RBRACE
+// Global declarations - MUST start with GLOBAL keyword
+// Each type accepts ONLY its matching literal type
+global_decl: GLOBAL mutability INT ID ASSIGN INTLIT int_global_cont SEMICOLON
+           | GLOBAL mutability LONG ID ASSIGN LONGLIT long_global_cont SEMICOLON
+           | GLOBAL mutability FLOAT ID ASSIGN FLOATLIT float_global_cont SEMICOLON
+           | GLOBAL mutability DOUBLE ID ASSIGN DOUBLELIT double_global_cont SEMICOLON
+           | GLOBAL mutability CHAR ID ASSIGN CHARLIT char_global_cont SEMICOLON
+           | GLOBAL mutability STRING ID ASSIGN STRINGLIT string_global_cont SEMICOLON
+           | GLOBAL mutability BOOL ID ASSIGN bool_lit bool_global_cont SEMICOLON
+
+// All function declarations (start with FUNC)
+function_decl: FUNC INT func_ret_int
+             | FUNC LONG func_ret_long
+             | FUNC FLOAT func_ret_float
+             | FUNC DOUBLE func_ret_double
+             | FUNC CHAR func_ret_char
+             | FUNC STRING func_ret_string
+             | FUNC BOOL func_ret_bool
+             | FUNC ID func_ret_weave
+             | FUNC VOID ID LPAREN RPAREN LBRACE function_body_void RBRACE
 
 // Boolean literal helper
 bool_lit: TRUE
@@ -81,55 +93,6 @@ string_global_cont: COMMA ID ASSIGN STRINGLIT string_global_cont
 
 bool_global_cont: COMMA ID ASSIGN bool_lit bool_global_cont
                 |
-
-// ============================================
-// TYPE-SPECIFIC DECLARATION TAILS
-// ============================================
-// Each type has dedicated rules - no generic expression fallback
-// Scalar init accepts ONLY matching literal type
-// Array init uses type-specific array rules
-
-int_decl_tail: int_array_with_init SEMICOLON
-             | ASSIGN INTLIT int_multi_decl SEMICOLON
-
-int_multi_decl: COMMA ID ASSIGN INTLIT int_multi_decl
-              |
-
-long_decl_tail: long_array_with_init SEMICOLON
-              | ASSIGN LONGLIT long_multi_decl SEMICOLON
-
-long_multi_decl: COMMA ID ASSIGN LONGLIT long_multi_decl
-               |
-
-float_decl_tail: float_array_with_init SEMICOLON
-               | ASSIGN FLOATLIT float_multi_decl SEMICOLON
-
-float_multi_decl: COMMA ID ASSIGN FLOATLIT float_multi_decl
-                |
-
-double_decl_tail: double_array_with_init SEMICOLON
-                | ASSIGN DOUBLELIT double_multi_decl SEMICOLON
-
-double_multi_decl: COMMA ID ASSIGN DOUBLELIT double_multi_decl
-                 |
-
-char_decl_tail: char_array_with_init SEMICOLON
-              | ASSIGN CHARLIT char_multi_decl SEMICOLON
-
-char_multi_decl: COMMA ID ASSIGN CHARLIT char_multi_decl
-               |
-
-string_decl_tail: string_array_with_init SEMICOLON
-                | ASSIGN STRINGLIT string_multi_decl SEMICOLON
-
-string_multi_decl: COMMA ID ASSIGN STRINGLIT string_multi_decl
-                 |
-
-bool_decl_tail: bool_array_with_init SEMICOLON
-              | ASSIGN bool_lit bool_multi_decl SEMICOLON
-
-bool_multi_decl: COMMA ID ASSIGN bool_lit bool_multi_decl
-               |
 
 // ============================================
 // WEAVE INSTANCE DECLARATIONS

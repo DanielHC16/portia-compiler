@@ -14,52 +14,63 @@ Terminals: global, local, func, return, if, else, switch, case, default, for, wh
 ============================================
 PROGRAM STRUCTURE
 ============================================
-// Left-factored to resolve INT lookahead conflict between int_decl and main_func
-// main_func terminates program (nothing allowed after)
+// STRICT SECTION ORDERING:
+// 1. Global declarations (0 or more) - must start with GLOBAL keyword
+// 2. Bare top-level arrays (0 or more) - type id[size] = {...};
+// 3. Weave definitions (0 or more) - weave type definitions
+// 4. Weave instances (0 or more) - instances of weave types
+// 5. Function declarations (0 or more) - all func definitions
+// 6. Main block (exactly one, required, must be last)
+// BARE SCALAR DECLARATIONS FORBIDDEN at top level (e.g., "int x = 5;" is illegal)
+// Bare arrays allowed: int arr[3] = {1,2,3}; (array bracket required after id)
 // STRICT TYPE-LITERAL MATCHING: declarations accept only matching literal types
 // Expressions are FORBIDDEN in all declaration contexts
 // EMPTY INITIALIZERS FORBIDDEN: {} is syntactically impossible (R2 compliant)
 
-<program> → <decl_list>
+<program> → <global_section>
 
-// When INT is seen, look ahead to distinguish ID (variable) vs MAIN (main function)
-<decl_list> → int <int_decl_or_main>
-<decl_list> → <other_decl> <decl_list>
+// Global section: processes globals/weaves/arrays, then transitions to functions or main
+// TYPE ID at top level requires [ (array) - scalar declarations forbidden
+// INT MAIN is the main function entry point
+<global_section> → <global_decl> <global_section>
+<global_section> → int id <int_array_with_init> ; <global_section>
+<global_section> → long id <long_array_with_init> ; <global_section>
+<global_section> → float id <float_array_with_init> ; <global_section>
+<global_section> → double id <double_array_with_init> ; <global_section>
+<global_section> → char id <char_array_with_init> ; <global_section>
+<global_section> → string id <string_array_with_init> ; <global_section>
+<global_section> → bool id <bool_array_with_init> ; <global_section>
+<global_section> → weave id { <field_list> } ; <global_section>
+<global_section> → id <weave_inst_decl> <global_section>
+<global_section> → <function_decl> <func_and_main>
+<global_section> → int main ( ) { <main_body> }
 
-// After INT: ID continues with int-specific decl tail, MAIN ends program
-<int_decl_or_main> → id <int_decl_tail> <decl_list>
-<int_decl_or_main> → main ( ) { <main_body> }
+// Function section: one or more functions, then mandatory main
+// Once here, no more globals allowed - strict section ordering enforced
+<func_and_main> → <function_decl> <func_and_main>
+<func_and_main> → int main ( ) { <main_body> }
 
-// All non-INT declarations - type-specific initializers enforce strict matching
-// Global declarations: each type accepts ONLY its matching literal
-<other_decl> → global <mutability> int id = intlit <int_global_cont> ;
-<other_decl> → global <mutability> long id = longlit <long_global_cont> ;
-<other_decl> → global <mutability> float id = floatlit <float_global_cont> ;
-<other_decl> → global <mutability> double id = doublelit <double_global_cont> ;
-<other_decl> → global <mutability> char id = charlit <char_global_cont> ;
-<other_decl> → global <mutability> string id = stringlit <string_global_cont> ;
-<other_decl> → global <mutability> bool id = <bool_lit> <bool_global_cont> ;
-// Typed variable declarations with type-specific tails
-<other_decl> → long id <long_decl_tail>
-<other_decl> → float id <float_decl_tail>
-<other_decl> → double id <double_decl_tail>
-<other_decl> → char id <char_decl_tail>
-<other_decl> → string id <string_decl_tail>
-<other_decl> → bool id <bool_decl_tail>
-// Weave definitions and instances
-<other_decl> → weave id { <field_list> } ;
-<other_decl> → id <weave_inst_decl>
-// Functions - R10 strict return type enforcement
-// Each return type category uses its own function body with type-specific return rules
-<other_decl> → func int <func_ret_int>
-<other_decl> → func long <func_ret_long>
-<other_decl> → func float <func_ret_float>
-<other_decl> → func double <func_ret_double>
-<other_decl> → func char <func_ret_char>
-<other_decl> → func string <func_ret_string>
-<other_decl> → func bool <func_ret_bool>
-<other_decl> → func id <func_ret_weave>
-<other_decl> → func void id ( ) { <function_body_void> }
+// Global declarations - MUST start with GLOBAL keyword
+// Each type accepts ONLY its matching literal type
+<global_decl> → global <mutability> int id = intlit <int_global_cont> ;
+<global_decl> → global <mutability> long id = longlit <long_global_cont> ;
+<global_decl> → global <mutability> float id = floatlit <float_global_cont> ;
+<global_decl> → global <mutability> double id = doublelit <double_global_cont> ;
+<global_decl> → global <mutability> char id = charlit <char_global_cont> ;
+<global_decl> → global <mutability> string id = stringlit <string_global_cont> ;
+<global_decl> → global <mutability> bool id = <bool_lit> <bool_global_cont> ;
+
+// All function declarations (start with FUNC)
+// R10 strict return type enforcement - each uses type-specific function body
+<function_decl> → func int <func_ret_int>
+<function_decl> → func long <func_ret_long>
+<function_decl> → func float <func_ret_float>
+<function_decl> → func double <func_ret_double>
+<function_decl> → func char <func_ret_char>
+<function_decl> → func string <func_ret_string>
+<function_decl> → func bool <func_ret_bool>
+<function_decl> → func id <func_ret_weave>
+<function_decl> → func void id ( ) { <function_body_void> }
 
 // Boolean literal helper (used where true/false is needed)
 <bool_lit> → true
@@ -90,55 +101,6 @@ GLOBAL DECLARATION CONTINUATIONS
 
 <bool_global_cont> → , id = <bool_lit> <bool_global_cont>
 <bool_global_cont> → λ
-
-============================================
-TYPE-SPECIFIC DECLARATION TAILS
-============================================
-// Each type has dedicated rules - no generic <expression> fallback
-// Scalar init accepts ONLY matching literal type
-// Array init uses type-specific array rules
-
-<int_decl_tail> → <int_array_with_init> ;
-<int_decl_tail> → = intlit <int_multi_decl> ;
-
-<int_multi_decl> → , id = intlit <int_multi_decl>
-<int_multi_decl> → λ
-
-<long_decl_tail> → <long_array_with_init> ;
-<long_decl_tail> → = longlit <long_multi_decl> ;
-
-<long_multi_decl> → , id = longlit <long_multi_decl>
-<long_multi_decl> → λ
-
-<float_decl_tail> → <float_array_with_init> ;
-<float_decl_tail> → = floatlit <float_multi_decl> ;
-
-<float_multi_decl> → , id = floatlit <float_multi_decl>
-<float_multi_decl> → λ
-
-<double_decl_tail> → <double_array_with_init> ;
-<double_decl_tail> → = doublelit <double_multi_decl> ;
-
-<double_multi_decl> → , id = doublelit <double_multi_decl>
-<double_multi_decl> → λ
-
-<char_decl_tail> → <char_array_with_init> ;
-<char_decl_tail> → = charlit <char_multi_decl> ;
-
-<char_multi_decl> → , id = charlit <char_multi_decl>
-<char_multi_decl> → λ
-
-<string_decl_tail> → <string_array_with_init> ;
-<string_decl_tail> → = stringlit <string_multi_decl> ;
-
-<string_multi_decl> → , id = stringlit <string_multi_decl>
-<string_multi_decl> → λ
-
-<bool_decl_tail> → <bool_array_with_init> ;
-<bool_decl_tail> → = <bool_lit> <bool_multi_decl> ;
-
-<bool_multi_decl> → , id = <bool_lit> <bool_multi_decl>
-<bool_multi_decl> → λ
 
 ============================================
 WEAVE INSTANCE DECLARATIONS
