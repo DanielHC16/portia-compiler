@@ -8,49 +8,61 @@
 // ============================================
 // PROGRAM STRUCTURE
 // ============================================
-// Grammar enforces: declarations followed by main_func (nothing after main)
-// Left-factored to resolve INT lookahead conflict between int_decl and main_func
-// decl_list must end with main_func (not epsilon) - main is REQUIRED
+// STRICT SECTION ORDERING:
+// 1. Global declarations (0 or more) - must start with GLOBAL keyword
+// 2. Bare top-level arrays (0 or more) - type id[size] = {...};
+// 3. Weave definitions (0 or more) - weave type definitions
+// 4. Weave instances (0 or more) - instances of weave types
+// 5. Function declarations (0 or more) - all func definitions
+// 6. Main block (exactly one, required, must be last)
+// BARE SCALAR DECLARATIONS FORBIDDEN at top level (e.g., "int x = 5;" is illegal)
+// Bare arrays allowed: int arr[3] = {1,2,3}; (array bracket required after id)
 
 ?start: program
 
-program: decl_list
+program: global_section
 
-// Left-factored: when we see INT, look ahead to MAIN vs ID
-// main_func terminates the program (no more decl_list after it)
-decl_list: INT int_decl_or_main
-         | other_decl decl_list
+// Global section: processes globals/weaves/arrays, then transitions to functions or main
+// TYPE ID at top level requires [ (array) - scalar declarations forbidden
+// INT MAIN is the main function entry point
+global_section: global_decl global_section
+              | INT ID int_array_with_init SEMICOLON global_section
+              | LONG ID long_array_with_init SEMICOLON global_section
+              | FLOAT ID float_array_with_init SEMICOLON global_section
+              | DOUBLE ID double_array_with_init SEMICOLON global_section
+              | CHAR ID char_array_with_init SEMICOLON global_section
+              | STRING ID string_array_with_init SEMICOLON global_section
+              | BOOL ID bool_array_with_init SEMICOLON global_section
+              | WEAVE ID LBRACE field_list RBRACE SEMICOLON global_section
+              | ID weave_inst_decl global_section
+              | function_decl func_and_main
+              | INT MAIN LPAREN RPAREN LBRACE main_body RBRACE
 
-// After INT: ID continues with int-specific decl tail, MAIN ends program
-int_decl_or_main: ID int_decl_tail decl_list
-                | MAIN LPAREN RPAREN LBRACE main_body RBRACE
+// Function section: one or more functions, then mandatory main
+// Once here, no more globals allowed - strict section ordering enforced
+func_and_main: function_decl func_and_main
+             | INT MAIN LPAREN RPAREN LBRACE main_body RBRACE
 
-// All non-INT declarations - type-specific initializers enforce strict matching
-// Global declarations: each type accepts ONLY its matching literal
-other_decl: GLOBAL mutability INT ID ASSIGN INTLIT int_global_cont SEMICOLON
-          | GLOBAL mutability LONG ID ASSIGN LONGLIT long_global_cont SEMICOLON
-          | GLOBAL mutability FLOAT ID ASSIGN FLOATLIT float_global_cont SEMICOLON
-          | GLOBAL mutability DOUBLE ID ASSIGN DOUBLELIT double_global_cont SEMICOLON
-          | GLOBAL mutability CHAR ID ASSIGN CHARLIT char_global_cont SEMICOLON
-          | GLOBAL mutability STRING ID ASSIGN STRINGLIT string_global_cont SEMICOLON
-          | GLOBAL mutability BOOL ID ASSIGN bool_lit bool_global_cont SEMICOLON
-          | LONG ID long_decl_tail
-          | FLOAT ID float_decl_tail
-          | DOUBLE ID double_decl_tail
-          | CHAR ID char_decl_tail
-          | STRING ID string_decl_tail
-          | BOOL ID bool_decl_tail
-          | WEAVE ID LBRACE field_list RBRACE SEMICOLON
-          | ID weave_inst_decl
-          | FUNC INT func_ret_int
-          | FUNC LONG func_ret_long
-          | FUNC FLOAT func_ret_float
-          | FUNC DOUBLE func_ret_double
-          | FUNC CHAR func_ret_char
-          | FUNC STRING func_ret_string
-          | FUNC BOOL func_ret_bool
-          | FUNC ID func_ret_weave
-          | FUNC VOID ID LPAREN RPAREN LBRACE function_body_void RBRACE
+// Global declarations - MUST start with GLOBAL keyword
+// Each type accepts ONLY its matching literal type
+global_decl: GLOBAL mutability INT ID ASSIGN INTLIT int_global_cont SEMICOLON
+           | GLOBAL mutability LONG ID ASSIGN LONGLIT long_global_cont SEMICOLON
+           | GLOBAL mutability FLOAT ID ASSIGN FLOATLIT float_global_cont SEMICOLON
+           | GLOBAL mutability DOUBLE ID ASSIGN DOUBLELIT double_global_cont SEMICOLON
+           | GLOBAL mutability CHAR ID ASSIGN CHARLIT char_global_cont SEMICOLON
+           | GLOBAL mutability STRING ID ASSIGN STRINGLIT string_global_cont SEMICOLON
+           | GLOBAL mutability BOOL ID ASSIGN bool_lit bool_global_cont SEMICOLON
+
+// All function declarations (start with FUNC)
+function_decl: FUNC INT func_ret_int
+             | FUNC LONG func_ret_long
+             | FUNC FLOAT func_ret_float
+             | FUNC DOUBLE func_ret_double
+             | FUNC CHAR func_ret_char
+             | FUNC STRING func_ret_string
+             | FUNC BOOL func_ret_bool
+             | FUNC ID func_ret_weave
+             | FUNC VOID ID LPAREN RPAREN LBRACE function_body_void RBRACE
 
 // Boolean literal helper
 bool_lit: TRUE
@@ -81,55 +93,6 @@ string_global_cont: COMMA ID ASSIGN STRINGLIT string_global_cont
 
 bool_global_cont: COMMA ID ASSIGN bool_lit bool_global_cont
                 |
-
-// ============================================
-// TYPE-SPECIFIC DECLARATION TAILS
-// ============================================
-// Each type has dedicated rules - no generic expression fallback
-// Scalar init accepts ONLY matching literal type
-// Array init uses type-specific array rules
-
-int_decl_tail: int_array_with_init SEMICOLON
-             | ASSIGN INTLIT int_multi_decl SEMICOLON
-
-int_multi_decl: COMMA ID ASSIGN INTLIT int_multi_decl
-              |
-
-long_decl_tail: long_array_with_init SEMICOLON
-              | ASSIGN LONGLIT long_multi_decl SEMICOLON
-
-long_multi_decl: COMMA ID ASSIGN LONGLIT long_multi_decl
-               |
-
-float_decl_tail: float_array_with_init SEMICOLON
-               | ASSIGN FLOATLIT float_multi_decl SEMICOLON
-
-float_multi_decl: COMMA ID ASSIGN FLOATLIT float_multi_decl
-                |
-
-double_decl_tail: double_array_with_init SEMICOLON
-                | ASSIGN DOUBLELIT double_multi_decl SEMICOLON
-
-double_multi_decl: COMMA ID ASSIGN DOUBLELIT double_multi_decl
-                 |
-
-char_decl_tail: char_array_with_init SEMICOLON
-              | ASSIGN CHARLIT char_multi_decl SEMICOLON
-
-char_multi_decl: COMMA ID ASSIGN CHARLIT char_multi_decl
-               |
-
-string_decl_tail: string_array_with_init SEMICOLON
-                | ASSIGN STRINGLIT string_multi_decl SEMICOLON
-
-string_multi_decl: COMMA ID ASSIGN STRINGLIT string_multi_decl
-                 |
-
-bool_decl_tail: bool_array_with_init SEMICOLON
-              | ASSIGN bool_lit bool_multi_decl SEMICOLON
-
-bool_multi_decl: COMMA ID ASSIGN bool_lit bool_multi_decl
-               |
 
 // ============================================
 // WEAVE INSTANCE DECLARATIONS
@@ -469,89 +432,111 @@ param_cont: COMMA param_type ID param_arr_opt param_cont
 // ============================================
 // TYPE-SPECIFIC FUNCTION BODIES
 // ============================================
-// Return statements can appear ANYWHERE within a function body or control structure.
-// This correctly supports multiple returns in distinct control paths per PORTIA spec.
-// Unreachable-code detection is semantic, NOT syntactic.
+// MANDATORY RETURN ENFORCEMENT:
+// - func_content_* is a sequence of using/local/statements ending with mandatory_*_return
+// - No lambda alternative ensures at least one return is required
+// - Returns can also appear inside control structures (via statement_*_no_ret -> ctrl_struct_*)
+// - Semantic analysis verifies all control paths return appropriately
 
 // INT-returning function body
 function_body_int: func_content_int
 
 func_content_int: USING ID using_cont SEMICOLON func_content_int
                 | LOCAL mutability local_dec_body func_content_int
-                | statement_int func_content_int
-                |
+                | statement_int_no_ret func_content_int
+                | mandatory_int_return
+
+mandatory_int_return: RETURN typed_numeric_ret_expr SEMICOLON
 
 // LONG-returning function body
 function_body_long: func_content_long
 
 func_content_long: USING ID using_cont SEMICOLON func_content_long
                  | LOCAL mutability local_dec_body func_content_long
-                 | statement_long func_content_long
-                 |
+                 | statement_long_no_ret func_content_long
+                 | mandatory_long_return
+
+mandatory_long_return: RETURN typed_numeric_ret_expr SEMICOLON
 
 // FLOAT-returning function body
 function_body_float: func_content_float
 
 func_content_float: USING ID using_cont SEMICOLON func_content_float
                   | LOCAL mutability local_dec_body func_content_float
-                  | statement_float func_content_float
-                  |
+                  | statement_float_no_ret func_content_float
+                  | mandatory_float_return
+
+mandatory_float_return: RETURN typed_numeric_ret_expr SEMICOLON
 
 // DOUBLE-returning function body
 function_body_double: func_content_double
 
 func_content_double: USING ID using_cont SEMICOLON func_content_double
                    | LOCAL mutability local_dec_body func_content_double
-                   | statement_double func_content_double
-                   |
+                   | statement_double_no_ret func_content_double
+                   | mandatory_double_return
+
+mandatory_double_return: RETURN typed_numeric_ret_expr SEMICOLON
 
 // CHAR-returning function body
 function_body_char: func_content_char
 
 func_content_char: USING ID using_cont SEMICOLON func_content_char
                  | LOCAL mutability local_dec_body func_content_char
-                 | statement_char func_content_char
-                 |
+                 | statement_char_no_ret func_content_char
+                 | mandatory_char_return
+
+mandatory_char_return: RETURN typed_string_ret_expr SEMICOLON
 
 // STRING-returning function body
 function_body_string: func_content_string
 
 func_content_string: USING ID using_cont SEMICOLON func_content_string
                    | LOCAL mutability local_dec_body func_content_string
-                   | statement_string func_content_string
-                   |
+                   | statement_string_no_ret func_content_string
+                   | mandatory_string_return
+
+mandatory_string_return: RETURN typed_string_ret_expr SEMICOLON
 
 // BOOL-returning function body
 function_body_bool: func_content_bool
 
 func_content_bool: USING ID using_cont SEMICOLON func_content_bool
                  | LOCAL mutability local_dec_body func_content_bool
-                 | statement_bool func_content_bool
-                 |
+                 | statement_bool_no_ret func_content_bool
+                 | mandatory_bool_return
+
+mandatory_bool_return: RETURN typed_bool_ret_expr SEMICOLON
 
 // ARRAY-returning function body (any base type)
 function_body_array: func_content_array
 
 func_content_array: USING ID using_cont SEMICOLON func_content_array
                   | LOCAL mutability local_dec_body func_content_array
-                  | statement_array func_content_array
-                  |
+                  | statement_array_no_ret func_content_array
+                  | mandatory_array_return
+
+mandatory_array_return: RETURN ID SEMICOLON
 
 // WEAVE-returning function body
 function_body_weave: func_content_weave
 
 func_content_weave: USING ID using_cont SEMICOLON func_content_weave
                   | LOCAL mutability local_dec_body func_content_weave
-                  | statement_weave func_content_weave
-                  |
+                  | statement_weave_no_ret func_content_weave
+                  | mandatory_weave_return
+
+mandatory_weave_return: RETURN ID SEMICOLON
 
 // VOID function body
 function_body_void: func_content_void
 
 func_content_void: USING ID using_cont SEMICOLON func_content_void
                  | LOCAL mutability local_dec_body func_content_void
-                 | statement_void func_content_void
-                 |
+                 | statement_void_no_ret func_content_void
+                 | mandatory_void_return
+
+mandatory_void_return: RETURN SEMICOLON
 
 // ============================================
 // TYPE-SPECIFIC STATEMENTS
@@ -562,498 +547,496 @@ func_content_void: USING ID using_cont SEMICOLON func_content_void
 statement_int: effect_stmt SEMICOLON
              | io_stmt
              | ctrl_struct_int
-             | BREAK SEMICOLON
-             | RETURN int_return_expr SEMICOLON
+             | RETURN typed_numeric_ret_expr SEMICOLON
 
 statement_long: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_long
-              | BREAK SEMICOLON
-              | RETURN long_return_expr SEMICOLON
+              | RETURN typed_numeric_ret_expr SEMICOLON
 
 statement_float: effect_stmt SEMICOLON
                | io_stmt
                | ctrl_struct_float
-               | BREAK SEMICOLON
-               | RETURN float_return_expr SEMICOLON
+               | RETURN typed_numeric_ret_expr SEMICOLON
 
 statement_double: effect_stmt SEMICOLON
                 | io_stmt
                 | ctrl_struct_double
-                | BREAK SEMICOLON
-                | RETURN double_return_expr SEMICOLON
+                | RETURN typed_numeric_ret_expr SEMICOLON
 
 statement_char: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_char
-              | BREAK SEMICOLON
-              | RETURN char_return_expr SEMICOLON
+              | RETURN typed_string_ret_expr SEMICOLON
 
 statement_string: effect_stmt SEMICOLON
                 | io_stmt
                 | ctrl_struct_string
-                | BREAK SEMICOLON
-                | RETURN string_return_expr SEMICOLON
+                | RETURN typed_string_ret_expr SEMICOLON
 
 statement_bool: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_bool
-              | BREAK SEMICOLON
-              | RETURN bool_return_expr SEMICOLON
+              | RETURN typed_bool_ret_expr SEMICOLON
 
 statement_array: effect_stmt SEMICOLON
                | io_stmt
                | ctrl_struct_array
-               | BREAK SEMICOLON
                | RETURN ID SEMICOLON
 
 statement_weave: effect_stmt SEMICOLON
                | io_stmt
                | ctrl_struct_weave
-               | BREAK SEMICOLON
                | RETURN ID SEMICOLON
 
 statement_void: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_void
-              | BREAK SEMICOLON
               | RETURN SEMICOLON
+
+// ============================================
+// TYPE-SPECIFIC STATEMENTS (NO DIRECT RETURN)
+// ============================================
+// These rules exclude direct RETURN statements from function body prefix.
+// Control structures (which may contain returns internally) are still allowed.
+// Used by func_prefix_* to ensure return appears via terminator.
+
+statement_int_no_ret: effect_stmt SEMICOLON
+                    | io_stmt
+                    | ctrl_struct_int
+
+statement_long_no_ret: effect_stmt SEMICOLON
+                     | io_stmt
+                     | ctrl_struct_long
+
+statement_float_no_ret: effect_stmt SEMICOLON
+                      | io_stmt
+                      | ctrl_struct_float
+
+statement_double_no_ret: effect_stmt SEMICOLON
+                       | io_stmt
+                       | ctrl_struct_double
+
+statement_char_no_ret: effect_stmt SEMICOLON
+                     | io_stmt
+                     | ctrl_struct_char
+
+statement_string_no_ret: effect_stmt SEMICOLON
+                       | io_stmt
+                       | ctrl_struct_string
+
+statement_bool_no_ret: effect_stmt SEMICOLON
+                     | io_stmt
+                     | ctrl_struct_bool
+
+statement_array_no_ret: effect_stmt SEMICOLON
+                      | io_stmt
+                      | ctrl_struct_array
+
+statement_weave_no_ret: effect_stmt SEMICOLON
+                      | io_stmt
+                      | ctrl_struct_weave
+
+statement_void_no_ret: effect_stmt SEMICOLON
+                     | io_stmt
+                     | ctrl_struct_void
 
 // ============================================
 // TYPE-SPECIFIC CONTROL STRUCTURES
 // ============================================
 // Each return type has its own control structure rules.
 // This allows return statements inside if/else/while/for/switch/do-while.
+// BREAK RESTRICTION: break; only valid in loop/switch bodies (loop_stmt_list_*)
 
 // INT control structures
-ctrl_struct_int: IF LPAREN condition RPAREN LBRACE stmt_list_int RBRACE else_opt_int
+ctrl_struct_int: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_int RBRACE else_opt_int
                | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_int default_opt_int RBRACE
-               | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_int RBRACE
-               | WHILE LPAREN condition RPAREN LBRACE stmt_list_int RBRACE
-               | DO LBRACE stmt_list_int RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+               | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_int RBRACE
+               | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_int RBRACE
+               | DO LBRACE non_empty_loop_stmt_list_int RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_int: statement_int stmt_list_int
              |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_int: statement_int stmt_list_int
+
+loop_statement_int: statement_int
+                  | BREAK SEMICOLON
+
+loop_stmt_list_int: loop_statement_int loop_stmt_list_int
+                  |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_int: loop_statement_int loop_stmt_list_int
+
 else_opt_int: ELSE else_body_int
             |
 
-else_body_int: LBRACE stmt_list_int RBRACE
-             | IF LPAREN condition RPAREN LBRACE stmt_list_int RBRACE else_opt_int
+else_body_int: LBRACE non_empty_stmt_list_int RBRACE
+             | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_int RBRACE else_opt_int
 
-case_list_int: CASE case_val COLON stmt_list_int break_opt case_list_int
+case_list_int: CASE case_val COLON non_empty_loop_stmt_list_int break_opt case_list_int
              |
 
-default_opt_int: DEFAULT COLON stmt_list_int break_opt
+default_opt_int: DEFAULT COLON non_empty_loop_stmt_list_int break_opt
                |
 
 // LONG control structures
-ctrl_struct_long: IF LPAREN condition RPAREN LBRACE stmt_list_long RBRACE else_opt_long
+ctrl_struct_long: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_long RBRACE else_opt_long
                 | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_long default_opt_long RBRACE
-                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_long RBRACE
-                | WHILE LPAREN condition RPAREN LBRACE stmt_list_long RBRACE
-                | DO LBRACE stmt_list_long RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_long RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_long RBRACE
+                | DO LBRACE non_empty_loop_stmt_list_long RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_long: statement_long stmt_list_long
               |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_long: statement_long stmt_list_long
+
+loop_statement_long: statement_long
+                   | BREAK SEMICOLON
+
+loop_stmt_list_long: loop_statement_long loop_stmt_list_long
+                   |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_long: loop_statement_long loop_stmt_list_long
+
 else_opt_long: ELSE else_body_long
              |
 
-else_body_long: LBRACE stmt_list_long RBRACE
-              | IF LPAREN condition RPAREN LBRACE stmt_list_long RBRACE else_opt_long
+else_body_long: LBRACE non_empty_stmt_list_long RBRACE
+              | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_long RBRACE else_opt_long
 
-case_list_long: CASE case_val COLON stmt_list_long break_opt case_list_long
+case_list_long: CASE case_val COLON non_empty_loop_stmt_list_long break_opt case_list_long
               |
 
-default_opt_long: DEFAULT COLON stmt_list_long break_opt
+default_opt_long: DEFAULT COLON non_empty_loop_stmt_list_long break_opt
                 |
 
 // FLOAT control structures
-ctrl_struct_float: IF LPAREN condition RPAREN LBRACE stmt_list_float RBRACE else_opt_float
+ctrl_struct_float: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_float RBRACE else_opt_float
                  | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_float default_opt_float RBRACE
-                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_float RBRACE
-                 | WHILE LPAREN condition RPAREN LBRACE stmt_list_float RBRACE
-                 | DO LBRACE stmt_list_float RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_float RBRACE
+                 | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_float RBRACE
+                 | DO LBRACE non_empty_loop_stmt_list_float RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_float: statement_float stmt_list_float
                |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_float: statement_float stmt_list_float
+
+loop_statement_float: statement_float
+                    | BREAK SEMICOLON
+
+loop_stmt_list_float: loop_statement_float loop_stmt_list_float
+                    |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_float: loop_statement_float loop_stmt_list_float
+
 else_opt_float: ELSE else_body_float
               |
 
-else_body_float: LBRACE stmt_list_float RBRACE
-               | IF LPAREN condition RPAREN LBRACE stmt_list_float RBRACE else_opt_float
+else_body_float: LBRACE non_empty_stmt_list_float RBRACE
+               | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_float RBRACE else_opt_float
 
-case_list_float: CASE case_val COLON stmt_list_float break_opt case_list_float
+case_list_float: CASE case_val COLON non_empty_loop_stmt_list_float break_opt case_list_float
                |
 
-default_opt_float: DEFAULT COLON stmt_list_float break_opt
+default_opt_float: DEFAULT COLON non_empty_loop_stmt_list_float break_opt
                  |
 
 // DOUBLE control structures
-ctrl_struct_double: IF LPAREN condition RPAREN LBRACE stmt_list_double RBRACE else_opt_double
+ctrl_struct_double: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_double RBRACE else_opt_double
                   | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_double default_opt_double RBRACE
-                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_double RBRACE
-                  | WHILE LPAREN condition RPAREN LBRACE stmt_list_double RBRACE
-                  | DO LBRACE stmt_list_double RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_double RBRACE
+                  | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_double RBRACE
+                  | DO LBRACE non_empty_loop_stmt_list_double RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_double: statement_double stmt_list_double
                 |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_double: statement_double stmt_list_double
+
+loop_statement_double: statement_double
+                     | BREAK SEMICOLON
+
+loop_stmt_list_double: loop_statement_double loop_stmt_list_double
+                     |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_double: loop_statement_double loop_stmt_list_double
+
 else_opt_double: ELSE else_body_double
                |
 
-else_body_double: LBRACE stmt_list_double RBRACE
-                | IF LPAREN condition RPAREN LBRACE stmt_list_double RBRACE else_opt_double
+else_body_double: LBRACE non_empty_stmt_list_double RBRACE
+                | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_double RBRACE else_opt_double
 
-case_list_double: CASE case_val COLON stmt_list_double break_opt case_list_double
+case_list_double: CASE case_val COLON non_empty_loop_stmt_list_double break_opt case_list_double
                 |
 
-default_opt_double: DEFAULT COLON stmt_list_double break_opt
+default_opt_double: DEFAULT COLON non_empty_loop_stmt_list_double break_opt
                   |
 
 // CHAR control structures
-ctrl_struct_char: IF LPAREN condition RPAREN LBRACE stmt_list_char RBRACE else_opt_char
+ctrl_struct_char: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_char RBRACE else_opt_char
                 | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_char default_opt_char RBRACE
-                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_char RBRACE
-                | WHILE LPAREN condition RPAREN LBRACE stmt_list_char RBRACE
-                | DO LBRACE stmt_list_char RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_char RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_char RBRACE
+                | DO LBRACE non_empty_loop_stmt_list_char RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_char: statement_char stmt_list_char
               |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_char: statement_char stmt_list_char
+
+loop_statement_char: statement_char
+                   | BREAK SEMICOLON
+
+loop_stmt_list_char: loop_statement_char loop_stmt_list_char
+                   |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_char: loop_statement_char loop_stmt_list_char
+
 else_opt_char: ELSE else_body_char
              |
 
-else_body_char: LBRACE stmt_list_char RBRACE
-              | IF LPAREN condition RPAREN LBRACE stmt_list_char RBRACE else_opt_char
+else_body_char: LBRACE non_empty_stmt_list_char RBRACE
+              | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_char RBRACE else_opt_char
 
-case_list_char: CASE case_val COLON stmt_list_char break_opt case_list_char
+case_list_char: CASE case_val COLON non_empty_loop_stmt_list_char break_opt case_list_char
               |
 
-default_opt_char: DEFAULT COLON stmt_list_char break_opt
+default_opt_char: DEFAULT COLON non_empty_loop_stmt_list_char break_opt
                 |
 
 // STRING control structures
-ctrl_struct_string: IF LPAREN condition RPAREN LBRACE stmt_list_string RBRACE else_opt_string
+ctrl_struct_string: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_string RBRACE else_opt_string
                   | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_string default_opt_string RBRACE
-                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_string RBRACE
-                  | WHILE LPAREN condition RPAREN LBRACE stmt_list_string RBRACE
-                  | DO LBRACE stmt_list_string RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_string RBRACE
+                  | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_string RBRACE
+                  | DO LBRACE non_empty_loop_stmt_list_string RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_string: statement_string stmt_list_string
                 |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_string: statement_string stmt_list_string
+
+loop_statement_string: statement_string
+                     | BREAK SEMICOLON
+
+loop_stmt_list_string: loop_statement_string loop_stmt_list_string
+                     |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_string: loop_statement_string loop_stmt_list_string
+
 else_opt_string: ELSE else_body_string
                |
 
-else_body_string: LBRACE stmt_list_string RBRACE
-                | IF LPAREN condition RPAREN LBRACE stmt_list_string RBRACE else_opt_string
+else_body_string: LBRACE non_empty_stmt_list_string RBRACE
+                | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_string RBRACE else_opt_string
 
-case_list_string: CASE case_val COLON stmt_list_string break_opt case_list_string
+case_list_string: CASE case_val COLON non_empty_loop_stmt_list_string break_opt case_list_string
                 |
 
-default_opt_string: DEFAULT COLON stmt_list_string break_opt
+default_opt_string: DEFAULT COLON non_empty_loop_stmt_list_string break_opt
                   |
 
 // BOOL control structures
-ctrl_struct_bool: IF LPAREN condition RPAREN LBRACE stmt_list_bool RBRACE else_opt_bool
+ctrl_struct_bool: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_bool RBRACE else_opt_bool
                 | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_bool default_opt_bool RBRACE
-                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_bool RBRACE
-                | WHILE LPAREN condition RPAREN LBRACE stmt_list_bool RBRACE
-                | DO LBRACE stmt_list_bool RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_bool RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_bool RBRACE
+                | DO LBRACE non_empty_loop_stmt_list_bool RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_bool: statement_bool stmt_list_bool
               |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_bool: statement_bool stmt_list_bool
+
+loop_statement_bool: statement_bool
+                   | BREAK SEMICOLON
+
+loop_stmt_list_bool: loop_statement_bool loop_stmt_list_bool
+                   |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_bool: loop_statement_bool loop_stmt_list_bool
+
 else_opt_bool: ELSE else_body_bool
              |
 
-else_body_bool: LBRACE stmt_list_bool RBRACE
-              | IF LPAREN condition RPAREN LBRACE stmt_list_bool RBRACE else_opt_bool
+else_body_bool: LBRACE non_empty_stmt_list_bool RBRACE
+              | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_bool RBRACE else_opt_bool
 
-case_list_bool: CASE case_val COLON stmt_list_bool break_opt case_list_bool
+case_list_bool: CASE case_val COLON non_empty_loop_stmt_list_bool break_opt case_list_bool
               |
 
-default_opt_bool: DEFAULT COLON stmt_list_bool break_opt
+default_opt_bool: DEFAULT COLON non_empty_loop_stmt_list_bool break_opt
                 |
 
 // ARRAY control structures
-ctrl_struct_array: IF LPAREN condition RPAREN LBRACE stmt_list_array RBRACE else_opt_array
+ctrl_struct_array: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_array RBRACE else_opt_array
                  | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_array default_opt_array RBRACE
-                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_array RBRACE
-                 | WHILE LPAREN condition RPAREN LBRACE stmt_list_array RBRACE
-                 | DO LBRACE stmt_list_array RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_array RBRACE
+                 | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_array RBRACE
+                 | DO LBRACE non_empty_loop_stmt_list_array RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_array: statement_array stmt_list_array
                |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_array: statement_array stmt_list_array
+
+loop_statement_array: statement_array
+                    | BREAK SEMICOLON
+
+loop_stmt_list_array: loop_statement_array loop_stmt_list_array
+                    |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_array: loop_statement_array loop_stmt_list_array
+
 else_opt_array: ELSE else_body_array
               |
 
-else_body_array: LBRACE stmt_list_array RBRACE
-               | IF LPAREN condition RPAREN LBRACE stmt_list_array RBRACE else_opt_array
+else_body_array: LBRACE non_empty_stmt_list_array RBRACE
+               | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_array RBRACE else_opt_array
 
-case_list_array: CASE case_val COLON stmt_list_array break_opt case_list_array
+case_list_array: CASE case_val COLON non_empty_loop_stmt_list_array break_opt case_list_array
                |
 
-default_opt_array: DEFAULT COLON stmt_list_array break_opt
+default_opt_array: DEFAULT COLON non_empty_loop_stmt_list_array break_opt
                  |
 
 // WEAVE control structures
-ctrl_struct_weave: IF LPAREN condition RPAREN LBRACE stmt_list_weave RBRACE else_opt_weave
+ctrl_struct_weave: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_weave RBRACE else_opt_weave
                  | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_weave default_opt_weave RBRACE
-                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_weave RBRACE
-                 | WHILE LPAREN condition RPAREN LBRACE stmt_list_weave RBRACE
-                 | DO LBRACE stmt_list_weave RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_weave RBRACE
+                 | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_weave RBRACE
+                 | DO LBRACE non_empty_loop_stmt_list_weave RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_weave: statement_weave stmt_list_weave
                |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_weave: statement_weave stmt_list_weave
+
+loop_statement_weave: statement_weave
+                    | BREAK SEMICOLON
+
+loop_stmt_list_weave: loop_statement_weave loop_stmt_list_weave
+                    |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_weave: loop_statement_weave loop_stmt_list_weave
+
 else_opt_weave: ELSE else_body_weave
               |
 
-else_body_weave: LBRACE stmt_list_weave RBRACE
-               | IF LPAREN condition RPAREN LBRACE stmt_list_weave RBRACE else_opt_weave
+else_body_weave: LBRACE non_empty_stmt_list_weave RBRACE
+               | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_weave RBRACE else_opt_weave
 
-case_list_weave: CASE case_val COLON stmt_list_weave break_opt case_list_weave
+case_list_weave: CASE case_val COLON non_empty_loop_stmt_list_weave break_opt case_list_weave
                |
 
-default_opt_weave: DEFAULT COLON stmt_list_weave break_opt
+default_opt_weave: DEFAULT COLON non_empty_loop_stmt_list_weave break_opt
                  |
 
 // VOID control structures
-ctrl_struct_void: IF LPAREN condition RPAREN LBRACE stmt_list_void RBRACE else_opt_void
+ctrl_struct_void: IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_void RBRACE else_opt_void
                 | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_void default_opt_void RBRACE
-                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_void RBRACE
-                | WHILE LPAREN condition RPAREN LBRACE stmt_list_void RBRACE
-                | DO LBRACE stmt_list_void RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_stmt_list_void RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_stmt_list_void RBRACE
+                | DO LBRACE non_empty_loop_stmt_list_void RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_void: statement_void stmt_list_void
               |
 
+// Non-empty statement list for control structure bodies
+non_empty_stmt_list_void: statement_void stmt_list_void
+
+loop_statement_void: statement_void
+                   | BREAK SEMICOLON
+
+loop_stmt_list_void: loop_statement_void loop_stmt_list_void
+                   |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_stmt_list_void: loop_statement_void loop_stmt_list_void
+
 else_opt_void: ELSE else_body_void
              |
 
-else_body_void: LBRACE stmt_list_void RBRACE
-              | IF LPAREN condition RPAREN LBRACE stmt_list_void RBRACE else_opt_void
+else_body_void: LBRACE non_empty_stmt_list_void RBRACE
+              | IF LPAREN condition RPAREN LBRACE non_empty_stmt_list_void RBRACE else_opt_void
 
-case_list_void: CASE case_val COLON stmt_list_void break_opt case_list_void
+case_list_void: CASE case_val COLON non_empty_loop_stmt_list_void break_opt case_list_void
               |
 
-default_opt_void: DEFAULT COLON stmt_list_void break_opt
+default_opt_void: DEFAULT COLON non_empty_loop_stmt_list_void break_opt
                 |
 
 // ============================================
-// TYPE-SPECIFIC RETURN EXPRESSIONS
+// TYPED RETURN EXPRESSIONS
 // ============================================
-// Top-level literals and casts restricted to declared return type
-// After operators, regular expression rules apply
-
-// INT RETURN EXPRESSION
-int_return_expr: int_ret_assign
-
-int_ret_assign: int_ret_concat assign_tail
-
-int_ret_concat: int_ret_or concat_tail
-
-int_ret_or: int_ret_and or_tail
-
-int_ret_and: int_ret_eq and_tail
-
-int_ret_eq: int_ret_rel eq_tail
-
-int_ret_rel: int_ret_add rel_tail
-
-int_ret_add: int_ret_mul add_tail
-
-int_ret_mul: int_ret_unary mul_tail
-
-int_ret_unary: NOT int_ret_unary
-             | int_ret_postfix
-
-int_ret_postfix: INTLIT
-               | INCR ID
-               | DECR ID
-               | ID id_postfix
-               | LPAREN expression RPAREN postfix_chain
-               | INT LPAREN expression RPAREN
-
-// LONG RETURN EXPRESSION
-long_return_expr: long_ret_assign
-
-long_ret_assign: long_ret_concat assign_tail
-
-long_ret_concat: long_ret_or concat_tail
-
-long_ret_or: long_ret_and or_tail
-
-long_ret_and: long_ret_eq and_tail
-
-long_ret_eq: long_ret_rel eq_tail
-
-long_ret_rel: long_ret_add rel_tail
-
-long_ret_add: long_ret_mul add_tail
-
-long_ret_mul: long_ret_unary mul_tail
-
-long_ret_unary: NOT long_ret_unary
-              | long_ret_postfix
-
-long_ret_postfix: LONGLIT
-                | INCR ID
-                | DECR ID
-                | ID id_postfix
-                | LPAREN expression RPAREN postfix_chain
-                | LONG LPAREN expression RPAREN
-
-// FLOAT RETURN EXPRESSION
-float_return_expr: float_ret_assign
-
-float_ret_assign: float_ret_concat assign_tail
-
-float_ret_concat: float_ret_or concat_tail
-
-float_ret_or: float_ret_and or_tail
-
-float_ret_and: float_ret_eq and_tail
-
-float_ret_eq: float_ret_rel eq_tail
-
-float_ret_rel: float_ret_add rel_tail
-
-float_ret_add: float_ret_mul add_tail
-
-float_ret_mul: float_ret_unary mul_tail
-
-float_ret_unary: NOT float_ret_unary
-               | float_ret_postfix
-
-float_ret_postfix: FLOATLIT
-                 | INCR ID
-                 | DECR ID
-                 | ID id_postfix
-                 | LPAREN expression RPAREN postfix_chain
-                 | FLOAT LPAREN expression RPAREN
-
-// DOUBLE RETURN EXPRESSION
-double_return_expr: double_ret_assign
-
-double_ret_assign: double_ret_concat assign_tail
-
-double_ret_concat: double_ret_or concat_tail
-
-double_ret_or: double_ret_and or_tail
-
-double_ret_and: double_ret_eq and_tail
-
-double_ret_eq: double_ret_rel eq_tail
-
-double_ret_rel: double_ret_add rel_tail
-
-double_ret_add: double_ret_mul add_tail
-
-double_ret_mul: double_ret_unary mul_tail
-
-double_ret_unary: NOT double_ret_unary
-                | double_ret_postfix
-
-double_ret_postfix: DOUBLELIT
-                  | INCR ID
-                  | DECR ID
-                  | ID id_postfix
-                  | LPAREN expression RPAREN postfix_chain
-                  | DOUBLE LPAREN expression RPAREN
-
-// CHAR RETURN EXPRESSION
-char_return_expr: char_ret_assign
-
-char_ret_assign: char_ret_concat assign_tail
-
-char_ret_concat: char_ret_or concat_tail
-
-char_ret_or: char_ret_and or_tail
-
-char_ret_and: char_ret_eq and_tail
-
-char_ret_eq: char_ret_rel eq_tail
-
-char_ret_rel: char_ret_add rel_tail
-
-char_ret_add: char_ret_mul add_tail
-
-char_ret_mul: char_ret_unary mul_tail
-
-char_ret_unary: NOT char_ret_unary
-              | char_ret_postfix
-
-char_ret_postfix: CHARLIT
-                | INCR ID
-                | DECR ID
-                | ID id_postfix
-                | LPAREN expression RPAREN postfix_chain
-                | CHAR LPAREN expression RPAREN
-
-// STRING RETURN EXPRESSION
-string_return_expr: string_ret_assign
-
-string_ret_assign: string_ret_concat assign_tail
-
-string_ret_concat: string_ret_or concat_tail
-
-string_ret_or: string_ret_and or_tail
-
-string_ret_and: string_ret_eq and_tail
-
-string_ret_eq: string_ret_rel eq_tail
-
-string_ret_rel: string_ret_add rel_tail
-
-string_ret_add: string_ret_mul add_tail
-
-string_ret_mul: string_ret_unary mul_tail
-
-string_ret_unary: NOT string_ret_unary
-                | string_ret_postfix
-
-string_ret_postfix: STRINGLIT
-                  | INCR ID
-                  | DECR ID
-                  | ID id_postfix
-                  | LPAREN expression RPAREN postfix_chain
-                  | STRING LPAREN expression RPAREN
-
-// BOOL RETURN EXPRESSION
-bool_return_expr: bool_ret_assign
-
-bool_ret_assign: bool_ret_concat assign_tail
-
-bool_ret_concat: bool_ret_or concat_tail
-
-bool_ret_or: bool_ret_and or_tail
-
-bool_ret_and: bool_ret_eq and_tail
-
-bool_ret_eq: bool_ret_rel eq_tail
-
-bool_ret_rel: bool_ret_add rel_tail
-
-bool_ret_add: bool_ret_mul add_tail
-
-bool_ret_mul: bool_ret_unary mul_tail
-
-bool_ret_unary: NOT bool_ret_unary
-              | bool_ret_postfix
-
-bool_ret_postfix: TRUE
-                | FALSE
-                | INCR ID
-                | DECR ID
-                | ID id_postfix
-                | LPAREN expression RPAREN postfix_chain
-                | BOOL LPAREN expression RPAREN
+// Strict return type enforcement using typed expression discipline
+// NO assignment allowed in return expressions
+// Each return type routes to type-appropriate expression rules
+
+// NUMERIC RETURN (for int, long, float, double functions)
+// Uses typed arithmetic expressions - rejects string/bool literals at top level
+typed_numeric_ret_expr: typed_numeric_add_expr
+
+// STRING RETURN (for char, string functions)
+// String/char literals with concat, IDs with postfix, parens
+typed_string_ret_expr: typed_string_ret_primary typed_string_cont
+
+typed_string_ret_primary: STRINGLIT
+                        | CHARLIT
+                        | ID typed_postfix_chain
+                        | STRING LPAREN expression RPAREN
+                        | CHAR LPAREN expression RPAREN
+                        | LPAREN expression RPAREN typed_postfix_chain
+
+// BOOL RETURN (for bool functions)
+// Boolean expressions with && || == != and comparisons
+// Numeric literals MUST have comparison operator to become boolean
+// BOOL cast supported for return expressions
+typed_bool_ret_expr: typed_bool_ret_primary typed_bool_ret_tail
+
+typed_bool_ret_primary: TRUE
+                      | FALSE
+                      | NOT typed_bool_factor
+                      | ID typed_bool_id_cont
+                      | LPAREN typed_bool_paren RPAREN
+                      | BOOL LPAREN expression RPAREN
+                      | INTLIT typed_numeric_cmp_required
+                      | LONGLIT typed_numeric_cmp_required
+                      | FLOATLIT typed_numeric_cmp_required
+                      | DOUBLELIT typed_numeric_cmp_required
+                      | MINUS typed_numeric_neg_cmp
+                      | INT LPAREN expression RPAREN typed_numeric_cmp_required
+                      | LONG LPAREN expression RPAREN typed_numeric_cmp_required
+                      | FLOAT LPAREN expression RPAREN typed_numeric_cmp_required
+                      | DOUBLE LPAREN expression RPAREN typed_numeric_cmp_required
+
+typed_bool_ret_tail: AND typed_bool_term typed_bool_and_tail typed_bool_or_tail_opt
+                   | OR typed_bool_term typed_bool_or_tail
+                   | EQ typed_bool_factor typed_bool_eq_tail typed_bool_ret_tail
+                   | NEQ typed_bool_factor typed_bool_eq_tail typed_bool_ret_tail
+                   |
 
 // ============================================
 // USING BLOCK
@@ -1135,22 +1118,36 @@ weave_local_tail: ASSIGN LBRACE weave_field_value weave_field_list_tail RBRACE w
 // ============================================
 // statement_non_return is used ONLY in main function and its control structures
 // All other functions use type-specific statement rules (statement_int, etc.)
+// BREAK RESTRICTION: break; only valid in loop/switch bodies
 
 statement_non_return: effect_stmt SEMICOLON
                     | io_stmt
                     | ctrl_struct
-                    | BREAK SEMICOLON
 
 // ============================================
-// UNIFIED EXPRESSION GRAMMAR
+// UNIFIED EXPRESSION GRAMMAR (BATCH 4 - TYPED DISPATCH)
 // ============================================
+// Typed Expression Discipline:
+// - Assignment does NOT chain (a = b = c is syntax error)
+// - Boolean operators (&&, ||) require boolean operands
+// - Concat (..) requires string-like operands
+// - Relational (<, >, <=, >=) require numeric operands
+// - Arithmetic (+, -, *, /, %) require numeric operands
+// 
+// Structure:
+// - expression → typed_assign_expr
+// - typed_assign_expr → typed_concat_expr typed_assign_tail
+// - typed_assign_tail → assign_op typed_rhs_expr | λ
+// - typed_concat_expr: left-factored dispatch for full precedence
+// - typed_rhs_expr: strict dispatcher for assignment RHS
 
-expression: assign_expr
+expression: typed_assign_expr
 
-assign_expr: concat_expr assign_tail
+typed_assign_expr: typed_concat_expr typed_assign_tail
 
-assign_tail: assign_op assign_expr
-           |
+// typed_assign_tail uses typed_rhs_expr - blocks chained assignment
+typed_assign_tail: assign_op typed_rhs_expr
+                 |
 
 assign_op: ASSIGN
          | PLUSEQ
@@ -1159,116 +1156,332 @@ assign_op: ASSIGN
          | SLASHEQ
          | MODEQ
 
-concat_expr: or_expr concat_tail
+// ============================================
+// TYPED_RHS_EXPR - Strict Dispatcher
+// ============================================
+// Entry point for assignment RHS - dispatches to typed_concat_expr
+// Separate rule to clearly mark non-recursive assignment semantics
 
-concat_tail: CONCAT or_expr concat_tail
-           |
+typed_rhs_expr: typed_concat_expr
 
 // ============================================
-// BOOLEAN / LOGICAL EXPRESSIONS
+// TYPED_CONCAT_EXPR - Left-factored Precedence Chain
 // ============================================
+// Routes based on starting token to enforce type discipline
+// Dispatches to: typed_numeric | typed_string | typed_bool | id | paren
 
-or_expr: and_expr or_tail
-
-or_tail: OR and_expr or_tail
-       |
-
-and_expr: eq_expr and_tail
-
-and_tail: AND eq_expr and_tail
-        |
-
-eq_expr: rel_expr eq_tail
-
-eq_tail: EQ rel_expr eq_tail
-       | NEQ rel_expr eq_tail
-       |
-
-rel_expr: add_expr rel_tail
-
-rel_tail: LT add_expr
-        | GT add_expr
-        | LTE add_expr
-        | GTE add_expr
-        |
-
-// ============================================
-// ARITHMETIC EXPRESSIONS
-// ============================================
-
-add_expr: mul_expr add_tail
-
-add_tail: PLUS mul_expr add_tail
-        | MINUS mul_expr add_tail
-        |
-
-mul_expr: unary_expr mul_tail
-
-mul_tail: STAR unary_expr mul_tail
-        | SLASH unary_expr mul_tail
-        | MOD unary_expr mul_tail
-        |
-
-unary_expr: NOT unary_expr
-          | postfix_expr
+typed_concat_expr: STRINGLIT typed_string_cont
+                 | CHARLIT typed_string_cont
+                 | INTLIT typed_numeric_cont
+                 | LONGLIT typed_numeric_cont
+                 | FLOATLIT typed_numeric_cont
+                 | DOUBLELIT typed_numeric_cont
+                 | TRUE typed_bool_cont
+                 | FALSE typed_bool_cont
+                 | NOT typed_bool_factor typed_bool_tail_opt
+                 | MINUS typed_neg_numeric_cont
+                 | ID typed_id_cont
+                 | LPAREN typed_paren_cont
+                 | INT LPAREN expression RPAREN typed_numeric_cont
+                 | LONG LPAREN expression RPAREN typed_numeric_cont
+                 | FLOAT LPAREN expression RPAREN typed_numeric_cont
+                 | DOUBLE LPAREN expression RPAREN typed_numeric_cont
+                 | CHAR LPAREN expression RPAREN typed_string_cont
+                 | STRING LPAREN expression RPAREN typed_string_cont
+                 | BOOL LPAREN expression RPAREN typed_bool_cont
+                 | INCR ID
+                 | DECR ID
 
 // ============================================
-// POSTFIX EXPRESSIONS
+// STRING/CHAR CONTINUATION (concat only)
 // ============================================
-// Increment/decrement constrained to C-like semantics:
-// - ++id, --id, id++, id-- are the ONLY valid forms
-// - Operand must be bare identifier (not expression, not parenthesized)
-// - No chaining: ++id++, ++++id are syntactically impossible
 
-postfix_expr: LPAREN expression RPAREN postfix_chain
-            | INT LPAREN expression RPAREN
-            | LONG LPAREN expression RPAREN
-            | FLOAT LPAREN expression RPAREN
-            | DOUBLE LPAREN expression RPAREN
-            | CHAR LPAREN expression RPAREN
-            | STRING LPAREN expression RPAREN
-            | BOOL LPAREN expression RPAREN
-            | INCR ID
-            | DECR ID
-            | ID id_postfix
-            | INTLIT
-            | LONGLIT
-            | FLOATLIT
-            | DOUBLELIT
-            | CHARLIT
-            | STRINGLIT
-            | TRUE
-            | FALSE
-
-// ============================================
-// IDENTIFIER POSTFIX (C-LIKE INCREMENT/DECREMENT)
-// ============================================
-// After bare ID: either terminal inc/dec OR regular postfix chain
-// This ensures ++id and id++ are valid but ++id++ is not
-
-id_postfix: INCR
-          | DECR
-          | postfix_chain
-
-// ============================================
-// POSTFIX CHAIN (NO INCREMENT/DECREMENT)
-// ============================================
-// Array access, field access, function calls - NO inc/dec allowed here
-// Inc/dec only valid on bare identifiers (handled by id_postfix)
-
-postfix_chain: array_access postfix_after_arr
-             | DOT ID postfix_chain
-             | LPAREN arg_list RPAREN postfix_chain
-             |
-
-array_access: LBRACK array_index RBRACK array_access_dim2
-
-array_access_dim2: LBRACK array_index RBRACK
+typed_string_cont: CONCAT typed_string_operand typed_string_cont
                  |
 
-postfix_after_arr: DOT ID postfix_chain
-                 | LPAREN arg_list RPAREN postfix_chain
-                 |
+typed_string_operand: STRINGLIT
+                    | CHARLIT
+                    | ID
+                    | STRING LPAREN expression RPAREN
+                    | CHAR LPAREN expression RPAREN
+                    | LPAREN typed_string_operand typed_string_cont RPAREN
+                    | INTLIT
+                    | LONGLIT
+                    | FLOATLIT
+                    | DOUBLELIT
+                    | TRUE
+                    | FALSE
+                    | INT LPAREN expression RPAREN
+                    | LONG LPAREN expression RPAREN
+                    | FLOAT LPAREN expression RPAREN
+                    | DOUBLE LPAREN expression RPAREN
+                    | BOOL LPAREN expression RPAREN
+
+// ============================================
+// NUMERIC CONTINUATION (arithmetic + optional cmp/bool)
+// ============================================
+
+typed_numeric_cont: typed_arith_ops typed_after_arith
+                  | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                  | typed_bool_tail_opt
+
+// Arithmetic operators (first operand already parsed)
+typed_arith_ops: PLUS typed_numeric_mul_expr typed_numeric_add_ops
+               | MINUS typed_numeric_mul_expr typed_numeric_add_ops
+               | STAR typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_ops
+               | SLASH typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_ops
+               | MOD typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_ops
+
+typed_numeric_add_ops: PLUS typed_numeric_mul_expr typed_numeric_add_ops
+                     | MINUS typed_numeric_mul_expr typed_numeric_add_ops
+                     |
+
+// After arithmetic: optional comparison, then optional boolean
+typed_after_arith: typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                 | typed_bool_tail_opt
+
+// Negated numeric continuation
+typed_neg_numeric_cont: typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_ops typed_after_arith
+
+// ============================================
+// BOOLEAN CONTINUATION (&&, ||, ==, != only)
+// ============================================
+
+typed_bool_cont: typed_bool_tail_opt
+
+// Boolean tail (AND/OR) - optional  
+typed_bool_tail_opt: AND typed_bool_term typed_bool_and_tail typed_bool_or_tail_opt
+                   | OR typed_bool_term typed_bool_or_tail
+                   |
+
+typed_bool_or_tail_opt: OR typed_bool_term typed_bool_or_tail
+                      |
+
+// Boolean term for operand of &&/||
+typed_bool_term: typed_bool_eq typed_bool_and_tail
+
+typed_bool_and_tail: AND typed_bool_eq typed_bool_and_tail
+                   |
+
+typed_bool_or_tail: OR typed_bool_term typed_bool_or_tail
+                  |
+
+// Equality level for boolean expressions
+typed_bool_eq: typed_bool_factor typed_bool_eq_tail
+
+typed_bool_eq_tail: EQ typed_bool_factor typed_bool_eq_tail
+                  | NEQ typed_bool_factor typed_bool_eq_tail
+                  |
+
+// Boolean factor - NOT or atom
+typed_bool_factor: NOT typed_bool_factor
+                 | typed_bool_atom
+
+// Boolean atom - must produce boolean value
+// Numeric literals MUST have comparison to become boolean
+typed_bool_atom: TRUE
+               | FALSE
+               | ID typed_bool_id_cont
+               | INTLIT typed_numeric_cmp_required
+               | LONGLIT typed_numeric_cmp_required
+               | FLOATLIT typed_numeric_cmp_required
+               | DOUBLELIT typed_numeric_cmp_required
+               | MINUS typed_numeric_neg_cmp
+               | LPAREN typed_bool_paren RPAREN
+               | INT LPAREN expression RPAREN typed_numeric_cmp_required
+               | LONG LPAREN expression RPAREN typed_numeric_cmp_required
+               | FLOAT LPAREN expression RPAREN typed_numeric_cmp_required
+               | DOUBLE LPAREN expression RPAREN typed_numeric_cmp_required
+
+// Parenthesized content in boolean atom context
+typed_bool_paren: typed_bool_term typed_bool_and_or_tail
+
+typed_bool_and_or_tail: AND typed_bool_term typed_bool_and_or_tail
+                      | OR typed_bool_term typed_bool_and_or_tail
+                      |
+
+// After ID in boolean atom context
+typed_bool_id_cont: typed_numeric_arith_cmp
+                  | INCR
+                  | DECR
+                  | typed_postfix_chain
+
+// Numeric arithmetic followed by mandatory comparison (boolean context)
+typed_numeric_arith_cmp: PLUS typed_numeric_mul_expr typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | MINUS typed_numeric_mul_expr typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | STAR typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | SLASH typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | MOD typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+                       | typed_cmp_op typed_numeric_add_expr
+
+typed_numeric_add_cmp: PLUS typed_numeric_mul_expr typed_numeric_add_cmp
+                     | MINUS typed_numeric_mul_expr typed_numeric_add_cmp
+                     |
+
+// Numeric literal requires comparison to become boolean
+typed_numeric_cmp_required: typed_numeric_lit_arith typed_cmp_op typed_numeric_add_expr
+
+typed_numeric_lit_arith: STAR typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp
+                       | SLASH typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp
+                       | MOD typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp
+                       | PLUS typed_numeric_mul_expr typed_numeric_add_cmp
+                       | MINUS typed_numeric_mul_expr typed_numeric_add_cmp
+                       |
+
+// Negated numeric requires comparison (boolean context)
+typed_numeric_neg_cmp: typed_numeric_unary_expr typed_numeric_mul_tail typed_numeric_add_cmp typed_cmp_op typed_numeric_add_expr
+
+// ============================================
+// ID CONTINUATION (type unknown - allow all)
+// ============================================
+// Left-factored to avoid reduce/reduce conflicts
+// Postfix operations are inlined to eliminate epsilon chains
+
+typed_id_cont: typed_arith_ops typed_after_arith
+             | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+             | INCR
+             | DECR
+             | LBRACK array_index RBRACK typed_id_arr_cont
+             | DOT ID typed_id_field_cont
+             | LPAREN arg_list RPAREN typed_id_call_cont
+             | CONCAT typed_string_operand typed_string_cont
+             | typed_bool_tail_opt
+
+// After array access on ID
+typed_id_arr_cont: LBRACK array_index RBRACK typed_id_arr2_cont
+                 | typed_id_postfix_cont
+
+typed_id_arr2_cont: typed_id_postfix_cont
+
+typed_id_postfix_cont: DOT ID typed_id_field_cont
+                     | LPAREN arg_list RPAREN typed_id_call_cont
+                     | typed_arith_ops typed_after_arith
+                     | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                     | CONCAT typed_string_operand typed_string_cont
+                     | typed_bool_tail_opt
+
+// After field access on ID
+typed_id_field_cont: LBRACK array_index RBRACK typed_id_arr_cont
+                   | DOT ID typed_id_field_cont
+                   | LPAREN arg_list RPAREN typed_id_call_cont
+                   | typed_arith_ops typed_after_arith
+                   | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                   | CONCAT typed_string_operand typed_string_cont
+                   | typed_bool_tail_opt
+
+// After function call on ID
+typed_id_call_cont: LBRACK array_index RBRACK typed_id_arr_cont
+                  | DOT ID typed_id_field_cont
+                  | LPAREN arg_list RPAREN typed_id_call_cont
+                  | typed_arith_ops typed_after_arith
+                  | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                  | CONCAT typed_string_operand typed_string_cont
+                  | typed_bool_tail_opt
+
+// ============================================
+// PARENTHESIZED CONTINUATION
+// ============================================
+
+typed_paren_cont: typed_concat_expr RPAREN typed_paren_after
+
+// After (expr): inline postfix to avoid epsilon chain conflicts
+typed_paren_after: typed_arith_ops typed_after_arith
+                 | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                 | CONCAT typed_string_operand typed_string_cont
+                 | LBRACK array_index RBRACK typed_paren_arr_cont
+                 | DOT ID typed_paren_field_cont
+                 | LPAREN arg_list RPAREN typed_paren_call_cont
+                 | typed_bool_tail_opt
+
+typed_paren_arr_cont: LBRACK array_index RBRACK typed_paren_arr2_cont
+                    | typed_paren_postfix_cont
+
+typed_paren_arr2_cont: typed_paren_postfix_cont
+
+typed_paren_postfix_cont: DOT ID typed_paren_field_cont
+                        | LPAREN arg_list RPAREN typed_paren_call_cont
+                        | typed_arith_ops typed_after_arith
+                        | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                        |
+
+typed_paren_field_cont: LBRACK array_index RBRACK typed_paren_arr_cont
+                      | DOT ID typed_paren_field_cont
+                      | LPAREN arg_list RPAREN typed_paren_call_cont
+                      | typed_arith_ops typed_after_arith
+                      | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                      |
+
+typed_paren_call_cont: LBRACK array_index RBRACK typed_paren_arr_cont
+                     | DOT ID typed_paren_field_cont
+                     | LPAREN arg_list RPAREN typed_paren_call_cont
+                     | typed_arith_ops typed_after_arith
+                     | typed_cmp_op typed_numeric_add_expr typed_bool_tail_opt
+                     |
+
+// ============================================
+// NUMERIC EXPRESSION RULES
+// ============================================
+
+typed_numeric_add_expr: typed_numeric_mul_expr typed_numeric_add_tail
+
+typed_numeric_add_tail: PLUS typed_numeric_mul_expr typed_numeric_add_tail
+                      | MINUS typed_numeric_mul_expr typed_numeric_add_tail
+                      |
+
+typed_numeric_mul_expr: typed_numeric_unary_expr typed_numeric_mul_tail
+
+typed_numeric_mul_tail: STAR typed_numeric_unary_expr typed_numeric_mul_tail
+                      | SLASH typed_numeric_unary_expr typed_numeric_mul_tail
+                      | MOD typed_numeric_unary_expr typed_numeric_mul_tail
+                      |
+
+typed_numeric_unary_expr: NOT typed_numeric_unary_expr
+                        | MINUS typed_numeric_unary_expr
+                        | typed_numeric_postfix_expr
+
+// Numeric-only postfix - excludes CHARLIT, STRINGLIT, TRUE, FALSE
+typed_numeric_postfix_expr: INTLIT
+                          | LONGLIT
+                          | FLOATLIT
+                          | DOUBLELIT
+                          | ID typed_postfix_chain
+                          | LPAREN expression RPAREN typed_postfix_chain
+                          | INT LPAREN expression RPAREN
+                          | LONG LPAREN expression RPAREN
+                          | FLOAT LPAREN expression RPAREN
+                          | DOUBLE LPAREN expression RPAREN
+                          | INCR ID
+                          | DECR ID
+
+// ============================================
+// COMPARISON OPERATORS
+// ============================================
+
+typed_cmp_op: LT
+            | GT
+            | LTE
+            | GTE
+            | EQ
+            | NEQ
+
+// ============================================
+// POSTFIX CHAIN
+// ============================================
+
+typed_postfix_chain: LBRACK array_index RBRACK typed_postfix_after_arr
+                   | DOT ID typed_postfix_chain
+                   | LPAREN arg_list RPAREN typed_postfix_chain
+                   |
+
+typed_postfix_after_arr: LBRACK array_index RBRACK
+                       | DOT ID typed_postfix_chain
+                       | LPAREN arg_list RPAREN typed_postfix_chain
+                       |
+
+// ============================================
+// SHARED EXPRESSION PRIMITIVES
+// ============================================
+// array_index, arg_list, arg_tail used by typed_postfix_chain and other live rules
 
 array_index: INTLIT
            | ID
@@ -1348,80 +1561,333 @@ effect_post_member: assign_op stmt_assign_expr
 // ============================================
 // STATEMENT EXPRESSION RULES (ISOLATED FOLLOW SET)
 // ============================================
-// These rules isolate FOLLOW set to {;} for statement contexts
-// Used by effect_stmt for RHS expressions (after assignment operators)
-// Error messages will correctly show: operators, ; (not , ) from arg contexts)
+// BATCH 3 - Typed Expression Discipline
+// - Assignment does NOT chain (a = b = c is invalid)
+// - Boolean operators (&&, ||, !) require boolean operands
+// - Concat (..) requires string-like operands (STRINGLIT, CHARLIT, ID, casts)
+// - Relational (<, >, <=, >=) require numeric operands (already enforced)
+// - Arithmetic (+, -, *, /, %) require numeric operands (already enforced)
+// FOLLOW set isolated to {;} for statement contexts
 
-stmt_assign_expr: stmt_concat_expr stmt_assign_tail
+// Top-level: assignment with NO CHAINING
+// effect_id_cont already provides the assign_op, so RHS is just the expression
+stmt_assign_expr: stmt_typed_rhs
 
-stmt_assign_tail: assign_op stmt_assign_expr
-                |
+// Typed RHS - entry point after assignment operator
+// Routes to concat for string-like, or bool for everything else
+stmt_typed_rhs: stmt_bool_or_concat
 
-stmt_concat_expr: stmt_or_expr stmt_concat_tail
+// Top-level typed: either concat chain, numeric expression, or boolean expression
+// Left-factored for LALR
+stmt_bool_or_concat: STRINGLIT stmt_concat_tail_typed
+                   | CHARLIT stmt_concat_tail_typed
+                   | STRING LPAREN arg_expr RPAREN stmt_concat_tail_typed
+                   | INTLIT stmt_numeric_or_bool
+                   | LONGLIT stmt_numeric_or_bool
+                   | FLOATLIT stmt_numeric_or_bool
+                   | DOUBLELIT stmt_numeric_or_bool
+                   | MINUS stmt_neg_numeric_or_bool
+                   | TRUE stmt_bool_tail_opt
+                   | FALSE stmt_bool_tail_opt
+                   | NOT stmt_bool_factor stmt_bool_tail_opt
+                   | INT LPAREN arg_expr RPAREN stmt_numeric_or_bool
+                   | LONG LPAREN arg_expr RPAREN stmt_numeric_or_bool
+                   | FLOAT LPAREN arg_expr RPAREN stmt_numeric_or_bool
+                   | DOUBLE LPAREN arg_expr RPAREN stmt_numeric_or_bool
+                   | CHAR LPAREN arg_expr RPAREN
+                   | BOOL LPAREN arg_expr RPAREN stmt_bool_tail_opt
+                   | ID stmt_id_toplevel_cont
+                   | LPAREN stmt_paren_typed_content
+                   | INCR ID
+                   | DECR ID
 
-stmt_concat_tail: CONCAT stmt_or_expr stmt_concat_tail
-                |
+// After numeric literal at top level: can be arithmetic, relational, or boolean ops
+stmt_numeric_or_bool: stmt_arith_ops stmt_after_arith
+                    | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                    | stmt_bool_tail_opt
 
-stmt_or_expr: stmt_and_expr stmt_or_tail
+// Arithmetic operators
+stmt_arith_ops: PLUS numeric_mul_expr_stmt stmt_numeric_add_ops
+              | MINUS numeric_mul_expr_stmt stmt_numeric_add_ops
+              | STAR numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops
+              | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops
+              | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops
 
-stmt_or_tail: OR stmt_and_expr stmt_or_tail
-            |
+stmt_numeric_add_ops: PLUS numeric_mul_expr_stmt stmt_numeric_add_ops
+                    | MINUS numeric_mul_expr_stmt stmt_numeric_add_ops
+                    |
 
-stmt_and_expr: stmt_eq_expr stmt_and_tail
+// After arithmetic: may have comparison, then optionally boolean ops
+stmt_after_arith: stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                | stmt_bool_tail_opt
 
-stmt_and_tail: AND stmt_eq_expr stmt_and_tail
-             |
+// Negated numeric: arithmetic then optional comparison and boolean
+stmt_neg_numeric_or_bool: numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_after_arith
 
-stmt_eq_expr: stmt_rel_expr stmt_eq_tail
+// Boolean tail (AND/OR) - optional
+stmt_bool_tail_opt: AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt
+                  | OR stmt_bool_term stmt_bool_or_tail
+                  |
 
-stmt_eq_tail: EQ stmt_rel_expr stmt_eq_tail
-            | NEQ stmt_rel_expr stmt_eq_tail
-            |
+stmt_bool_or_tail_opt: OR stmt_bool_term stmt_bool_or_tail
+                     |
 
-stmt_rel_expr: stmt_add_expr stmt_rel_tail
+// After ID at top level
+stmt_id_toplevel_cont: stmt_arith_ops stmt_after_arith
+                     | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                     | INCR
+                     | DECR
+                     | stmt_postfix_chain stmt_id_after_postfix
 
-stmt_rel_tail: LT stmt_add_expr
-             | GT stmt_add_expr
-             | LTE stmt_add_expr
-             | GTE stmt_add_expr
-             |
+stmt_id_after_postfix: stmt_arith_ops stmt_after_arith
+                     | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                     | CONCAT stmt_string_operand stmt_concat_tail_typed
+                     | stmt_bool_tail_opt
 
-stmt_add_expr: stmt_mul_expr stmt_add_tail
+// ============================================
+// TYPE-TRACKING PARENTHESIZED EXPRESSIONS
+// ============================================
+// Tracks what type the paren content produces, routes to appropriate continuations
+// - Numeric content → allows arithmetic, comparison, boolean after )
+// - Boolean content (has comparison or starts with true/false) → only allows && || after )
+// - String content → only allows concat after )
+// - ID/nested paren → permissive (semantic analysis catches type errors)
 
-stmt_add_tail: PLUS stmt_mul_expr stmt_add_tail
-             | MINUS stmt_mul_expr stmt_add_tail
-             |
+stmt_paren_typed_content: STRINGLIT stmt_concat_tail_typed RPAREN stmt_paren_string_cont
+                        | CHARLIT stmt_concat_tail_typed RPAREN stmt_paren_string_cont
+                        | STRING LPAREN arg_expr RPAREN stmt_concat_tail_typed RPAREN stmt_paren_string_cont
+                        | CHAR LPAREN arg_expr RPAREN RPAREN stmt_paren_string_cont
+                        | INTLIT stmt_paren_num_start
+                        | LONGLIT stmt_paren_num_start
+                        | FLOATLIT stmt_paren_num_start
+                        | DOUBLELIT stmt_paren_num_start
+                        | MINUS stmt_paren_neg_num
+                        | INT LPAREN arg_expr RPAREN stmt_paren_num_start
+                        | LONG LPAREN arg_expr RPAREN stmt_paren_num_start
+                        | FLOAT LPAREN arg_expr RPAREN stmt_paren_num_start
+                        | DOUBLE LPAREN arg_expr RPAREN stmt_paren_num_start
+                        | TRUE stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                        | FALSE stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                        | NOT stmt_bool_factor stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                        | BOOL LPAREN arg_expr RPAREN stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                        | ID stmt_paren_id_cont
+                        | LPAREN stmt_paren_typed_content RPAREN stmt_paren_any_cont
+                        | INCR ID stmt_paren_num_after_incr
+                        | DECR ID stmt_paren_num_after_incr
 
-stmt_mul_expr: stmt_unary_expr stmt_mul_tail
+// String continuation after paren - only concat allowed
+stmt_paren_string_cont: CONCAT stmt_string_operand stmt_concat_tail_typed
+                      |
 
-stmt_mul_tail: STAR stmt_unary_expr stmt_mul_tail
-             | SLASH stmt_unary_expr stmt_mul_tail
-             | MOD stmt_unary_expr stmt_mul_tail
-             |
+// Numeric starting in paren - may stay numeric or become boolean via comparison
+stmt_paren_num_start: stmt_paren_arith_ops
+                    | stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                    | RPAREN stmt_paren_num_cont
 
-stmt_unary_expr: NOT stmt_unary_expr
-               | MINUS stmt_unary_expr
-               | stmt_postfix_expr
+stmt_paren_arith_ops: PLUS numeric_mul_expr_stmt stmt_numeric_add_ops stmt_paren_after_arith
+                    | MINUS numeric_mul_expr_stmt stmt_numeric_add_ops stmt_paren_after_arith
+                    | STAR numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_paren_after_arith
+                    | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_paren_after_arith
+                    | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_paren_after_arith
 
-stmt_postfix_expr: LPAREN arg_expr RPAREN stmt_postfix_chain
-                 | INT LPAREN arg_expr RPAREN
-                 | LONG LPAREN arg_expr RPAREN
-                 | FLOAT LPAREN arg_expr RPAREN
-                 | DOUBLE LPAREN arg_expr RPAREN
-                 | CHAR LPAREN arg_expr RPAREN
-                 | STRING LPAREN arg_expr RPAREN
-                 | BOOL LPAREN arg_expr RPAREN
-                 | INCR ID
-                 | DECR ID
-                 | ID stmt_id_postfix
-                 | INTLIT
-                 | LONGLIT
-                 | FLOATLIT
-                 | DOUBLELIT
-                 | CHARLIT
-                 | STRINGLIT
-                 | TRUE
-                 | FALSE
+stmt_paren_after_arith: stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                      | RPAREN stmt_paren_num_cont
+
+// Negated numeric in paren
+stmt_paren_neg_num: numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_ops stmt_paren_after_arith
+
+// After ++id or --id in paren
+stmt_paren_num_after_incr: stmt_paren_arith_ops
+                         | stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                         | RPAREN stmt_paren_num_cont
+
+// Numeric continuation after ) - allows arithmetic, comparison, and bool ops
+stmt_paren_num_cont: stmt_arith_ops stmt_after_arith
+                   | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                   | stmt_bool_tail_opt
+
+// Boolean tail inside paren (before closing)
+stmt_paren_bool_tail: AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt
+                    | OR stmt_bool_term stmt_bool_or_tail
+                    |
+
+// Boolean continuation after ) - ONLY && and || allowed, NO arithmetic
+stmt_paren_bool_cont: AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt
+                    | OR stmt_bool_term stmt_bool_or_tail
+                    |
+
+// ID in paren - type unknown, dispatch based on what follows
+// Uses stmt_paren_postfix_nonnull to avoid reduce/reduce with empty bool_tail
+stmt_paren_id_cont: stmt_paren_arith_ops
+                  | stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                  | stmt_paren_postfix_nonnull stmt_paren_id_after_postfix
+                  | INCR RPAREN stmt_paren_num_cont
+                  | DECR RPAREN stmt_paren_num_cont
+                  | AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt RPAREN stmt_paren_any_cont
+                  | OR stmt_bool_term stmt_bool_or_tail RPAREN stmt_paren_any_cont
+                  | RPAREN stmt_paren_any_cont
+
+// Non-nullable postfix chain for use inside parens (avoids conflict with bool_tail)
+stmt_paren_postfix_nonnull: LBRACK array_index RBRACK stmt_postfix_after_arr
+                          | DOT ID stmt_postfix_chain
+                          | LPAREN arg_list RPAREN stmt_postfix_chain
+
+stmt_paren_id_after_postfix: stmt_paren_arith_ops
+                           | stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
+                           | CONCAT stmt_string_operand stmt_concat_tail_typed RPAREN stmt_paren_string_cont
+                           | AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt RPAREN stmt_paren_any_cont
+                           | OR stmt_bool_term stmt_bool_or_tail RPAREN stmt_paren_any_cont
+                           | RPAREN stmt_paren_any_cont
+
+// Any continuation after ) - for ID and nested parens where type is unknown
+stmt_paren_any_cont: stmt_arith_ops stmt_after_arith
+                   | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
+                   | CONCAT stmt_string_operand stmt_concat_tail_typed
+                   | stmt_bool_tail_opt
+
+// Concat tail - string-only continuation
+stmt_concat_tail_typed: CONCAT stmt_string_operand stmt_concat_tail_typed
+                      |
+
+// String operand for concat RHS - allows any value (implicit string conversion)
+stmt_string_operand: STRINGLIT
+                   | CHARLIT
+                   | ID
+                   | STRING LPAREN arg_expr RPAREN
+                   | CHAR LPAREN arg_expr RPAREN
+                   | LPAREN stmt_string_operand stmt_concat_tail_typed RPAREN
+                   | INTLIT
+                   | LONGLIT
+                   | FLOATLIT
+                   | DOUBLELIT
+                   | TRUE
+                   | FALSE
+                   | INT LPAREN arg_expr RPAREN
+                   | LONG LPAREN arg_expr RPAREN
+                   | FLOAT LPAREN arg_expr RPAREN
+                   | DOUBLE LPAREN arg_expr RPAREN
+                   | BOOL LPAREN arg_expr RPAREN
+
+// Boolean term for operand of OR (enforces boolean discipline)
+stmt_bool_term: stmt_bool_eq stmt_bool_and_tail
+
+stmt_bool_and_tail: AND stmt_bool_eq stmt_bool_and_tail
+                  |
+
+stmt_bool_or_tail: OR stmt_bool_term stmt_bool_or_tail
+                 |
+
+// Equality level for boolean expressions
+// At this level, comparisons produce boolean results
+stmt_bool_eq: stmt_bool_factor stmt_bool_eq_tail
+
+stmt_bool_eq_tail: EQ stmt_bool_factor stmt_bool_eq_tail
+                 | NEQ stmt_bool_factor stmt_bool_eq_tail
+                 |
+
+// Boolean factor - NOT or atom
+stmt_bool_factor: NOT stmt_bool_factor
+                | stmt_bool_atom
+
+// Boolean atom - the base boolean-producing constructs
+// Left-factored: ID handled specially, numeric literals require comparison
+stmt_bool_atom: TRUE
+              | FALSE
+              | ID stmt_bool_id_cont
+              | INTLIT stmt_numeric_cmp_required
+              | LONGLIT stmt_numeric_cmp_required
+              | FLOATLIT stmt_numeric_cmp_required
+              | DOUBLELIT stmt_numeric_cmp_required
+              | MINUS stmt_numeric_neg_cmp
+              | LPAREN stmt_bool_paren RPAREN
+              | INT LPAREN arg_expr RPAREN stmt_numeric_cmp_required
+              | LONG LPAREN arg_expr RPAREN stmt_numeric_cmp_required
+              | FLOAT LPAREN arg_expr RPAREN stmt_numeric_cmp_required
+              | DOUBLE LPAREN arg_expr RPAREN stmt_numeric_cmp_required
+
+// After ID in boolean context: could be boolean var, or start of comparison
+// Note: empty case handled by stmt_postfix_chain which can be empty
+stmt_bool_id_cont: stmt_numeric_arith_cmp
+                 | INCR
+                 | DECR
+                 | stmt_postfix_chain
+
+// Numeric arithmetic followed by mandatory comparison (for ID start)
+stmt_numeric_arith_cmp: PLUS numeric_mul_expr_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | MINUS numeric_mul_expr_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | STAR numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+                      | stmt_cmp_op numeric_add_expr_stmt
+
+stmt_numeric_add_cmp: PLUS numeric_mul_expr_stmt stmt_numeric_add_cmp
+                    | MINUS numeric_mul_expr_stmt stmt_numeric_add_cmp
+                    |
+
+// Numeric literal MUST be followed by comparison (can't use as bare bool)
+stmt_numeric_cmp_required: stmt_numeric_lit_arith stmt_cmp_op numeric_add_expr_stmt
+
+stmt_numeric_lit_arith: STAR numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp
+                      | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp
+                      | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp
+                      | PLUS numeric_mul_expr_stmt stmt_numeric_add_cmp
+                      | MINUS numeric_mul_expr_stmt stmt_numeric_add_cmp
+                      |
+
+// Negated numeric - must have comparison
+stmt_numeric_neg_cmp: numeric_unary_expr_stmt numeric_mul_tail_stmt stmt_numeric_add_cmp stmt_cmp_op numeric_add_expr_stmt
+
+// Comparison operators
+stmt_cmp_op: LT
+           | GT
+           | LTE
+           | GTE
+           | EQ
+           | NEQ
+
+// Parenthesized expression in boolean context
+// Parenthesized content in boolean atom context
+stmt_bool_paren: stmt_bool_term stmt_bool_and_or_tail
+
+stmt_bool_and_or_tail: AND stmt_bool_term stmt_bool_and_or_tail
+                     | OR stmt_bool_term stmt_bool_and_or_tail
+                     |
+
+// ============================================
+// STMT LAYER NUMERIC RULES
+// ============================================
+// Used by typed expression dispatch for arithmetic operations
+
+numeric_mul_expr_stmt: numeric_unary_expr_stmt numeric_mul_tail_stmt
+
+numeric_mul_tail_stmt: STAR numeric_unary_expr_stmt numeric_mul_tail_stmt
+                     | SLASH numeric_unary_expr_stmt numeric_mul_tail_stmt
+                     | MOD numeric_unary_expr_stmt numeric_mul_tail_stmt
+                     |
+
+numeric_add_expr_stmt: numeric_mul_expr_stmt numeric_add_tail_stmt
+
+numeric_add_tail_stmt: PLUS numeric_mul_expr_stmt numeric_add_tail_stmt
+                     | MINUS numeric_mul_expr_stmt numeric_add_tail_stmt
+                     |
+
+numeric_unary_expr_stmt: NOT numeric_unary_expr_stmt
+                       | MINUS numeric_unary_expr_stmt
+                       | numeric_postfix_expr_stmt
+
+// Numeric postfix - only numeric literals, id, parens, numeric casts
+numeric_postfix_expr_stmt: LPAREN arg_expr RPAREN stmt_postfix_chain
+                         | INT LPAREN arg_expr RPAREN
+                         | LONG LPAREN arg_expr RPAREN
+                         | FLOAT LPAREN arg_expr RPAREN
+                         | DOUBLE LPAREN arg_expr RPAREN
+                         | INCR ID
+                         | DECR ID
+                         | ID stmt_id_postfix
+                         | INTLIT
+                         | LONGLIT
+                         | FLOATLIT
+                         | DOUBLELIT
 
 stmt_id_postfix: INCR
                | DECR
@@ -1454,82 +1920,225 @@ stmt_arg_tail: COMMA arg_expr stmt_arg_tail
 // ============================================
 // ARGUMENT EXPRESSION (ISOLATED FOLLOW SET)
 // ============================================
-// arg_expr is used where expression is in argument position (followed by , or ))
-// Isolates FOLLOW set so expected tokens don't include ; from statement context
-// Error messages will correctly show: operators, , )
+// BATCH 3 - Typed Expression Discipline for arg context
+// - Assignment does NOT chain (a = b = c is invalid)
+// - Boolean operators (&&, ||, !) require boolean operands
+// - Concat (..) requires string-like operands
+// - Relational (<, >, <=, >=) require numeric operands
+// - Arithmetic (+, -, *, /, %) require numeric operands
+// FOLLOW set isolated to {, )} for argument contexts
 
-arg_expr: arg_assign_expr
+arg_expr: arg_typed_rhs arg_assign_tail
 
-arg_assign_expr: arg_concat_expr arg_assign_tail
-
-arg_assign_tail: assign_op arg_assign_expr
+// assign_tail does NOT recurse to arg_assign_expr - prevents a = b = c
+arg_assign_tail: assign_op arg_typed_rhs
                |
 
-arg_concat_expr: arg_or_expr arg_concat_tail
+// Typed RHS - entry point after assignment operator
+arg_typed_rhs: arg_bool_or_concat
 
-arg_concat_tail: CONCAT arg_or_expr arg_concat_tail
-               |
+// Top-level typed: either concat chain, numeric expression, or boolean expression
+arg_bool_or_concat: STRINGLIT arg_concat_tail_typed
+                  | CHARLIT arg_concat_tail_typed
+                  | STRING LPAREN arg_expr RPAREN arg_concat_tail_typed
+                  | INTLIT arg_numeric_or_bool
+                  | LONGLIT arg_numeric_or_bool
+                  | FLOATLIT arg_numeric_or_bool
+                  | DOUBLELIT arg_numeric_or_bool
+                  | MINUS arg_neg_numeric_or_bool
+                  | TRUE arg_bool_tail_opt
+                  | FALSE arg_bool_tail_opt
+                  | NOT arg_bool_factor arg_bool_tail_opt
+                  | INT LPAREN arg_expr RPAREN arg_numeric_or_bool
+                  | LONG LPAREN arg_expr RPAREN arg_numeric_or_bool
+                  | FLOAT LPAREN arg_expr RPAREN arg_numeric_or_bool
+                  | DOUBLE LPAREN arg_expr RPAREN arg_numeric_or_bool
+                  | CHAR LPAREN arg_expr RPAREN
+                  | BOOL LPAREN arg_expr RPAREN arg_bool_tail_opt
+                  | ID arg_id_toplevel_cont
+                  | LPAREN arg_toplevel_paren RPAREN arg_toplevel_paren_cont
+                  | INCR ID
+                  | DECR ID
 
-arg_or_expr: arg_and_expr arg_or_tail
+// After numeric literal at top level: arithmetic, relational, or boolean ops
+arg_numeric_or_bool: arg_arith_ops arg_after_arith
+                   | arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+                   | arg_bool_tail_opt
 
-arg_or_tail: OR arg_and_expr arg_or_tail
-           |
+// Arithmetic operators
+arg_arith_ops: PLUS numeric_mul_expr_arg arg_numeric_add_ops
+             | MINUS numeric_mul_expr_arg arg_numeric_add_ops
+             | STAR numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_ops
+             | SLASH numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_ops
+             | MOD numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_ops
 
-arg_and_expr: arg_eq_expr arg_and_tail
+arg_numeric_add_ops: PLUS numeric_mul_expr_arg arg_numeric_add_ops
+                   | MINUS numeric_mul_expr_arg arg_numeric_add_ops
+                   |
 
-arg_and_tail: AND arg_eq_expr arg_and_tail
-            |
+// After arithmetic: may have comparison, then optionally boolean ops
+arg_after_arith: arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+               | arg_bool_tail_opt
 
-arg_eq_expr: arg_rel_expr arg_eq_tail
+// Negated numeric: arithmetic then optional comparison and boolean
+arg_neg_numeric_or_bool: numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_ops arg_after_arith
 
-arg_eq_tail: EQ arg_rel_expr arg_eq_tail
-           | NEQ arg_rel_expr arg_eq_tail
-           |
+// Boolean tail (AND/OR) - optional
+arg_bool_tail_opt: AND arg_bool_term arg_bool_and_tail arg_bool_or_tail_opt
+                 | OR arg_bool_term arg_bool_or_tail
+                 |
 
-arg_rel_expr: arg_add_expr arg_rel_tail
+arg_bool_or_tail_opt: OR arg_bool_term arg_bool_or_tail
+                    |
 
-arg_rel_tail: LT arg_add_expr
-            | GT arg_add_expr
-            | LTE arg_add_expr
-            | GTE arg_add_expr
-            |
+// After ID at top level
+arg_id_toplevel_cont: arg_arith_ops arg_after_arith
+                    | arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+                    | INCR
+                    | DECR
+                    | arg_postfix_chain arg_id_after_postfix
 
-arg_add_expr: arg_mul_expr arg_add_tail
+arg_id_after_postfix: arg_arith_ops arg_after_arith
+                    | arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+                    | CONCAT arg_string_operand arg_concat_tail_typed
+                    | arg_bool_tail_opt
 
-arg_add_tail: PLUS arg_mul_expr arg_add_tail
-            | MINUS arg_mul_expr arg_add_tail
-            |
+// Parenthesized at top level
+arg_toplevel_paren: arg_bool_or_concat
 
-arg_mul_expr: arg_unary_expr arg_mul_tail
+arg_toplevel_paren_cont: arg_arith_ops arg_after_arith
+                       | arg_cmp_op numeric_add_expr_arg arg_bool_tail_opt
+                       | CONCAT arg_string_operand arg_concat_tail_typed
+                       | arg_bool_tail_opt
 
-arg_mul_tail: STAR arg_unary_expr arg_mul_tail
-            | SLASH arg_unary_expr arg_mul_tail
-            | MOD arg_unary_expr arg_mul_tail
-            |
+// Concat tail - string-only continuation
+arg_concat_tail_typed: CONCAT arg_string_operand arg_concat_tail_typed
+                     |
 
-arg_unary_expr: NOT arg_unary_expr
-              | MINUS arg_unary_expr
-              | arg_postfix_expr
+// String operand for concat RHS
+arg_string_operand: STRINGLIT
+                  | CHARLIT
+                  | ID
+                  | STRING LPAREN arg_expr RPAREN
+                  | CHAR LPAREN arg_expr RPAREN
+                  | LPAREN arg_string_operand arg_concat_tail_typed RPAREN
 
-arg_postfix_expr: LPAREN arg_expr RPAREN arg_postfix_chain
-                | INT LPAREN arg_expr RPAREN
-                | LONG LPAREN arg_expr RPAREN
-                | FLOAT LPAREN arg_expr RPAREN
-                | DOUBLE LPAREN arg_expr RPAREN
-                | CHAR LPAREN arg_expr RPAREN
-                | STRING LPAREN arg_expr RPAREN
-                | BOOL LPAREN arg_expr RPAREN
-                | INCR ID
-                | DECR ID
-                | ID arg_id_postfix
-                | INTLIT
-                | LONGLIT
-                | FLOATLIT
-                | DOUBLELIT
-                | CHARLIT
-                | STRINGLIT
-                | TRUE
-                | FALSE
+// Boolean term for operand of OR (enforces boolean discipline)
+arg_bool_term: arg_bool_eq arg_bool_and_tail
+
+arg_bool_and_tail: AND arg_bool_eq arg_bool_and_tail
+                 |
+
+arg_bool_or_tail: OR arg_bool_term arg_bool_or_tail
+                |
+
+// Equality level for boolean expressions
+arg_bool_eq: arg_bool_factor arg_bool_eq_tail
+
+arg_bool_eq_tail: EQ arg_bool_factor arg_bool_eq_tail
+                | NEQ arg_bool_factor arg_bool_eq_tail
+                |
+
+// Boolean factor - NOT or atom
+arg_bool_factor: NOT arg_bool_factor
+               | arg_bool_atom
+
+// Boolean atom - the base boolean-producing constructs
+arg_bool_atom: TRUE
+             | FALSE
+             | ID arg_bool_id_cont
+             | INTLIT arg_numeric_cmp_required
+             | LONGLIT arg_numeric_cmp_required
+             | FLOATLIT arg_numeric_cmp_required
+             | DOUBLELIT arg_numeric_cmp_required
+             | MINUS arg_numeric_neg_cmp
+             | LPAREN arg_bool_paren RPAREN
+             | INT LPAREN arg_expr RPAREN arg_numeric_cmp_required
+             | LONG LPAREN arg_expr RPAREN arg_numeric_cmp_required
+             | FLOAT LPAREN arg_expr RPAREN arg_numeric_cmp_required
+             | DOUBLE LPAREN arg_expr RPAREN arg_numeric_cmp_required
+
+// Parenthesized content in boolean atom context
+arg_bool_paren: arg_bool_term arg_bool_and_or_tail
+
+arg_bool_and_or_tail: AND arg_bool_term arg_bool_and_or_tail
+                    | OR arg_bool_term arg_bool_and_or_tail
+                    |
+
+// After ID in boolean context
+arg_bool_id_cont: arg_numeric_arith_cmp
+                | INCR
+                | DECR
+                | arg_postfix_chain
+
+// Numeric arithmetic followed by mandatory comparison (for ID start)
+arg_numeric_arith_cmp: PLUS numeric_mul_expr_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | MINUS numeric_mul_expr_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | STAR numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | SLASH numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | MOD numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+                     | arg_cmp_op numeric_add_expr_arg
+
+arg_numeric_add_cmp: PLUS numeric_mul_expr_arg arg_numeric_add_cmp
+                   | MINUS numeric_mul_expr_arg arg_numeric_add_cmp
+                   |
+
+// Numeric literal MUST be followed by comparison (can't use as bare bool)
+arg_numeric_cmp_required: arg_numeric_lit_arith arg_cmp_op numeric_add_expr_arg
+
+arg_numeric_lit_arith: STAR numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp
+                     | SLASH numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp
+                     | MOD numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp
+                     | PLUS numeric_mul_expr_arg arg_numeric_add_cmp
+                     | MINUS numeric_mul_expr_arg arg_numeric_add_cmp
+                     |
+
+// Negated numeric - must have comparison
+arg_numeric_neg_cmp: numeric_unary_expr_arg numeric_mul_tail_arg arg_numeric_add_cmp arg_cmp_op numeric_add_expr_arg
+
+// Comparison operators for arg context
+arg_cmp_op: LT
+          | GT
+          | LTE
+          | GTE
+          | EQ
+          | NEQ
+
+// ============================================
+// ARG LAYER NUMERIC RULES
+// ============================================
+// Used by typed expression dispatch for arithmetic in argument contexts
+
+numeric_mul_expr_arg: numeric_unary_expr_arg numeric_mul_tail_arg
+
+numeric_mul_tail_arg: STAR numeric_unary_expr_arg numeric_mul_tail_arg
+                    | SLASH numeric_unary_expr_arg numeric_mul_tail_arg
+                    | MOD numeric_unary_expr_arg numeric_mul_tail_arg
+                    |
+
+numeric_add_expr_arg: numeric_mul_expr_arg numeric_add_tail_arg
+
+numeric_add_tail_arg: PLUS numeric_mul_expr_arg numeric_add_tail_arg
+                    | MINUS numeric_mul_expr_arg numeric_add_tail_arg
+                    |
+
+numeric_unary_expr_arg: NOT numeric_unary_expr_arg
+                      | MINUS numeric_unary_expr_arg
+                      | numeric_postfix_expr_arg
+
+// Numeric postfix - only numeric literals, id, parens, numeric casts
+numeric_postfix_expr_arg: LPAREN arg_expr RPAREN arg_postfix_chain
+                        | INT LPAREN arg_expr RPAREN
+                        | LONG LPAREN arg_expr RPAREN
+                        | FLOAT LPAREN arg_expr RPAREN
+                        | DOUBLE LPAREN arg_expr RPAREN
+                        | INCR ID
+                        | DECR ID
+                        | ID arg_id_postfix
+                        | INTLIT
+                        | LONGLIT
+                        | FLOATLIT
+                        | DOUBLELIT
 
 arg_id_postfix: INCR
               | DECR
@@ -1563,9 +2172,16 @@ arg_nested_tail: COMMA arg_expr arg_nested_tail
 // I/O STATEMENTS
 // ============================================
 
-io_stmt: TRAP LPAREN arg_expr RPAREN SEMICOLON
+io_stmt: TRAP LPAREN trap_target RPAREN SEMICOLON
        | THREAD LPAREN print_args RPAREN SEMICOLON
        | THREADLN LPAREN print_args RPAREN SEMICOLON
+
+// trap() accepts exactly one variable target (id with optional array/member access)
+trap_target: ID trap_target_tail
+
+trap_target_tail: LBRACK arg_expr RBRACK
+                | DOT ID
+                |
 
 print_args: arg_expr print_tail
 
@@ -1577,24 +2193,39 @@ print_tail: COMMA arg_expr print_tail
 // ============================================
 // These control structure rules are used ONLY in main function
 // All other functions use type-specific control structures (ctrl_struct_int, etc.)
+// BREAK RESTRICTION: break; only valid in loop/switch bodies (loop_ctrl_stmt_list)
 
-ctrl_struct: IF LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE else_opt
+ctrl_struct: IF LPAREN condition RPAREN LBRACE non_empty_ctrl_stmt_list RBRACE else_opt
            | SWITCH LPAREN arg_expr RPAREN LBRACE case_list default_opt RBRACE
-           | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE ctrl_stmt_list RBRACE
-           | WHILE LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE
-           | DO LBRACE ctrl_stmt_list RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+           | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE non_empty_loop_ctrl_stmt_list RBRACE
+           | WHILE LPAREN condition RPAREN LBRACE non_empty_loop_ctrl_stmt_list RBRACE
+           | DO LBRACE non_empty_loop_ctrl_stmt_list RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
-// Statement list for control structures in main function only
+// Statement list for control structures in main function (no break at top level)
 ctrl_stmt_list: statement_non_return ctrl_stmt_list
               |
+
+// Non-empty statement list for control structure bodies
+non_empty_ctrl_stmt_list: statement_non_return ctrl_stmt_list
+
+// Loop statement includes break (valid in loop/switch bodies)
+loop_statement_non_return: statement_non_return
+                         | BREAK SEMICOLON
+
+// Statement list for loop/switch bodies in main function (break allowed)
+loop_ctrl_stmt_list: loop_statement_non_return loop_ctrl_stmt_list
+                   |
+
+// Non-empty loop statement list for loop/switch bodies
+non_empty_loop_ctrl_stmt_list: loop_statement_non_return loop_ctrl_stmt_list
 
 else_opt: ELSE else_body
         |
 
-else_body: LBRACE ctrl_stmt_list RBRACE
-         | IF LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE else_opt
+else_body: LBRACE non_empty_ctrl_stmt_list RBRACE
+         | IF LPAREN condition RPAREN LBRACE non_empty_ctrl_stmt_list RBRACE else_opt
 
-case_list: CASE case_val COLON ctrl_stmt_list break_opt case_list
+case_list: CASE case_val COLON non_empty_loop_ctrl_stmt_list break_opt case_list
          |
 
 case_val: INTLIT
@@ -1603,7 +2234,7 @@ case_val: INTLIT
         | TRUE
         | FALSE
 
-default_opt: DEFAULT COLON ctrl_stmt_list break_opt
+default_opt: DEFAULT COLON non_empty_loop_ctrl_stmt_list break_opt
            |
 
 break_opt: BREAK SEMICOLON
@@ -1616,8 +2247,8 @@ for_init: LOCAL VAR for_init_type ID ASSIGN for_init_expr
 for_init_assign_tail: assign_op for_init_expr
 
 // Restricted expression for for_init: no assignment chaining
-// Uses stmt_concat_expr since for_init is followed by SEMICOLON
-for_init_expr: stmt_concat_expr
+// Uses stmt_typed_rhs since for_init is followed by SEMICOLON
+for_init_expr: stmt_typed_rhs
 
 for_init_type: INT
              | LONG
@@ -1630,126 +2261,196 @@ for_init_type: INT
 for_cond: condition
 
 // ============================================
-// CONDITION EXPRESSIONS (DEFERRED BOOLEAN COMMITMENT)
+// BATCH 2 – CONDITION SYSTEM REPLACED
 // ============================================
-// Conditions enforce syntactic boolean commitment:
-// - A condition MUST contain at least one boolean-producing operator
-// - Boolean-producing operators: relational (== != < <= > >=) or logical (&& ||)
-// - Pure arithmetic expressions cannot reduce as conditions
-//
-// Grammar architecture:
-// - Condition uses SEPARATE arithmetic rules isolated from expression rules
-// - cond_postfix uses LPAREN cond_paren_arith RPAREN, NOT LPAREN expression RPAREN
-// - This prevents expression rules from merging into condition context
-// - LALR conflicts are avoided by keeping contexts separate
-//
-// Deferred Boolean Commitment:
-// - Bare identifiers/function calls are allowed (might be boolean semantically)
-// - Once arithmetic operators (+,-,*,/,%) appear, comp_op MUST follow
-// - Expected tokens at any error point include all valid continuations
-//
-// After commitment (comp_op seen), RHS uses expression rules (cond_rhs: add_expr)
-// Function arguments in conditions use expression rules (nested context)
+// Self-contained typed boolean system for conditions.
+// Strict boolean discipline: only boolean-producing constructs allowed.
+// Arithmetic requires comparison. Logical ops only on booleans.
+// Left-factored to be LALR(1)-compatible.
 
 condition: cond_or
 
 cond_or: cond_and cond_or_tail
+
 cond_or_tail: OR cond_and cond_or_tail
             |
 
-cond_and: cond_comparison cond_and_tail
-cond_and_tail: AND cond_comparison cond_and_tail
+cond_and: cond_not cond_and_tail
+
+cond_and_tail: AND cond_not cond_and_tail
              |
 
-// cond_comparison: MANDATORY boolean commitment
-// 1. Parenthesized condition (recursively requires boolean)
-// 2. Negated comparison (recursively requires boolean)
-// 3. Primary + continuation (identifier may be bare OR with comparison)
-cond_comparison: LPAREN condition RPAREN
-               | NOT cond_comparison
-               | cond_primary cond_primary_continue
+cond_not: NOT cond_not
+        | cond_atom
 
-// Primary expression for condition (no binary operators)
-cond_primary: MINUS cond_primary
-            | cond_postfix
+// Left-factored atom: ID and LPAREN handled specially
+cond_atom: TRUE
+         | FALSE
+         | ID cond_id_cont
+         | LPAREN cond_paren_inner RPAREN cond_paren_tail
+         | cond_lit_cmp
 
-// After cond_primary: either bare (epsilon), direct comparison, or arithmetic
-// Key rule: if arithmetic appears, must eventually have comp_op (via cond_must_commit)
-// FIRST(non-ε) = {+ - * / % == != < <= > >=}
-cond_primary_continue: PLUS cond_primary cond_must_commit
-                     | MINUS cond_primary cond_must_commit
-                     | STAR cond_primary cond_must_commit
-                     | SLASH cond_primary cond_must_commit
-                     | MOD cond_primary cond_must_commit
-                     | comp_op cond_rhs
-                     |
+// Content inside parentheses - unified for left-factoring
+// Supports: (x), (x<5), (x+5)>10, (!flag), (a&&b)
+cond_paren_inner: cond_paren_start cond_paren_cont
 
-// Once arithmetic operator appeared, MUST have comp_op eventually
-// NO EPSILON - must commit
-// FIRST = {+ - * / % == != < <= > >=}
-cond_must_commit: PLUS cond_primary cond_must_commit
-                | MINUS cond_primary cond_must_commit
-                | STAR cond_primary cond_must_commit
-                | SLASH cond_primary cond_must_commit
-                | MOD cond_primary cond_must_commit
-                | comp_op cond_rhs
+cond_paren_start: ID
+                | INTLIT
+                | LONGLIT
+                | FLOATLIT
+                | DOUBLELIT
+                | TRUE
+                | FALSE
+                | NOT cond_not
+                | MINUS cond_paren_unary
+                | LPAREN cond_paren_inner RPAREN
 
-// Condition postfix - NO parenthesized arithmetic (use cond_comparison LPAREN condition RPAREN)
-// This avoids LALR conflicts between LPAREN condition RPAREN and LPAREN arithmetic RPAREN
-// For arithmetic grouping, wrap the entire condition: (a + b > c) not ((a + b) > c)
-cond_postfix: INT LPAREN cond_cast_arg RPAREN
-            | LONG LPAREN cond_cast_arg RPAREN
-            | FLOAT LPAREN cond_cast_arg RPAREN
-            | DOUBLE LPAREN cond_cast_arg RPAREN
-            | CHAR LPAREN cond_cast_arg RPAREN
-            | STRING LPAREN cond_cast_arg RPAREN
-            | BOOL LPAREN cond_cast_arg RPAREN
-            | INCR ID
-            | DECR ID
-            | ID cond_id_post
-            | INTLIT
-            | LONGLIT
-            | FLOATLIT
-            | DOUBLELIT
-            | CHARLIT
-            | STRINGLIT
-            | TRUE
-            | FALSE
+// After initial token inside parens: arithmetic ops, comparison ops, or logical ops
+cond_paren_cont: cond_paren_arith_ops cond_paren_after_arith
+               | cond_cmp cond_rhs cond_paren_logic
+               | cond_paren_logic
 
-// Type cast argument in condition - uses arg_expr for clean FOLLOW
-cond_cast_arg: arg_expr
+// Arithmetic operations inside parens
+cond_paren_arith_ops: PLUS cond_paren_unary cond_paren_mul_ops
+                    | MINUS cond_paren_unary cond_paren_mul_ops
+                    | STAR cond_paren_unary cond_paren_mul_ops
+                    | SLASH cond_paren_unary cond_paren_mul_ops
+                    | MOD cond_paren_unary cond_paren_mul_ops
 
-cond_id_post: INCR
-            | DECR
-            | cond_post_chain
+cond_paren_mul_ops: STAR cond_paren_unary cond_paren_mul_ops
+                  | SLASH cond_paren_unary cond_paren_mul_ops
+                  | MOD cond_paren_unary cond_paren_mul_ops
+                  | PLUS cond_paren_unary cond_paren_mul_ops
+                  | MINUS cond_paren_unary cond_paren_mul_ops
+                  |
 
-// Condition postfix chain - function arguments use expression (nested context)
-cond_post_chain: cond_arr_access cond_post_after_arr
-               | DOT ID cond_post_chain
-               | LPAREN arg_list RPAREN cond_post_chain
+cond_paren_unary: MINUS cond_paren_unary
+                | cond_paren_primary
+
+cond_paren_primary: INTLIT
+                  | LONGLIT
+                  | FLOATLIT
+                  | DOUBLELIT
+                  | ID cond_rhs_id_tail
+                  | LPAREN cond_paren_inner RPAREN
+
+// After arithmetic inside parens: might have comparison, then logic
+cond_paren_after_arith: cond_cmp cond_rhs cond_paren_logic
+                      |
+
+// Logical operations inside parens (for full boolean expressions)
+cond_paren_logic: AND cond_and
+               | OR cond_or
                |
 
-cond_arr_access: LBRACK cond_arr_index RBRACK cond_arr_access_dim2
+// What follows RPAREN: nothing (was boolean) or comparison (was arithmetic LHS)
+cond_paren_tail: cond_cmp cond_rhs
+               |
 
-cond_arr_access_dim2: LBRACK cond_arr_index RBRACK
-                    |
+// After ID in condition: bare boolean OR comparison with arithmetic
+// String comparisons disallowed in conditions
+// Array access supported: arr[i] > 0
+cond_id_cont: LBRACK cond_arr_index RBRACK cond_id_arr_cont
+            | PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | STAR cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | SLASH cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | MOD cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | LT cond_rhs
+            | GT cond_rhs
+            | LTE cond_rhs
+            | GTE cond_rhs
+            | EQ cond_rhs
+            | NEQ cond_rhs
+            |
 
-cond_post_after_arr: DOT ID cond_post_chain
-                   | LPAREN arg_list RPAREN cond_post_chain
-                   |
+// Array index expression (numeric)
+cond_arr_index: cond_rhs
 
-cond_arr_index: INTLIT
-              | ID
+// After arr[i]: optional 2D access, then arithmetic/comparison
+cond_id_arr_cont: LBRACK cond_arr_index RBRACK cond_id_arr_after
+                | cond_id_arr_after
 
-// RHS after relational operator - uses arg_add_expr for clean FOLLOW
-cond_rhs: arg_add_expr
+cond_id_arr_after: PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | STAR cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | SLASH cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | MOD cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | LT cond_rhs
+                 | GT cond_rhs
+                 | LTE cond_rhs
+                 | GTE cond_rhs
+                 | EQ cond_rhs
+                 | NEQ cond_rhs
+                 |
 
-comp_op: EQ
-       | NEQ
-       | LT
-       | GT
-       | LTE
-       | GTE
+// Literal-starting comparison (MUST have comparison - no bare literals allowed)
+// String/char literals disallowed in conditions
+cond_lit_cmp: INTLIT cond_lit_mul cond_lit_add cond_cmp cond_rhs
+            | LONGLIT cond_lit_mul cond_lit_add cond_cmp cond_rhs
+            | FLOATLIT cond_lit_mul cond_lit_add cond_cmp cond_rhs
+            | DOUBLELIT cond_lit_mul cond_lit_add cond_cmp cond_rhs
+            | MINUS cond_lit_unary cond_lit_mul cond_lit_add cond_cmp cond_rhs
+
+// LHS-specific tail rules (isolated from RHS to avoid conflicts)
+cond_lit_mul: STAR cond_lit_unary cond_lit_mul
+            | SLASH cond_lit_unary cond_lit_mul
+            | MOD cond_lit_unary cond_lit_mul
+            |
+
+cond_lit_add: PLUS cond_lit_unary cond_lit_mul cond_lit_add
+            | MINUS cond_lit_unary cond_lit_mul cond_lit_add
+            |
+
+cond_lit_unary: MINUS cond_lit_unary
+              | cond_lit_primary
+
+cond_lit_primary: INTLIT
+                | LONGLIT
+                | FLOATLIT
+                | DOUBLELIT
+                | ID cond_rhs_id_tail
+                | LPAREN cond_lit_expr RPAREN
+
+cond_lit_expr: cond_lit_unary cond_lit_mul cond_lit_add
+
+// RHS expression rules (after comparison operator)
+cond_rhs: cond_rhs_unary cond_rhs_mul cond_rhs_add
+
+cond_rhs_unary: MINUS cond_rhs_unary
+              | cond_rhs_primary
+
+cond_rhs_primary: INTLIT
+                | LONGLIT
+                | FLOATLIT
+                | DOUBLELIT
+                | ID cond_rhs_id_tail
+                | LPAREN cond_rhs RPAREN
+
+// Optional array access after ID in RHS
+cond_rhs_id_tail: LBRACK cond_arr_index RBRACK cond_rhs_arr_tail
+                |
+
+cond_rhs_arr_tail: LBRACK cond_arr_index RBRACK
+                 |
+
+cond_rhs_mul: STAR cond_rhs_unary cond_rhs_mul
+            | SLASH cond_rhs_unary cond_rhs_mul
+            | MOD cond_rhs_unary cond_rhs_mul
+            |
+
+cond_rhs_add: PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add
+            | MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add
+            |
+
+cond_cmp: LT
+        | GT
+        | LTE
+        | GTE
+        | EQ
+        | NEQ
+
+////////////////////////////////////////////////////////
 
 for_update: ID for_update_tail
           | INCR ID
@@ -1847,7 +2548,12 @@ COMMA: ","
 COLON: ":"
 DOT: "."
 
-ID: /[a-zA-Z_][a-zA-Z0-9_]*/
+// ID MUST NOT match reserved keywords. Using negative lookahead.
+// Keywords: int, long, float, double, char, string, bool, void, var, const,
+//           true, false, if, else, while, for, switch, case, default, return,
+//           func, global, local, do, break, trap, thread, threadln, using,
+//           weave, main, array
+ID: /(?!(int|long|float|double|char|string|bool|void|var|const|true|false|if|else|while|for|switch|case|default|return|func|global|local|do|break|trap|thread|threadln|using|weave|main|array)\b)[a-zA-Z_][a-zA-Z0-9_]*/
 INTLIT: /-?[0-9]{1,10}/
 LONGLIT: /-?[0-9]{11,19}/
 FLOATLIT: /-?[0-9]+\.[0-9]{1,7}/

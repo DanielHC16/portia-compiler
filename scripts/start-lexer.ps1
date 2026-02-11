@@ -1,4 +1,7 @@
 # scripts/start-lexer.ps1
-# Start the lexer backend with Python 3.12 venv
+# Start the lexer backend with hot-reload using watchfiles
 Set-Location "$PSScriptRoot\..\lexer-backend"
-& .\.venv-py312\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
+Write-Host "Starting Lexer Backend with hot-reload..." -ForegroundColor Blue
+Write-Host "Watching for changes in *.py and *.lark files" -ForegroundColor Yellow
+Write-Host ""
+& .\.venv-py312\Scripts\watchfiles.exe ".venv-py312\Scripts\python.exe -m uvicorn app.main:app --port 8000" .
