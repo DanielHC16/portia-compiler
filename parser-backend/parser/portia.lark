@@ -547,61 +547,51 @@ mandatory_void_return: RETURN SEMICOLON
 statement_int: effect_stmt SEMICOLON
              | io_stmt
              | ctrl_struct_int
-             | BREAK SEMICOLON
              | RETURN int_return_expr SEMICOLON
 
 statement_long: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_long
-              | BREAK SEMICOLON
               | RETURN long_return_expr SEMICOLON
 
 statement_float: effect_stmt SEMICOLON
                | io_stmt
                | ctrl_struct_float
-               | BREAK SEMICOLON
                | RETURN float_return_expr SEMICOLON
 
 statement_double: effect_stmt SEMICOLON
                 | io_stmt
                 | ctrl_struct_double
-                | BREAK SEMICOLON
                 | RETURN double_return_expr SEMICOLON
 
 statement_char: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_char
-              | BREAK SEMICOLON
               | RETURN char_return_expr SEMICOLON
 
 statement_string: effect_stmt SEMICOLON
                 | io_stmt
                 | ctrl_struct_string
-                | BREAK SEMICOLON
                 | RETURN string_return_expr SEMICOLON
 
 statement_bool: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_bool
-              | BREAK SEMICOLON
               | RETURN bool_return_expr SEMICOLON
 
 statement_array: effect_stmt SEMICOLON
                | io_stmt
                | ctrl_struct_array
-               | BREAK SEMICOLON
                | RETURN ID SEMICOLON
 
 statement_weave: effect_stmt SEMICOLON
                | io_stmt
                | ctrl_struct_weave
-               | BREAK SEMICOLON
                | RETURN ID SEMICOLON
 
 statement_void: effect_stmt SEMICOLON
               | io_stmt
               | ctrl_struct_void
-              | BREAK SEMICOLON
               | RETURN SEMICOLON
 
 // ============================================
@@ -614,68 +604,65 @@ statement_void: effect_stmt SEMICOLON
 statement_int_no_ret: effect_stmt SEMICOLON
                     | io_stmt
                     | ctrl_struct_int
-                    | BREAK SEMICOLON
 
 statement_long_no_ret: effect_stmt SEMICOLON
                      | io_stmt
                      | ctrl_struct_long
-                     | BREAK SEMICOLON
 
 statement_float_no_ret: effect_stmt SEMICOLON
                       | io_stmt
                       | ctrl_struct_float
-                      | BREAK SEMICOLON
 
 statement_double_no_ret: effect_stmt SEMICOLON
                        | io_stmt
                        | ctrl_struct_double
-                       | BREAK SEMICOLON
 
 statement_char_no_ret: effect_stmt SEMICOLON
                      | io_stmt
                      | ctrl_struct_char
-                     | BREAK SEMICOLON
 
 statement_string_no_ret: effect_stmt SEMICOLON
                        | io_stmt
                        | ctrl_struct_string
-                       | BREAK SEMICOLON
 
 statement_bool_no_ret: effect_stmt SEMICOLON
                      | io_stmt
                      | ctrl_struct_bool
-                     | BREAK SEMICOLON
 
 statement_array_no_ret: effect_stmt SEMICOLON
                       | io_stmt
                       | ctrl_struct_array
-                      | BREAK SEMICOLON
 
 statement_weave_no_ret: effect_stmt SEMICOLON
                       | io_stmt
                       | ctrl_struct_weave
-                      | BREAK SEMICOLON
 
 statement_void_no_ret: effect_stmt SEMICOLON
                      | io_stmt
                      | ctrl_struct_void
-                     | BREAK SEMICOLON
 
 // ============================================
 // TYPE-SPECIFIC CONTROL STRUCTURES
 // ============================================
 // Each return type has its own control structure rules.
 // This allows return statements inside if/else/while/for/switch/do-while.
+// BREAK RESTRICTION: break; only valid in loop/switch bodies (loop_stmt_list_*)
 
 // INT control structures
 ctrl_struct_int: IF LPAREN condition RPAREN LBRACE stmt_list_int RBRACE else_opt_int
                | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_int default_opt_int RBRACE
-               | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_int RBRACE
-               | WHILE LPAREN condition RPAREN LBRACE stmt_list_int RBRACE
-               | DO LBRACE stmt_list_int RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+               | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_int RBRACE
+               | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_int RBRACE
+               | DO LBRACE loop_stmt_list_int RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_int: statement_int stmt_list_int
              |
+
+loop_statement_int: statement_int
+                  | BREAK SEMICOLON
+
+loop_stmt_list_int: loop_statement_int loop_stmt_list_int
+                  |
 
 else_opt_int: ELSE else_body_int
             |
@@ -683,21 +670,27 @@ else_opt_int: ELSE else_body_int
 else_body_int: LBRACE stmt_list_int RBRACE
              | IF LPAREN condition RPAREN LBRACE stmt_list_int RBRACE else_opt_int
 
-case_list_int: CASE case_val COLON stmt_list_int break_opt case_list_int
+case_list_int: CASE case_val COLON loop_stmt_list_int break_opt case_list_int
              |
 
-default_opt_int: DEFAULT COLON stmt_list_int break_opt
+default_opt_int: DEFAULT COLON loop_stmt_list_int break_opt
                |
 
 // LONG control structures
 ctrl_struct_long: IF LPAREN condition RPAREN LBRACE stmt_list_long RBRACE else_opt_long
                 | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_long default_opt_long RBRACE
-                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_long RBRACE
-                | WHILE LPAREN condition RPAREN LBRACE stmt_list_long RBRACE
-                | DO LBRACE stmt_list_long RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_long RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_long RBRACE
+                | DO LBRACE loop_stmt_list_long RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_long: statement_long stmt_list_long
               |
+
+loop_statement_long: statement_long
+                   | BREAK SEMICOLON
+
+loop_stmt_list_long: loop_statement_long loop_stmt_list_long
+                   |
 
 else_opt_long: ELSE else_body_long
              |
@@ -705,21 +698,27 @@ else_opt_long: ELSE else_body_long
 else_body_long: LBRACE stmt_list_long RBRACE
               | IF LPAREN condition RPAREN LBRACE stmt_list_long RBRACE else_opt_long
 
-case_list_long: CASE case_val COLON stmt_list_long break_opt case_list_long
+case_list_long: CASE case_val COLON loop_stmt_list_long break_opt case_list_long
               |
 
-default_opt_long: DEFAULT COLON stmt_list_long break_opt
+default_opt_long: DEFAULT COLON loop_stmt_list_long break_opt
                 |
 
 // FLOAT control structures
 ctrl_struct_float: IF LPAREN condition RPAREN LBRACE stmt_list_float RBRACE else_opt_float
                  | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_float default_opt_float RBRACE
-                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_float RBRACE
-                 | WHILE LPAREN condition RPAREN LBRACE stmt_list_float RBRACE
-                 | DO LBRACE stmt_list_float RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_float RBRACE
+                 | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_float RBRACE
+                 | DO LBRACE loop_stmt_list_float RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_float: statement_float stmt_list_float
                |
+
+loop_statement_float: statement_float
+                    | BREAK SEMICOLON
+
+loop_stmt_list_float: loop_statement_float loop_stmt_list_float
+                    |
 
 else_opt_float: ELSE else_body_float
               |
@@ -727,21 +726,27 @@ else_opt_float: ELSE else_body_float
 else_body_float: LBRACE stmt_list_float RBRACE
                | IF LPAREN condition RPAREN LBRACE stmt_list_float RBRACE else_opt_float
 
-case_list_float: CASE case_val COLON stmt_list_float break_opt case_list_float
+case_list_float: CASE case_val COLON loop_stmt_list_float break_opt case_list_float
                |
 
-default_opt_float: DEFAULT COLON stmt_list_float break_opt
+default_opt_float: DEFAULT COLON loop_stmt_list_float break_opt
                  |
 
 // DOUBLE control structures
 ctrl_struct_double: IF LPAREN condition RPAREN LBRACE stmt_list_double RBRACE else_opt_double
                   | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_double default_opt_double RBRACE
-                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_double RBRACE
-                  | WHILE LPAREN condition RPAREN LBRACE stmt_list_double RBRACE
-                  | DO LBRACE stmt_list_double RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_double RBRACE
+                  | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_double RBRACE
+                  | DO LBRACE loop_stmt_list_double RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_double: statement_double stmt_list_double
                 |
+
+loop_statement_double: statement_double
+                     | BREAK SEMICOLON
+
+loop_stmt_list_double: loop_statement_double loop_stmt_list_double
+                     |
 
 else_opt_double: ELSE else_body_double
                |
@@ -749,21 +754,27 @@ else_opt_double: ELSE else_body_double
 else_body_double: LBRACE stmt_list_double RBRACE
                 | IF LPAREN condition RPAREN LBRACE stmt_list_double RBRACE else_opt_double
 
-case_list_double: CASE case_val COLON stmt_list_double break_opt case_list_double
+case_list_double: CASE case_val COLON loop_stmt_list_double break_opt case_list_double
                 |
 
-default_opt_double: DEFAULT COLON stmt_list_double break_opt
+default_opt_double: DEFAULT COLON loop_stmt_list_double break_opt
                   |
 
 // CHAR control structures
 ctrl_struct_char: IF LPAREN condition RPAREN LBRACE stmt_list_char RBRACE else_opt_char
                 | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_char default_opt_char RBRACE
-                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_char RBRACE
-                | WHILE LPAREN condition RPAREN LBRACE stmt_list_char RBRACE
-                | DO LBRACE stmt_list_char RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_char RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_char RBRACE
+                | DO LBRACE loop_stmt_list_char RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_char: statement_char stmt_list_char
               |
+
+loop_statement_char: statement_char
+                   | BREAK SEMICOLON
+
+loop_stmt_list_char: loop_statement_char loop_stmt_list_char
+                   |
 
 else_opt_char: ELSE else_body_char
              |
@@ -771,21 +782,27 @@ else_opt_char: ELSE else_body_char
 else_body_char: LBRACE stmt_list_char RBRACE
               | IF LPAREN condition RPAREN LBRACE stmt_list_char RBRACE else_opt_char
 
-case_list_char: CASE case_val COLON stmt_list_char break_opt case_list_char
+case_list_char: CASE case_val COLON loop_stmt_list_char break_opt case_list_char
               |
 
-default_opt_char: DEFAULT COLON stmt_list_char break_opt
+default_opt_char: DEFAULT COLON loop_stmt_list_char break_opt
                 |
 
 // STRING control structures
 ctrl_struct_string: IF LPAREN condition RPAREN LBRACE stmt_list_string RBRACE else_opt_string
                   | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_string default_opt_string RBRACE
-                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_string RBRACE
-                  | WHILE LPAREN condition RPAREN LBRACE stmt_list_string RBRACE
-                  | DO LBRACE stmt_list_string RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                  | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_string RBRACE
+                  | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_string RBRACE
+                  | DO LBRACE loop_stmt_list_string RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_string: statement_string stmt_list_string
                 |
+
+loop_statement_string: statement_string
+                     | BREAK SEMICOLON
+
+loop_stmt_list_string: loop_statement_string loop_stmt_list_string
+                     |
 
 else_opt_string: ELSE else_body_string
                |
@@ -793,21 +810,27 @@ else_opt_string: ELSE else_body_string
 else_body_string: LBRACE stmt_list_string RBRACE
                 | IF LPAREN condition RPAREN LBRACE stmt_list_string RBRACE else_opt_string
 
-case_list_string: CASE case_val COLON stmt_list_string break_opt case_list_string
+case_list_string: CASE case_val COLON loop_stmt_list_string break_opt case_list_string
                 |
 
-default_opt_string: DEFAULT COLON stmt_list_string break_opt
+default_opt_string: DEFAULT COLON loop_stmt_list_string break_opt
                   |
 
 // BOOL control structures
 ctrl_struct_bool: IF LPAREN condition RPAREN LBRACE stmt_list_bool RBRACE else_opt_bool
                 | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_bool default_opt_bool RBRACE
-                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_bool RBRACE
-                | WHILE LPAREN condition RPAREN LBRACE stmt_list_bool RBRACE
-                | DO LBRACE stmt_list_bool RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_bool RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_bool RBRACE
+                | DO LBRACE loop_stmt_list_bool RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_bool: statement_bool stmt_list_bool
               |
+
+loop_statement_bool: statement_bool
+                   | BREAK SEMICOLON
+
+loop_stmt_list_bool: loop_statement_bool loop_stmt_list_bool
+                   |
 
 else_opt_bool: ELSE else_body_bool
              |
@@ -815,21 +838,27 @@ else_opt_bool: ELSE else_body_bool
 else_body_bool: LBRACE stmt_list_bool RBRACE
               | IF LPAREN condition RPAREN LBRACE stmt_list_bool RBRACE else_opt_bool
 
-case_list_bool: CASE case_val COLON stmt_list_bool break_opt case_list_bool
+case_list_bool: CASE case_val COLON loop_stmt_list_bool break_opt case_list_bool
               |
 
-default_opt_bool: DEFAULT COLON stmt_list_bool break_opt
+default_opt_bool: DEFAULT COLON loop_stmt_list_bool break_opt
                 |
 
 // ARRAY control structures
 ctrl_struct_array: IF LPAREN condition RPAREN LBRACE stmt_list_array RBRACE else_opt_array
                  | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_array default_opt_array RBRACE
-                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_array RBRACE
-                 | WHILE LPAREN condition RPAREN LBRACE stmt_list_array RBRACE
-                 | DO LBRACE stmt_list_array RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_array RBRACE
+                 | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_array RBRACE
+                 | DO LBRACE loop_stmt_list_array RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_array: statement_array stmt_list_array
                |
+
+loop_statement_array: statement_array
+                    | BREAK SEMICOLON
+
+loop_stmt_list_array: loop_statement_array loop_stmt_list_array
+                    |
 
 else_opt_array: ELSE else_body_array
               |
@@ -837,21 +866,27 @@ else_opt_array: ELSE else_body_array
 else_body_array: LBRACE stmt_list_array RBRACE
                | IF LPAREN condition RPAREN LBRACE stmt_list_array RBRACE else_opt_array
 
-case_list_array: CASE case_val COLON stmt_list_array break_opt case_list_array
+case_list_array: CASE case_val COLON loop_stmt_list_array break_opt case_list_array
                |
 
-default_opt_array: DEFAULT COLON stmt_list_array break_opt
+default_opt_array: DEFAULT COLON loop_stmt_list_array break_opt
                  |
 
 // WEAVE control structures
 ctrl_struct_weave: IF LPAREN condition RPAREN LBRACE stmt_list_weave RBRACE else_opt_weave
                  | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_weave default_opt_weave RBRACE
-                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_weave RBRACE
-                 | WHILE LPAREN condition RPAREN LBRACE stmt_list_weave RBRACE
-                 | DO LBRACE stmt_list_weave RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                 | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_weave RBRACE
+                 | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_weave RBRACE
+                 | DO LBRACE loop_stmt_list_weave RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_weave: statement_weave stmt_list_weave
                |
+
+loop_statement_weave: statement_weave
+                    | BREAK SEMICOLON
+
+loop_stmt_list_weave: loop_statement_weave loop_stmt_list_weave
+                    |
 
 else_opt_weave: ELSE else_body_weave
               |
@@ -859,21 +894,27 @@ else_opt_weave: ELSE else_body_weave
 else_body_weave: LBRACE stmt_list_weave RBRACE
                | IF LPAREN condition RPAREN LBRACE stmt_list_weave RBRACE else_opt_weave
 
-case_list_weave: CASE case_val COLON stmt_list_weave break_opt case_list_weave
+case_list_weave: CASE case_val COLON loop_stmt_list_weave break_opt case_list_weave
                |
 
-default_opt_weave: DEFAULT COLON stmt_list_weave break_opt
+default_opt_weave: DEFAULT COLON loop_stmt_list_weave break_opt
                  |
 
 // VOID control structures
 ctrl_struct_void: IF LPAREN condition RPAREN LBRACE stmt_list_void RBRACE else_opt_void
                 | SWITCH LPAREN arg_expr RPAREN LBRACE case_list_void default_opt_void RBRACE
-                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE stmt_list_void RBRACE
-                | WHILE LPAREN condition RPAREN LBRACE stmt_list_void RBRACE
-                | DO LBRACE stmt_list_void RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+                | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_stmt_list_void RBRACE
+                | WHILE LPAREN condition RPAREN LBRACE loop_stmt_list_void RBRACE
+                | DO LBRACE loop_stmt_list_void RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
 stmt_list_void: statement_void stmt_list_void
               |
+
+loop_statement_void: statement_void
+                   | BREAK SEMICOLON
+
+loop_stmt_list_void: loop_statement_void loop_stmt_list_void
+                   |
 
 else_opt_void: ELSE else_body_void
              |
@@ -881,10 +922,10 @@ else_opt_void: ELSE else_body_void
 else_body_void: LBRACE stmt_list_void RBRACE
               | IF LPAREN condition RPAREN LBRACE stmt_list_void RBRACE else_opt_void
 
-case_list_void: CASE case_val COLON stmt_list_void break_opt case_list_void
+case_list_void: CASE case_val COLON loop_stmt_list_void break_opt case_list_void
               |
 
-default_opt_void: DEFAULT COLON stmt_list_void break_opt
+default_opt_void: DEFAULT COLON loop_stmt_list_void break_opt
                 |
 
 // ============================================
@@ -1177,11 +1218,11 @@ weave_local_tail: ASSIGN LBRACE weave_field_value weave_field_list_tail RBRACE w
 // ============================================
 // statement_non_return is used ONLY in main function and its control structures
 // All other functions use type-specific statement rules (statement_int, etc.)
+// BREAK RESTRICTION: break; only valid in loop/switch bodies
 
 statement_non_return: effect_stmt SEMICOLON
                     | io_stmt
                     | ctrl_struct
-                    | BREAK SEMICOLON
 
 // ============================================
 // UNIFIED EXPRESSION GRAMMAR
@@ -1619,16 +1660,25 @@ print_tail: COMMA arg_expr print_tail
 // ============================================
 // These control structure rules are used ONLY in main function
 // All other functions use type-specific control structures (ctrl_struct_int, etc.)
+// BREAK RESTRICTION: break; only valid in loop/switch bodies (loop_ctrl_stmt_list)
 
 ctrl_struct: IF LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE else_opt
            | SWITCH LPAREN arg_expr RPAREN LBRACE case_list default_opt RBRACE
-           | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE ctrl_stmt_list RBRACE
-           | WHILE LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE
-           | DO LBRACE ctrl_stmt_list RBRACE WHILE LPAREN condition RPAREN SEMICOLON
+           | FOR LPAREN for_init SEMICOLON for_cond SEMICOLON for_update RPAREN LBRACE loop_ctrl_stmt_list RBRACE
+           | WHILE LPAREN condition RPAREN LBRACE loop_ctrl_stmt_list RBRACE
+           | DO LBRACE loop_ctrl_stmt_list RBRACE WHILE LPAREN condition RPAREN SEMICOLON
 
-// Statement list for control structures in main function only
+// Statement list for control structures in main function (no break at top level)
 ctrl_stmt_list: statement_non_return ctrl_stmt_list
               |
+
+// Loop statement includes break (valid in loop/switch bodies)
+loop_statement_non_return: statement_non_return
+                         | BREAK SEMICOLON
+
+// Statement list for loop/switch bodies in main function (break allowed)
+loop_ctrl_stmt_list: loop_statement_non_return loop_ctrl_stmt_list
+                   |
 
 else_opt: ELSE else_body
         |
@@ -1636,7 +1686,7 @@ else_opt: ELSE else_body
 else_body: LBRACE ctrl_stmt_list RBRACE
          | IF LPAREN condition RPAREN LBRACE ctrl_stmt_list RBRACE else_opt
 
-case_list: CASE case_val COLON ctrl_stmt_list break_opt case_list
+case_list: CASE case_val COLON loop_ctrl_stmt_list break_opt case_list
          |
 
 case_val: INTLIT
@@ -1645,7 +1695,7 @@ case_val: INTLIT
         | TRUE
         | FALSE
 
-default_opt: DEFAULT COLON ctrl_stmt_list break_opt
+default_opt: DEFAULT COLON loop_ctrl_stmt_list break_opt
            |
 
 break_opt: BREAK SEMICOLON
