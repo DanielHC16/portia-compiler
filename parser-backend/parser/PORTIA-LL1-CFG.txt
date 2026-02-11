@@ -6,7 +6,7 @@ This document is a STRICT MIRROR of the Lark grammar (portia.lark).
 Every production listed here corresponds directly to a rule in the implementation.
 The grammar, documentation, and parser describe the SAME language.
 
-Last synchronized: 2026-02-11 (cleanup: removed 19 dead productions)
+Last synchronized: 2026-02-12 (compound assignment restricted to numeric RHS)
 
 --------------------------------------------------------------------------------
 NOTATION
@@ -546,7 +546,14 @@ SECTION 9: EXPRESSIONS
 <expression> -> <typed_assign_expr>
 
 <typed_assign_expr> -> <typed_concat_expr> <typed_assign_tail>
-<typed_assign_tail> -> <assign_op> <typed_rhs_expr> | lambda
+// Simple assignment (=) allows any RHS; compound ops restricted to numeric
+<typed_assign_tail> -> = <typed_rhs_expr>
+<typed_assign_tail> -> += <typed_numeric_add_expr>
+<typed_assign_tail> -> -= <typed_numeric_add_expr>
+<typed_assign_tail> -> *= <typed_numeric_add_expr>
+<typed_assign_tail> -> /= <typed_numeric_add_expr>
+<typed_assign_tail> -> %= <typed_numeric_add_expr>
+<typed_assign_tail> -> lambda
 
 <assign_op> -> = | += | -= | *= | /= | %=
 
@@ -634,12 +641,37 @@ SECTION 10: EFFECTFUL STATEMENTS
 <effect_pre_chain> -> . id <effect_pre_chain>
 <effect_pre_chain> -> lambda
 
-<effect_id_cont> -> <assign_op> <stmt_assign_expr>
+// Simple assignment (=) allows any RHS; compound ops restricted to numeric
+<effect_id_cont> -> = <stmt_assign_expr>
+<effect_id_cont> -> += <numeric_add_expr_stmt>
+<effect_id_cont> -> -= <numeric_add_expr_stmt>
+<effect_id_cont> -> *= <numeric_add_expr_stmt>
+<effect_id_cont> -> /= <numeric_add_expr_stmt>
+<effect_id_cont> -> %= <numeric_add_expr_stmt>
 <effect_id_cont> -> ++
 <effect_id_cont> -> --
 <effect_id_cont> -> ( <stmt_arg_list> ) <effect_post_call>
 <effect_id_cont> -> [ <stmt_array_index> ] <effect_post_arr>
 <effect_id_cont> -> . id <effect_post_member>
+
+// Array element assignment - compound ops restricted to numeric
+<effect_arr_effect> -> = <stmt_assign_expr>
+<effect_arr_effect> -> += <numeric_add_expr_stmt>
+<effect_arr_effect> -> -= <numeric_add_expr_stmt>
+<effect_arr_effect> -> *= <numeric_add_expr_stmt>
+<effect_arr_effect> -> /= <numeric_add_expr_stmt>
+<effect_arr_effect> -> %= <numeric_add_expr_stmt>
+<effect_arr_effect> -> ++ | -- | ( <stmt_arg_list> ) <effect_post_call> | . id <effect_post_member>
+
+// Field assignment - compound ops restricted to numeric
+<effect_post_member> -> = <stmt_assign_expr>
+<effect_post_member> -> += <numeric_add_expr_stmt>
+<effect_post_member> -> -= <numeric_add_expr_stmt>
+<effect_post_member> -> *= <numeric_add_expr_stmt>
+<effect_post_member> -> /= <numeric_add_expr_stmt>
+<effect_post_member> -> %= <numeric_add_expr_stmt>
+<effect_post_member> -> ++ | -- | ( <stmt_arg_list> ) <effect_post_call>
+<effect_post_member> -> [ <stmt_array_index> ] <effect_post_arr> | . id <effect_post_member>
 
 // [Complete effect_* rules in portia.lark]
 

@@ -1137,7 +1137,7 @@ statement_non_return: effect_stmt SEMICOLON
 // Structure:
 // - expression → typed_assign_expr
 // - typed_assign_expr → typed_concat_expr typed_assign_tail
-// - typed_assign_tail → assign_op typed_rhs_expr | λ
+// - typed_assign_tail → = typed_rhs_expr | compound_op typed_numeric_add_expr | λ
 // - typed_concat_expr: left-factored dispatch for full precedence
 // - typed_rhs_expr: strict dispatcher for assignment RHS
 
@@ -1145,8 +1145,13 @@ expression: typed_assign_expr
 
 typed_assign_expr: typed_concat_expr typed_assign_tail
 
-// typed_assign_tail uses typed_rhs_expr - blocks chained assignment
-typed_assign_tail: assign_op typed_rhs_expr
+// typed_assign_tail: = allows any RHS, compound ops restricted to numeric
+typed_assign_tail: ASSIGN typed_rhs_expr
+                 | PLUSEQ typed_numeric_add_expr
+                 | MINUSEQ typed_numeric_add_expr
+                 | STAREQ typed_numeric_add_expr
+                 | SLASHEQ typed_numeric_add_expr
+                 | MODEQ typed_numeric_add_expr
                  |
 
 assign_op: ASSIGN
@@ -1514,7 +1519,13 @@ effect_pre_arr_chain: LBRACK stmt_array_index RBRACK
                     |
 
 // After ID: MUST have effectful operation (no epsilon!)
-effect_id_cont: assign_op stmt_assign_expr                      // id = expr (assignment)
+// Compound assignment (+=, -=, *=, /=, %=) restricted to numeric RHS
+effect_id_cont: ASSIGN stmt_assign_expr                          // id = expr (any RHS)
+              | PLUSEQ numeric_add_expr_stmt                     // id += numeric
+              | MINUSEQ numeric_add_expr_stmt                    // id -= numeric
+              | STAREQ numeric_add_expr_stmt                     // id *= numeric
+              | SLASHEQ numeric_add_expr_stmt                    // id /= numeric
+              | MODEQ numeric_add_expr_stmt                      // id %= numeric
               | INCR                                             // id++ (post-increment)
               | DECR                                             // id-- (post-decrement)
               | LPAREN stmt_arg_list RPAREN effect_post_call    // id() (function call)
@@ -1544,14 +1555,26 @@ effect_post_arr: LBRACK stmt_array_index RBRACK effect_post_arr_2d  // 2D array
 
 effect_post_arr_2d: effect_arr_effect                               // after 2D, need effect
 
-effect_arr_effect: assign_op stmt_assign_expr
+// Compound assignment (+=, -=, *=, /=, %=) restricted to numeric RHS
+effect_arr_effect: ASSIGN stmt_assign_expr
+                 | PLUSEQ numeric_add_expr_stmt
+                 | MINUSEQ numeric_add_expr_stmt
+                 | STAREQ numeric_add_expr_stmt
+                 | SLASHEQ numeric_add_expr_stmt
+                 | MODEQ numeric_add_expr_stmt
                  | INCR
                  | DECR
                  | LPAREN stmt_arg_list RPAREN effect_post_call
                  | DOT ID effect_post_member
 
 // After field access on id: MUST lead to effect
-effect_post_member: assign_op stmt_assign_expr
+// Compound assignment (+=, -=, *=, /=, %=) restricted to numeric RHS
+effect_post_member: ASSIGN stmt_assign_expr
+                  | PLUSEQ numeric_add_expr_stmt
+                  | MINUSEQ numeric_add_expr_stmt
+                  | STAREQ numeric_add_expr_stmt
+                  | SLASHEQ numeric_add_expr_stmt
+                  | MODEQ numeric_add_expr_stmt
                   | INCR
                   | DECR
                   | LPAREN stmt_arg_list RPAREN effect_post_call
