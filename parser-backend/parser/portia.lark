@@ -1715,7 +1715,7 @@ bool_not: NOT bool_not
 // - Relational expressions (comparison required)
 bool_primary: TRUE
             | FALSE
-            | ID bool_id_tail
+            | ID bool_id_options
             | LPAREN bool_paren_complete
             | relational_lhs_no_id relational_op_and_rhs
 
@@ -1723,13 +1723,57 @@ bool_primary: TRUE
 // Some paths (ID+arith with outside compare) consume RPAREN themselves
 bool_paren_complete: paren_outer_start_complete
 
-// After ID: determines path
-// - Direct termination (semantic checks bool type)
-// - Postfix chain then termination
-// - Start of relational expression (comparison required)
-bool_id_tail: bool_id_postfix bool_id_after_postfix
+// After ID in condition: dispatch based on what follows
+// - If ++/-- appears: comparison is REQUIRED (no standalone postincrement/decrement)
+// - If only [, ., () appear (no ++/--): can standalone or compare
+// - If comparison op: comparison
+// - If nothing: standalone ID (semantic checks bool type)
+// FIX: Prevents for(; j++; ) from being accepted - ++/-- must have comparison
+bool_id_options: INCR bool_must_compare_cont
+               | DECR bool_must_compare_cont
+               | LBRACK arg_expr RBRACK bool_after_bracket
+               | DOT ID bool_id_options
+               | LPAREN arg_list RPAREN bool_id_options
+               | relational_op_and_rhs
+               |
+
+// After [expr] - decide path based on next token
+bool_after_bracket: LBRACK arg_expr RBRACK bool_after_2d_bracket
+                  | INCR bool_must_compare_cont
+                  | DECR bool_must_compare_cont
+                  | DOT ID bool_id_options
+                  | LPAREN arg_list RPAREN bool_id_options
+                  | relational_op_and_rhs
+                  |
+
+// After [expr][expr] - 2D array access complete
+bool_after_2d_bracket: INCR bool_must_compare_cont
+                     | DECR bool_must_compare_cont
+                     | DOT ID bool_id_options
+                     | LPAREN arg_list RPAREN bool_id_options
+                     | relational_op_and_rhs
+                     |
+
+// After ++/--, comparison is REQUIRED (no epsilon - enforces the fix)
+// May have additional postfix after ++/-- (e.g., id++.field, id++[i])
+bool_must_compare_cont: LBRACK arg_expr RBRACK bool_must_compare_after_bracket
+                      | DOT ID bool_must_compare_cont
+                      | LPAREN arg_list RPAREN bool_must_compare_cont
+                      | relational_op_and_rhs
+
+// After [expr] when comparison required - check for 2D or continue
+bool_must_compare_after_bracket: LBRACK arg_expr RBRACK bool_must_compare_after_2d
+                               | DOT ID bool_must_compare_cont
+                               | LPAREN arg_list RPAREN bool_must_compare_cont
+                               | relational_op_and_rhs
+
+// After [expr][expr] when comparison required - no more array dims
+bool_must_compare_after_2d: DOT ID bool_must_compare_cont
+                          | LPAREN arg_list RPAREN bool_must_compare_cont
+                          | relational_op_and_rhs
 
 // ID postfix: field access, array subscript, function call, increment/decrement
+// NOTE: Used by parenthesized condition rules (paren_outer_id_complete, paren_inner_*)
 bool_id_postfix: INCR
                | DECR
                | LBRACK arg_expr RBRACK bool_id_arr_dim2
@@ -1739,10 +1783,6 @@ bool_id_postfix: INCR
 
 bool_id_arr_dim2: LBRACK arg_expr RBRACK
                 |
-
-// After ID with postfix: terminate or become relational LHS
-bool_id_after_postfix: relational_op_and_rhs
-                     |
 
 // ============================================
 // PARENTHESIZED CONDITION CONTENT (STRICT)
@@ -1774,14 +1814,56 @@ paren_bool_tail: OR bool_and bool_or_tail
                | AND bool_not bool_and_tail
                |
 
-// After ID in outer paren - handles RPAREN for all paths
-paren_outer_id_complete: bool_id_postfix paren_outer_id_after_complete
+// After ID in outer paren - dispatch based on postfix
+// FIX: ++/-- paths MUST compare (no bare RPAREN option)
+paren_outer_id_complete: INCR paren_outer_must_compare_cont
+                       | DECR paren_outer_must_compare_cont
+                       | LBRACK arg_expr RBRACK paren_outer_after_bracket
+                       | DOT ID paren_outer_id_complete
+                       | LPAREN arg_list RPAREN paren_outer_id_complete
+                       | paren_outer_id_after_plain
 
-paren_outer_id_after_complete: OR bool_and bool_or_tail RPAREN paren_outside_opt
-                             | AND bool_not bool_and_tail RPAREN paren_outside_opt
+// After plain ID (no ++/--) - can terminate or compare
+paren_outer_id_after_plain: OR bool_and bool_or_tail RPAREN paren_outside_opt
+                          | AND bool_not bool_and_tail RPAREN paren_outside_opt
+                          | comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
+                          | paren_id_arith_path
+                          | RPAREN paren_outside_opt
+
+// After [expr] in outer paren - decide path
+paren_outer_after_bracket: LBRACK arg_expr RBRACK paren_outer_after_2d_bracket
+                         | INCR paren_outer_must_compare_cont
+                         | DECR paren_outer_must_compare_cont
+                         | DOT ID paren_outer_id_complete
+                         | LPAREN arg_list RPAREN paren_outer_id_complete
+                         | paren_outer_id_after_plain
+
+// After [expr][expr] in outer paren
+paren_outer_after_2d_bracket: INCR paren_outer_must_compare_cont
+                            | DECR paren_outer_must_compare_cont
+                            | DOT ID paren_outer_id_complete
+                            | LPAREN arg_list RPAREN paren_outer_id_complete
+                            | paren_outer_id_after_plain
+
+// After ++/-- in outer paren, comparison REQUIRED - no bare RPAREN
+paren_outer_must_compare_cont: LBRACK arg_expr RBRACK paren_outer_must_compare_after_bracket
+                             | DOT ID paren_outer_must_compare_cont
+                             | LPAREN arg_list RPAREN paren_outer_must_compare_cont
                              | comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
                              | paren_id_arith_path
-                             | RPAREN paren_outside_opt
+
+// After [expr] when comparison required in outer paren
+paren_outer_must_compare_after_bracket: LBRACK arg_expr RBRACK paren_outer_must_compare_after_2d
+                                      | DOT ID paren_outer_must_compare_cont
+                                      | LPAREN arg_list RPAREN paren_outer_must_compare_cont
+                                      | comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
+                                      | paren_id_arith_path
+
+// After [expr][expr] when comparison required in outer paren
+paren_outer_must_compare_after_2d: DOT ID paren_outer_must_compare_cont
+                                 | LPAREN arg_list RPAREN paren_outer_must_compare_cont
+                                 | comp_op arg_add_expr paren_rel_tail RPAREN paren_outside_opt
+                                 | paren_id_arith_path
 
 // ID + arithmetic - comparison REQUIRED (inside paren OR outside paren)
 // NO path allows termination without comparison
@@ -1832,19 +1914,87 @@ paren_inner_not: NOT paren_inner_not
 
 paren_inner_primary: TRUE
                    | FALSE
-                   | ID paren_inner_id_tail_simple
+                   | ID paren_inner_id_options_simple
                    | LPAREN paren_inner_content RPAREN
 
-paren_inner_id_tail_simple: bool_id_postfix
+// After ID in inner primary - dispatch based on postfix
+// FIX: ++/-- paths have no epsilon (comparison required eventually)
+paren_inner_id_options_simple: INCR paren_inner_must_compare_cont_simple
+                             | DECR paren_inner_must_compare_cont_simple
+                             | LBRACK arg_expr RBRACK paren_inner_after_bracket_simple
+                             | DOT ID paren_inner_id_options_simple
+                             | LPAREN arg_list RPAREN paren_inner_id_options_simple
+                             |
 
-// After ID in inner paren - can terminate, logical, or arithmetic with REQUIRED comparison
-paren_inner_id_path: bool_id_postfix paren_inner_id_after
+paren_inner_after_bracket_simple: LBRACK arg_expr RBRACK paren_inner_after_2d_simple
+                                | INCR paren_inner_must_compare_cont_simple
+                                | DECR paren_inner_must_compare_cont_simple
+                                | DOT ID paren_inner_id_options_simple
+                                | LPAREN arg_list RPAREN paren_inner_id_options_simple
+                                |
 
-paren_inner_id_after: OR paren_inner_and paren_inner_or_tail
-                    | AND paren_inner_not paren_inner_and_tail
-                    | comp_op arg_add_expr paren_rel_tail
-                    | paren_id_arith_must_compare
-                    |
+paren_inner_after_2d_simple: INCR paren_inner_must_compare_cont_simple
+                           | DECR paren_inner_must_compare_cont_simple
+                           | DOT ID paren_inner_id_options_simple
+                           | LPAREN arg_list RPAREN paren_inner_id_options_simple
+                           |
+
+// After ++/-- in inner simple - must eventually compare (no epsilon here)
+paren_inner_must_compare_cont_simple: LBRACK arg_expr RBRACK paren_inner_must_compare_cont_simple
+                                    | DOT ID paren_inner_must_compare_cont_simple
+                                    | LPAREN arg_list RPAREN paren_inner_must_compare_cont_simple
+                                    | comp_op arg_add_expr
+
+// After ID in inner paren - dispatch based on postfix
+// FIX: ++/-- paths MUST compare (no bare epsilon)
+paren_inner_id_path: INCR paren_inner_must_compare_cont
+                   | DECR paren_inner_must_compare_cont
+                   | LBRACK arg_expr RBRACK paren_inner_after_bracket
+                   | DOT ID paren_inner_id_path
+                   | LPAREN arg_list RPAREN paren_inner_id_path
+                   | paren_inner_id_after_plain
+
+// After plain ID (no ++/--) in inner paren - can terminate or compare
+paren_inner_id_after_plain: OR paren_inner_and paren_inner_or_tail
+                          | AND paren_inner_not paren_inner_and_tail
+                          | comp_op arg_add_expr paren_rel_tail
+                          | paren_id_arith_must_compare
+                          |
+
+// After [expr] in inner paren - decide path
+paren_inner_after_bracket: LBRACK arg_expr RBRACK paren_inner_after_2d_bracket
+                         | INCR paren_inner_must_compare_cont
+                         | DECR paren_inner_must_compare_cont
+                         | DOT ID paren_inner_id_path
+                         | LPAREN arg_list RPAREN paren_inner_id_path
+                         | paren_inner_id_after_plain
+
+// After [expr][expr] in inner paren
+paren_inner_after_2d_bracket: INCR paren_inner_must_compare_cont
+                            | DECR paren_inner_must_compare_cont
+                            | DOT ID paren_inner_id_path
+                            | LPAREN arg_list RPAREN paren_inner_id_path
+                            | paren_inner_id_after_plain
+
+// After ++/-- in inner paren, comparison REQUIRED - no epsilon
+paren_inner_must_compare_cont: LBRACK arg_expr RBRACK paren_inner_must_compare_after_bracket
+                             | DOT ID paren_inner_must_compare_cont
+                             | LPAREN arg_list RPAREN paren_inner_must_compare_cont
+                             | comp_op arg_add_expr paren_rel_tail
+                             | paren_id_arith_must_compare
+
+// After [expr] when comparison required in inner paren
+paren_inner_must_compare_after_bracket: LBRACK arg_expr RBRACK paren_inner_must_compare_after_2d
+                                      | DOT ID paren_inner_must_compare_cont
+                                      | LPAREN arg_list RPAREN paren_inner_must_compare_cont
+                                      | comp_op arg_add_expr paren_rel_tail
+                                      | paren_id_arith_must_compare
+
+// After [expr][expr] when comparison required in inner paren
+paren_inner_must_compare_after_2d: DOT ID paren_inner_must_compare_cont
+                                 | LPAREN arg_list RPAREN paren_inner_must_compare_cont
+                                 | comp_op arg_add_expr paren_rel_tail
+                                 | paren_id_arith_must_compare
 
 // Inner paren logical continuations
 paren_inner_or_tail: OR paren_inner_and paren_inner_or_tail

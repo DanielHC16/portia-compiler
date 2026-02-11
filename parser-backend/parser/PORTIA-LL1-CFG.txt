@@ -1524,13 +1524,57 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 // bool_primary: Only boolean-producing constructs
 <bool_primary> → true
 <bool_primary> → false
-<bool_primary> → id <bool_id_tail>
+<bool_primary> → id <bool_id_options>
 <bool_primary> → ( <bool_paren_complete>
 <bool_primary> → <relational_lhs_no_id> <relational_op_and_rhs>
 
-// After ID: postfix chain and optional relational continuation
-<bool_id_tail> → <bool_id_postfix> <bool_id_after_postfix>
+// After ID in condition: dispatch based on what follows
+// FIX: ++/-- MUST have comparison (prevents for(; j++; ) from being accepted)
+// If ++/-- appears: comparison is REQUIRED
+// If only [, ., () appear (no ++/--): can standalone or compare
+<bool_id_options> → ++ <bool_must_compare_cont>
+<bool_id_options> → -- <bool_must_compare_cont>
+<bool_id_options> → [ <arg_expr> ] <bool_after_bracket>
+<bool_id_options> → . id <bool_id_options>
+<bool_id_options> → ( <arg_list> ) <bool_id_options>
+<bool_id_options> → <relational_op_and_rhs>
+<bool_id_options> → λ
 
+// After [expr] - decide path based on next token
+<bool_after_bracket> → [ <arg_expr> ] <bool_after_2d_bracket>
+<bool_after_bracket> → ++ <bool_must_compare_cont>
+<bool_after_bracket> → -- <bool_must_compare_cont>
+<bool_after_bracket> → . id <bool_id_options>
+<bool_after_bracket> → ( <arg_list> ) <bool_id_options>
+<bool_after_bracket> → <relational_op_and_rhs>
+<bool_after_bracket> → λ
+
+// After [expr][expr] - 2D array access complete
+<bool_after_2d_bracket> → ++ <bool_must_compare_cont>
+<bool_after_2d_bracket> → -- <bool_must_compare_cont>
+<bool_after_2d_bracket> → . id <bool_id_options>
+<bool_after_2d_bracket> → ( <arg_list> ) <bool_id_options>
+<bool_after_2d_bracket> → <relational_op_and_rhs>
+<bool_after_2d_bracket> → λ
+
+// After ++/--, comparison is REQUIRED (no λ - enforces the fix)
+<bool_must_compare_cont> → [ <arg_expr> ] <bool_must_compare_after_bracket>
+<bool_must_compare_cont> → . id <bool_must_compare_cont>
+<bool_must_compare_cont> → ( <arg_list> ) <bool_must_compare_cont>
+<bool_must_compare_cont> → <relational_op_and_rhs>
+
+// After [expr] when comparison required
+<bool_must_compare_after_bracket> → [ <arg_expr> ] <bool_must_compare_after_2d>
+<bool_must_compare_after_bracket> → . id <bool_must_compare_cont>
+<bool_must_compare_after_bracket> → ( <arg_list> ) <bool_must_compare_cont>
+<bool_must_compare_after_bracket> → <relational_op_and_rhs>
+
+// After [expr][expr] when comparison required - no more array dims
+<bool_must_compare_after_2d> → . id <bool_must_compare_cont>
+<bool_must_compare_after_2d> → ( <arg_list> ) <bool_must_compare_cont>
+<bool_must_compare_after_2d> → <relational_op_and_rhs>
+
+// ID postfix (used by parenthesized condition rules)
 <bool_id_postfix> → ++
 <bool_id_postfix> → --
 <bool_id_postfix> → [ <arg_expr> ] <bool_id_arr_dim2>
@@ -1540,9 +1584,6 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 
 <bool_id_arr_dim2> → [ <arg_expr> ]
 <bool_id_arr_dim2> → λ
-
-<bool_id_after_postfix> → <relational_op_and_rhs>
-<bool_id_after_postfix> → λ
 
 // Paren content - handles RPAREN internally
 <bool_paren_complete> → <paren_outer_start_complete>
@@ -1563,14 +1604,56 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <paren_bool_tail> → && <bool_not> <bool_and_tail>
 <paren_bool_tail> → λ
 
-// After ID in outer paren
-<paren_outer_id_complete> → <bool_id_postfix> <paren_outer_id_after_complete>
+// After ID in outer paren - dispatch based on postfix
+// FIX: ++/-- paths MUST compare (no bare ) option)
+<paren_outer_id_complete> → ++ <paren_outer_must_compare_cont>
+<paren_outer_id_complete> → -- <paren_outer_must_compare_cont>
+<paren_outer_id_complete> → [ <arg_expr> ] <paren_outer_after_bracket>
+<paren_outer_id_complete> → . id <paren_outer_id_complete>
+<paren_outer_id_complete> → ( <arg_list> ) <paren_outer_id_complete>
+<paren_outer_id_complete> → <paren_outer_id_after_plain>
 
-<paren_outer_id_after_complete> → || <bool_and> <bool_or_tail> ) <paren_outside_opt>
-<paren_outer_id_after_complete> → && <bool_not> <bool_and_tail> ) <paren_outside_opt>
-<paren_outer_id_after_complete> → <comp_op> <arg_add_expr> <paren_rel_tail> ) <paren_outside_opt>
-<paren_outer_id_after_complete> → <paren_id_arith_path>
-<paren_outer_id_after_complete> → ) <paren_outside_opt>
+// After plain ID (no ++/--) - can terminate or compare
+<paren_outer_id_after_plain> → || <bool_and> <bool_or_tail> ) <paren_outside_opt>
+<paren_outer_id_after_plain> → && <bool_not> <bool_and_tail> ) <paren_outside_opt>
+<paren_outer_id_after_plain> → <comp_op> <arg_add_expr> <paren_rel_tail> ) <paren_outside_opt>
+<paren_outer_id_after_plain> → <paren_id_arith_path>
+<paren_outer_id_after_plain> → ) <paren_outside_opt>
+
+// After [expr] in outer paren - decide path
+<paren_outer_after_bracket> → [ <arg_expr> ] <paren_outer_after_2d_bracket>
+<paren_outer_after_bracket> → ++ <paren_outer_must_compare_cont>
+<paren_outer_after_bracket> → -- <paren_outer_must_compare_cont>
+<paren_outer_after_bracket> → . id <paren_outer_id_complete>
+<paren_outer_after_bracket> → ( <arg_list> ) <paren_outer_id_complete>
+<paren_outer_after_bracket> → <paren_outer_id_after_plain>
+
+// After [expr][expr] in outer paren
+<paren_outer_after_2d_bracket> → ++ <paren_outer_must_compare_cont>
+<paren_outer_after_2d_bracket> → -- <paren_outer_must_compare_cont>
+<paren_outer_after_2d_bracket> → . id <paren_outer_id_complete>
+<paren_outer_after_2d_bracket> → ( <arg_list> ) <paren_outer_id_complete>
+<paren_outer_after_2d_bracket> → <paren_outer_id_after_plain>
+
+// After ++/-- in outer paren, comparison REQUIRED - no bare )
+<paren_outer_must_compare_cont> → [ <arg_expr> ] <paren_outer_must_compare_after_bracket>
+<paren_outer_must_compare_cont> → . id <paren_outer_must_compare_cont>
+<paren_outer_must_compare_cont> → ( <arg_list> ) <paren_outer_must_compare_cont>
+<paren_outer_must_compare_cont> → <comp_op> <arg_add_expr> <paren_rel_tail> ) <paren_outside_opt>
+<paren_outer_must_compare_cont> → <paren_id_arith_path>
+
+// After [expr] when comparison required in outer paren
+<paren_outer_must_compare_after_bracket> → [ <arg_expr> ] <paren_outer_must_compare_after_2d>
+<paren_outer_must_compare_after_bracket> → . id <paren_outer_must_compare_cont>
+<paren_outer_must_compare_after_bracket> → ( <arg_list> ) <paren_outer_must_compare_cont>
+<paren_outer_must_compare_after_bracket> → <comp_op> <arg_add_expr> <paren_rel_tail> ) <paren_outside_opt>
+<paren_outer_must_compare_after_bracket> → <paren_id_arith_path>
+
+// After [expr][expr] when comparison required in outer paren
+<paren_outer_must_compare_after_2d> → . id <paren_outer_must_compare_cont>
+<paren_outer_must_compare_after_2d> → ( <arg_list> ) <paren_outer_must_compare_cont>
+<paren_outer_must_compare_after_2d> → <comp_op> <arg_add_expr> <paren_rel_tail> ) <paren_outside_opt>
+<paren_outer_must_compare_after_2d> → <paren_id_arith_path>
 
 // ID + arithmetic - comparison REQUIRED (inside OR outside)
 <paren_id_arith_path> → + <relational_unary> <relational_arith_tail> <paren_arith_ending>
@@ -1611,13 +1694,56 @@ CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <paren_inner_start> → ( <paren_inner_content> ) <paren_after_nested_inner>
 <paren_inner_start> → <paren_arith_lhs> <paren_must_compare_inside>
 
-<paren_inner_id_path> → <bool_id_postfix> <paren_inner_id_after>
+// After ID in inner paren - dispatch based on postfix
+// FIX: ++/-- paths MUST compare (no bare λ)
+<paren_inner_id_path> → ++ <paren_inner_must_compare_cont>
+<paren_inner_id_path> → -- <paren_inner_must_compare_cont>
+<paren_inner_id_path> → [ <arg_expr> ] <paren_inner_after_bracket>
+<paren_inner_id_path> → . id <paren_inner_id_path>
+<paren_inner_id_path> → ( <arg_list> ) <paren_inner_id_path>
+<paren_inner_id_path> → <paren_inner_id_after_plain>
 
-<paren_inner_id_after> → || <paren_inner_and> <paren_inner_or_tail>
-<paren_inner_id_after> → && <paren_inner_not> <paren_inner_and_tail>
-<paren_inner_id_after> → <comp_op> <arg_add_expr> <paren_rel_tail>
-<paren_inner_id_after> → <paren_id_arith_must_compare>
-<paren_inner_id_after> → λ
+// After plain ID (no ++/--) in inner paren - can terminate or compare
+<paren_inner_id_after_plain> → || <paren_inner_and> <paren_inner_or_tail>
+<paren_inner_id_after_plain> → && <paren_inner_not> <paren_inner_and_tail>
+<paren_inner_id_after_plain> → <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_inner_id_after_plain> → <paren_id_arith_must_compare>
+<paren_inner_id_after_plain> → λ
+
+// After [expr] in inner paren - decide path
+<paren_inner_after_bracket> → [ <arg_expr> ] <paren_inner_after_2d_bracket>
+<paren_inner_after_bracket> → ++ <paren_inner_must_compare_cont>
+<paren_inner_after_bracket> → -- <paren_inner_must_compare_cont>
+<paren_inner_after_bracket> → . id <paren_inner_id_path>
+<paren_inner_after_bracket> → ( <arg_list> ) <paren_inner_id_path>
+<paren_inner_after_bracket> → <paren_inner_id_after_plain>
+
+// After [expr][expr] in inner paren
+<paren_inner_after_2d_bracket> → ++ <paren_inner_must_compare_cont>
+<paren_inner_after_2d_bracket> → -- <paren_inner_must_compare_cont>
+<paren_inner_after_2d_bracket> → . id <paren_inner_id_path>
+<paren_inner_after_2d_bracket> → ( <arg_list> ) <paren_inner_id_path>
+<paren_inner_after_2d_bracket> → <paren_inner_id_after_plain>
+
+// After ++/-- in inner paren, comparison REQUIRED - no λ
+<paren_inner_must_compare_cont> → [ <arg_expr> ] <paren_inner_must_compare_after_bracket>
+<paren_inner_must_compare_cont> → . id <paren_inner_must_compare_cont>
+<paren_inner_must_compare_cont> → ( <arg_list> ) <paren_inner_must_compare_cont>
+<paren_inner_must_compare_cont> → <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_inner_must_compare_cont> → <paren_id_arith_must_compare>
+
+// After [expr] when comparison required in inner paren
+<paren_inner_must_compare_after_bracket> → [ <arg_expr> ] <paren_inner_must_compare_after_2d>
+<paren_inner_must_compare_after_bracket> → . id <paren_inner_must_compare_cont>
+<paren_inner_must_compare_after_bracket> → ( <arg_list> ) <paren_inner_must_compare_cont>
+<paren_inner_must_compare_after_bracket> → <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_inner_must_compare_after_bracket> → <paren_id_arith_must_compare>
+
+// After [expr][expr] when comparison required in inner paren
+<paren_inner_must_compare_after_2d> → . id <paren_inner_must_compare_cont>
+<paren_inner_must_compare_after_2d> → ( <arg_list> ) <paren_inner_must_compare_cont>
+<paren_inner_must_compare_after_2d> → <comp_op> <arg_add_expr> <paren_rel_tail>
+<paren_inner_must_compare_after_2d> → <paren_id_arith_must_compare>
 
 // ID + arith in inner paren: compare REQUIRED (no defer)
 <paren_id_arith_must_compare> → + <relational_unary> <relational_arith_tail> <comp_op> <arg_add_expr> <paren_rel_tail>
