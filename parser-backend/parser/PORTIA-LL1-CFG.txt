@@ -1462,9 +1462,16 @@ UNIFIED EXPRESSION GRAMMAR
 I/O STATEMENTS
 ============================================
 
-<io_stmt> → trap ( <arg_expr> ) ;
+<io_stmt> → trap ( <trap_target> ) ;
 <io_stmt> → thread ( <print_args> ) ;
 <io_stmt> → threadln ( <print_args> ) ;
+
+// trap() accepts exactly one variable target (id with optional array/member access)
+<trap_target> → id <trap_target_tail>
+
+<trap_target_tail> → [ <arg_expr> ]
+<trap_target_tail> → . id
+<trap_target_tail> → λ
 
 <print_args> → <arg_expr> <print_tail>
 <print_tail> → , <arg_expr> <print_tail>

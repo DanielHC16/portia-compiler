@@ -1646,9 +1646,16 @@ arg_nested_tail: COMMA arg_expr arg_nested_tail
 // I/O STATEMENTS
 // ============================================
 
-io_stmt: TRAP LPAREN arg_expr RPAREN SEMICOLON
+io_stmt: TRAP LPAREN trap_target RPAREN SEMICOLON
        | THREAD LPAREN print_args RPAREN SEMICOLON
        | THREADLN LPAREN print_args RPAREN SEMICOLON
+
+// trap() accepts exactly one variable target (id with optional array/member access)
+trap_target: ID trap_target_tail
+
+trap_target_tail: LBRACK arg_expr RBRACK
+                | DOT ID
+                |
 
 print_args: arg_expr print_tail
 
