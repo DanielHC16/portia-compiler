@@ -625,15 +625,19 @@ TYPE-SPECIFIC STATEMENTS (NO DIRECT RETURN)
 TYPE-SPECIFIC CONTROL STRUCTURES
 ============================================
 // NOTE: switch uses <arg_expr> for the condition expression
+// NON-EMPTY BODY ENFORCEMENT: All control structures require at least one statement
 
-<ctrl_struct_int> → if ( <condition> ) { <stmt_list_int> } <else_opt_int>
+<ctrl_struct_int> → if ( <condition> ) { <non_empty_stmt_list_int> } <else_opt_int>
 <ctrl_struct_int> → switch ( <arg_expr> ) { <case_list_int> <default_opt_int> }
-<ctrl_struct_int> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_int> }
-<ctrl_struct_int> → while ( <condition> ) { <loop_stmt_list_int> }
-<ctrl_struct_int> → do { <loop_stmt_list_int> } while ( <condition> ) ;
+<ctrl_struct_int> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_int> }
+<ctrl_struct_int> → while ( <condition> ) { <non_empty_loop_stmt_list_int> }
+<ctrl_struct_int> → do { <non_empty_loop_stmt_list_int> } while ( <condition> ) ;
 
 <stmt_list_int> → <statement_int> <stmt_list_int>
 <stmt_list_int> → λ
+
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_int> → <statement_int> <stmt_list_int>
 
 <loop_statement_int> → <statement_int>
 <loop_statement_int> → break ;
@@ -641,27 +645,33 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_int> → <loop_statement_int> <loop_stmt_list_int>
 <loop_stmt_list_int> → λ
 
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_int> → <loop_statement_int> <loop_stmt_list_int>
+
 <else_opt_int> → else <else_body_int>
 <else_opt_int> → λ
 
-<else_body_int> → { <stmt_list_int> }
-<else_body_int> → if ( <condition> ) { <stmt_list_int> } <else_opt_int>
+<else_body_int> → { <non_empty_stmt_list_int> }
+<else_body_int> → if ( <condition> ) { <non_empty_stmt_list_int> } <else_opt_int>
 
-<case_list_int> → case <case_val> : <loop_stmt_list_int> <break_opt> <case_list_int>
+<case_list_int> → case <case_val> : <non_empty_loop_stmt_list_int> <break_opt> <case_list_int>
 <case_list_int> → λ
 
-<default_opt_int> → default : <loop_stmt_list_int> <break_opt>
+<default_opt_int> → default : <non_empty_loop_stmt_list_int> <break_opt>
 <default_opt_int> → λ
 
 // LONG control structures
-<ctrl_struct_long> → if ( <condition> ) { <stmt_list_long> } <else_opt_long>
+<ctrl_struct_long> → if ( <condition> ) { <non_empty_stmt_list_long> } <else_opt_long>
 <ctrl_struct_long> → switch ( <arg_expr> ) { <case_list_long> <default_opt_long> }
-<ctrl_struct_long> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_long> }
-<ctrl_struct_long> → while ( <condition> ) { <loop_stmt_list_long> }
-<ctrl_struct_long> → do { <loop_stmt_list_long> } while ( <condition> ) ;
+<ctrl_struct_long> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_long> }
+<ctrl_struct_long> → while ( <condition> ) { <non_empty_loop_stmt_list_long> }
+<ctrl_struct_long> → do { <non_empty_loop_stmt_list_long> } while ( <condition> ) ;
 
 <stmt_list_long> → <statement_long> <stmt_list_long>
 <stmt_list_long> → λ
+
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_long> → <statement_long> <stmt_list_long>
 
 <loop_statement_long> → <statement_long>
 <loop_statement_long> → break ;
@@ -669,27 +679,33 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_long> → <loop_statement_long> <loop_stmt_list_long>
 <loop_stmt_list_long> → λ
 
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_long> → <loop_statement_long> <loop_stmt_list_long>
+
 <else_opt_long> → else <else_body_long>
 <else_opt_long> → λ
 
-<else_body_long> → { <stmt_list_long> }
-<else_body_long> → if ( <condition> ) { <stmt_list_long> } <else_opt_long>
+<else_body_long> → { <non_empty_stmt_list_long> }
+<else_body_long> → if ( <condition> ) { <non_empty_stmt_list_long> } <else_opt_long>
 
-<case_list_long> → case <case_val> : <loop_stmt_list_long> <break_opt> <case_list_long>
+<case_list_long> → case <case_val> : <non_empty_loop_stmt_list_long> <break_opt> <case_list_long>
 <case_list_long> → λ
 
-<default_opt_long> → default : <loop_stmt_list_long> <break_opt>
+<default_opt_long> → default : <non_empty_loop_stmt_list_long> <break_opt>
 <default_opt_long> → λ
 
 // FLOAT control structures
-<ctrl_struct_float> → if ( <condition> ) { <stmt_list_float> } <else_opt_float>
+<ctrl_struct_float> → if ( <condition> ) { <non_empty_stmt_list_float> } <else_opt_float>
 <ctrl_struct_float> → switch ( <arg_expr> ) { <case_list_float> <default_opt_float> }
-<ctrl_struct_float> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_float> }
-<ctrl_struct_float> → while ( <condition> ) { <loop_stmt_list_float> }
-<ctrl_struct_float> → do { <loop_stmt_list_float> } while ( <condition> ) ;
+<ctrl_struct_float> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_float> }
+<ctrl_struct_float> → while ( <condition> ) { <non_empty_loop_stmt_list_float> }
+<ctrl_struct_float> → do { <non_empty_loop_stmt_list_float> } while ( <condition> ) ;
 
 <stmt_list_float> → <statement_float> <stmt_list_float>
 <stmt_list_float> → λ
+
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_float> → <statement_float> <stmt_list_float>
 
 <loop_statement_float> → <statement_float>
 <loop_statement_float> → break ;
@@ -697,24 +713,27 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_float> → <loop_statement_float> <loop_stmt_list_float>
 <loop_stmt_list_float> → λ
 
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_float> → <loop_statement_float> <loop_stmt_list_float>
+
 <else_opt_float> → else <else_body_float>
 <else_opt_float> → λ
 
-<else_body_float> → { <stmt_list_float> }
-<else_body_float> → if ( <condition> ) { <stmt_list_float> } <else_opt_float>
+<else_body_float> → { <non_empty_stmt_list_float> }
+<else_body_float> → if ( <condition> ) { <non_empty_stmt_list_float> } <else_opt_float>
 
-<case_list_float> → case <case_val> : <loop_stmt_list_float> <break_opt> <case_list_float>
+<case_list_float> → case <case_val> : <non_empty_loop_stmt_list_float> <break_opt> <case_list_float>
 <case_list_float> → λ
 
-<default_opt_float> → default : <loop_stmt_list_float> <break_opt>
+<default_opt_float> → default : <non_empty_loop_stmt_list_float> <break_opt>
 <default_opt_float> → λ
 
 // DOUBLE control structures
-<ctrl_struct_double> → if ( <condition> ) { <stmt_list_double> } <else_opt_double>
+<ctrl_struct_double> → if ( <condition> ) { <non_empty_stmt_list_double> } <else_opt_double>
 <ctrl_struct_double> → switch ( <arg_expr> ) { <case_list_double> <default_opt_double> }
-<ctrl_struct_double> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_double> }
-<ctrl_struct_double> → while ( <condition> ) { <loop_stmt_list_double> }
-<ctrl_struct_double> → do { <loop_stmt_list_double> } while ( <condition> ) ;
+<ctrl_struct_double> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_double> }
+<ctrl_struct_double> → while ( <condition> ) { <non_empty_loop_stmt_list_double> }
+<ctrl_struct_double> → do { <non_empty_loop_stmt_list_double> } while ( <condition> ) ;
 
 <stmt_list_double> → <statement_double> <stmt_list_double>
 <stmt_list_double> → λ
@@ -725,27 +744,36 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_double> → <loop_statement_double> <loop_stmt_list_double>
 <loop_stmt_list_double> → λ
 
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_double> → <statement_double> <stmt_list_double>
+
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_double> → <loop_statement_double> <loop_stmt_list_double>
+
 <else_opt_double> → else <else_body_double>
 <else_opt_double> → λ
 
-<else_body_double> → { <stmt_list_double> }
-<else_body_double> → if ( <condition> ) { <stmt_list_double> } <else_opt_double>
+<else_body_double> → { <non_empty_stmt_list_double> }
+<else_body_double> → if ( <condition> ) { <non_empty_stmt_list_double> } <else_opt_double>
 
-<case_list_double> → case <case_val> : <loop_stmt_list_double> <break_opt> <case_list_double>
+<case_list_double> → case <case_val> : <non_empty_loop_stmt_list_double> <break_opt> <case_list_double>
 <case_list_double> → λ
 
-<default_opt_double> → default : <loop_stmt_list_double> <break_opt>
+<default_opt_double> → default : <non_empty_loop_stmt_list_double> <break_opt>
 <default_opt_double> → λ
 
 // CHAR control structures
-<ctrl_struct_char> → if ( <condition> ) { <stmt_list_char> } <else_opt_char>
+<ctrl_struct_char> → if ( <condition> ) { <non_empty_stmt_list_char> } <else_opt_char>
 <ctrl_struct_char> → switch ( <arg_expr> ) { <case_list_char> <default_opt_char> }
-<ctrl_struct_char> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_char> }
-<ctrl_struct_char> → while ( <condition> ) { <loop_stmt_list_char> }
-<ctrl_struct_char> → do { <loop_stmt_list_char> } while ( <condition> ) ;
+<ctrl_struct_char> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_char> }
+<ctrl_struct_char> → while ( <condition> ) { <non_empty_loop_stmt_list_char> }
+<ctrl_struct_char> → do { <non_empty_loop_stmt_list_char> } while ( <condition> ) ;
 
 <stmt_list_char> → <statement_char> <stmt_list_char>
 <stmt_list_char> → λ
+
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_char> → <statement_char> <stmt_list_char>
 
 <loop_statement_char> → <statement_char>
 <loop_statement_char> → break ;
@@ -753,27 +781,33 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_char> → <loop_statement_char> <loop_stmt_list_char>
 <loop_stmt_list_char> → λ
 
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_char> → <loop_statement_char> <loop_stmt_list_char>
+
 <else_opt_char> → else <else_body_char>
 <else_opt_char> → λ
 
-<else_body_char> → { <stmt_list_char> }
-<else_body_char> → if ( <condition> ) { <stmt_list_char> } <else_opt_char>
+<else_body_char> → { <non_empty_stmt_list_char> }
+<else_body_char> → if ( <condition> ) { <non_empty_stmt_list_char> } <else_opt_char>
 
-<case_list_char> → case <case_val> : <loop_stmt_list_char> <break_opt> <case_list_char>
+<case_list_char> → case <case_val> : <non_empty_loop_stmt_list_char> <break_opt> <case_list_char>
 <case_list_char> → λ
 
-<default_opt_char> → default : <loop_stmt_list_char> <break_opt>
+<default_opt_char> → default : <non_empty_loop_stmt_list_char> <break_opt>
 <default_opt_char> → λ
 
 // STRING control structures
-<ctrl_struct_string> → if ( <condition> ) { <stmt_list_string> } <else_opt_string>
+<ctrl_struct_string> → if ( <condition> ) { <non_empty_stmt_list_string> } <else_opt_string>
 <ctrl_struct_string> → switch ( <arg_expr> ) { <case_list_string> <default_opt_string> }
-<ctrl_struct_string> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_string> }
-<ctrl_struct_string> → while ( <condition> ) { <loop_stmt_list_string> }
-<ctrl_struct_string> → do { <loop_stmt_list_string> } while ( <condition> ) ;
+<ctrl_struct_string> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_string> }
+<ctrl_struct_string> → while ( <condition> ) { <non_empty_loop_stmt_list_string> }
+<ctrl_struct_string> → do { <non_empty_loop_stmt_list_string> } while ( <condition> ) ;
 
 <stmt_list_string> → <statement_string> <stmt_list_string>
 <stmt_list_string> → λ
+
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_string> → <statement_string> <stmt_list_string>
 
 <loop_statement_string> → <statement_string>
 <loop_statement_string> → break ;
@@ -781,27 +815,33 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_string> → <loop_statement_string> <loop_stmt_list_string>
 <loop_stmt_list_string> → λ
 
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_string> → <loop_statement_string> <loop_stmt_list_string>
+
 <else_opt_string> → else <else_body_string>
 <else_opt_string> → λ
 
-<else_body_string> → { <stmt_list_string> }
-<else_body_string> → if ( <condition> ) { <stmt_list_string> } <else_opt_string>
+<else_body_string> → { <non_empty_stmt_list_string> }
+<else_body_string> → if ( <condition> ) { <non_empty_stmt_list_string> } <else_opt_string>
 
-<case_list_string> → case <case_val> : <loop_stmt_list_string> <break_opt> <case_list_string>
+<case_list_string> → case <case_val> : <non_empty_loop_stmt_list_string> <break_opt> <case_list_string>
 <case_list_string> → λ
 
-<default_opt_string> → default : <loop_stmt_list_string> <break_opt>
+<default_opt_string> → default : <non_empty_loop_stmt_list_string> <break_opt>
 <default_opt_string> → λ
 
 // BOOL control structures
-<ctrl_struct_bool> → if ( <condition> ) { <stmt_list_bool> } <else_opt_bool>
+<ctrl_struct_bool> → if ( <condition> ) { <non_empty_stmt_list_bool> } <else_opt_bool>
 <ctrl_struct_bool> → switch ( <arg_expr> ) { <case_list_bool> <default_opt_bool> }
-<ctrl_struct_bool> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_bool> }
-<ctrl_struct_bool> → while ( <condition> ) { <loop_stmt_list_bool> }
-<ctrl_struct_bool> → do { <loop_stmt_list_bool> } while ( <condition> ) ;
+<ctrl_struct_bool> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_bool> }
+<ctrl_struct_bool> → while ( <condition> ) { <non_empty_loop_stmt_list_bool> }
+<ctrl_struct_bool> → do { <non_empty_loop_stmt_list_bool> } while ( <condition> ) ;
 
 <stmt_list_bool> → <statement_bool> <stmt_list_bool>
 <stmt_list_bool> → λ
+
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_bool> → <statement_bool> <stmt_list_bool>
 
 <loop_statement_bool> → <statement_bool>
 <loop_statement_bool> → break ;
@@ -809,27 +849,33 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_bool> → <loop_statement_bool> <loop_stmt_list_bool>
 <loop_stmt_list_bool> → λ
 
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_bool> → <loop_statement_bool> <loop_stmt_list_bool>
+
 <else_opt_bool> → else <else_body_bool>
 <else_opt_bool> → λ
 
-<else_body_bool> → { <stmt_list_bool> }
-<else_body_bool> → if ( <condition> ) { <stmt_list_bool> } <else_opt_bool>
+<else_body_bool> → { <non_empty_stmt_list_bool> }
+<else_body_bool> → if ( <condition> ) { <non_empty_stmt_list_bool> } <else_opt_bool>
 
-<case_list_bool> → case <case_val> : <loop_stmt_list_bool> <break_opt> <case_list_bool>
+<case_list_bool> → case <case_val> : <non_empty_loop_stmt_list_bool> <break_opt> <case_list_bool>
 <case_list_bool> → λ
 
-<default_opt_bool> → default : <loop_stmt_list_bool> <break_opt>
+<default_opt_bool> → default : <non_empty_loop_stmt_list_bool> <break_opt>
 <default_opt_bool> → λ
 
 // ARRAY control structures
-<ctrl_struct_array> → if ( <condition> ) { <stmt_list_array> } <else_opt_array>
+<ctrl_struct_array> → if ( <condition> ) { <non_empty_stmt_list_array> } <else_opt_array>
 <ctrl_struct_array> → switch ( <arg_expr> ) { <case_list_array> <default_opt_array> }
-<ctrl_struct_array> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_array> }
-<ctrl_struct_array> → while ( <condition> ) { <loop_stmt_list_array> }
-<ctrl_struct_array> → do { <loop_stmt_list_array> } while ( <condition> ) ;
+<ctrl_struct_array> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_array> }
+<ctrl_struct_array> → while ( <condition> ) { <non_empty_loop_stmt_list_array> }
+<ctrl_struct_array> → do { <non_empty_loop_stmt_list_array> } while ( <condition> ) ;
 
 <stmt_list_array> → <statement_array> <stmt_list_array>
 <stmt_list_array> → λ
+
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_array> → <statement_array> <stmt_list_array>
 
 <loop_statement_array> → <statement_array>
 <loop_statement_array> → break ;
@@ -837,27 +883,33 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_array> → <loop_statement_array> <loop_stmt_list_array>
 <loop_stmt_list_array> → λ
 
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_array> → <loop_statement_array> <loop_stmt_list_array>
+
 <else_opt_array> → else <else_body_array>
 <else_opt_array> → λ
 
-<else_body_array> → { <stmt_list_array> }
-<else_body_array> → if ( <condition> ) { <stmt_list_array> } <else_opt_array>
+<else_body_array> → { <non_empty_stmt_list_array> }
+<else_body_array> → if ( <condition> ) { <non_empty_stmt_list_array> } <else_opt_array>
 
-<case_list_array> → case <case_val> : <loop_stmt_list_array> <break_opt> <case_list_array>
+<case_list_array> → case <case_val> : <non_empty_loop_stmt_list_array> <break_opt> <case_list_array>
 <case_list_array> → λ
 
-<default_opt_array> → default : <loop_stmt_list_array> <break_opt>
+<default_opt_array> → default : <non_empty_loop_stmt_list_array> <break_opt>
 <default_opt_array> → λ
 
 // WEAVE control structures
-<ctrl_struct_weave> → if ( <condition> ) { <stmt_list_weave> } <else_opt_weave>
+<ctrl_struct_weave> → if ( <condition> ) { <non_empty_stmt_list_weave> } <else_opt_weave>
 <ctrl_struct_weave> → switch ( <arg_expr> ) { <case_list_weave> <default_opt_weave> }
-<ctrl_struct_weave> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_weave> }
-<ctrl_struct_weave> → while ( <condition> ) { <loop_stmt_list_weave> }
-<ctrl_struct_weave> → do { <loop_stmt_list_weave> } while ( <condition> ) ;
+<ctrl_struct_weave> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_weave> }
+<ctrl_struct_weave> → while ( <condition> ) { <non_empty_loop_stmt_list_weave> }
+<ctrl_struct_weave> → do { <non_empty_loop_stmt_list_weave> } while ( <condition> ) ;
 
 <stmt_list_weave> → <statement_weave> <stmt_list_weave>
 <stmt_list_weave> → λ
+
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_weave> → <statement_weave> <stmt_list_weave>
 
 <loop_statement_weave> → <statement_weave>
 <loop_statement_weave> → break ;
@@ -865,27 +917,33 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_weave> → <loop_statement_weave> <loop_stmt_list_weave>
 <loop_stmt_list_weave> → λ
 
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_weave> → <loop_statement_weave> <loop_stmt_list_weave>
+
 <else_opt_weave> → else <else_body_weave>
 <else_opt_weave> → λ
 
-<else_body_weave> → { <stmt_list_weave> }
-<else_body_weave> → if ( <condition> ) { <stmt_list_weave> } <else_opt_weave>
+<else_body_weave> → { <non_empty_stmt_list_weave> }
+<else_body_weave> → if ( <condition> ) { <non_empty_stmt_list_weave> } <else_opt_weave>
 
-<case_list_weave> → case <case_val> : <loop_stmt_list_weave> <break_opt> <case_list_weave>
+<case_list_weave> → case <case_val> : <non_empty_loop_stmt_list_weave> <break_opt> <case_list_weave>
 <case_list_weave> → λ
 
-<default_opt_weave> → default : <loop_stmt_list_weave> <break_opt>
+<default_opt_weave> → default : <non_empty_loop_stmt_list_weave> <break_opt>
 <default_opt_weave> → λ
 
 // VOID control structures
-<ctrl_struct_void> → if ( <condition> ) { <stmt_list_void> } <else_opt_void>
+<ctrl_struct_void> → if ( <condition> ) { <non_empty_stmt_list_void> } <else_opt_void>
 <ctrl_struct_void> → switch ( <arg_expr> ) { <case_list_void> <default_opt_void> }
-<ctrl_struct_void> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_stmt_list_void> }
-<ctrl_struct_void> → while ( <condition> ) { <loop_stmt_list_void> }
-<ctrl_struct_void> → do { <loop_stmt_list_void> } while ( <condition> ) ;
+<ctrl_struct_void> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_stmt_list_void> }
+<ctrl_struct_void> → while ( <condition> ) { <non_empty_loop_stmt_list_void> }
+<ctrl_struct_void> → do { <non_empty_loop_stmt_list_void> } while ( <condition> ) ;
 
 <stmt_list_void> → <statement_void> <stmt_list_void>
 <stmt_list_void> → λ
+
+// Non-empty statement list for control structure bodies
+<non_empty_stmt_list_void> → <statement_void> <stmt_list_void>
 
 <loop_statement_void> → <statement_void>
 <loop_statement_void> → break ;
@@ -893,16 +951,19 @@ TYPE-SPECIFIC CONTROL STRUCTURES
 <loop_stmt_list_void> → <loop_statement_void> <loop_stmt_list_void>
 <loop_stmt_list_void> → λ
 
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_stmt_list_void> → <loop_statement_void> <loop_stmt_list_void>
+
 <else_opt_void> → else <else_body_void>
 <else_opt_void> → λ
 
-<else_body_void> → { <stmt_list_void> }
-<else_body_void> → if ( <condition> ) { <stmt_list_void> } <else_opt_void>
+<else_body_void> → { <non_empty_stmt_list_void> }
+<else_body_void> → if ( <condition> ) { <non_empty_stmt_list_void> } <else_opt_void>
 
-<case_list_void> → case <case_val> : <loop_stmt_list_void> <break_opt> <case_list_void>
+<case_list_void> → case <case_val> : <non_empty_loop_stmt_list_void> <break_opt> <case_list_void>
 <case_list_void> → λ
 
-<default_opt_void> → default : <loop_stmt_list_void> <break_opt>
+<default_opt_void> → default : <non_empty_loop_stmt_list_void> <break_opt>
 <default_opt_void> → λ
 
 ============================================
@@ -1108,8 +1169,14 @@ STATEMENTS (for main function only)
 <ctrl_stmt_list> → <statement_non_return> <ctrl_stmt_list>
 <ctrl_stmt_list> → λ
 
+// Non-empty statement list for control structure bodies
+<non_empty_ctrl_stmt_list> → <statement_non_return> <ctrl_stmt_list>
+
 <loop_ctrl_stmt_list> → <loop_statement_non_return> <loop_ctrl_stmt_list>
 <loop_ctrl_stmt_list> → λ
+
+// Non-empty loop statement list for loop/switch bodies
+<non_empty_loop_ctrl_stmt_list> → <loop_statement_non_return> <loop_ctrl_stmt_list>
 
 ============================================
 EFFECTFUL STATEMENT GRAMMAR
@@ -1555,19 +1622,19 @@ I/O STATEMENTS
 CONTROL STRUCTURES (for main function only)
 ============================================
 
-<ctrl_struct> → if ( <condition> ) { <ctrl_stmt_list> } <else_opt>
+<ctrl_struct> → if ( <condition> ) { <non_empty_ctrl_stmt_list> } <else_opt>
 <ctrl_struct> → switch ( <arg_expr> ) { <case_list> <default_opt> }
-<ctrl_struct> → for ( <for_init> ; <for_cond> ; <for_update> ) { <loop_ctrl_stmt_list> }
-<ctrl_struct> → while ( <condition> ) { <loop_ctrl_stmt_list> }
-<ctrl_struct> → do { <loop_ctrl_stmt_list> } while ( <condition> ) ;
+<ctrl_struct> → for ( <for_init> ; <for_cond> ; <for_update> ) { <non_empty_loop_ctrl_stmt_list> }
+<ctrl_struct> → while ( <condition> ) { <non_empty_loop_ctrl_stmt_list> }
+<ctrl_struct> → do { <non_empty_loop_ctrl_stmt_list> } while ( <condition> ) ;
 
 <else_opt> → else <else_body>
 <else_opt> → λ
 
-<else_body> → { <ctrl_stmt_list> }
-<else_body> → if ( <condition> ) { <ctrl_stmt_list> } <else_opt>
+<else_body> → { <non_empty_ctrl_stmt_list> }
+<else_body> → if ( <condition> ) { <non_empty_ctrl_stmt_list> } <else_opt>
 
-<case_list> → case <case_val> : <loop_ctrl_stmt_list> <break_opt> <case_list>
+<case_list> → case <case_val> : <non_empty_loop_ctrl_stmt_list> <break_opt> <case_list>
 <case_list> → λ
 
 <case_val> → intlit
@@ -1576,7 +1643,7 @@ CONTROL STRUCTURES (for main function only)
 <case_val> → true
 <case_val> → false
 
-<default_opt> → default : <loop_ctrl_stmt_list> <break_opt>
+<default_opt> → default : <non_empty_loop_ctrl_stmt_list> <break_opt>
 <default_opt> → λ
 
 <break_opt> → break ;
