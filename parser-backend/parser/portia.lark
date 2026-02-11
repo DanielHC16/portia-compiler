@@ -644,9 +644,9 @@ statement_void: effect_stmt SEMICOLON
 // ============================================
 // TYPE-SPECIFIC STATEMENTS (NO DIRECT RETURN)
 // ============================================
-// These rules exclude direct RETURN statements from function body content.
+// These rules exclude direct RETURN statements from function body prefix.
 // Control structures (which may contain returns internally) are still allowed.
-// Used by func_content_* to allow statements before mandatory_*_return.
+// Used by func_prefix_* to ensure return appears via terminator.
 
 statement_int_no_ret: effect_stmt SEMICOLON
                     | io_stmt

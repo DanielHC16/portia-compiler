@@ -1,10 +1,14 @@
 # Stop all PORTIA compiler servers
-# Terminates lexer backend, parser backend, frontend development server, and closes their windows
+# Terminates lexer, parser, semantic backends, frontend dev server, and watchfiles processes
 
-Write-Host "Stopping PORTIA Compiler Servers..." -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "   Stopping PORTIA Compiler Services" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Function to stop process on a specific port and close its window
+$stopped = 0
+
+# Function to stop process on a specific port
 function Stop-ProcessOnPort {
     param (
         [int]$Port,
@@ -12,22 +16,11 @@ function Stop-ProcessOnPort {
     )
     
     try {
-        $process = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | 
-                   Select-Object -ExpandProperty OwningProcess -First 1
+        $processId = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | 
+                     Select-Object -ExpandProperty OwningProcess -First 1
         
-        if ($process) {
-            # Get the process object to access MainWindowHandle
-            $processObj = Get-Process -Id $process -ErrorAction SilentlyContinue
-            
-            # Stop the process
-            Stop-Process -Id $process -Force -ErrorAction SilentlyContinue
-            
-            # Close the window if it exists
-            if ($processObj -and $processObj.MainWindowHandle -ne 0) {
-                # Send close message to window
-                $null = [System.Windows.Forms.SendKeys]::SendWait("%{F4}")
-            }
-            
+        if ($processId) {
+            Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
             Write-Host "[OK] Stopped $ServiceName (Port $Port)" -ForegroundColor Green
             return $true
         } else {
@@ -41,34 +34,54 @@ function Stop-ProcessOnPort {
     }
 }
 
-# Stop all services
-$stopped = 0
+# Stop services by port
+if (Stop-ProcessOnPort -Port 8000 -ServiceName "Lexer Backend") { $stopped++ }
+if (Stop-ProcessOnPort -Port 8001 -ServiceName "Parser Backend") { $stopped++ }
+if (Stop-ProcessOnPort -Port 8002 -ServiceName "Semantic Backend") { $stopped++ }
+if (Stop-ProcessOnPort -Port 5173 -ServiceName "Frontend Dev Server") { $stopped++ }
 
-# Stop Lexer Backend (port 8000)
-if (Stop-ProcessOnPort -Port 8000 -ServiceName "Lexer Backend") {
-    $stopped++
+# Stop watchfiles processes spawned by PORTIA scripts
+Write-Host ""
+Write-Host "Stopping watchfiles processes..." -ForegroundColor Yellow
+
+$watchfilesProcs = Get-Process -Name "watchfiles" -ErrorAction SilentlyContinue
+foreach ($proc in $watchfilesProcs) {
+    try {
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        Write-Host "[OK] Stopped watchfiles process (PID: $($proc.Id))" -ForegroundColor Green
+        $stopped++
+    }
+    catch {
+        # Ignore if already stopped
+    }
 }
 
-# Stop Parser Backend (port 8001)
-if (Stop-ProcessOnPort -Port 8001 -ServiceName "Parser Backend") {
-    $stopped++
+# Stop any lingering Python processes from PORTIA backends
+Write-Host ""
+Write-Host "Stopping lingering Python uvicorn processes..." -ForegroundColor Yellow
+
+$pythonProcs = Get-Process -Name "python" -ErrorAction SilentlyContinue | Where-Object {
+    try {
+        $cmdLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($_.Id)" -ErrorAction SilentlyContinue).CommandLine
+        $cmdLine -match "uvicorn" -and ($cmdLine -match "8000|8001|8002")
+    } catch { $false }
 }
 
-# Stop Semantic Backend (port 8002)
-if (Stop-ProcessOnPort -Port 8002 -ServiceName "Semantic Backend") {
-    $stopped++
+foreach ($proc in $pythonProcs) {
+    try {
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        Write-Host "[OK] Stopped Python process (PID: $($proc.Id))" -ForegroundColor Green
+        $stopped++
+    }
+    catch {
+        # Ignore if already stopped
+    }
 }
 
-# Stop Frontend Dev Server (port 5173)
-if (Stop-ProcessOnPort -Port 5173 -ServiceName "Frontend Dev Server") {
-    $stopped++
-}
-
-# Additionally, close any PowerShell windows that might be running the services
+# Close any PowerShell windows running PORTIA services
 Write-Host ""
 Write-Host "Closing terminal windows..." -ForegroundColor Yellow
 
-# Get all PowerShell windows with PORTIA-related titles
 $windows = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object { 
     $_.MainWindowTitle -match "LEXER|PARSER|FRONTEND|SEMANTIC" 
 }
@@ -76,7 +89,7 @@ $windows = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
 foreach ($window in $windows) {
     try {
         Stop-Process -Id $window.Id -Force -ErrorAction SilentlyContinue
-        Write-Host "[OK] Closed terminal window: $($window.MainWindowTitle)" -ForegroundColor Green
+        Write-Host "[OK] Closed terminal: $($window.MainWindowTitle)" -ForegroundColor Green
     }
     catch {
         # Ignore errors for windows that already closed
@@ -84,6 +97,8 @@ foreach ($window in $windows) {
 }
 
 Write-Host ""
-Write-Host "Summary: Stopped $stopped service(s)" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "   Stopped $stopped process(es)" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "All PORTIA servers and terminal windows have been shut down." -ForegroundColor Green
+Write-Host "All PORTIA services have been shut down." -ForegroundColor Green
