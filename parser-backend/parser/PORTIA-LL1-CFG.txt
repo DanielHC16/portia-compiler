@@ -6,7 +6,7 @@ This document is a STRICT MIRROR of the Lark grammar (portia.lark).
 Every production listed here corresponds directly to a rule in the implementation.
 The grammar, documentation, and parser describe the SAME language.
 
-Last synchronized: 2026-02-12 (compound assignment restricted to numeric RHS)
+Last synchronized: 2025-02-12 (++/-- in condition comparisons)
 
 --------------------------------------------------------------------------------
 NOTATION
@@ -582,8 +582,7 @@ SECTION 9: EXPRESSIONS
 <typed_concat_expr> -> char ( <expression> ) <typed_string_cont>
 <typed_concat_expr> -> string ( <expression> ) <typed_string_cont>
 <typed_concat_expr> -> bool ( <expression> ) <typed_bool_cont>
-<typed_concat_expr> -> ++ id
-<typed_concat_expr> -> -- id
+// Note: prefix ++/-- now handled within <typed_numeric_unary_expr>
 
 // [Complete continuation rules in portia.lark:
 //  typed_string_cont, typed_numeric_cont, typed_bool_cont,
@@ -614,6 +613,8 @@ SECTION 9: EXPRESSIONS
 
 <typed_numeric_unary_expr> -> ! <typed_numeric_unary_expr>
 <typed_numeric_unary_expr> -> - <typed_numeric_unary_expr>
+<typed_numeric_unary_expr> -> ++ <typed_numeric_unary_expr>
+<typed_numeric_unary_expr> -> -- <typed_numeric_unary_expr>
 <typed_numeric_unary_expr> -> <typed_numeric_postfix_expr>
 
 --------------------------------------------------------------------------------
@@ -623,9 +624,16 @@ SECTION 9: EXPRESSIONS
 <typed_postfix_chain> -> [ <array_index> ] <typed_postfix_after_arr>
 <typed_postfix_chain> -> . id <typed_postfix_chain>
 <typed_postfix_chain> -> ( <arg_list> ) <typed_postfix_chain>
+<typed_postfix_chain> -> ++
+<typed_postfix_chain> -> --
 <typed_postfix_chain> -> lambda
 
-<typed_postfix_after_arr> -> [ <array_index> ] | . id <typed_postfix_chain> | ( <arg_list> ) <typed_postfix_chain> | lambda
+<typed_postfix_after_arr> -> [ <array_index> ] <typed_postfix_after_arr>
+<typed_postfix_after_arr> -> . id <typed_postfix_chain>
+<typed_postfix_after_arr> -> ( <arg_list> ) <typed_postfix_chain>
+<typed_postfix_after_arr> -> ++
+<typed_postfix_after_arr> -> --
+<typed_postfix_after_arr> -> lambda
 
 ================================================================================
 SECTION 10: EFFECTFUL STATEMENTS
@@ -778,6 +786,7 @@ SECTION 13: CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 //   - Arithmetic expressions FORBIDDEN without comparison
 //   - Type casts FORBIDDEN without comparison
 //   - Numeric literals FORBIDDEN standalone
+//   - Increment/Decrement ALLOWED but ONLY with comparison (2025-02-12)
 //
 // ALLOWED:
 //   if (x)              - Boolean identifier
@@ -786,11 +795,17 @@ SECTION 13: CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 //   if (x && y)         - Logical combination
 //   if (!x)             - Negation
 //   if ((x + 5) > 10)   - Paren arithmetic with comparison
+//   if (i++ < 5)        - Postfix increment with comparison
+//   if (++i < 10)       - Prefix increment with comparison
+//   if (i++ + 1 > 3)    - Increment in arithmetic with comparison
+//   if (arr[0]++ < 5)   - Array element postfix with comparison
 //
 // DISALLOWED (syntax error):
 //   if (2)              - Standalone numeric literal
 //   if (x + 5)          - Standalone arithmetic
 //   if (int(5))         - Standalone type cast
+//   if (i++)            - Standalone increment (no comparison)
+//   if (++i)            - Standalone prefix increment
 
 <condition> -> <cond_or>
 
@@ -803,11 +818,15 @@ SECTION 13: CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <cond_not> -> ! <cond_not>
 <cond_not> -> <cond_atom>
 
+// Atoms: boolean literals, IDs, parenthesized, literal comparisons, or prefix ++/-- with comparison
 <cond_atom> -> true | false
 <cond_atom> -> id <cond_id_cont>
 <cond_atom> -> ( <cond_paren_inner> ) <cond_paren_tail>
 <cond_atom> -> <cond_lit_cmp>
+<cond_atom> -> ++ <cond_lit_unary> <cond_lit_mul> <cond_lit_add> <cond_cmp> <cond_rhs>
+<cond_atom> -> -- <cond_lit_unary> <cond_lit_mul> <cond_lit_add> <cond_cmp> <cond_rhs>
 
+// After ID: postfix ++/-- requires comparison (no bare numeric-as-boolean)
 <cond_id_cont> -> [ <cond_arr_index> ] <cond_id_arr_cont>
 <cond_id_cont> -> + <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
 <cond_id_cont> -> - <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
@@ -815,7 +834,47 @@ SECTION 13: CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <cond_id_cont> -> / <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
 <cond_id_cont> -> % <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
 <cond_id_cont> -> < <cond_rhs> | > <cond_rhs> | <= <cond_rhs> | >= <cond_rhs> | == <cond_rhs> | != <cond_rhs>
-<cond_id_cont> -> lambda
+<cond_id_cont> -> ++ <cond_cmp> <cond_rhs>
+<cond_id_cont> -> ++ + <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> ++ - <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> ++ * <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> ++ / <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> ++ % <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> -- <cond_cmp> <cond_rhs>
+<cond_id_cont> -> -- + <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> -- - <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> -- * <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> -- / <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> -- % <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_cont> -> lambda   // For bare boolean IDs only
+
+// Array index
+<cond_arr_index> -> <cond_rhs>
+
+// After arr[i]: optional 2D, then arithmetic/comparison/postfix
+<cond_id_arr_cont> -> [ <cond_arr_index> ] <cond_id_arr_after>
+<cond_id_arr_cont> -> <cond_id_arr_after>
+
+// Postfix ++/-- on array element requires comparison
+<cond_id_arr_after> -> + <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> - <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> * <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> / <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> % <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> < <cond_rhs> | > <cond_rhs> | <= <cond_rhs> | >= <cond_rhs> | == <cond_rhs> | != <cond_rhs>
+<cond_id_arr_after> -> ++ <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> ++ + <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> ++ - <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> ++ * <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> ++ / <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> ++ % <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> -- <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> -- + <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> -- - <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> -- * <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> -- / <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> -- % <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add> <cond_cmp> <cond_rhs>
+<cond_id_arr_after> -> lambda
 
 // Literal-starting comparison (MUST have comparison - no bare literals)
 <cond_lit_cmp> -> intlit <cond_lit_mul> <cond_lit_add> <cond_cmp> <cond_rhs>
@@ -824,9 +883,110 @@ SECTION 13: CONDITION EXPRESSIONS (STRICT BOOLEAN DISCIPLINE)
 <cond_lit_cmp> -> doublelit <cond_lit_mul> <cond_lit_add> <cond_cmp> <cond_rhs>
 <cond_lit_cmp> -> - <cond_lit_unary> <cond_lit_mul> <cond_lit_add> <cond_cmp> <cond_rhs>
 
+// LHS multiplication
+<cond_lit_mul> -> * <cond_lit_unary> <cond_lit_mul>
+<cond_lit_mul> -> / <cond_lit_unary> <cond_lit_mul>
+<cond_lit_mul> -> % <cond_lit_unary> <cond_lit_mul>
+<cond_lit_mul> -> lambda
+
+// LHS addition
+<cond_lit_add> -> + <cond_lit_unary> <cond_lit_mul> <cond_lit_add>
+<cond_lit_add> -> - <cond_lit_unary> <cond_lit_mul> <cond_lit_add>
+<cond_lit_add> -> lambda
+
+// LHS unary supports prefix ++/--
+<cond_lit_unary> -> ++ <cond_lit_unary> | -- <cond_lit_unary> | - <cond_lit_unary> | <cond_lit_primary>
+
+// LHS primaries
+<cond_lit_primary> -> intlit | longlit | floatlit | doublelit
+<cond_lit_primary> -> id <cond_rhs_id_tail>
+<cond_lit_primary> -> ( <cond_lit_expr> )
+
+<cond_lit_expr> -> <cond_lit_unary> <cond_lit_mul> <cond_lit_add>
+
+// RHS expression (after comparison operator)
+<cond_rhs> -> <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add>
+
+// RHS unary supports prefix ++/--
+<cond_rhs_unary> -> ++ <cond_rhs_unary> | -- <cond_rhs_unary> | - <cond_rhs_unary> | <cond_rhs_primary>
+
+// RHS primaries
+<cond_rhs_primary> -> intlit | longlit | floatlit | doublelit
+<cond_rhs_primary> -> id <cond_rhs_id_tail>
+<cond_rhs_primary> -> ( <cond_rhs> )
+
+// RHS ID tail supports postfix ++/--
+<cond_rhs_id_tail> -> [ <cond_arr_index> ] <cond_rhs_arr_tail>
+<cond_rhs_id_tail> -> ++ | -- | lambda
+
+// RHS array tail supports postfix after 1D or 2D access
+<cond_rhs_arr_tail> -> [ <cond_arr_index> ] | [ <cond_arr_index> ] ++ | [ <cond_arr_index> ] --
+<cond_rhs_arr_tail> -> ++ | -- | lambda
+
+// RHS multiplication
+<cond_rhs_mul> -> * <cond_rhs_unary> <cond_rhs_mul>
+<cond_rhs_mul> -> / <cond_rhs_unary> <cond_rhs_mul>
+<cond_rhs_mul> -> % <cond_rhs_unary> <cond_rhs_mul>
+<cond_rhs_mul> -> lambda
+
+// RHS addition
+<cond_rhs_add> -> + <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add>
+<cond_rhs_add> -> - <cond_rhs_unary> <cond_rhs_mul> <cond_rhs_add>
+<cond_rhs_add> -> lambda
+
+// Comparison operators
 <cond_cmp> -> < | > | <= | >= | == | !=
 
-// [Complete condition rules in portia.lark]
+// Parenthesized condition inner - supports (x), (x<5), (x+5)>10, (!flag), (a&&b)
+<cond_paren_inner> -> <cond_paren_start> <cond_paren_cont>
+
+<cond_paren_start> -> id | intlit | longlit | floatlit | doublelit
+<cond_paren_start> -> true | false
+<cond_paren_start> -> ! <cond_not>
+<cond_paren_start> -> ++ <cond_paren_unary> | -- <cond_paren_unary>
+<cond_paren_start> -> - <cond_paren_unary>
+<cond_paren_start> -> ( <cond_paren_inner> )
+
+// After initial token: arith, comparison, or logic
+<cond_paren_cont> -> <cond_paren_arith_ops> <cond_paren_after_arith>
+<cond_paren_cont> -> <cond_cmp> <cond_rhs> <cond_paren_logic>
+<cond_paren_cont> -> <cond_paren_logic>
+<cond_paren_cont> -> ++ <cond_cmp> <cond_rhs> <cond_paren_logic>
+<cond_paren_cont> -> ++ <cond_paren_arith_ops> <cond_paren_after_arith>
+<cond_paren_cont> -> -- <cond_cmp> <cond_rhs> <cond_paren_logic>
+<cond_paren_cont> -> -- <cond_paren_arith_ops> <cond_paren_after_arith>
+
+// Arithmetic inside parens
+<cond_paren_arith_ops> -> + <cond_paren_unary> <cond_paren_mul_ops>
+<cond_paren_arith_ops> -> - <cond_paren_unary> <cond_paren_mul_ops>
+<cond_paren_arith_ops> -> * <cond_paren_unary> <cond_paren_mul_ops>
+<cond_paren_arith_ops> -> / <cond_paren_unary> <cond_paren_mul_ops>
+<cond_paren_arith_ops> -> % <cond_paren_unary> <cond_paren_mul_ops>
+
+<cond_paren_mul_ops> -> * <cond_paren_unary> <cond_paren_mul_ops>
+<cond_paren_mul_ops> -> / <cond_paren_unary> <cond_paren_mul_ops>
+<cond_paren_mul_ops> -> % <cond_paren_unary> <cond_paren_mul_ops>
+<cond_paren_mul_ops> -> + <cond_paren_unary> <cond_paren_mul_ops>
+<cond_paren_mul_ops> -> - <cond_paren_unary> <cond_paren_mul_ops>
+<cond_paren_mul_ops> -> lambda
+
+<cond_paren_unary> -> ++ <cond_paren_unary> | -- <cond_paren_unary>
+<cond_paren_unary> -> - <cond_paren_unary>
+<cond_paren_unary> -> <cond_paren_primary>
+
+<cond_paren_primary> -> intlit | longlit | floatlit | doublelit
+<cond_paren_primary> -> id <cond_rhs_id_tail>
+<cond_paren_primary> -> ( <cond_paren_inner> )
+
+// After arithmetic: comparison then logic
+<cond_paren_after_arith> -> <cond_cmp> <cond_rhs> <cond_paren_logic>
+<cond_paren_after_arith> -> lambda
+
+// Logic inside parens
+<cond_paren_logic> -> && <cond_and> | || <cond_or> | lambda
+
+// After RPAREN: comparison or nothing
+<cond_paren_tail> -> <cond_cmp> <cond_rhs> | lambda
 
 ================================================================================
 SECTION 14: I/O STATEMENTS

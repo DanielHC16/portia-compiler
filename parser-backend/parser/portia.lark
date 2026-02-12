@@ -1194,8 +1194,6 @@ typed_concat_expr: STRINGLIT typed_string_cont
                  | CHAR LPAREN expression RPAREN typed_string_cont
                  | STRING LPAREN expression RPAREN typed_string_cont
                  | BOOL LPAREN expression RPAREN typed_bool_cont
-                 | INCR ID
-                 | DECR ID
 
 // ============================================
 // STRING/CHAR CONTINUATION (concat only)
@@ -1307,8 +1305,6 @@ typed_bool_and_or_tail: AND typed_bool_term typed_bool_and_or_tail
 
 // After ID in boolean atom context
 typed_bool_id_cont: typed_numeric_arith_cmp
-                  | INCR
-                  | DECR
                   | typed_postfix_chain
 
 // Numeric arithmetic followed by mandatory comparison (boolean context)
@@ -1442,6 +1438,8 @@ typed_numeric_mul_tail: STAR typed_numeric_unary_expr typed_numeric_mul_tail
 
 typed_numeric_unary_expr: NOT typed_numeric_unary_expr
                         | MINUS typed_numeric_unary_expr
+                        | INCR typed_numeric_unary_expr
+                        | DECR typed_numeric_unary_expr
                         | typed_numeric_postfix_expr
 
 // Numeric-only postfix - excludes CHARLIT, STRINGLIT, TRUE, FALSE
@@ -1455,8 +1453,6 @@ typed_numeric_postfix_expr: INTLIT
                           | LONG LPAREN expression RPAREN
                           | FLOAT LPAREN expression RPAREN
                           | DOUBLE LPAREN expression RPAREN
-                          | INCR ID
-                          | DECR ID
 
 // ============================================
 // COMPARISON OPERATORS
@@ -1476,11 +1472,15 @@ typed_cmp_op: LT
 typed_postfix_chain: LBRACK array_index RBRACK typed_postfix_after_arr
                    | DOT ID typed_postfix_chain
                    | LPAREN arg_list RPAREN typed_postfix_chain
+                   | INCR
+                   | DECR
                    |
 
-typed_postfix_after_arr: LBRACK array_index RBRACK
+typed_postfix_after_arr: LBRACK array_index RBRACK typed_postfix_after_arr
                        | DOT ID typed_postfix_chain
                        | LPAREN arg_list RPAREN typed_postfix_chain
+                       | INCR
+                       | DECR
                        |
 
 // ============================================
@@ -1621,8 +1621,8 @@ stmt_bool_or_concat: STRINGLIT stmt_concat_tail_typed
                    | BOOL LPAREN arg_expr RPAREN stmt_bool_tail_opt
                    | ID stmt_id_toplevel_cont
                    | LPAREN stmt_paren_typed_content
-                   | INCR ID
-                   | DECR ID
+                   | INCR ID stmt_postfix_chain stmt_id_after_postfix
+                   | DECR ID stmt_postfix_chain stmt_id_after_postfix
 
 // After numeric literal at top level: can be arithmetic, relational, or boolean ops
 stmt_numeric_or_bool: stmt_arith_ops stmt_after_arith
@@ -1658,13 +1658,15 @@ stmt_bool_or_tail_opt: OR stmt_bool_term stmt_bool_or_tail
 // After ID at top level
 stmt_id_toplevel_cont: stmt_arith_ops stmt_after_arith
                      | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
-                     | INCR
-                     | DECR
+                     | INCR stmt_id_after_postfix
+                     | DECR stmt_id_after_postfix
                      | stmt_postfix_chain stmt_id_after_postfix
 
 stmt_id_after_postfix: stmt_arith_ops stmt_after_arith
                      | stmt_cmp_op numeric_add_expr_stmt stmt_bool_tail_opt
                      | CONCAT stmt_string_operand stmt_concat_tail_typed
+                     | INCR
+                     | DECR
                      | stmt_bool_tail_opt
 
 // ============================================
@@ -1744,8 +1746,8 @@ stmt_paren_bool_cont: AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_op
 stmt_paren_id_cont: stmt_paren_arith_ops
                   | stmt_cmp_op numeric_add_expr_stmt stmt_paren_bool_tail RPAREN stmt_paren_bool_cont
                   | stmt_paren_postfix_nonnull stmt_paren_id_after_postfix
-                  | INCR RPAREN stmt_paren_num_cont
-                  | DECR RPAREN stmt_paren_num_cont
+                  | INCR stmt_paren_id_after_postfix
+                  | DECR stmt_paren_id_after_postfix
                   | AND stmt_bool_term stmt_bool_and_tail stmt_bool_or_tail_opt RPAREN stmt_paren_any_cont
                   | OR stmt_bool_term stmt_bool_or_tail RPAREN stmt_paren_any_cont
                   | RPAREN stmt_paren_any_cont
@@ -1904,8 +1906,8 @@ numeric_postfix_expr_stmt: LPAREN arg_expr RPAREN stmt_postfix_chain
                          | LONG LPAREN arg_expr RPAREN
                          | FLOAT LPAREN arg_expr RPAREN
                          | DOUBLE LPAREN arg_expr RPAREN
-                         | INCR ID
-                         | DECR ID
+                         | INCR ID stmt_postfix_chain
+                         | DECR ID stmt_postfix_chain
                          | ID stmt_id_postfix
                          | INTLIT
                          | LONGLIT
@@ -1928,6 +1930,8 @@ stmt_array_access_dim2: LBRACK stmt_array_index RBRACK
 
 stmt_postfix_after_arr: DOT ID stmt_postfix_chain
                       | LPAREN stmt_arg_list RPAREN stmt_postfix_chain
+                      | INCR
+                      | DECR
                       |
 
 stmt_array_index: INTLIT
@@ -2307,11 +2311,14 @@ cond_not: NOT cond_not
         | cond_atom
 
 // Left-factored atom: ID and LPAREN handled specially
+// Prefix ++/-- requires comparison (no bare numeric-as-boolean)
 cond_atom: TRUE
          | FALSE
          | ID cond_id_cont
          | LPAREN cond_paren_inner RPAREN cond_paren_tail
          | cond_lit_cmp
+         | INCR cond_lit_unary cond_lit_mul cond_lit_add cond_cmp cond_rhs
+         | DECR cond_lit_unary cond_lit_mul cond_lit_add cond_cmp cond_rhs
 
 // Content inside parentheses - unified for left-factoring
 // Supports: (x), (x<5), (x+5)>10, (!flag), (a&&b)
@@ -2325,13 +2332,20 @@ cond_paren_start: ID
                 | TRUE
                 | FALSE
                 | NOT cond_not
+                | INCR cond_paren_unary
+                | DECR cond_paren_unary
                 | MINUS cond_paren_unary
                 | LPAREN cond_paren_inner RPAREN
 
 // After initial token inside parens: arithmetic ops, comparison ops, or logical ops
+// Postfix ++/-- requires comparison or arithmetic (no bare numeric-as-boolean)
 cond_paren_cont: cond_paren_arith_ops cond_paren_after_arith
                | cond_cmp cond_rhs cond_paren_logic
                | cond_paren_logic
+               | INCR cond_cmp cond_rhs cond_paren_logic
+               | INCR cond_paren_arith_ops cond_paren_after_arith
+               | DECR cond_cmp cond_rhs cond_paren_logic
+               | DECR cond_paren_arith_ops cond_paren_after_arith
 
 // Arithmetic operations inside parens
 cond_paren_arith_ops: PLUS cond_paren_unary cond_paren_mul_ops
@@ -2347,7 +2361,9 @@ cond_paren_mul_ops: STAR cond_paren_unary cond_paren_mul_ops
                   | MINUS cond_paren_unary cond_paren_mul_ops
                   |
 
-cond_paren_unary: MINUS cond_paren_unary
+cond_paren_unary: INCR cond_paren_unary
+                | DECR cond_paren_unary
+                | MINUS cond_paren_unary
                 | cond_paren_primary
 
 cond_paren_primary: INTLIT
@@ -2373,6 +2389,7 @@ cond_paren_tail: cond_cmp cond_rhs
 // After ID in condition: bare boolean OR comparison with arithmetic
 // String comparisons disallowed in conditions
 // Array access supported: arr[i] > 0
+// Postfix ++/-- requires comparison (no bare numeric-as-boolean)
 cond_id_cont: LBRACK cond_arr_index RBRACK cond_id_arr_cont
             | PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
             | MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
@@ -2385,6 +2402,18 @@ cond_id_cont: LBRACK cond_arr_index RBRACK cond_id_arr_cont
             | GTE cond_rhs
             | EQ cond_rhs
             | NEQ cond_rhs
+            | INCR cond_cmp cond_rhs
+            | INCR PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | INCR MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | INCR STAR cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | INCR SLASH cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | INCR MOD cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | DECR cond_cmp cond_rhs
+            | DECR PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | DECR MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | DECR STAR cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | DECR SLASH cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+            | DECR MOD cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
             |
 
 // Array index expression (numeric)
@@ -2394,6 +2423,7 @@ cond_arr_index: cond_rhs
 cond_id_arr_cont: LBRACK cond_arr_index RBRACK cond_id_arr_after
                 | cond_id_arr_after
 
+// Postfix ++/-- on array element requires comparison (no bare numeric-as-boolean)
 cond_id_arr_after: PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
                  | MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
                  | STAR cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
@@ -2405,6 +2435,18 @@ cond_id_arr_after: PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_r
                  | GTE cond_rhs
                  | EQ cond_rhs
                  | NEQ cond_rhs
+                 | INCR cond_cmp cond_rhs
+                 | INCR PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | INCR MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | INCR STAR cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | INCR SLASH cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | INCR MOD cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | DECR cond_cmp cond_rhs
+                 | DECR PLUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | DECR MINUS cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | DECR STAR cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | DECR SLASH cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
+                 | DECR MOD cond_rhs_unary cond_rhs_mul cond_rhs_add cond_cmp cond_rhs
                  |
 
 // Literal-starting comparison (MUST have comparison - no bare literals allowed)
@@ -2425,7 +2467,9 @@ cond_lit_add: PLUS cond_lit_unary cond_lit_mul cond_lit_add
             | MINUS cond_lit_unary cond_lit_mul cond_lit_add
             |
 
-cond_lit_unary: MINUS cond_lit_unary
+cond_lit_unary: INCR cond_lit_unary
+              | DECR cond_lit_unary
+              | MINUS cond_lit_unary
               | cond_lit_primary
 
 cond_lit_primary: INTLIT
@@ -2440,7 +2484,9 @@ cond_lit_expr: cond_lit_unary cond_lit_mul cond_lit_add
 // RHS expression rules (after comparison operator)
 cond_rhs: cond_rhs_unary cond_rhs_mul cond_rhs_add
 
-cond_rhs_unary: MINUS cond_rhs_unary
+cond_rhs_unary: INCR cond_rhs_unary
+              | DECR cond_rhs_unary
+              | MINUS cond_rhs_unary
               | cond_rhs_primary
 
 cond_rhs_primary: INTLIT
@@ -2450,11 +2496,19 @@ cond_rhs_primary: INTLIT
                 | ID cond_rhs_id_tail
                 | LPAREN cond_rhs RPAREN
 
-// Optional array access after ID in RHS
+// Optional array access or postfix ++/-- after ID in RHS
 cond_rhs_id_tail: LBRACK cond_arr_index RBRACK cond_rhs_arr_tail
+                | INCR
+                | DECR
                 |
 
+// After 1D array, optional 2D array access or postfix ++/--
+// For arr[i][j]++ support, 2D postfix handled by explicit alternatives
 cond_rhs_arr_tail: LBRACK cond_arr_index RBRACK
+                 | LBRACK cond_arr_index RBRACK INCR
+                 | LBRACK cond_arr_index RBRACK DECR
+                 | INCR
+                 | DECR
                  |
 
 cond_rhs_mul: STAR cond_rhs_unary cond_rhs_mul
