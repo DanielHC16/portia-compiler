@@ -435,57 +435,11 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
           </div>
         </div>
 
-        {/* Top-Right: Tokens or AST Panel */}
+        {/* Top-Right: Tokens Panel */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ margin: 0 }}>
-              {viewMode === 'tokens' ? 'Tokens' : viewMode === 'tree' ? 'AST Tree' : 'AST JSON'}
-            </h3>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button 
-                className={`btn ${viewMode === 'tokens' ? '' : 'ghost'}`}
-                onClick={() => setViewMode('tokens')}
-                style={{ padding: "6px 12px", fontSize: 12 }}
-              >
-                Show Tokens
-              </button>
-              <button 
-                className={`btn ${viewMode === 'tree' ? '' : 'ghost'}`}
-                onClick={() => setViewMode('tree')}
-                style={{ padding: "6px 12px", fontSize: 12 }}
-                disabled={!ast}
-              >
-                Show Tree
-              </button>
-              <button 
-                className={`btn ${viewMode === 'json' ? '' : 'ghost'}`}
-                onClick={() => setViewMode('json')}
-                style={{ padding: "6px 12px", fontSize: 12 }}
-                disabled={!ast}
-              >
-                Show Raw
-              </button>
-            </div>
-          </div>
+          <h3 style={{ margin: 0, marginBottom: 12 }}>Tokens</h3>
           <div style={{ flex: "1 1 auto", overflow: "auto" }}>
-            {viewMode === 'tree' && ast ? (
-              <ASTTreeView ast={ast} />
-            ) : viewMode === 'json' && ast ? (
-              <div style={{ fontFamily: "var(--mono)", fontSize: 13, height: "100%" }}>
-                <pre style={{ 
-                  margin: 0, 
-                  padding: 12, 
-                  background: "var(--bg-secondary)", 
-                  borderRadius: 6,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word"
-                }}>
-                  {JSON.stringify(ast, null, 2)}
-                </pre>
-              </div>
-            ) : (
-              <TokenList tokens={tokens} hideComments={hideComments} />
-            )}
+            <TokenList tokens={tokens} hideComments={hideComments} />
           </div>
         </div>
 
