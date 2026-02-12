@@ -601,7 +601,7 @@
 | 597 | `<typed_bool_ret_primary>` | -> | float ( `<expression>` ) `<typed_numeric_cmp_required>` |
 | 598 | `<typed_bool_ret_primary>` | -> | double ( `<expression>` ) `<typed_numeric_cmp_required>` |
 | 599 | `<typed_bool_ret_tail>` | -> | && `<typed_bool_term>` `<typed_bool_and_tail>` `<typed_bool_or_tail_opt>` |
-| 600 | `<typed_bool_ret_tail>` | -> | || `<typed_bool_term>` `<typed_bool_or_tail>` |
+| 600 | `<typed_bool_ret_tail>` | -> | \|\| `<typed_bool_term>` `<typed_bool_or_tail>` |
 | 601 | `<typed_bool_ret_tail>` | -> | == `<typed_bool_factor>` `<typed_bool_eq_tail>` `<typed_bool_ret_tail>` |
 | 602 | `<typed_bool_ret_tail>` | -> | != `<typed_bool_factor>` `<typed_bool_eq_tail>` `<typed_bool_ret_tail>` |
 | 603 | `<typed_bool_ret_tail>` | -> | λ |
@@ -725,14 +725,14 @@
 | 721 | `<typed_neg_numeric_cont>` | -> | `<typed_numeric_unary_expr>` `<typed_numeric_mul_tail>` `<typed_numeric_add_ops>` `<typed_after_arith>` |
 | 722 | `<typed_bool_cont>` | -> | `<typed_bool_tail_opt>` |
 | 723 | `<typed_bool_tail_opt>` | -> | && `<typed_bool_term>` `<typed_bool_and_tail>` `<typed_bool_or_tail_opt>` |
-| 724 | `<typed_bool_tail_opt>` | -> | || `<typed_bool_term>` `<typed_bool_or_tail>` |
+| 724 | `<typed_bool_tail_opt>` | -> | \|\| `<typed_bool_term>` `<typed_bool_or_tail>` |
 | 725 | `<typed_bool_tail_opt>` | -> | λ |
-| 726 | `<typed_bool_or_tail_opt>` | -> | || `<typed_bool_term>` `<typed_bool_or_tail>` |
+| 726 | `<typed_bool_or_tail_opt>` | -> | \|\| `<typed_bool_term>` `<typed_bool_or_tail>` |
 | 727 | `<typed_bool_or_tail_opt>` | -> | λ |
 | 728 | `<typed_bool_term>` | -> | `<typed_bool_eq>` `<typed_bool_and_tail>` |
 | 729 | `<typed_bool_and_tail>` | -> | && `<typed_bool_eq>` `<typed_bool_and_tail>` |
 | 730 | `<typed_bool_and_tail>` | -> | λ |
-| 731 | `<typed_bool_or_tail>` | -> | || `<typed_bool_term>` `<typed_bool_or_tail>` |
+| 731 | `<typed_bool_or_tail>` | -> | \|\| `<typed_bool_term>` `<typed_bool_or_tail>` |
 | 732 | `<typed_bool_or_tail>` | -> | λ |
 | 733 | `<typed_bool_eq>` | -> | `<typed_bool_factor>` `<typed_bool_eq_tail>` |
 | 734 | `<typed_bool_eq_tail>` | -> | == `<typed_bool_factor>` `<typed_bool_eq_tail>` |
@@ -755,7 +755,7 @@
 | 751 | `<typed_bool_atom>` | -> | double ( `<expression>` ) `<typed_numeric_cmp_required>` |
 | 752 | `<typed_bool_paren>` | -> | `<typed_bool_term>` `<typed_bool_and_or_tail>` |
 | 753 | `<typed_bool_and_or_tail>` | -> | && `<typed_bool_term>` `<typed_bool_and_or_tail>` |
-| 754 | `<typed_bool_and_or_tail>` | -> | || `<typed_bool_term>` `<typed_bool_and_or_tail>` |
+| 754 | `<typed_bool_and_or_tail>` | -> | \|\| `<typed_bool_term>` `<typed_bool_and_or_tail>` |
 | 755 | `<typed_bool_and_or_tail>` | -> | λ |
 | 756 | `<typed_bool_id_cont>` | -> | `<typed_numeric_arith_cmp>` |
 | 757 | `<typed_bool_id_cont>` | -> | `<typed_postfix_chain>` |
@@ -978,9 +978,9 @@
 | 974 | `<stmt_after_arith>` | -> | `<stmt_bool_tail_opt>` |
 | 975 | `<stmt_neg_numeric_or_bool>` | -> | `<numeric_unary_expr_stmt>` `<numeric_mul_tail_stmt>` `<stmt_numeric_add_ops>` `<stmt_after_arith>` |
 | 976 | `<stmt_bool_tail_opt>` | -> | && `<stmt_bool_term>` `<stmt_bool_and_tail>` `<stmt_bool_or_tail_opt>` |
-| 977 | `<stmt_bool_tail_opt>` | -> | || `<stmt_bool_term>` `<stmt_bool_or_tail>` |
+| 977 | `<stmt_bool_tail_opt>` | -> | \|\| `<stmt_bool_term>` `<stmt_bool_or_tail>` |
 | 978 | `<stmt_bool_tail_opt>` | -> | λ |
-| 979 | `<stmt_bool_or_tail_opt>` | -> | || `<stmt_bool_term>` `<stmt_bool_or_tail>` |
+| 979 | `<stmt_bool_or_tail_opt>` | -> | \|\| `<stmt_bool_term>` `<stmt_bool_or_tail>` |
 | 980 | `<stmt_bool_or_tail_opt>` | -> | λ |
 | 981 | `<stmt_id_toplevel_cont>` | -> | `<stmt_arith_ops>` `<stmt_after_arith>` |
 | 982 | `<stmt_id_toplevel_cont>` | -> | `<stmt_cmp_op>` `<numeric_add_expr_stmt>` `<stmt_bool_tail_opt>` |
@@ -1034,10 +1034,10 @@
 | 1030 | `<stmt_paren_num_cont>` | -> | `<stmt_cmp_op>` `<numeric_add_expr_stmt>` `<stmt_bool_tail_opt>` |
 | 1031 | `<stmt_paren_num_cont>` | -> | `<stmt_bool_tail_opt>` |
 | 1032 | `<stmt_paren_bool_tail>` | -> | && `<stmt_bool_term>` `<stmt_bool_and_tail>` `<stmt_bool_or_tail_opt>` |
-| 1033 | `<stmt_paren_bool_tail>` | -> | || `<stmt_bool_term>` `<stmt_bool_or_tail>` |
+| 1033 | `<stmt_paren_bool_tail>` | -> | \|\| `<stmt_bool_term>` `<stmt_bool_or_tail>` |
 | 1034 | `<stmt_paren_bool_tail>` | -> | λ |
 | 1035 | `<stmt_paren_bool_cont>` | -> | && `<stmt_bool_term>` `<stmt_bool_and_tail>` `<stmt_bool_or_tail_opt>` |
-| 1036 | `<stmt_paren_bool_cont>` | -> | || `<stmt_bool_term>` `<stmt_bool_or_tail>` |
+| 1036 | `<stmt_paren_bool_cont>` | -> | \|\| `<stmt_bool_term>` `<stmt_bool_or_tail>` |
 | 1037 | `<stmt_paren_bool_cont>` | -> | λ |
 | 1038 | `<stmt_paren_id_cont>` | -> | `<stmt_paren_arith_ops>` |
 | 1039 | `<stmt_paren_id_cont>` | -> | `<stmt_cmp_op>` `<numeric_add_expr_stmt>` `<stmt_paren_bool_tail>` ) `<stmt_paren_bool_cont>` |
@@ -1045,7 +1045,7 @@
 | 1041 | `<stmt_paren_id_cont>` | -> | ++ `<stmt_paren_id_after_postfix>` |
 | 1042 | `<stmt_paren_id_cont>` | -> | -- `<stmt_paren_id_after_postfix>` |
 | 1043 | `<stmt_paren_id_cont>` | -> | && `<stmt_bool_term>` `<stmt_bool_and_tail>` `<stmt_bool_or_tail_opt>` ) `<stmt_paren_any_cont>` |
-| 1044 | `<stmt_paren_id_cont>` | -> | || `<stmt_bool_term>` `<stmt_bool_or_tail>` ) `<stmt_paren_any_cont>` |
+| 1044 | `<stmt_paren_id_cont>` | -> | \|\| `<stmt_bool_term>` `<stmt_bool_or_tail>` ) `<stmt_paren_any_cont>` |
 | 1045 | `<stmt_paren_id_cont>` | -> | ) `<stmt_paren_any_cont>` |
 | 1046 | `<stmt_paren_postfix_nonnull>` | -> | [ `<array_index>` ] `<stmt_postfix_after_arr>` |
 | 1047 | `<stmt_paren_postfix_nonnull>` | -> | . id `<stmt_postfix_chain>` |
@@ -1054,7 +1054,7 @@
 | 1050 | `<stmt_paren_id_after_postfix>` | -> | `<stmt_cmp_op>` `<numeric_add_expr_stmt>` `<stmt_paren_bool_tail>` ) `<stmt_paren_bool_cont>` |
 | 1051 | `<stmt_paren_id_after_postfix>` | -> | .. `<stmt_string_operand>` `<stmt_concat_tail_typed>` ) `<stmt_paren_string_cont>` |
 | 1052 | `<stmt_paren_id_after_postfix>` | -> | && `<stmt_bool_term>` `<stmt_bool_and_tail>` `<stmt_bool_or_tail_opt>` ) `<stmt_paren_any_cont>` |
-| 1053 | `<stmt_paren_id_after_postfix>` | -> | || `<stmt_bool_term>` `<stmt_bool_or_tail>` ) `<stmt_paren_any_cont>` |
+| 1053 | `<stmt_paren_id_after_postfix>` | -> | \|\| `<stmt_bool_term>` `<stmt_bool_or_tail>` ) `<stmt_paren_any_cont>` |
 | 1054 | `<stmt_paren_id_after_postfix>` | -> | ) `<stmt_paren_any_cont>` |
 | 1055 | `<stmt_paren_any_cont>` | -> | `<stmt_arith_ops>` `<stmt_after_arith>` |
 | 1056 | `<stmt_paren_any_cont>` | -> | `<stmt_cmp_op>` `<numeric_add_expr_stmt>` `<stmt_bool_tail_opt>` |
@@ -1082,7 +1082,7 @@
 | 1078 | `<stmt_bool_term>` | -> | `<stmt_bool_eq>` `<stmt_bool_and_tail>` |
 | 1079 | `<stmt_bool_and_tail>` | -> | && `<stmt_bool_eq>` `<stmt_bool_and_tail>` |
 | 1080 | `<stmt_bool_and_tail>` | -> | λ |
-| 1081 | `<stmt_bool_or_tail>` | -> | || `<stmt_bool_term>` `<stmt_bool_or_tail>` |
+| 1081 | `<stmt_bool_or_tail>` | -> | \|\| `<stmt_bool_term>` `<stmt_bool_or_tail>` |
 | 1082 | `<stmt_bool_or_tail>` | -> | λ |
 | 1083 | `<stmt_bool_eq>` | -> | `<stmt_bool_factor>` `<stmt_bool_eq_tail>` |
 | 1084 | `<stmt_bool_eq_tail>` | -> | == `<stmt_bool_factor>` `<stmt_bool_eq_tail>` |
@@ -1132,7 +1132,7 @@
 | 1128 | `<stmt_cmp_op>` | -> | != |
 | 1129 | `<stmt_bool_paren>` | -> | `<stmt_bool_term>` `<stmt_bool_and_or_tail>` |
 | 1130 | `<stmt_bool_and_or_tail>` | -> | && `<stmt_bool_term>` `<stmt_bool_and_or_tail>` |
-| 1131 | `<stmt_bool_and_or_tail>` | -> | || `<stmt_bool_term>` `<stmt_bool_and_or_tail>` |
+| 1131 | `<stmt_bool_and_or_tail>` | -> | \|\| `<stmt_bool_term>` `<stmt_bool_and_or_tail>` |
 | 1132 | `<stmt_bool_and_or_tail>` | -> | λ |
 | 1133 | `<numeric_mul_expr_stmt>` | -> | `<numeric_unary_expr_stmt>` `<numeric_mul_tail_stmt>` |
 | 1134 | `<numeric_mul_tail_stmt>` | -> | * `<numeric_unary_expr_stmt>` `<numeric_mul_tail_stmt>` |
@@ -1219,9 +1219,9 @@
 | 1215 | `<arg_after_arith>` | -> | `<arg_bool_tail_opt>` |
 | 1216 | `<arg_neg_numeric_or_bool>` | -> | `<numeric_unary_expr_arg>` `<numeric_mul_tail_arg>` `<arg_numeric_add_ops>` `<arg_after_arith>` |
 | 1217 | `<arg_bool_tail_opt>` | -> | && `<arg_bool_term>` `<arg_bool_and_tail>` `<arg_bool_or_tail_opt>` |
-| 1218 | `<arg_bool_tail_opt>` | -> | || `<arg_bool_term>` `<arg_bool_or_tail>` |
+| 1218 | `<arg_bool_tail_opt>` | -> | \|\| `<arg_bool_term>` `<arg_bool_or_tail>` |
 | 1219 | `<arg_bool_tail_opt>` | -> | λ |
-| 1220 | `<arg_bool_or_tail_opt>` | -> | || `<arg_bool_term>` `<arg_bool_or_tail>` |
+| 1220 | `<arg_bool_or_tail_opt>` | -> | \|\| `<arg_bool_term>` `<arg_bool_or_tail>` |
 | 1221 | `<arg_bool_or_tail_opt>` | -> | λ |
 | 1222 | `<arg_id_toplevel_cont>` | -> | `<arg_arith_ops>` `<arg_after_arith>` |
 | 1223 | `<arg_id_toplevel_cont>` | -> | `<arg_cmp_op>` `<numeric_add_expr_arg>` `<arg_bool_tail_opt>` |
@@ -1248,7 +1248,7 @@
 | 1244 | `<arg_bool_term>` | -> | `<arg_bool_eq>` `<arg_bool_and_tail>` |
 | 1245 | `<arg_bool_and_tail>` | -> | && `<arg_bool_eq>` `<arg_bool_and_tail>` |
 | 1246 | `<arg_bool_and_tail>` | -> | λ |
-| 1247 | `<arg_bool_or_tail>` | -> | || `<arg_bool_term>` `<arg_bool_or_tail>` |
+| 1247 | `<arg_bool_or_tail>` | -> | \|\| `<arg_bool_term>` `<arg_bool_or_tail>` |
 | 1248 | `<arg_bool_or_tail>` | -> | λ |
 | 1249 | `<arg_bool_eq>` | -> | `<arg_bool_factor>` `<arg_bool_eq_tail>` |
 | 1250 | `<arg_bool_eq_tail>` | -> | == `<arg_bool_factor>` `<arg_bool_eq_tail>` |
@@ -1271,7 +1271,7 @@
 | 1267 | `<arg_bool_atom>` | -> | double ( `<arg_expr>` ) `<arg_numeric_cmp_required>` |
 | 1268 | `<arg_bool_paren>` | -> | `<arg_bool_term>` `<arg_bool_and_or_tail>` |
 | 1269 | `<arg_bool_and_or_tail>` | -> | && `<arg_bool_term>` `<arg_bool_and_or_tail>` |
-| 1270 | `<arg_bool_and_or_tail>` | -> | || `<arg_bool_term>` `<arg_bool_and_or_tail>` |
+| 1270 | `<arg_bool_and_or_tail>` | -> | \|\| `<arg_bool_term>` `<arg_bool_and_or_tail>` |
 | 1271 | `<arg_bool_and_or_tail>` | -> | λ |
 | 1272 | `<arg_bool_id_cont>` | -> | `<arg_numeric_arith_cmp>` |
 | 1273 | `<arg_bool_id_cont>` | -> | ++ |
@@ -1396,7 +1396,7 @@
 | 1392 | `<for_cond>` | -> | `<condition>` |
 | 1393 | `<condition>` | -> | `<cond_or>` |
 | 1394 | `<cond_or>` | -> | `<cond_and>` `<cond_or_tail>` |
-| 1395 | `<cond_or_tail>` | -> | || `<cond_and>` `<cond_or_tail>` |
+| 1395 | `<cond_or_tail>` | -> | \|\| `<cond_and>` `<cond_or_tail>` |
 | 1396 | `<cond_or_tail>` | -> | λ |
 | 1397 | `<cond_and>` | -> | `<cond_not>` `<cond_and_tail>` |
 | 1398 | `<cond_and_tail>` | -> | && `<cond_not>` `<cond_and_tail>` |
@@ -1454,7 +1454,7 @@
 | 1450 | `<cond_paren_after_arith>` | -> | `<cond_cmp>` `<cond_rhs>` `<cond_paren_logic>` |
 | 1451 | `<cond_paren_after_arith>` | -> | λ |
 | 1452 | `<cond_paren_logic>` | -> | && `<cond_and>` |
-| 1453 | `<cond_paren_logic>` | -> | || `<cond_or>` |
+| 1453 | `<cond_paren_logic>` | -> | \|\| `<cond_or>` |
 | 1454 | `<cond_paren_logic>` | -> | λ |
 | 1455 | `<cond_paren_tail>` | -> | `<cond_cmp>` `<cond_rhs>` |
 | 1456 | `<cond_paren_tail>` | -> | λ |

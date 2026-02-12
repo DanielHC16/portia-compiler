@@ -157,6 +157,10 @@ def format_production(symbols: List[str]) -> str:
             result.append(sym.lower())
     return ' '.join(result)
 
+def escape_pipe(s: str) -> str:
+    """Escape pipe characters for markdown tables."""
+    return s.replace('|', '\\|')
+
 def parse_production_body(body: str) -> List[str]:
     """Parse production body into tokens."""
     # Handle empty production
@@ -352,7 +356,7 @@ def generate_cfg_doc(productions: List[Tuple[str, str]]) -> str:
         if tokens == ['λ']:
             prod_str = 'λ'
         else:
-            prod_str = format_production(tokens)
+            prod_str = escape_pipe(format_production(tokens))
         
         lines.append(f"| {i} | `<{rule}>` | -> | {prod_str} |")
     
@@ -370,7 +374,7 @@ def generate_first_doc(productions: List[Tuple[str, str]], first_sets: Dict[str,
     for i, (rule, body) in enumerate(productions, 1):
         tokens = parse_production_body(body)
         first_set = get_first_of_production(tokens, first_sets)
-        first_str = '{ ' + ', '.join(sorted(first_set)) + ' }'
+        first_str = escape_pipe('{ ' + ', '.join(sorted(first_set)) + ' }')
         
         lines.append(f"| {i} | `<{rule}>` | -> | {first_str} |")
     
@@ -395,7 +399,7 @@ def generate_follow_doc(productions: List[Tuple[str, str]], follow_sets: Dict[st
     
     for i, nt in enumerate(nonterminals, 1):
         follow_set = follow_sets.get(nt, set())
-        follow_str = '{ ' + ', '.join(sorted(follow_set)) + ' }' if follow_set else '{ }'
+        follow_str = escape_pipe('{ ' + ', '.join(sorted(follow_set)) + ' }') if follow_set else '{ }'
         lines.append(f"| {i} | `<{nt}>` | {follow_str} |")
     
     return '\n'.join(lines)
@@ -417,10 +421,10 @@ def generate_predict_doc(productions: List[Tuple[str, str]], first_sets: Dict[st
             # PREDICT = FOLLOW for epsilon productions
             predict_set = follow_sets.get(rule, set())
         else:
-            prod_str = format_production(tokens)
+            prod_str = escape_pipe(format_production(tokens))
             first_token = tokens[0]
             if first_token in TERMINAL_MAP:
-                calc = f'FIRST({TERMINAL_MAP[first_token]})'
+                calc = escape_pipe(f'FIRST({TERMINAL_MAP[first_token]})')
             else:
                 calc = f'FIRST(`<{first_token}>`)'
             
@@ -431,7 +435,7 @@ def generate_predict_doc(productions: List[Tuple[str, str]], first_sets: Dict[st
                 predict_set = predict_set - {'λ'}
                 predict_set.update(follow_sets.get(rule, set()))
         
-        predict_str = '{ ' + ', '.join(sorted(predict_set)) + ' }' if predict_set else '{ λ }'
+        predict_str = escape_pipe('{ ' + ', '.join(sorted(predict_set)) + ' }') if predict_set else '{ λ }'
         
         lines.append(f"| {i} | `<{rule}>` → {prod_str} | {calc} | {predict_str} |")
     
