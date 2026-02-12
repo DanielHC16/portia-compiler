@@ -33,7 +33,7 @@ global_section: global_decl global_section
               | CHAR ID char_array_with_init SEMICOLON global_section
               | STRING ID string_array_with_init SEMICOLON global_section
               | BOOL ID bool_array_with_init SEMICOLON global_section
-              | WEAVE ID LBRACE field_list RBRACE SEMICOLON global_section
+              | WEAVE ID LBRACE field_list RBRACE global_section
               | ID weave_inst_decl global_section
               | function_decl func_and_main
               | INT MAIN LPAREN RPAREN LBRACE main_body RBRACE
@@ -1204,7 +1204,7 @@ typed_string_cont: CONCAT typed_string_operand typed_string_cont
 
 typed_string_operand: STRINGLIT
                     | CHARLIT
-                    | ID
+                    | ID str_operand_id_tail
                     | STRING LPAREN expression RPAREN
                     | CHAR LPAREN expression RPAREN
                     | LPAREN typed_string_operand typed_string_cont RPAREN
@@ -1219,6 +1219,16 @@ typed_string_operand: STRINGLIT
                     | FLOAT LPAREN expression RPAREN
                     | DOUBLE LPAREN expression RPAREN
                     | BOOL LPAREN expression RPAREN
+
+// String operand ID tail - dedicated rules to avoid LALR conflicts
+str_operand_id_tail: DOT ID str_operand_id_tail
+                   | LBRACK array_index RBRACK str_operand_arr_tail
+                   | LPAREN arg_list RPAREN str_operand_id_tail
+                   |
+
+str_operand_arr_tail: DOT ID str_operand_id_tail
+                    | LBRACK array_index RBRACK str_operand_arr_tail
+                    |
 
 // ============================================
 // NUMERIC CONTINUATION (arithmetic + optional cmp/bool)
@@ -1775,9 +1785,10 @@ stmt_concat_tail_typed: CONCAT stmt_string_operand stmt_concat_tail_typed
                       |
 
 // String operand for concat RHS - allows any value (implicit string conversion)
+// Supports weave field access (id.id) via str_operand_id_tail
 stmt_string_operand: STRINGLIT
                    | CHARLIT
-                   | ID
+                   | ID str_operand_id_tail
                    | STRING LPAREN arg_expr RPAREN
                    | CHAR LPAREN arg_expr RPAREN
                    | LPAREN stmt_string_operand stmt_concat_tail_typed RPAREN
@@ -2042,10 +2053,10 @@ arg_toplevel_paren_cont: arg_arith_ops arg_after_arith
 arg_concat_tail_typed: CONCAT arg_string_operand arg_concat_tail_typed
                      |
 
-// String operand for concat RHS
+// String operand for concat RHS - supports weave field access (id.id)
 arg_string_operand: STRINGLIT
                   | CHARLIT
-                  | ID
+                  | ID str_operand_id_tail
                   | STRING LPAREN arg_expr RPAREN
                   | CHAR LPAREN arg_expr RPAREN
                   | LPAREN arg_string_operand arg_concat_tail_typed RPAREN

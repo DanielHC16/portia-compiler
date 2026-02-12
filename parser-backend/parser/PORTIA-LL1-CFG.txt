@@ -6,7 +6,7 @@ This document is a STRICT MIRROR of the Lark grammar (portia.lark).
 Every production listed here corresponds directly to a rule in the implementation.
 The grammar, documentation, and parser describe the SAME language.
 
-Last synchronized: 2025-02-12 (++/-- in condition comparisons)
+Last synchronized: 2025-02-12 (weave no semicolon; id.id in string operands)
 
 --------------------------------------------------------------------------------
 NOTATION
@@ -73,7 +73,7 @@ SECTION 1: PROGRAM STRUCTURE
 <global_section> -> char id <char_array_with_init> ; <global_section>
 <global_section> -> string id <string_array_with_init> ; <global_section>
 <global_section> -> bool id <bool_array_with_init> ; <global_section>
-<global_section> -> weave id { <field_list> } ; <global_section>
+<global_section> -> weave id { <field_list> } <global_section>
 <global_section> -> id <weave_inst_decl> <global_section>
 <global_section> -> <function_decl> <func_and_main>
 <global_section> -> int main ( ) { <main_body> }
@@ -587,6 +587,12 @@ SECTION 9: EXPRESSIONS
 // [Complete continuation rules in portia.lark:
 //  typed_string_cont, typed_numeric_cont, typed_bool_cont,
 //  typed_id_cont, typed_paren_cont, typed_postfix_chain, etc.]
+//
+// STRING CONCAT OPERAND (supports weave field access id.id):
+// <typed_string_cont> -> .. <typed_string_operand> <typed_string_cont> | lambda
+// <typed_string_operand> -> stringlit | charlit | id <str_operand_id_tail> | casts | literals | parens
+// <str_operand_id_tail> -> . id <str_operand_id_tail> | [ <array_index> ] <str_operand_arr_tail> | ( <arg_list> ) ... | lambda
+// <str_operand_arr_tail> -> . id <str_operand_id_tail> | [ <array_index> ] ... | lambda
 
 --------------------------------------------------------------------------------
 9.3 Typed Return Expressions

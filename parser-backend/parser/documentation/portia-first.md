@@ -702,873 +702,880 @@
 | 698 | `<typed_string_operand>` | -> | { float } |
 | 699 | `<typed_string_operand>` | -> | { double } |
 | 700 | `<typed_string_operand>` | -> | { bool } |
-| 701 | `<typed_numeric_cont>` | -> | { %, *, +, -, / } |
-| 702 | `<typed_numeric_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 703 | `<typed_numeric_cont>` | -> | { &&, ||, λ } |
-| 704 | `<typed_arith_ops>` | -> | { + } |
-| 705 | `<typed_arith_ops>` | -> | { - } |
-| 706 | `<typed_arith_ops>` | -> | { * } |
-| 707 | `<typed_arith_ops>` | -> | { / } |
-| 708 | `<typed_arith_ops>` | -> | { % } |
-| 709 | `<typed_numeric_add_ops>` | -> | { + } |
-| 710 | `<typed_numeric_add_ops>` | -> | { - } |
-| 711 | `<typed_numeric_add_ops>` | -> | { λ } |
-| 712 | `<typed_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
-| 713 | `<typed_after_arith>` | -> | { &&, ||, λ } |
-| 714 | `<typed_neg_numeric_cont>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 715 | `<typed_bool_cont>` | -> | { &&, ||, λ } |
-| 716 | `<typed_bool_tail_opt>` | -> | { && } |
-| 717 | `<typed_bool_tail_opt>` | -> | { || } |
-| 718 | `<typed_bool_tail_opt>` | -> | { λ } |
-| 719 | `<typed_bool_or_tail_opt>` | -> | { || } |
-| 720 | `<typed_bool_or_tail_opt>` | -> | { λ } |
-| 721 | `<typed_bool_term>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 722 | `<typed_bool_and_tail>` | -> | { && } |
-| 723 | `<typed_bool_and_tail>` | -> | { λ } |
-| 724 | `<typed_bool_or_tail>` | -> | { || } |
-| 725 | `<typed_bool_or_tail>` | -> | { λ } |
-| 726 | `<typed_bool_eq>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 727 | `<typed_bool_eq_tail>` | -> | { == } |
-| 728 | `<typed_bool_eq_tail>` | -> | { != } |
-| 729 | `<typed_bool_eq_tail>` | -> | { λ } |
-| 730 | `<typed_bool_factor>` | -> | { ! } |
-| 731 | `<typed_bool_factor>` | -> | { (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 732 | `<typed_bool_atom>` | -> | { true } |
-| 733 | `<typed_bool_atom>` | -> | { false } |
-| 734 | `<typed_bool_atom>` | -> | { id } |
-| 735 | `<typed_bool_atom>` | -> | { intlit } |
-| 736 | `<typed_bool_atom>` | -> | { longlit } |
-| 737 | `<typed_bool_atom>` | -> | { floatlit } |
-| 738 | `<typed_bool_atom>` | -> | { doublelit } |
-| 739 | `<typed_bool_atom>` | -> | { - } |
-| 740 | `<typed_bool_atom>` | -> | { ( } |
-| 741 | `<typed_bool_atom>` | -> | { int } |
-| 742 | `<typed_bool_atom>` | -> | { long } |
-| 743 | `<typed_bool_atom>` | -> | { float } |
-| 744 | `<typed_bool_atom>` | -> | { double } |
-| 745 | `<typed_bool_paren>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 746 | `<typed_bool_and_or_tail>` | -> | { && } |
-| 747 | `<typed_bool_and_or_tail>` | -> | { || } |
-| 748 | `<typed_bool_and_or_tail>` | -> | { λ } |
-| 749 | `<typed_bool_id_cont>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
-| 750 | `<typed_bool_id_cont>` | -> | { (, ++, --, ., [, λ } |
-| 751 | `<typed_numeric_arith_cmp>` | -> | { + } |
-| 752 | `<typed_numeric_arith_cmp>` | -> | { - } |
-| 753 | `<typed_numeric_arith_cmp>` | -> | { * } |
-| 754 | `<typed_numeric_arith_cmp>` | -> | { / } |
-| 755 | `<typed_numeric_arith_cmp>` | -> | { % } |
-| 756 | `<typed_numeric_arith_cmp>` | -> | { !=, <, <=, ==, >, >= } |
-| 757 | `<typed_numeric_add_cmp>` | -> | { + } |
-| 758 | `<typed_numeric_add_cmp>` | -> | { - } |
-| 759 | `<typed_numeric_add_cmp>` | -> | { λ } |
-| 760 | `<typed_numeric_cmp_required>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
-| 761 | `<typed_numeric_lit_arith>` | -> | { * } |
-| 762 | `<typed_numeric_lit_arith>` | -> | { / } |
-| 763 | `<typed_numeric_lit_arith>` | -> | { % } |
-| 764 | `<typed_numeric_lit_arith>` | -> | { + } |
-| 765 | `<typed_numeric_lit_arith>` | -> | { - } |
-| 766 | `<typed_numeric_lit_arith>` | -> | { λ } |
-| 767 | `<typed_numeric_neg_cmp>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 768 | `<typed_id_cont>` | -> | { %, *, +, -, / } |
-| 769 | `<typed_id_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 770 | `<typed_id_cont>` | -> | { ++ } |
-| 771 | `<typed_id_cont>` | -> | { -- } |
-| 772 | `<typed_id_cont>` | -> | { [ } |
-| 773 | `<typed_id_cont>` | -> | { . } |
-| 774 | `<typed_id_cont>` | -> | { ( } |
-| 775 | `<typed_id_cont>` | -> | { .. } |
-| 776 | `<typed_id_cont>` | -> | { &&, ||, λ } |
-| 777 | `<typed_id_arr_cont>` | -> | { [ } |
-| 778 | `<typed_id_arr_cont>` | -> | { !=, %, &&, (, *, +, -, ., .., /, <, <=, ==, >, >=, ||, λ } |
-| 779 | `<typed_id_arr2_cont>` | -> | { !=, %, &&, (, *, +, -, ., .., /, <, <=, ==, >, >=, ||, λ } |
-| 780 | `<typed_id_postfix_cont>` | -> | { . } |
-| 781 | `<typed_id_postfix_cont>` | -> | { ( } |
-| 782 | `<typed_id_postfix_cont>` | -> | { %, *, +, -, / } |
-| 783 | `<typed_id_postfix_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 784 | `<typed_id_postfix_cont>` | -> | { .. } |
-| 785 | `<typed_id_postfix_cont>` | -> | { &&, ||, λ } |
-| 786 | `<typed_id_field_cont>` | -> | { [ } |
-| 787 | `<typed_id_field_cont>` | -> | { . } |
-| 788 | `<typed_id_field_cont>` | -> | { ( } |
-| 789 | `<typed_id_field_cont>` | -> | { %, *, +, -, / } |
-| 790 | `<typed_id_field_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 791 | `<typed_id_field_cont>` | -> | { .. } |
-| 792 | `<typed_id_field_cont>` | -> | { &&, ||, λ } |
-| 793 | `<typed_id_call_cont>` | -> | { [ } |
-| 794 | `<typed_id_call_cont>` | -> | { . } |
-| 795 | `<typed_id_call_cont>` | -> | { ( } |
-| 796 | `<typed_id_call_cont>` | -> | { %, *, +, -, / } |
-| 797 | `<typed_id_call_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 798 | `<typed_id_call_cont>` | -> | { .. } |
-| 799 | `<typed_id_call_cont>` | -> | { &&, ||, λ } |
-| 800 | `<typed_paren_cont>` | -> | { !, (, -, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 801 | `<typed_paren_after>` | -> | { %, *, +, -, / } |
-| 802 | `<typed_paren_after>` | -> | { !=, <, <=, ==, >, >= } |
-| 803 | `<typed_paren_after>` | -> | { .. } |
-| 804 | `<typed_paren_after>` | -> | { [ } |
-| 805 | `<typed_paren_after>` | -> | { . } |
-| 806 | `<typed_paren_after>` | -> | { ( } |
-| 807 | `<typed_paren_after>` | -> | { &&, ||, λ } |
-| 808 | `<typed_paren_arr_cont>` | -> | { [ } |
-| 809 | `<typed_paren_arr_cont>` | -> | { !=, %, (, *, +, -, ., /, <, <=, ==, >, >=, λ } |
-| 810 | `<typed_paren_arr2_cont>` | -> | { !=, %, (, *, +, -, ., /, <, <=, ==, >, >=, λ } |
-| 811 | `<typed_paren_postfix_cont>` | -> | { . } |
-| 812 | `<typed_paren_postfix_cont>` | -> | { ( } |
-| 813 | `<typed_paren_postfix_cont>` | -> | { %, *, +, -, / } |
-| 814 | `<typed_paren_postfix_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 815 | `<typed_paren_postfix_cont>` | -> | { λ } |
-| 816 | `<typed_paren_field_cont>` | -> | { [ } |
-| 817 | `<typed_paren_field_cont>` | -> | { . } |
-| 818 | `<typed_paren_field_cont>` | -> | { ( } |
-| 819 | `<typed_paren_field_cont>` | -> | { %, *, +, -, / } |
-| 820 | `<typed_paren_field_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 821 | `<typed_paren_field_cont>` | -> | { λ } |
-| 822 | `<typed_paren_call_cont>` | -> | { [ } |
-| 823 | `<typed_paren_call_cont>` | -> | { . } |
-| 824 | `<typed_paren_call_cont>` | -> | { ( } |
-| 825 | `<typed_paren_call_cont>` | -> | { %, *, +, -, / } |
-| 826 | `<typed_paren_call_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 827 | `<typed_paren_call_cont>` | -> | { λ } |
-| 828 | `<typed_numeric_add_expr>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 829 | `<typed_numeric_add_tail>` | -> | { + } |
-| 830 | `<typed_numeric_add_tail>` | -> | { - } |
-| 831 | `<typed_numeric_add_tail>` | -> | { λ } |
-| 832 | `<typed_numeric_mul_expr>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 833 | `<typed_numeric_mul_tail>` | -> | { * } |
-| 834 | `<typed_numeric_mul_tail>` | -> | { / } |
-| 835 | `<typed_numeric_mul_tail>` | -> | { % } |
-| 836 | `<typed_numeric_mul_tail>` | -> | { λ } |
-| 837 | `<typed_numeric_unary_expr>` | -> | { ! } |
-| 838 | `<typed_numeric_unary_expr>` | -> | { - } |
-| 839 | `<typed_numeric_unary_expr>` | -> | { ++ } |
-| 840 | `<typed_numeric_unary_expr>` | -> | { -- } |
-| 841 | `<typed_numeric_unary_expr>` | -> | { (, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 842 | `<typed_numeric_postfix_expr>` | -> | { intlit } |
-| 843 | `<typed_numeric_postfix_expr>` | -> | { longlit } |
-| 844 | `<typed_numeric_postfix_expr>` | -> | { floatlit } |
-| 845 | `<typed_numeric_postfix_expr>` | -> | { doublelit } |
-| 846 | `<typed_numeric_postfix_expr>` | -> | { id } |
-| 847 | `<typed_numeric_postfix_expr>` | -> | { ( } |
-| 848 | `<typed_numeric_postfix_expr>` | -> | { int } |
-| 849 | `<typed_numeric_postfix_expr>` | -> | { long } |
-| 850 | `<typed_numeric_postfix_expr>` | -> | { float } |
-| 851 | `<typed_numeric_postfix_expr>` | -> | { double } |
-| 852 | `<typed_cmp_op>` | -> | { < } |
-| 853 | `<typed_cmp_op>` | -> | { > } |
-| 854 | `<typed_cmp_op>` | -> | { <= } |
-| 855 | `<typed_cmp_op>` | -> | { >= } |
-| 856 | `<typed_cmp_op>` | -> | { == } |
-| 857 | `<typed_cmp_op>` | -> | { != } |
-| 858 | `<typed_postfix_chain>` | -> | { [ } |
-| 859 | `<typed_postfix_chain>` | -> | { . } |
-| 860 | `<typed_postfix_chain>` | -> | { ( } |
-| 861 | `<typed_postfix_chain>` | -> | { ++ } |
-| 862 | `<typed_postfix_chain>` | -> | { -- } |
-| 863 | `<typed_postfix_chain>` | -> | { λ } |
-| 864 | `<typed_postfix_after_arr>` | -> | { [ } |
-| 865 | `<typed_postfix_after_arr>` | -> | { . } |
-| 866 | `<typed_postfix_after_arr>` | -> | { ( } |
-| 867 | `<typed_postfix_after_arr>` | -> | { ++ } |
-| 868 | `<typed_postfix_after_arr>` | -> | { -- } |
-| 869 | `<typed_postfix_after_arr>` | -> | { λ } |
-| 870 | `<array_index>` | -> | { intlit } |
-| 871 | `<array_index>` | -> | { id } |
-| 872 | `<arg_list>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 873 | `<arg_list>` | -> | { λ } |
-| 874 | `<arg_tail>` | -> | { , } |
-| 875 | `<arg_tail>` | -> | { λ } |
-| 876 | `<effect_stmt>` | -> | { ++ } |
-| 877 | `<effect_stmt>` | -> | { -- } |
-| 878 | `<effect_stmt>` | -> | { id } |
-| 879 | `<effect_pre_chain>` | -> | { [ } |
-| 880 | `<effect_pre_chain>` | -> | { . } |
-| 881 | `<effect_pre_chain>` | -> | { λ } |
-| 882 | `<effect_pre_arr_chain>` | -> | { [ } |
-| 883 | `<effect_pre_arr_chain>` | -> | { . } |
-| 884 | `<effect_pre_arr_chain>` | -> | { λ } |
-| 885 | `<effect_id_cont>` | -> | { = } |
-| 886 | `<effect_id_cont>` | -> | { += } |
-| 887 | `<effect_id_cont>` | -> | { -= } |
-| 888 | `<effect_id_cont>` | -> | { *= } |
-| 889 | `<effect_id_cont>` | -> | { /= } |
-| 890 | `<effect_id_cont>` | -> | { %= } |
-| 891 | `<effect_id_cont>` | -> | { ++ } |
-| 892 | `<effect_id_cont>` | -> | { -- } |
-| 893 | `<effect_id_cont>` | -> | { ( } |
-| 894 | `<effect_id_cont>` | -> | { [ } |
-| 895 | `<effect_id_cont>` | -> | { . } |
-| 896 | `<effect_post_call>` | -> | { . } |
-| 897 | `<effect_post_call>` | -> | { [ } |
-| 898 | `<effect_post_call>` | -> | { λ } |
-| 899 | `<effect_post_call_member>` | -> | { ( } |
-| 900 | `<effect_post_call_member>` | -> | { [ } |
-| 901 | `<effect_post_call_member>` | -> | { . } |
-| 902 | `<effect_post_call_member>` | -> | { λ } |
-| 903 | `<effect_post_call_arr>` | -> | { [ } |
-| 904 | `<effect_post_call_arr>` | -> | { (, ., λ } |
-| 905 | `<effect_post_call_arr_cont>` | -> | { . } |
-| 906 | `<effect_post_call_arr_cont>` | -> | { ( } |
-| 907 | `<effect_post_call_arr_cont>` | -> | { λ } |
-| 908 | `<effect_post_arr>` | -> | { [ } |
-| 909 | `<effect_post_arr>` | -> | { %=, (, *=, ++, +=, --, -=, ., /=, = } |
-| 910 | `<effect_post_arr_2d>` | -> | { %=, (, *=, ++, +=, --, -=, ., /=, = } |
-| 911 | `<effect_arr_effect>` | -> | { = } |
-| 912 | `<effect_arr_effect>` | -> | { += } |
-| 913 | `<effect_arr_effect>` | -> | { -= } |
-| 914 | `<effect_arr_effect>` | -> | { *= } |
-| 915 | `<effect_arr_effect>` | -> | { /= } |
-| 916 | `<effect_arr_effect>` | -> | { %= } |
-| 917 | `<effect_arr_effect>` | -> | { ++ } |
-| 918 | `<effect_arr_effect>` | -> | { -- } |
-| 919 | `<effect_arr_effect>` | -> | { ( } |
-| 920 | `<effect_arr_effect>` | -> | { . } |
-| 921 | `<effect_post_member>` | -> | { = } |
-| 922 | `<effect_post_member>` | -> | { += } |
-| 923 | `<effect_post_member>` | -> | { -= } |
-| 924 | `<effect_post_member>` | -> | { *= } |
-| 925 | `<effect_post_member>` | -> | { /= } |
-| 926 | `<effect_post_member>` | -> | { %= } |
-| 927 | `<effect_post_member>` | -> | { ++ } |
-| 928 | `<effect_post_member>` | -> | { -- } |
-| 929 | `<effect_post_member>` | -> | { ( } |
-| 930 | `<effect_post_member>` | -> | { [ } |
-| 931 | `<effect_post_member>` | -> | { . } |
-| 932 | `<stmt_assign_expr>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 933 | `<stmt_typed_rhs>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 934 | `<stmt_bool_or_concat>` | -> | { stringlit } |
-| 935 | `<stmt_bool_or_concat>` | -> | { charlit } |
-| 936 | `<stmt_bool_or_concat>` | -> | { string } |
-| 937 | `<stmt_bool_or_concat>` | -> | { intlit } |
-| 938 | `<stmt_bool_or_concat>` | -> | { longlit } |
-| 939 | `<stmt_bool_or_concat>` | -> | { floatlit } |
-| 940 | `<stmt_bool_or_concat>` | -> | { doublelit } |
-| 941 | `<stmt_bool_or_concat>` | -> | { - } |
-| 942 | `<stmt_bool_or_concat>` | -> | { true } |
-| 943 | `<stmt_bool_or_concat>` | -> | { false } |
-| 944 | `<stmt_bool_or_concat>` | -> | { ! } |
-| 945 | `<stmt_bool_or_concat>` | -> | { int } |
-| 946 | `<stmt_bool_or_concat>` | -> | { long } |
-| 947 | `<stmt_bool_or_concat>` | -> | { float } |
-| 948 | `<stmt_bool_or_concat>` | -> | { double } |
-| 949 | `<stmt_bool_or_concat>` | -> | { char } |
-| 950 | `<stmt_bool_or_concat>` | -> | { bool } |
-| 951 | `<stmt_bool_or_concat>` | -> | { id } |
-| 952 | `<stmt_bool_or_concat>` | -> | { ( } |
-| 953 | `<stmt_bool_or_concat>` | -> | { ++ } |
-| 954 | `<stmt_bool_or_concat>` | -> | { -- } |
-| 955 | `<stmt_numeric_or_bool>` | -> | { %, *, +, -, / } |
-| 956 | `<stmt_numeric_or_bool>` | -> | { !=, <, <=, ==, >, >= } |
-| 957 | `<stmt_numeric_or_bool>` | -> | { &&, ||, λ } |
-| 958 | `<stmt_arith_ops>` | -> | { + } |
-| 959 | `<stmt_arith_ops>` | -> | { - } |
-| 960 | `<stmt_arith_ops>` | -> | { * } |
-| 961 | `<stmt_arith_ops>` | -> | { / } |
-| 962 | `<stmt_arith_ops>` | -> | { % } |
-| 963 | `<stmt_numeric_add_ops>` | -> | { + } |
-| 964 | `<stmt_numeric_add_ops>` | -> | { - } |
-| 965 | `<stmt_numeric_add_ops>` | -> | { λ } |
-| 966 | `<stmt_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
-| 967 | `<stmt_after_arith>` | -> | { &&, ||, λ } |
-| 968 | `<stmt_neg_numeric_or_bool>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 969 | `<stmt_bool_tail_opt>` | -> | { && } |
-| 970 | `<stmt_bool_tail_opt>` | -> | { || } |
-| 971 | `<stmt_bool_tail_opt>` | -> | { λ } |
-| 972 | `<stmt_bool_or_tail_opt>` | -> | { || } |
-| 973 | `<stmt_bool_or_tail_opt>` | -> | { λ } |
-| 974 | `<stmt_id_toplevel_cont>` | -> | { %, *, +, -, / } |
-| 975 | `<stmt_id_toplevel_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 976 | `<stmt_id_toplevel_cont>` | -> | { ++ } |
-| 977 | `<stmt_id_toplevel_cont>` | -> | { -- } |
-| 978 | `<stmt_id_toplevel_cont>` | -> | { !=, %, &&, (, *, +, ++, -, --, ., .., /, <, <=, ==, >, >=, [, ||, λ } |
-| 979 | `<stmt_id_after_postfix>` | -> | { %, *, +, -, / } |
-| 980 | `<stmt_id_after_postfix>` | -> | { !=, <, <=, ==, >, >= } |
-| 981 | `<stmt_id_after_postfix>` | -> | { .. } |
-| 982 | `<stmt_id_after_postfix>` | -> | { ++ } |
-| 983 | `<stmt_id_after_postfix>` | -> | { -- } |
-| 984 | `<stmt_id_after_postfix>` | -> | { &&, ||, λ } |
-| 985 | `<stmt_paren_typed_content>` | -> | { stringlit } |
-| 986 | `<stmt_paren_typed_content>` | -> | { charlit } |
-| 987 | `<stmt_paren_typed_content>` | -> | { string } |
-| 988 | `<stmt_paren_typed_content>` | -> | { char } |
-| 989 | `<stmt_paren_typed_content>` | -> | { intlit } |
-| 990 | `<stmt_paren_typed_content>` | -> | { longlit } |
-| 991 | `<stmt_paren_typed_content>` | -> | { floatlit } |
-| 992 | `<stmt_paren_typed_content>` | -> | { doublelit } |
-| 993 | `<stmt_paren_typed_content>` | -> | { - } |
-| 994 | `<stmt_paren_typed_content>` | -> | { int } |
-| 995 | `<stmt_paren_typed_content>` | -> | { long } |
-| 996 | `<stmt_paren_typed_content>` | -> | { float } |
-| 997 | `<stmt_paren_typed_content>` | -> | { double } |
-| 998 | `<stmt_paren_typed_content>` | -> | { true } |
-| 999 | `<stmt_paren_typed_content>` | -> | { false } |
-| 1000 | `<stmt_paren_typed_content>` | -> | { ! } |
-| 1001 | `<stmt_paren_typed_content>` | -> | { bool } |
-| 1002 | `<stmt_paren_typed_content>` | -> | { id } |
-| 1003 | `<stmt_paren_typed_content>` | -> | { ( } |
-| 1004 | `<stmt_paren_typed_content>` | -> | { ++ } |
-| 1005 | `<stmt_paren_typed_content>` | -> | { -- } |
-| 1006 | `<stmt_paren_string_cont>` | -> | { .. } |
-| 1007 | `<stmt_paren_string_cont>` | -> | { λ } |
-| 1008 | `<stmt_paren_num_start>` | -> | { %, *, +, -, / } |
-| 1009 | `<stmt_paren_num_start>` | -> | { !=, <, <=, ==, >, >= } |
-| 1010 | `<stmt_paren_num_start>` | -> | { ) } |
-| 1011 | `<stmt_paren_arith_ops>` | -> | { + } |
-| 1012 | `<stmt_paren_arith_ops>` | -> | { - } |
-| 1013 | `<stmt_paren_arith_ops>` | -> | { * } |
-| 1014 | `<stmt_paren_arith_ops>` | -> | { / } |
-| 1015 | `<stmt_paren_arith_ops>` | -> | { % } |
-| 1016 | `<stmt_paren_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
-| 1017 | `<stmt_paren_after_arith>` | -> | { ) } |
-| 1018 | `<stmt_paren_neg_num>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1019 | `<stmt_paren_num_after_incr>` | -> | { %, *, +, -, / } |
-| 1020 | `<stmt_paren_num_after_incr>` | -> | { !=, <, <=, ==, >, >= } |
-| 1021 | `<stmt_paren_num_after_incr>` | -> | { ) } |
-| 1022 | `<stmt_paren_num_cont>` | -> | { %, *, +, -, / } |
-| 1023 | `<stmt_paren_num_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 1024 | `<stmt_paren_num_cont>` | -> | { &&, ||, λ } |
-| 1025 | `<stmt_paren_bool_tail>` | -> | { && } |
-| 1026 | `<stmt_paren_bool_tail>` | -> | { || } |
-| 1027 | `<stmt_paren_bool_tail>` | -> | { λ } |
-| 1028 | `<stmt_paren_bool_cont>` | -> | { && } |
-| 1029 | `<stmt_paren_bool_cont>` | -> | { || } |
-| 1030 | `<stmt_paren_bool_cont>` | -> | { λ } |
-| 1031 | `<stmt_paren_id_cont>` | -> | { %, *, +, -, / } |
-| 1032 | `<stmt_paren_id_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 1033 | `<stmt_paren_id_cont>` | -> | { (, ., [ } |
-| 1034 | `<stmt_paren_id_cont>` | -> | { ++ } |
-| 1035 | `<stmt_paren_id_cont>` | -> | { -- } |
-| 1036 | `<stmt_paren_id_cont>` | -> | { && } |
-| 1037 | `<stmt_paren_id_cont>` | -> | { || } |
-| 1038 | `<stmt_paren_id_cont>` | -> | { ) } |
-| 1039 | `<stmt_paren_postfix_nonnull>` | -> | { [ } |
-| 1040 | `<stmt_paren_postfix_nonnull>` | -> | { . } |
-| 1041 | `<stmt_paren_postfix_nonnull>` | -> | { ( } |
-| 1042 | `<stmt_paren_id_after_postfix>` | -> | { %, *, +, -, / } |
-| 1043 | `<stmt_paren_id_after_postfix>` | -> | { !=, <, <=, ==, >, >= } |
-| 1044 | `<stmt_paren_id_after_postfix>` | -> | { .. } |
-| 1045 | `<stmt_paren_id_after_postfix>` | -> | { && } |
-| 1046 | `<stmt_paren_id_after_postfix>` | -> | { || } |
-| 1047 | `<stmt_paren_id_after_postfix>` | -> | { ) } |
-| 1048 | `<stmt_paren_any_cont>` | -> | { %, *, +, -, / } |
-| 1049 | `<stmt_paren_any_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 1050 | `<stmt_paren_any_cont>` | -> | { .. } |
-| 1051 | `<stmt_paren_any_cont>` | -> | { &&, ||, λ } |
-| 1052 | `<stmt_concat_tail_typed>` | -> | { .. } |
-| 1053 | `<stmt_concat_tail_typed>` | -> | { λ } |
-| 1054 | `<stmt_string_operand>` | -> | { stringlit } |
-| 1055 | `<stmt_string_operand>` | -> | { charlit } |
-| 1056 | `<stmt_string_operand>` | -> | { id } |
-| 1057 | `<stmt_string_operand>` | -> | { string } |
-| 1058 | `<stmt_string_operand>` | -> | { char } |
-| 1059 | `<stmt_string_operand>` | -> | { ( } |
-| 1060 | `<stmt_string_operand>` | -> | { intlit } |
-| 1061 | `<stmt_string_operand>` | -> | { longlit } |
-| 1062 | `<stmt_string_operand>` | -> | { floatlit } |
-| 1063 | `<stmt_string_operand>` | -> | { doublelit } |
-| 1064 | `<stmt_string_operand>` | -> | { true } |
-| 1065 | `<stmt_string_operand>` | -> | { false } |
-| 1066 | `<stmt_string_operand>` | -> | { int } |
-| 1067 | `<stmt_string_operand>` | -> | { long } |
-| 1068 | `<stmt_string_operand>` | -> | { float } |
-| 1069 | `<stmt_string_operand>` | -> | { double } |
-| 1070 | `<stmt_string_operand>` | -> | { bool } |
-| 1071 | `<stmt_bool_term>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 1072 | `<stmt_bool_and_tail>` | -> | { && } |
-| 1073 | `<stmt_bool_and_tail>` | -> | { λ } |
-| 1074 | `<stmt_bool_or_tail>` | -> | { || } |
-| 1075 | `<stmt_bool_or_tail>` | -> | { λ } |
-| 1076 | `<stmt_bool_eq>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 1077 | `<stmt_bool_eq_tail>` | -> | { == } |
-| 1078 | `<stmt_bool_eq_tail>` | -> | { != } |
-| 1079 | `<stmt_bool_eq_tail>` | -> | { λ } |
-| 1080 | `<stmt_bool_factor>` | -> | { ! } |
-| 1081 | `<stmt_bool_factor>` | -> | { (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 1082 | `<stmt_bool_atom>` | -> | { true } |
-| 1083 | `<stmt_bool_atom>` | -> | { false } |
-| 1084 | `<stmt_bool_atom>` | -> | { id } |
-| 1085 | `<stmt_bool_atom>` | -> | { intlit } |
-| 1086 | `<stmt_bool_atom>` | -> | { longlit } |
-| 1087 | `<stmt_bool_atom>` | -> | { floatlit } |
-| 1088 | `<stmt_bool_atom>` | -> | { doublelit } |
-| 1089 | `<stmt_bool_atom>` | -> | { - } |
-| 1090 | `<stmt_bool_atom>` | -> | { ( } |
-| 1091 | `<stmt_bool_atom>` | -> | { int } |
-| 1092 | `<stmt_bool_atom>` | -> | { long } |
-| 1093 | `<stmt_bool_atom>` | -> | { float } |
-| 1094 | `<stmt_bool_atom>` | -> | { double } |
-| 1095 | `<stmt_bool_id_cont>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
-| 1096 | `<stmt_bool_id_cont>` | -> | { ++ } |
-| 1097 | `<stmt_bool_id_cont>` | -> | { -- } |
-| 1098 | `<stmt_bool_id_cont>` | -> | { (, ., [, λ } |
-| 1099 | `<stmt_numeric_arith_cmp>` | -> | { + } |
-| 1100 | `<stmt_numeric_arith_cmp>` | -> | { - } |
-| 1101 | `<stmt_numeric_arith_cmp>` | -> | { * } |
-| 1102 | `<stmt_numeric_arith_cmp>` | -> | { / } |
-| 1103 | `<stmt_numeric_arith_cmp>` | -> | { % } |
-| 1104 | `<stmt_numeric_arith_cmp>` | -> | { !=, <, <=, ==, >, >= } |
-| 1105 | `<stmt_numeric_add_cmp>` | -> | { + } |
-| 1106 | `<stmt_numeric_add_cmp>` | -> | { - } |
-| 1107 | `<stmt_numeric_add_cmp>` | -> | { λ } |
-| 1108 | `<stmt_numeric_cmp_required>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
-| 1109 | `<stmt_numeric_lit_arith>` | -> | { * } |
-| 1110 | `<stmt_numeric_lit_arith>` | -> | { / } |
-| 1111 | `<stmt_numeric_lit_arith>` | -> | { % } |
-| 1112 | `<stmt_numeric_lit_arith>` | -> | { + } |
-| 1113 | `<stmt_numeric_lit_arith>` | -> | { - } |
-| 1114 | `<stmt_numeric_lit_arith>` | -> | { λ } |
-| 1115 | `<stmt_numeric_neg_cmp>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1116 | `<stmt_cmp_op>` | -> | { < } |
-| 1117 | `<stmt_cmp_op>` | -> | { > } |
-| 1118 | `<stmt_cmp_op>` | -> | { <= } |
-| 1119 | `<stmt_cmp_op>` | -> | { >= } |
-| 1120 | `<stmt_cmp_op>` | -> | { == } |
-| 1121 | `<stmt_cmp_op>` | -> | { != } |
-| 1122 | `<stmt_bool_paren>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 1123 | `<stmt_bool_and_or_tail>` | -> | { && } |
-| 1124 | `<stmt_bool_and_or_tail>` | -> | { || } |
-| 1125 | `<stmt_bool_and_or_tail>` | -> | { λ } |
-| 1126 | `<numeric_mul_expr_stmt>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1127 | `<numeric_mul_tail_stmt>` | -> | { * } |
-| 1128 | `<numeric_mul_tail_stmt>` | -> | { / } |
-| 1129 | `<numeric_mul_tail_stmt>` | -> | { % } |
-| 1130 | `<numeric_mul_tail_stmt>` | -> | { λ } |
-| 1131 | `<numeric_add_expr_stmt>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1132 | `<numeric_add_tail_stmt>` | -> | { + } |
-| 1133 | `<numeric_add_tail_stmt>` | -> | { - } |
-| 1134 | `<numeric_add_tail_stmt>` | -> | { λ } |
-| 1135 | `<numeric_unary_expr_stmt>` | -> | { ! } |
-| 1136 | `<numeric_unary_expr_stmt>` | -> | { - } |
-| 1137 | `<numeric_unary_expr_stmt>` | -> | { (, ++, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1138 | `<numeric_postfix_expr_stmt>` | -> | { ( } |
-| 1139 | `<numeric_postfix_expr_stmt>` | -> | { int } |
-| 1140 | `<numeric_postfix_expr_stmt>` | -> | { long } |
-| 1141 | `<numeric_postfix_expr_stmt>` | -> | { float } |
-| 1142 | `<numeric_postfix_expr_stmt>` | -> | { double } |
-| 1143 | `<numeric_postfix_expr_stmt>` | -> | { ++ } |
-| 1144 | `<numeric_postfix_expr_stmt>` | -> | { -- } |
-| 1145 | `<numeric_postfix_expr_stmt>` | -> | { id } |
-| 1146 | `<numeric_postfix_expr_stmt>` | -> | { intlit } |
-| 1147 | `<numeric_postfix_expr_stmt>` | -> | { longlit } |
-| 1148 | `<numeric_postfix_expr_stmt>` | -> | { floatlit } |
-| 1149 | `<numeric_postfix_expr_stmt>` | -> | { doublelit } |
-| 1150 | `<stmt_id_postfix>` | -> | { ++ } |
-| 1151 | `<stmt_id_postfix>` | -> | { -- } |
-| 1152 | `<stmt_id_postfix>` | -> | { (, ., [, λ } |
-| 1153 | `<stmt_postfix_chain>` | -> | { [ } |
-| 1154 | `<stmt_postfix_chain>` | -> | { . } |
-| 1155 | `<stmt_postfix_chain>` | -> | { ( } |
-| 1156 | `<stmt_postfix_chain>` | -> | { λ } |
-| 1157 | `<stmt_array_access>` | -> | { [ } |
-| 1158 | `<stmt_array_access_dim2>` | -> | { [ } |
-| 1159 | `<stmt_array_access_dim2>` | -> | { λ } |
-| 1160 | `<stmt_postfix_after_arr>` | -> | { . } |
-| 1161 | `<stmt_postfix_after_arr>` | -> | { ( } |
-| 1162 | `<stmt_postfix_after_arr>` | -> | { ++ } |
-| 1163 | `<stmt_postfix_after_arr>` | -> | { -- } |
-| 1164 | `<stmt_postfix_after_arr>` | -> | { λ } |
-| 1165 | `<stmt_array_index>` | -> | { intlit } |
-| 1166 | `<stmt_array_index>` | -> | { id } |
-| 1167 | `<stmt_arg_list>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 1168 | `<stmt_arg_list>` | -> | { λ } |
-| 1169 | `<stmt_arg_tail>` | -> | { , } |
-| 1170 | `<stmt_arg_tail>` | -> | { λ } |
-| 1171 | `<arg_expr>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 1172 | `<arg_assign_tail>` | -> | { %=, *=, +=, -=, /=, = } |
-| 1173 | `<arg_assign_tail>` | -> | { λ } |
-| 1174 | `<arg_typed_rhs>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 1175 | `<arg_bool_or_concat>` | -> | { stringlit } |
-| 1176 | `<arg_bool_or_concat>` | -> | { charlit } |
-| 1177 | `<arg_bool_or_concat>` | -> | { string } |
-| 1178 | `<arg_bool_or_concat>` | -> | { intlit } |
-| 1179 | `<arg_bool_or_concat>` | -> | { longlit } |
-| 1180 | `<arg_bool_or_concat>` | -> | { floatlit } |
-| 1181 | `<arg_bool_or_concat>` | -> | { doublelit } |
-| 1182 | `<arg_bool_or_concat>` | -> | { - } |
-| 1183 | `<arg_bool_or_concat>` | -> | { true } |
-| 1184 | `<arg_bool_or_concat>` | -> | { false } |
-| 1185 | `<arg_bool_or_concat>` | -> | { ! } |
-| 1186 | `<arg_bool_or_concat>` | -> | { int } |
-| 1187 | `<arg_bool_or_concat>` | -> | { long } |
-| 1188 | `<arg_bool_or_concat>` | -> | { float } |
-| 1189 | `<arg_bool_or_concat>` | -> | { double } |
-| 1190 | `<arg_bool_or_concat>` | -> | { char } |
-| 1191 | `<arg_bool_or_concat>` | -> | { bool } |
-| 1192 | `<arg_bool_or_concat>` | -> | { id } |
-| 1193 | `<arg_bool_or_concat>` | -> | { ( } |
-| 1194 | `<arg_bool_or_concat>` | -> | { ++ } |
-| 1195 | `<arg_bool_or_concat>` | -> | { -- } |
-| 1196 | `<arg_numeric_or_bool>` | -> | { %, *, +, -, / } |
-| 1197 | `<arg_numeric_or_bool>` | -> | { !=, <, <=, ==, >, >= } |
-| 1198 | `<arg_numeric_or_bool>` | -> | { &&, ||, λ } |
-| 1199 | `<arg_arith_ops>` | -> | { + } |
-| 1200 | `<arg_arith_ops>` | -> | { - } |
-| 1201 | `<arg_arith_ops>` | -> | { * } |
-| 1202 | `<arg_arith_ops>` | -> | { / } |
-| 1203 | `<arg_arith_ops>` | -> | { % } |
-| 1204 | `<arg_numeric_add_ops>` | -> | { + } |
-| 1205 | `<arg_numeric_add_ops>` | -> | { - } |
-| 1206 | `<arg_numeric_add_ops>` | -> | { λ } |
-| 1207 | `<arg_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
-| 1208 | `<arg_after_arith>` | -> | { &&, ||, λ } |
-| 1209 | `<arg_neg_numeric_or_bool>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1210 | `<arg_bool_tail_opt>` | -> | { && } |
-| 1211 | `<arg_bool_tail_opt>` | -> | { || } |
-| 1212 | `<arg_bool_tail_opt>` | -> | { λ } |
-| 1213 | `<arg_bool_or_tail_opt>` | -> | { || } |
-| 1214 | `<arg_bool_or_tail_opt>` | -> | { λ } |
-| 1215 | `<arg_id_toplevel_cont>` | -> | { %, *, +, -, / } |
-| 1216 | `<arg_id_toplevel_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 1217 | `<arg_id_toplevel_cont>` | -> | { ++ } |
-| 1218 | `<arg_id_toplevel_cont>` | -> | { -- } |
-| 1219 | `<arg_id_toplevel_cont>` | -> | { !=, %, &&, (, *, +, -, ., .., /, <, <=, ==, >, >=, [, ||, λ } |
-| 1220 | `<arg_id_after_postfix>` | -> | { %, *, +, -, / } |
-| 1221 | `<arg_id_after_postfix>` | -> | { !=, <, <=, ==, >, >= } |
-| 1222 | `<arg_id_after_postfix>` | -> | { .. } |
-| 1223 | `<arg_id_after_postfix>` | -> | { &&, ||, λ } |
-| 1224 | `<arg_toplevel_paren>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 1225 | `<arg_toplevel_paren_cont>` | -> | { %, *, +, -, / } |
-| 1226 | `<arg_toplevel_paren_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 1227 | `<arg_toplevel_paren_cont>` | -> | { .. } |
-| 1228 | `<arg_toplevel_paren_cont>` | -> | { &&, ||, λ } |
-| 1229 | `<arg_concat_tail_typed>` | -> | { .. } |
-| 1230 | `<arg_concat_tail_typed>` | -> | { λ } |
-| 1231 | `<arg_string_operand>` | -> | { stringlit } |
-| 1232 | `<arg_string_operand>` | -> | { charlit } |
-| 1233 | `<arg_string_operand>` | -> | { id } |
-| 1234 | `<arg_string_operand>` | -> | { string } |
-| 1235 | `<arg_string_operand>` | -> | { char } |
-| 1236 | `<arg_string_operand>` | -> | { ( } |
-| 1237 | `<arg_bool_term>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 1238 | `<arg_bool_and_tail>` | -> | { && } |
-| 1239 | `<arg_bool_and_tail>` | -> | { λ } |
-| 1240 | `<arg_bool_or_tail>` | -> | { || } |
-| 1241 | `<arg_bool_or_tail>` | -> | { λ } |
-| 1242 | `<arg_bool_eq>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 1243 | `<arg_bool_eq_tail>` | -> | { == } |
-| 1244 | `<arg_bool_eq_tail>` | -> | { != } |
-| 1245 | `<arg_bool_eq_tail>` | -> | { λ } |
-| 1246 | `<arg_bool_factor>` | -> | { ! } |
-| 1247 | `<arg_bool_factor>` | -> | { (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 1248 | `<arg_bool_atom>` | -> | { true } |
-| 1249 | `<arg_bool_atom>` | -> | { false } |
-| 1250 | `<arg_bool_atom>` | -> | { id } |
-| 1251 | `<arg_bool_atom>` | -> | { intlit } |
-| 1252 | `<arg_bool_atom>` | -> | { longlit } |
-| 1253 | `<arg_bool_atom>` | -> | { floatlit } |
-| 1254 | `<arg_bool_atom>` | -> | { doublelit } |
-| 1255 | `<arg_bool_atom>` | -> | { - } |
-| 1256 | `<arg_bool_atom>` | -> | { ( } |
-| 1257 | `<arg_bool_atom>` | -> | { int } |
-| 1258 | `<arg_bool_atom>` | -> | { long } |
-| 1259 | `<arg_bool_atom>` | -> | { float } |
-| 1260 | `<arg_bool_atom>` | -> | { double } |
-| 1261 | `<arg_bool_paren>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
-| 1262 | `<arg_bool_and_or_tail>` | -> | { && } |
-| 1263 | `<arg_bool_and_or_tail>` | -> | { || } |
-| 1264 | `<arg_bool_and_or_tail>` | -> | { λ } |
-| 1265 | `<arg_bool_id_cont>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
-| 1266 | `<arg_bool_id_cont>` | -> | { ++ } |
-| 1267 | `<arg_bool_id_cont>` | -> | { -- } |
-| 1268 | `<arg_bool_id_cont>` | -> | { (, ., [, λ } |
-| 1269 | `<arg_numeric_arith_cmp>` | -> | { + } |
-| 1270 | `<arg_numeric_arith_cmp>` | -> | { - } |
-| 1271 | `<arg_numeric_arith_cmp>` | -> | { * } |
-| 1272 | `<arg_numeric_arith_cmp>` | -> | { / } |
-| 1273 | `<arg_numeric_arith_cmp>` | -> | { % } |
-| 1274 | `<arg_numeric_arith_cmp>` | -> | { !=, <, <=, ==, >, >= } |
-| 1275 | `<arg_numeric_add_cmp>` | -> | { + } |
-| 1276 | `<arg_numeric_add_cmp>` | -> | { - } |
-| 1277 | `<arg_numeric_add_cmp>` | -> | { λ } |
-| 1278 | `<arg_numeric_cmp_required>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
-| 1279 | `<arg_numeric_lit_arith>` | -> | { * } |
-| 1280 | `<arg_numeric_lit_arith>` | -> | { / } |
-| 1281 | `<arg_numeric_lit_arith>` | -> | { % } |
-| 1282 | `<arg_numeric_lit_arith>` | -> | { + } |
-| 1283 | `<arg_numeric_lit_arith>` | -> | { - } |
-| 1284 | `<arg_numeric_lit_arith>` | -> | { λ } |
-| 1285 | `<arg_numeric_neg_cmp>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1286 | `<arg_cmp_op>` | -> | { < } |
-| 1287 | `<arg_cmp_op>` | -> | { > } |
-| 1288 | `<arg_cmp_op>` | -> | { <= } |
-| 1289 | `<arg_cmp_op>` | -> | { >= } |
-| 1290 | `<arg_cmp_op>` | -> | { == } |
-| 1291 | `<arg_cmp_op>` | -> | { != } |
-| 1292 | `<numeric_mul_expr_arg>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1293 | `<numeric_mul_tail_arg>` | -> | { * } |
-| 1294 | `<numeric_mul_tail_arg>` | -> | { / } |
-| 1295 | `<numeric_mul_tail_arg>` | -> | { % } |
-| 1296 | `<numeric_mul_tail_arg>` | -> | { λ } |
-| 1297 | `<numeric_add_expr_arg>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1298 | `<numeric_add_tail_arg>` | -> | { + } |
-| 1299 | `<numeric_add_tail_arg>` | -> | { - } |
-| 1300 | `<numeric_add_tail_arg>` | -> | { λ } |
-| 1301 | `<numeric_unary_expr_arg>` | -> | { ! } |
-| 1302 | `<numeric_unary_expr_arg>` | -> | { - } |
-| 1303 | `<numeric_unary_expr_arg>` | -> | { (, ++, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
-| 1304 | `<numeric_postfix_expr_arg>` | -> | { ( } |
-| 1305 | `<numeric_postfix_expr_arg>` | -> | { int } |
-| 1306 | `<numeric_postfix_expr_arg>` | -> | { long } |
-| 1307 | `<numeric_postfix_expr_arg>` | -> | { float } |
-| 1308 | `<numeric_postfix_expr_arg>` | -> | { double } |
-| 1309 | `<numeric_postfix_expr_arg>` | -> | { ++ } |
-| 1310 | `<numeric_postfix_expr_arg>` | -> | { -- } |
-| 1311 | `<numeric_postfix_expr_arg>` | -> | { id } |
-| 1312 | `<numeric_postfix_expr_arg>` | -> | { intlit } |
-| 1313 | `<numeric_postfix_expr_arg>` | -> | { longlit } |
-| 1314 | `<numeric_postfix_expr_arg>` | -> | { floatlit } |
-| 1315 | `<numeric_postfix_expr_arg>` | -> | { doublelit } |
-| 1316 | `<arg_id_postfix>` | -> | { ++ } |
-| 1317 | `<arg_id_postfix>` | -> | { -- } |
-| 1318 | `<arg_id_postfix>` | -> | { (, ., [, λ } |
-| 1319 | `<arg_postfix_chain>` | -> | { [ } |
-| 1320 | `<arg_postfix_chain>` | -> | { . } |
-| 1321 | `<arg_postfix_chain>` | -> | { ( } |
-| 1322 | `<arg_postfix_chain>` | -> | { λ } |
-| 1323 | `<arg_array_access>` | -> | { [ } |
-| 1324 | `<arg_array_access_dim2>` | -> | { [ } |
-| 1325 | `<arg_array_access_dim2>` | -> | { λ } |
-| 1326 | `<arg_postfix_after_arr>` | -> | { . } |
-| 1327 | `<arg_postfix_after_arr>` | -> | { ( } |
-| 1328 | `<arg_postfix_after_arr>` | -> | { λ } |
-| 1329 | `<arg_array_index>` | -> | { intlit } |
-| 1330 | `<arg_array_index>` | -> | { id } |
-| 1331 | `<arg_nested_list>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 1332 | `<arg_nested_list>` | -> | { λ } |
-| 1333 | `<arg_nested_tail>` | -> | { , } |
-| 1334 | `<arg_nested_tail>` | -> | { λ } |
-| 1335 | `<io_stmt>` | -> | { trap } |
-| 1336 | `<io_stmt>` | -> | { thread } |
-| 1337 | `<io_stmt>` | -> | { threadln } |
-| 1338 | `<trap_target>` | -> | { id } |
-| 1339 | `<trap_target_tail>` | -> | { [ } |
-| 1340 | `<trap_target_tail>` | -> | { . } |
-| 1341 | `<trap_target_tail>` | -> | { λ } |
-| 1342 | `<print_args>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 1343 | `<print_tail>` | -> | { , } |
-| 1344 | `<print_tail>` | -> | { λ } |
-| 1345 | `<ctrl_struct>` | -> | { if } |
-| 1346 | `<ctrl_struct>` | -> | { switch } |
-| 1347 | `<ctrl_struct>` | -> | { for } |
-| 1348 | `<ctrl_struct>` | -> | { while } |
-| 1349 | `<ctrl_struct>` | -> | { do } |
-| 1350 | `<ctrl_stmt_list>` | -> | { ++, --, do, for, id, if, switch, thread, threadln, trap, while } |
-| 1351 | `<ctrl_stmt_list>` | -> | { λ } |
-| 1352 | `<non_empty_ctrl_stmt_list>` | -> | { ++, --, do, for, id, if, switch, thread, threadln, trap, while } |
-| 1353 | `<loop_statement_non_return>` | -> | { ++, --, do, for, id, if, switch, thread, threadln, trap, while } |
-| 1354 | `<loop_statement_non_return>` | -> | { break } |
-| 1355 | `<loop_ctrl_stmt_list>` | -> | { ++, --, break, do, for, id, if, switch, thread, threadln, trap, while } |
-| 1356 | `<loop_ctrl_stmt_list>` | -> | { λ } |
-| 1357 | `<non_empty_loop_ctrl_stmt_list>` | -> | { ++, --, break, do, for, id, if, switch, thread, threadln, trap, while } |
-| 1358 | `<else_opt>` | -> | { else } |
-| 1359 | `<else_opt>` | -> | { λ } |
-| 1360 | `<else_body>` | -> | { { } |
-| 1361 | `<else_body>` | -> | { if } |
-| 1362 | `<case_list>` | -> | { case } |
-| 1363 | `<case_list>` | -> | { λ } |
-| 1364 | `<case_val>` | -> | { intlit } |
-| 1365 | `<case_val>` | -> | { longlit } |
-| 1366 | `<case_val>` | -> | { charlit } |
-| 1367 | `<case_val>` | -> | { true } |
-| 1368 | `<case_val>` | -> | { false } |
-| 1369 | `<default_opt>` | -> | { default } |
-| 1370 | `<default_opt>` | -> | { λ } |
-| 1371 | `<break_opt>` | -> | { break } |
-| 1372 | `<break_opt>` | -> | { λ } |
-| 1373 | `<for_init>` | -> | { local } |
-| 1374 | `<for_init>` | -> | { id } |
-| 1375 | `<for_init>` | -> | { λ } |
-| 1376 | `<for_init_assign_tail>` | -> | { %=, *=, +=, -=, /=, = } |
-| 1377 | `<for_init_expr>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
-| 1378 | `<for_init_type>` | -> | { int } |
-| 1379 | `<for_init_type>` | -> | { long } |
-| 1380 | `<for_init_type>` | -> | { float } |
-| 1381 | `<for_init_type>` | -> | { double } |
-| 1382 | `<for_init_type>` | -> | { char } |
-| 1383 | `<for_init_type>` | -> | { string } |
-| 1384 | `<for_init_type>` | -> | { bool } |
-| 1385 | `<for_cond>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
-| 1386 | `<condition>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
-| 1387 | `<cond_or>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
-| 1388 | `<cond_or_tail>` | -> | { || } |
-| 1389 | `<cond_or_tail>` | -> | { λ } |
-| 1390 | `<cond_and>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
-| 1391 | `<cond_and_tail>` | -> | { && } |
-| 1392 | `<cond_and_tail>` | -> | { λ } |
-| 1393 | `<cond_not>` | -> | { ! } |
-| 1394 | `<cond_not>` | -> | { (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
-| 1395 | `<cond_atom>` | -> | { true } |
-| 1396 | `<cond_atom>` | -> | { false } |
-| 1397 | `<cond_atom>` | -> | { id } |
-| 1398 | `<cond_atom>` | -> | { ( } |
-| 1399 | `<cond_atom>` | -> | { -, doublelit, floatlit, intlit, longlit } |
-| 1400 | `<cond_atom>` | -> | { ++ } |
-| 1401 | `<cond_atom>` | -> | { -- } |
-| 1402 | `<cond_paren_inner>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
-| 1403 | `<cond_paren_start>` | -> | { id } |
-| 1404 | `<cond_paren_start>` | -> | { intlit } |
-| 1405 | `<cond_paren_start>` | -> | { longlit } |
-| 1406 | `<cond_paren_start>` | -> | { floatlit } |
-| 1407 | `<cond_paren_start>` | -> | { doublelit } |
-| 1408 | `<cond_paren_start>` | -> | { true } |
-| 1409 | `<cond_paren_start>` | -> | { false } |
-| 1410 | `<cond_paren_start>` | -> | { ! } |
-| 1411 | `<cond_paren_start>` | -> | { ++ } |
-| 1412 | `<cond_paren_start>` | -> | { -- } |
-| 1413 | `<cond_paren_start>` | -> | { - } |
-| 1414 | `<cond_paren_start>` | -> | { ( } |
-| 1415 | `<cond_paren_cont>` | -> | { %, *, +, -, / } |
-| 1416 | `<cond_paren_cont>` | -> | { !=, <, <=, ==, >, >= } |
-| 1417 | `<cond_paren_cont>` | -> | { &&, ||, λ } |
-| 1418 | `<cond_paren_cont>` | -> | { ++ } |
-| 1419 | `<cond_paren_cont>` | -> | { ++ } |
-| 1420 | `<cond_paren_cont>` | -> | { -- } |
-| 1421 | `<cond_paren_cont>` | -> | { -- } |
-| 1422 | `<cond_paren_arith_ops>` | -> | { + } |
-| 1423 | `<cond_paren_arith_ops>` | -> | { - } |
-| 1424 | `<cond_paren_arith_ops>` | -> | { * } |
-| 1425 | `<cond_paren_arith_ops>` | -> | { / } |
-| 1426 | `<cond_paren_arith_ops>` | -> | { % } |
-| 1427 | `<cond_paren_mul_ops>` | -> | { * } |
-| 1428 | `<cond_paren_mul_ops>` | -> | { / } |
-| 1429 | `<cond_paren_mul_ops>` | -> | { % } |
-| 1430 | `<cond_paren_mul_ops>` | -> | { + } |
-| 1431 | `<cond_paren_mul_ops>` | -> | { - } |
-| 1432 | `<cond_paren_mul_ops>` | -> | { λ } |
-| 1433 | `<cond_paren_unary>` | -> | { ++ } |
-| 1434 | `<cond_paren_unary>` | -> | { -- } |
-| 1435 | `<cond_paren_unary>` | -> | { - } |
-| 1436 | `<cond_paren_unary>` | -> | { (, doublelit, floatlit, id, intlit, longlit } |
-| 1437 | `<cond_paren_primary>` | -> | { intlit } |
-| 1438 | `<cond_paren_primary>` | -> | { longlit } |
-| 1439 | `<cond_paren_primary>` | -> | { floatlit } |
-| 1440 | `<cond_paren_primary>` | -> | { doublelit } |
-| 1441 | `<cond_paren_primary>` | -> | { id } |
-| 1442 | `<cond_paren_primary>` | -> | { ( } |
-| 1443 | `<cond_paren_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
-| 1444 | `<cond_paren_after_arith>` | -> | { λ } |
-| 1445 | `<cond_paren_logic>` | -> | { && } |
-| 1446 | `<cond_paren_logic>` | -> | { || } |
-| 1447 | `<cond_paren_logic>` | -> | { λ } |
-| 1448 | `<cond_paren_tail>` | -> | { !=, <, <=, ==, >, >= } |
-| 1449 | `<cond_paren_tail>` | -> | { λ } |
-| 1450 | `<cond_id_cont>` | -> | { [ } |
-| 1451 | `<cond_id_cont>` | -> | { + } |
-| 1452 | `<cond_id_cont>` | -> | { - } |
-| 1453 | `<cond_id_cont>` | -> | { * } |
-| 1454 | `<cond_id_cont>` | -> | { / } |
-| 1455 | `<cond_id_cont>` | -> | { % } |
-| 1456 | `<cond_id_cont>` | -> | { < } |
-| 1457 | `<cond_id_cont>` | -> | { > } |
-| 1458 | `<cond_id_cont>` | -> | { <= } |
-| 1459 | `<cond_id_cont>` | -> | { >= } |
-| 1460 | `<cond_id_cont>` | -> | { == } |
-| 1461 | `<cond_id_cont>` | -> | { != } |
-| 1462 | `<cond_id_cont>` | -> | { ++ } |
-| 1463 | `<cond_id_cont>` | -> | { ++ } |
-| 1464 | `<cond_id_cont>` | -> | { ++ } |
-| 1465 | `<cond_id_cont>` | -> | { ++ } |
-| 1466 | `<cond_id_cont>` | -> | { ++ } |
-| 1467 | `<cond_id_cont>` | -> | { ++ } |
-| 1468 | `<cond_id_cont>` | -> | { -- } |
-| 1469 | `<cond_id_cont>` | -> | { -- } |
-| 1470 | `<cond_id_cont>` | -> | { -- } |
-| 1471 | `<cond_id_cont>` | -> | { -- } |
-| 1472 | `<cond_id_cont>` | -> | { -- } |
-| 1473 | `<cond_id_cont>` | -> | { -- } |
-| 1474 | `<cond_id_cont>` | -> | { λ } |
-| 1475 | `<cond_arr_index>` | -> | { (, ++, -, --, doublelit, floatlit, id, intlit, longlit } |
-| 1476 | `<cond_id_arr_cont>` | -> | { [ } |
-| 1477 | `<cond_id_arr_cont>` | -> | { !=, %, *, +, ++, -, --, /, <, <=, ==, >, >=, λ } |
-| 1478 | `<cond_id_arr_after>` | -> | { + } |
-| 1479 | `<cond_id_arr_after>` | -> | { - } |
-| 1480 | `<cond_id_arr_after>` | -> | { * } |
-| 1481 | `<cond_id_arr_after>` | -> | { / } |
-| 1482 | `<cond_id_arr_after>` | -> | { % } |
-| 1483 | `<cond_id_arr_after>` | -> | { < } |
-| 1484 | `<cond_id_arr_after>` | -> | { > } |
-| 1485 | `<cond_id_arr_after>` | -> | { <= } |
-| 1486 | `<cond_id_arr_after>` | -> | { >= } |
-| 1487 | `<cond_id_arr_after>` | -> | { == } |
-| 1488 | `<cond_id_arr_after>` | -> | { != } |
-| 1489 | `<cond_id_arr_after>` | -> | { ++ } |
-| 1490 | `<cond_id_arr_after>` | -> | { ++ } |
-| 1491 | `<cond_id_arr_after>` | -> | { ++ } |
-| 1492 | `<cond_id_arr_after>` | -> | { ++ } |
-| 1493 | `<cond_id_arr_after>` | -> | { ++ } |
-| 1494 | `<cond_id_arr_after>` | -> | { ++ } |
-| 1495 | `<cond_id_arr_after>` | -> | { -- } |
-| 1496 | `<cond_id_arr_after>` | -> | { -- } |
-| 1497 | `<cond_id_arr_after>` | -> | { -- } |
-| 1498 | `<cond_id_arr_after>` | -> | { -- } |
-| 1499 | `<cond_id_arr_after>` | -> | { -- } |
-| 1500 | `<cond_id_arr_after>` | -> | { -- } |
-| 1501 | `<cond_id_arr_after>` | -> | { λ } |
-| 1502 | `<cond_lit_cmp>` | -> | { intlit } |
-| 1503 | `<cond_lit_cmp>` | -> | { longlit } |
-| 1504 | `<cond_lit_cmp>` | -> | { floatlit } |
-| 1505 | `<cond_lit_cmp>` | -> | { doublelit } |
-| 1506 | `<cond_lit_cmp>` | -> | { - } |
-| 1507 | `<cond_lit_mul>` | -> | { * } |
-| 1508 | `<cond_lit_mul>` | -> | { / } |
-| 1509 | `<cond_lit_mul>` | -> | { % } |
-| 1510 | `<cond_lit_mul>` | -> | { λ } |
-| 1511 | `<cond_lit_add>` | -> | { + } |
-| 1512 | `<cond_lit_add>` | -> | { - } |
-| 1513 | `<cond_lit_add>` | -> | { λ } |
-| 1514 | `<cond_lit_unary>` | -> | { ++ } |
-| 1515 | `<cond_lit_unary>` | -> | { -- } |
-| 1516 | `<cond_lit_unary>` | -> | { - } |
-| 1517 | `<cond_lit_unary>` | -> | { (, doublelit, floatlit, id, intlit, longlit } |
-| 1518 | `<cond_lit_primary>` | -> | { intlit } |
-| 1519 | `<cond_lit_primary>` | -> | { longlit } |
-| 1520 | `<cond_lit_primary>` | -> | { floatlit } |
-| 1521 | `<cond_lit_primary>` | -> | { doublelit } |
-| 1522 | `<cond_lit_primary>` | -> | { id } |
-| 1523 | `<cond_lit_primary>` | -> | { ( } |
-| 1524 | `<cond_lit_expr>` | -> | { (, ++, -, --, doublelit, floatlit, id, intlit, longlit } |
-| 1525 | `<cond_rhs>` | -> | { (, ++, -, --, doublelit, floatlit, id, intlit, longlit } |
-| 1526 | `<cond_rhs_unary>` | -> | { ++ } |
-| 1527 | `<cond_rhs_unary>` | -> | { -- } |
-| 1528 | `<cond_rhs_unary>` | -> | { - } |
-| 1529 | `<cond_rhs_unary>` | -> | { (, doublelit, floatlit, id, intlit, longlit } |
-| 1530 | `<cond_rhs_primary>` | -> | { intlit } |
-| 1531 | `<cond_rhs_primary>` | -> | { longlit } |
-| 1532 | `<cond_rhs_primary>` | -> | { floatlit } |
-| 1533 | `<cond_rhs_primary>` | -> | { doublelit } |
-| 1534 | `<cond_rhs_primary>` | -> | { id } |
-| 1535 | `<cond_rhs_primary>` | -> | { ( } |
-| 1536 | `<cond_rhs_id_tail>` | -> | { [ } |
-| 1537 | `<cond_rhs_id_tail>` | -> | { ++ } |
-| 1538 | `<cond_rhs_id_tail>` | -> | { -- } |
-| 1539 | `<cond_rhs_id_tail>` | -> | { λ } |
-| 1540 | `<cond_rhs_arr_tail>` | -> | { [ } |
-| 1541 | `<cond_rhs_arr_tail>` | -> | { [ } |
-| 1542 | `<cond_rhs_arr_tail>` | -> | { [ } |
-| 1543 | `<cond_rhs_arr_tail>` | -> | { ++ } |
-| 1544 | `<cond_rhs_arr_tail>` | -> | { -- } |
-| 1545 | `<cond_rhs_arr_tail>` | -> | { λ } |
-| 1546 | `<cond_rhs_mul>` | -> | { * } |
-| 1547 | `<cond_rhs_mul>` | -> | { / } |
-| 1548 | `<cond_rhs_mul>` | -> | { % } |
-| 1549 | `<cond_rhs_mul>` | -> | { λ } |
-| 1550 | `<cond_rhs_add>` | -> | { + } |
-| 1551 | `<cond_rhs_add>` | -> | { - } |
-| 1552 | `<cond_rhs_add>` | -> | { λ } |
-| 1553 | `<cond_cmp>` | -> | { < } |
-| 1554 | `<cond_cmp>` | -> | { > } |
-| 1555 | `<cond_cmp>` | -> | { <= } |
-| 1556 | `<cond_cmp>` | -> | { >= } |
-| 1557 | `<cond_cmp>` | -> | { == } |
-| 1558 | `<cond_cmp>` | -> | { != } |
-| 1559 | `<for_update>` | -> | { id } |
-| 1560 | `<for_update>` | -> | { ++ } |
-| 1561 | `<for_update>` | -> | { -- } |
-| 1562 | `<for_update>` | -> | { λ } |
-| 1563 | `<for_update_tail>` | -> | { ++ } |
-| 1564 | `<for_update_tail>` | -> | { -- } |
-| 1565 | `<for_update_tail>` | -> | { %=, *=, +=, -=, /=, = } |
-| 1566 | `<main_body>` | -> | { ++, --, do, for, id, if, local, return, switch, thread, threadln, trap, using, while } |
-| 1567 | `<main_content>` | -> | { using } |
-| 1568 | `<main_content>` | -> | { local } |
-| 1569 | `<main_content>` | -> | { ++, --, do, for, id, if, switch, thread, threadln, trap, while } |
-| 1570 | `<main_content>` | -> | { return } |
+| 701 | `<str_operand_id_tail>` | -> | { . } |
+| 702 | `<str_operand_id_tail>` | -> | { [ } |
+| 703 | `<str_operand_id_tail>` | -> | { ( } |
+| 704 | `<str_operand_id_tail>` | -> | { λ } |
+| 705 | `<str_operand_arr_tail>` | -> | { . } |
+| 706 | `<str_operand_arr_tail>` | -> | { [ } |
+| 707 | `<str_operand_arr_tail>` | -> | { λ } |
+| 708 | `<typed_numeric_cont>` | -> | { %, *, +, -, / } |
+| 709 | `<typed_numeric_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 710 | `<typed_numeric_cont>` | -> | { &&, ||, λ } |
+| 711 | `<typed_arith_ops>` | -> | { + } |
+| 712 | `<typed_arith_ops>` | -> | { - } |
+| 713 | `<typed_arith_ops>` | -> | { * } |
+| 714 | `<typed_arith_ops>` | -> | { / } |
+| 715 | `<typed_arith_ops>` | -> | { % } |
+| 716 | `<typed_numeric_add_ops>` | -> | { + } |
+| 717 | `<typed_numeric_add_ops>` | -> | { - } |
+| 718 | `<typed_numeric_add_ops>` | -> | { λ } |
+| 719 | `<typed_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
+| 720 | `<typed_after_arith>` | -> | { &&, ||, λ } |
+| 721 | `<typed_neg_numeric_cont>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 722 | `<typed_bool_cont>` | -> | { &&, ||, λ } |
+| 723 | `<typed_bool_tail_opt>` | -> | { && } |
+| 724 | `<typed_bool_tail_opt>` | -> | { || } |
+| 725 | `<typed_bool_tail_opt>` | -> | { λ } |
+| 726 | `<typed_bool_or_tail_opt>` | -> | { || } |
+| 727 | `<typed_bool_or_tail_opt>` | -> | { λ } |
+| 728 | `<typed_bool_term>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 729 | `<typed_bool_and_tail>` | -> | { && } |
+| 730 | `<typed_bool_and_tail>` | -> | { λ } |
+| 731 | `<typed_bool_or_tail>` | -> | { || } |
+| 732 | `<typed_bool_or_tail>` | -> | { λ } |
+| 733 | `<typed_bool_eq>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 734 | `<typed_bool_eq_tail>` | -> | { == } |
+| 735 | `<typed_bool_eq_tail>` | -> | { != } |
+| 736 | `<typed_bool_eq_tail>` | -> | { λ } |
+| 737 | `<typed_bool_factor>` | -> | { ! } |
+| 738 | `<typed_bool_factor>` | -> | { (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 739 | `<typed_bool_atom>` | -> | { true } |
+| 740 | `<typed_bool_atom>` | -> | { false } |
+| 741 | `<typed_bool_atom>` | -> | { id } |
+| 742 | `<typed_bool_atom>` | -> | { intlit } |
+| 743 | `<typed_bool_atom>` | -> | { longlit } |
+| 744 | `<typed_bool_atom>` | -> | { floatlit } |
+| 745 | `<typed_bool_atom>` | -> | { doublelit } |
+| 746 | `<typed_bool_atom>` | -> | { - } |
+| 747 | `<typed_bool_atom>` | -> | { ( } |
+| 748 | `<typed_bool_atom>` | -> | { int } |
+| 749 | `<typed_bool_atom>` | -> | { long } |
+| 750 | `<typed_bool_atom>` | -> | { float } |
+| 751 | `<typed_bool_atom>` | -> | { double } |
+| 752 | `<typed_bool_paren>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 753 | `<typed_bool_and_or_tail>` | -> | { && } |
+| 754 | `<typed_bool_and_or_tail>` | -> | { || } |
+| 755 | `<typed_bool_and_or_tail>` | -> | { λ } |
+| 756 | `<typed_bool_id_cont>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
+| 757 | `<typed_bool_id_cont>` | -> | { (, ++, --, ., [, λ } |
+| 758 | `<typed_numeric_arith_cmp>` | -> | { + } |
+| 759 | `<typed_numeric_arith_cmp>` | -> | { - } |
+| 760 | `<typed_numeric_arith_cmp>` | -> | { * } |
+| 761 | `<typed_numeric_arith_cmp>` | -> | { / } |
+| 762 | `<typed_numeric_arith_cmp>` | -> | { % } |
+| 763 | `<typed_numeric_arith_cmp>` | -> | { !=, <, <=, ==, >, >= } |
+| 764 | `<typed_numeric_add_cmp>` | -> | { + } |
+| 765 | `<typed_numeric_add_cmp>` | -> | { - } |
+| 766 | `<typed_numeric_add_cmp>` | -> | { λ } |
+| 767 | `<typed_numeric_cmp_required>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
+| 768 | `<typed_numeric_lit_arith>` | -> | { * } |
+| 769 | `<typed_numeric_lit_arith>` | -> | { / } |
+| 770 | `<typed_numeric_lit_arith>` | -> | { % } |
+| 771 | `<typed_numeric_lit_arith>` | -> | { + } |
+| 772 | `<typed_numeric_lit_arith>` | -> | { - } |
+| 773 | `<typed_numeric_lit_arith>` | -> | { λ } |
+| 774 | `<typed_numeric_neg_cmp>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 775 | `<typed_id_cont>` | -> | { %, *, +, -, / } |
+| 776 | `<typed_id_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 777 | `<typed_id_cont>` | -> | { ++ } |
+| 778 | `<typed_id_cont>` | -> | { -- } |
+| 779 | `<typed_id_cont>` | -> | { [ } |
+| 780 | `<typed_id_cont>` | -> | { . } |
+| 781 | `<typed_id_cont>` | -> | { ( } |
+| 782 | `<typed_id_cont>` | -> | { .. } |
+| 783 | `<typed_id_cont>` | -> | { &&, ||, λ } |
+| 784 | `<typed_id_arr_cont>` | -> | { [ } |
+| 785 | `<typed_id_arr_cont>` | -> | { !=, %, &&, (, *, +, -, ., .., /, <, <=, ==, >, >=, ||, λ } |
+| 786 | `<typed_id_arr2_cont>` | -> | { !=, %, &&, (, *, +, -, ., .., /, <, <=, ==, >, >=, ||, λ } |
+| 787 | `<typed_id_postfix_cont>` | -> | { . } |
+| 788 | `<typed_id_postfix_cont>` | -> | { ( } |
+| 789 | `<typed_id_postfix_cont>` | -> | { %, *, +, -, / } |
+| 790 | `<typed_id_postfix_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 791 | `<typed_id_postfix_cont>` | -> | { .. } |
+| 792 | `<typed_id_postfix_cont>` | -> | { &&, ||, λ } |
+| 793 | `<typed_id_field_cont>` | -> | { [ } |
+| 794 | `<typed_id_field_cont>` | -> | { . } |
+| 795 | `<typed_id_field_cont>` | -> | { ( } |
+| 796 | `<typed_id_field_cont>` | -> | { %, *, +, -, / } |
+| 797 | `<typed_id_field_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 798 | `<typed_id_field_cont>` | -> | { .. } |
+| 799 | `<typed_id_field_cont>` | -> | { &&, ||, λ } |
+| 800 | `<typed_id_call_cont>` | -> | { [ } |
+| 801 | `<typed_id_call_cont>` | -> | { . } |
+| 802 | `<typed_id_call_cont>` | -> | { ( } |
+| 803 | `<typed_id_call_cont>` | -> | { %, *, +, -, / } |
+| 804 | `<typed_id_call_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 805 | `<typed_id_call_cont>` | -> | { .. } |
+| 806 | `<typed_id_call_cont>` | -> | { &&, ||, λ } |
+| 807 | `<typed_paren_cont>` | -> | { !, (, -, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 808 | `<typed_paren_after>` | -> | { %, *, +, -, / } |
+| 809 | `<typed_paren_after>` | -> | { !=, <, <=, ==, >, >= } |
+| 810 | `<typed_paren_after>` | -> | { .. } |
+| 811 | `<typed_paren_after>` | -> | { [ } |
+| 812 | `<typed_paren_after>` | -> | { . } |
+| 813 | `<typed_paren_after>` | -> | { ( } |
+| 814 | `<typed_paren_after>` | -> | { &&, ||, λ } |
+| 815 | `<typed_paren_arr_cont>` | -> | { [ } |
+| 816 | `<typed_paren_arr_cont>` | -> | { !=, %, (, *, +, -, ., /, <, <=, ==, >, >=, λ } |
+| 817 | `<typed_paren_arr2_cont>` | -> | { !=, %, (, *, +, -, ., /, <, <=, ==, >, >=, λ } |
+| 818 | `<typed_paren_postfix_cont>` | -> | { . } |
+| 819 | `<typed_paren_postfix_cont>` | -> | { ( } |
+| 820 | `<typed_paren_postfix_cont>` | -> | { %, *, +, -, / } |
+| 821 | `<typed_paren_postfix_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 822 | `<typed_paren_postfix_cont>` | -> | { λ } |
+| 823 | `<typed_paren_field_cont>` | -> | { [ } |
+| 824 | `<typed_paren_field_cont>` | -> | { . } |
+| 825 | `<typed_paren_field_cont>` | -> | { ( } |
+| 826 | `<typed_paren_field_cont>` | -> | { %, *, +, -, / } |
+| 827 | `<typed_paren_field_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 828 | `<typed_paren_field_cont>` | -> | { λ } |
+| 829 | `<typed_paren_call_cont>` | -> | { [ } |
+| 830 | `<typed_paren_call_cont>` | -> | { . } |
+| 831 | `<typed_paren_call_cont>` | -> | { ( } |
+| 832 | `<typed_paren_call_cont>` | -> | { %, *, +, -, / } |
+| 833 | `<typed_paren_call_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 834 | `<typed_paren_call_cont>` | -> | { λ } |
+| 835 | `<typed_numeric_add_expr>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 836 | `<typed_numeric_add_tail>` | -> | { + } |
+| 837 | `<typed_numeric_add_tail>` | -> | { - } |
+| 838 | `<typed_numeric_add_tail>` | -> | { λ } |
+| 839 | `<typed_numeric_mul_expr>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 840 | `<typed_numeric_mul_tail>` | -> | { * } |
+| 841 | `<typed_numeric_mul_tail>` | -> | { / } |
+| 842 | `<typed_numeric_mul_tail>` | -> | { % } |
+| 843 | `<typed_numeric_mul_tail>` | -> | { λ } |
+| 844 | `<typed_numeric_unary_expr>` | -> | { ! } |
+| 845 | `<typed_numeric_unary_expr>` | -> | { - } |
+| 846 | `<typed_numeric_unary_expr>` | -> | { ++ } |
+| 847 | `<typed_numeric_unary_expr>` | -> | { -- } |
+| 848 | `<typed_numeric_unary_expr>` | -> | { (, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 849 | `<typed_numeric_postfix_expr>` | -> | { intlit } |
+| 850 | `<typed_numeric_postfix_expr>` | -> | { longlit } |
+| 851 | `<typed_numeric_postfix_expr>` | -> | { floatlit } |
+| 852 | `<typed_numeric_postfix_expr>` | -> | { doublelit } |
+| 853 | `<typed_numeric_postfix_expr>` | -> | { id } |
+| 854 | `<typed_numeric_postfix_expr>` | -> | { ( } |
+| 855 | `<typed_numeric_postfix_expr>` | -> | { int } |
+| 856 | `<typed_numeric_postfix_expr>` | -> | { long } |
+| 857 | `<typed_numeric_postfix_expr>` | -> | { float } |
+| 858 | `<typed_numeric_postfix_expr>` | -> | { double } |
+| 859 | `<typed_cmp_op>` | -> | { < } |
+| 860 | `<typed_cmp_op>` | -> | { > } |
+| 861 | `<typed_cmp_op>` | -> | { <= } |
+| 862 | `<typed_cmp_op>` | -> | { >= } |
+| 863 | `<typed_cmp_op>` | -> | { == } |
+| 864 | `<typed_cmp_op>` | -> | { != } |
+| 865 | `<typed_postfix_chain>` | -> | { [ } |
+| 866 | `<typed_postfix_chain>` | -> | { . } |
+| 867 | `<typed_postfix_chain>` | -> | { ( } |
+| 868 | `<typed_postfix_chain>` | -> | { ++ } |
+| 869 | `<typed_postfix_chain>` | -> | { -- } |
+| 870 | `<typed_postfix_chain>` | -> | { λ } |
+| 871 | `<typed_postfix_after_arr>` | -> | { [ } |
+| 872 | `<typed_postfix_after_arr>` | -> | { . } |
+| 873 | `<typed_postfix_after_arr>` | -> | { ( } |
+| 874 | `<typed_postfix_after_arr>` | -> | { ++ } |
+| 875 | `<typed_postfix_after_arr>` | -> | { -- } |
+| 876 | `<typed_postfix_after_arr>` | -> | { λ } |
+| 877 | `<array_index>` | -> | { intlit } |
+| 878 | `<array_index>` | -> | { id } |
+| 879 | `<arg_list>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 880 | `<arg_list>` | -> | { λ } |
+| 881 | `<arg_tail>` | -> | { , } |
+| 882 | `<arg_tail>` | -> | { λ } |
+| 883 | `<effect_stmt>` | -> | { ++ } |
+| 884 | `<effect_stmt>` | -> | { -- } |
+| 885 | `<effect_stmt>` | -> | { id } |
+| 886 | `<effect_pre_chain>` | -> | { [ } |
+| 887 | `<effect_pre_chain>` | -> | { . } |
+| 888 | `<effect_pre_chain>` | -> | { λ } |
+| 889 | `<effect_pre_arr_chain>` | -> | { [ } |
+| 890 | `<effect_pre_arr_chain>` | -> | { . } |
+| 891 | `<effect_pre_arr_chain>` | -> | { λ } |
+| 892 | `<effect_id_cont>` | -> | { = } |
+| 893 | `<effect_id_cont>` | -> | { += } |
+| 894 | `<effect_id_cont>` | -> | { -= } |
+| 895 | `<effect_id_cont>` | -> | { *= } |
+| 896 | `<effect_id_cont>` | -> | { /= } |
+| 897 | `<effect_id_cont>` | -> | { %= } |
+| 898 | `<effect_id_cont>` | -> | { ++ } |
+| 899 | `<effect_id_cont>` | -> | { -- } |
+| 900 | `<effect_id_cont>` | -> | { ( } |
+| 901 | `<effect_id_cont>` | -> | { [ } |
+| 902 | `<effect_id_cont>` | -> | { . } |
+| 903 | `<effect_post_call>` | -> | { . } |
+| 904 | `<effect_post_call>` | -> | { [ } |
+| 905 | `<effect_post_call>` | -> | { λ } |
+| 906 | `<effect_post_call_member>` | -> | { ( } |
+| 907 | `<effect_post_call_member>` | -> | { [ } |
+| 908 | `<effect_post_call_member>` | -> | { . } |
+| 909 | `<effect_post_call_member>` | -> | { λ } |
+| 910 | `<effect_post_call_arr>` | -> | { [ } |
+| 911 | `<effect_post_call_arr>` | -> | { (, ., λ } |
+| 912 | `<effect_post_call_arr_cont>` | -> | { . } |
+| 913 | `<effect_post_call_arr_cont>` | -> | { ( } |
+| 914 | `<effect_post_call_arr_cont>` | -> | { λ } |
+| 915 | `<effect_post_arr>` | -> | { [ } |
+| 916 | `<effect_post_arr>` | -> | { %=, (, *=, ++, +=, --, -=, ., /=, = } |
+| 917 | `<effect_post_arr_2d>` | -> | { %=, (, *=, ++, +=, --, -=, ., /=, = } |
+| 918 | `<effect_arr_effect>` | -> | { = } |
+| 919 | `<effect_arr_effect>` | -> | { += } |
+| 920 | `<effect_arr_effect>` | -> | { -= } |
+| 921 | `<effect_arr_effect>` | -> | { *= } |
+| 922 | `<effect_arr_effect>` | -> | { /= } |
+| 923 | `<effect_arr_effect>` | -> | { %= } |
+| 924 | `<effect_arr_effect>` | -> | { ++ } |
+| 925 | `<effect_arr_effect>` | -> | { -- } |
+| 926 | `<effect_arr_effect>` | -> | { ( } |
+| 927 | `<effect_arr_effect>` | -> | { . } |
+| 928 | `<effect_post_member>` | -> | { = } |
+| 929 | `<effect_post_member>` | -> | { += } |
+| 930 | `<effect_post_member>` | -> | { -= } |
+| 931 | `<effect_post_member>` | -> | { *= } |
+| 932 | `<effect_post_member>` | -> | { /= } |
+| 933 | `<effect_post_member>` | -> | { %= } |
+| 934 | `<effect_post_member>` | -> | { ++ } |
+| 935 | `<effect_post_member>` | -> | { -- } |
+| 936 | `<effect_post_member>` | -> | { ( } |
+| 937 | `<effect_post_member>` | -> | { [ } |
+| 938 | `<effect_post_member>` | -> | { . } |
+| 939 | `<stmt_assign_expr>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 940 | `<stmt_typed_rhs>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 941 | `<stmt_bool_or_concat>` | -> | { stringlit } |
+| 942 | `<stmt_bool_or_concat>` | -> | { charlit } |
+| 943 | `<stmt_bool_or_concat>` | -> | { string } |
+| 944 | `<stmt_bool_or_concat>` | -> | { intlit } |
+| 945 | `<stmt_bool_or_concat>` | -> | { longlit } |
+| 946 | `<stmt_bool_or_concat>` | -> | { floatlit } |
+| 947 | `<stmt_bool_or_concat>` | -> | { doublelit } |
+| 948 | `<stmt_bool_or_concat>` | -> | { - } |
+| 949 | `<stmt_bool_or_concat>` | -> | { true } |
+| 950 | `<stmt_bool_or_concat>` | -> | { false } |
+| 951 | `<stmt_bool_or_concat>` | -> | { ! } |
+| 952 | `<stmt_bool_or_concat>` | -> | { int } |
+| 953 | `<stmt_bool_or_concat>` | -> | { long } |
+| 954 | `<stmt_bool_or_concat>` | -> | { float } |
+| 955 | `<stmt_bool_or_concat>` | -> | { double } |
+| 956 | `<stmt_bool_or_concat>` | -> | { char } |
+| 957 | `<stmt_bool_or_concat>` | -> | { bool } |
+| 958 | `<stmt_bool_or_concat>` | -> | { id } |
+| 959 | `<stmt_bool_or_concat>` | -> | { ( } |
+| 960 | `<stmt_bool_or_concat>` | -> | { ++ } |
+| 961 | `<stmt_bool_or_concat>` | -> | { -- } |
+| 962 | `<stmt_numeric_or_bool>` | -> | { %, *, +, -, / } |
+| 963 | `<stmt_numeric_or_bool>` | -> | { !=, <, <=, ==, >, >= } |
+| 964 | `<stmt_numeric_or_bool>` | -> | { &&, ||, λ } |
+| 965 | `<stmt_arith_ops>` | -> | { + } |
+| 966 | `<stmt_arith_ops>` | -> | { - } |
+| 967 | `<stmt_arith_ops>` | -> | { * } |
+| 968 | `<stmt_arith_ops>` | -> | { / } |
+| 969 | `<stmt_arith_ops>` | -> | { % } |
+| 970 | `<stmt_numeric_add_ops>` | -> | { + } |
+| 971 | `<stmt_numeric_add_ops>` | -> | { - } |
+| 972 | `<stmt_numeric_add_ops>` | -> | { λ } |
+| 973 | `<stmt_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
+| 974 | `<stmt_after_arith>` | -> | { &&, ||, λ } |
+| 975 | `<stmt_neg_numeric_or_bool>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 976 | `<stmt_bool_tail_opt>` | -> | { && } |
+| 977 | `<stmt_bool_tail_opt>` | -> | { || } |
+| 978 | `<stmt_bool_tail_opt>` | -> | { λ } |
+| 979 | `<stmt_bool_or_tail_opt>` | -> | { || } |
+| 980 | `<stmt_bool_or_tail_opt>` | -> | { λ } |
+| 981 | `<stmt_id_toplevel_cont>` | -> | { %, *, +, -, / } |
+| 982 | `<stmt_id_toplevel_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 983 | `<stmt_id_toplevel_cont>` | -> | { ++ } |
+| 984 | `<stmt_id_toplevel_cont>` | -> | { -- } |
+| 985 | `<stmt_id_toplevel_cont>` | -> | { !=, %, &&, (, *, +, ++, -, --, ., .., /, <, <=, ==, >, >=, [, ||, λ } |
+| 986 | `<stmt_id_after_postfix>` | -> | { %, *, +, -, / } |
+| 987 | `<stmt_id_after_postfix>` | -> | { !=, <, <=, ==, >, >= } |
+| 988 | `<stmt_id_after_postfix>` | -> | { .. } |
+| 989 | `<stmt_id_after_postfix>` | -> | { ++ } |
+| 990 | `<stmt_id_after_postfix>` | -> | { -- } |
+| 991 | `<stmt_id_after_postfix>` | -> | { &&, ||, λ } |
+| 992 | `<stmt_paren_typed_content>` | -> | { stringlit } |
+| 993 | `<stmt_paren_typed_content>` | -> | { charlit } |
+| 994 | `<stmt_paren_typed_content>` | -> | { string } |
+| 995 | `<stmt_paren_typed_content>` | -> | { char } |
+| 996 | `<stmt_paren_typed_content>` | -> | { intlit } |
+| 997 | `<stmt_paren_typed_content>` | -> | { longlit } |
+| 998 | `<stmt_paren_typed_content>` | -> | { floatlit } |
+| 999 | `<stmt_paren_typed_content>` | -> | { doublelit } |
+| 1000 | `<stmt_paren_typed_content>` | -> | { - } |
+| 1001 | `<stmt_paren_typed_content>` | -> | { int } |
+| 1002 | `<stmt_paren_typed_content>` | -> | { long } |
+| 1003 | `<stmt_paren_typed_content>` | -> | { float } |
+| 1004 | `<stmt_paren_typed_content>` | -> | { double } |
+| 1005 | `<stmt_paren_typed_content>` | -> | { true } |
+| 1006 | `<stmt_paren_typed_content>` | -> | { false } |
+| 1007 | `<stmt_paren_typed_content>` | -> | { ! } |
+| 1008 | `<stmt_paren_typed_content>` | -> | { bool } |
+| 1009 | `<stmt_paren_typed_content>` | -> | { id } |
+| 1010 | `<stmt_paren_typed_content>` | -> | { ( } |
+| 1011 | `<stmt_paren_typed_content>` | -> | { ++ } |
+| 1012 | `<stmt_paren_typed_content>` | -> | { -- } |
+| 1013 | `<stmt_paren_string_cont>` | -> | { .. } |
+| 1014 | `<stmt_paren_string_cont>` | -> | { λ } |
+| 1015 | `<stmt_paren_num_start>` | -> | { %, *, +, -, / } |
+| 1016 | `<stmt_paren_num_start>` | -> | { !=, <, <=, ==, >, >= } |
+| 1017 | `<stmt_paren_num_start>` | -> | { ) } |
+| 1018 | `<stmt_paren_arith_ops>` | -> | { + } |
+| 1019 | `<stmt_paren_arith_ops>` | -> | { - } |
+| 1020 | `<stmt_paren_arith_ops>` | -> | { * } |
+| 1021 | `<stmt_paren_arith_ops>` | -> | { / } |
+| 1022 | `<stmt_paren_arith_ops>` | -> | { % } |
+| 1023 | `<stmt_paren_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
+| 1024 | `<stmt_paren_after_arith>` | -> | { ) } |
+| 1025 | `<stmt_paren_neg_num>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1026 | `<stmt_paren_num_after_incr>` | -> | { %, *, +, -, / } |
+| 1027 | `<stmt_paren_num_after_incr>` | -> | { !=, <, <=, ==, >, >= } |
+| 1028 | `<stmt_paren_num_after_incr>` | -> | { ) } |
+| 1029 | `<stmt_paren_num_cont>` | -> | { %, *, +, -, / } |
+| 1030 | `<stmt_paren_num_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 1031 | `<stmt_paren_num_cont>` | -> | { &&, ||, λ } |
+| 1032 | `<stmt_paren_bool_tail>` | -> | { && } |
+| 1033 | `<stmt_paren_bool_tail>` | -> | { || } |
+| 1034 | `<stmt_paren_bool_tail>` | -> | { λ } |
+| 1035 | `<stmt_paren_bool_cont>` | -> | { && } |
+| 1036 | `<stmt_paren_bool_cont>` | -> | { || } |
+| 1037 | `<stmt_paren_bool_cont>` | -> | { λ } |
+| 1038 | `<stmt_paren_id_cont>` | -> | { %, *, +, -, / } |
+| 1039 | `<stmt_paren_id_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 1040 | `<stmt_paren_id_cont>` | -> | { (, ., [ } |
+| 1041 | `<stmt_paren_id_cont>` | -> | { ++ } |
+| 1042 | `<stmt_paren_id_cont>` | -> | { -- } |
+| 1043 | `<stmt_paren_id_cont>` | -> | { && } |
+| 1044 | `<stmt_paren_id_cont>` | -> | { || } |
+| 1045 | `<stmt_paren_id_cont>` | -> | { ) } |
+| 1046 | `<stmt_paren_postfix_nonnull>` | -> | { [ } |
+| 1047 | `<stmt_paren_postfix_nonnull>` | -> | { . } |
+| 1048 | `<stmt_paren_postfix_nonnull>` | -> | { ( } |
+| 1049 | `<stmt_paren_id_after_postfix>` | -> | { %, *, +, -, / } |
+| 1050 | `<stmt_paren_id_after_postfix>` | -> | { !=, <, <=, ==, >, >= } |
+| 1051 | `<stmt_paren_id_after_postfix>` | -> | { .. } |
+| 1052 | `<stmt_paren_id_after_postfix>` | -> | { && } |
+| 1053 | `<stmt_paren_id_after_postfix>` | -> | { || } |
+| 1054 | `<stmt_paren_id_after_postfix>` | -> | { ) } |
+| 1055 | `<stmt_paren_any_cont>` | -> | { %, *, +, -, / } |
+| 1056 | `<stmt_paren_any_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 1057 | `<stmt_paren_any_cont>` | -> | { .. } |
+| 1058 | `<stmt_paren_any_cont>` | -> | { &&, ||, λ } |
+| 1059 | `<stmt_concat_tail_typed>` | -> | { .. } |
+| 1060 | `<stmt_concat_tail_typed>` | -> | { λ } |
+| 1061 | `<stmt_string_operand>` | -> | { stringlit } |
+| 1062 | `<stmt_string_operand>` | -> | { charlit } |
+| 1063 | `<stmt_string_operand>` | -> | { id } |
+| 1064 | `<stmt_string_operand>` | -> | { string } |
+| 1065 | `<stmt_string_operand>` | -> | { char } |
+| 1066 | `<stmt_string_operand>` | -> | { ( } |
+| 1067 | `<stmt_string_operand>` | -> | { intlit } |
+| 1068 | `<stmt_string_operand>` | -> | { longlit } |
+| 1069 | `<stmt_string_operand>` | -> | { floatlit } |
+| 1070 | `<stmt_string_operand>` | -> | { doublelit } |
+| 1071 | `<stmt_string_operand>` | -> | { true } |
+| 1072 | `<stmt_string_operand>` | -> | { false } |
+| 1073 | `<stmt_string_operand>` | -> | { int } |
+| 1074 | `<stmt_string_operand>` | -> | { long } |
+| 1075 | `<stmt_string_operand>` | -> | { float } |
+| 1076 | `<stmt_string_operand>` | -> | { double } |
+| 1077 | `<stmt_string_operand>` | -> | { bool } |
+| 1078 | `<stmt_bool_term>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 1079 | `<stmt_bool_and_tail>` | -> | { && } |
+| 1080 | `<stmt_bool_and_tail>` | -> | { λ } |
+| 1081 | `<stmt_bool_or_tail>` | -> | { || } |
+| 1082 | `<stmt_bool_or_tail>` | -> | { λ } |
+| 1083 | `<stmt_bool_eq>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 1084 | `<stmt_bool_eq_tail>` | -> | { == } |
+| 1085 | `<stmt_bool_eq_tail>` | -> | { != } |
+| 1086 | `<stmt_bool_eq_tail>` | -> | { λ } |
+| 1087 | `<stmt_bool_factor>` | -> | { ! } |
+| 1088 | `<stmt_bool_factor>` | -> | { (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 1089 | `<stmt_bool_atom>` | -> | { true } |
+| 1090 | `<stmt_bool_atom>` | -> | { false } |
+| 1091 | `<stmt_bool_atom>` | -> | { id } |
+| 1092 | `<stmt_bool_atom>` | -> | { intlit } |
+| 1093 | `<stmt_bool_atom>` | -> | { longlit } |
+| 1094 | `<stmt_bool_atom>` | -> | { floatlit } |
+| 1095 | `<stmt_bool_atom>` | -> | { doublelit } |
+| 1096 | `<stmt_bool_atom>` | -> | { - } |
+| 1097 | `<stmt_bool_atom>` | -> | { ( } |
+| 1098 | `<stmt_bool_atom>` | -> | { int } |
+| 1099 | `<stmt_bool_atom>` | -> | { long } |
+| 1100 | `<stmt_bool_atom>` | -> | { float } |
+| 1101 | `<stmt_bool_atom>` | -> | { double } |
+| 1102 | `<stmt_bool_id_cont>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
+| 1103 | `<stmt_bool_id_cont>` | -> | { ++ } |
+| 1104 | `<stmt_bool_id_cont>` | -> | { -- } |
+| 1105 | `<stmt_bool_id_cont>` | -> | { (, ., [, λ } |
+| 1106 | `<stmt_numeric_arith_cmp>` | -> | { + } |
+| 1107 | `<stmt_numeric_arith_cmp>` | -> | { - } |
+| 1108 | `<stmt_numeric_arith_cmp>` | -> | { * } |
+| 1109 | `<stmt_numeric_arith_cmp>` | -> | { / } |
+| 1110 | `<stmt_numeric_arith_cmp>` | -> | { % } |
+| 1111 | `<stmt_numeric_arith_cmp>` | -> | { !=, <, <=, ==, >, >= } |
+| 1112 | `<stmt_numeric_add_cmp>` | -> | { + } |
+| 1113 | `<stmt_numeric_add_cmp>` | -> | { - } |
+| 1114 | `<stmt_numeric_add_cmp>` | -> | { λ } |
+| 1115 | `<stmt_numeric_cmp_required>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
+| 1116 | `<stmt_numeric_lit_arith>` | -> | { * } |
+| 1117 | `<stmt_numeric_lit_arith>` | -> | { / } |
+| 1118 | `<stmt_numeric_lit_arith>` | -> | { % } |
+| 1119 | `<stmt_numeric_lit_arith>` | -> | { + } |
+| 1120 | `<stmt_numeric_lit_arith>` | -> | { - } |
+| 1121 | `<stmt_numeric_lit_arith>` | -> | { λ } |
+| 1122 | `<stmt_numeric_neg_cmp>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1123 | `<stmt_cmp_op>` | -> | { < } |
+| 1124 | `<stmt_cmp_op>` | -> | { > } |
+| 1125 | `<stmt_cmp_op>` | -> | { <= } |
+| 1126 | `<stmt_cmp_op>` | -> | { >= } |
+| 1127 | `<stmt_cmp_op>` | -> | { == } |
+| 1128 | `<stmt_cmp_op>` | -> | { != } |
+| 1129 | `<stmt_bool_paren>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 1130 | `<stmt_bool_and_or_tail>` | -> | { && } |
+| 1131 | `<stmt_bool_and_or_tail>` | -> | { || } |
+| 1132 | `<stmt_bool_and_or_tail>` | -> | { λ } |
+| 1133 | `<numeric_mul_expr_stmt>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1134 | `<numeric_mul_tail_stmt>` | -> | { * } |
+| 1135 | `<numeric_mul_tail_stmt>` | -> | { / } |
+| 1136 | `<numeric_mul_tail_stmt>` | -> | { % } |
+| 1137 | `<numeric_mul_tail_stmt>` | -> | { λ } |
+| 1138 | `<numeric_add_expr_stmt>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1139 | `<numeric_add_tail_stmt>` | -> | { + } |
+| 1140 | `<numeric_add_tail_stmt>` | -> | { - } |
+| 1141 | `<numeric_add_tail_stmt>` | -> | { λ } |
+| 1142 | `<numeric_unary_expr_stmt>` | -> | { ! } |
+| 1143 | `<numeric_unary_expr_stmt>` | -> | { - } |
+| 1144 | `<numeric_unary_expr_stmt>` | -> | { (, ++, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1145 | `<numeric_postfix_expr_stmt>` | -> | { ( } |
+| 1146 | `<numeric_postfix_expr_stmt>` | -> | { int } |
+| 1147 | `<numeric_postfix_expr_stmt>` | -> | { long } |
+| 1148 | `<numeric_postfix_expr_stmt>` | -> | { float } |
+| 1149 | `<numeric_postfix_expr_stmt>` | -> | { double } |
+| 1150 | `<numeric_postfix_expr_stmt>` | -> | { ++ } |
+| 1151 | `<numeric_postfix_expr_stmt>` | -> | { -- } |
+| 1152 | `<numeric_postfix_expr_stmt>` | -> | { id } |
+| 1153 | `<numeric_postfix_expr_stmt>` | -> | { intlit } |
+| 1154 | `<numeric_postfix_expr_stmt>` | -> | { longlit } |
+| 1155 | `<numeric_postfix_expr_stmt>` | -> | { floatlit } |
+| 1156 | `<numeric_postfix_expr_stmt>` | -> | { doublelit } |
+| 1157 | `<stmt_id_postfix>` | -> | { ++ } |
+| 1158 | `<stmt_id_postfix>` | -> | { -- } |
+| 1159 | `<stmt_id_postfix>` | -> | { (, ., [, λ } |
+| 1160 | `<stmt_postfix_chain>` | -> | { [ } |
+| 1161 | `<stmt_postfix_chain>` | -> | { . } |
+| 1162 | `<stmt_postfix_chain>` | -> | { ( } |
+| 1163 | `<stmt_postfix_chain>` | -> | { λ } |
+| 1164 | `<stmt_array_access>` | -> | { [ } |
+| 1165 | `<stmt_array_access_dim2>` | -> | { [ } |
+| 1166 | `<stmt_array_access_dim2>` | -> | { λ } |
+| 1167 | `<stmt_postfix_after_arr>` | -> | { . } |
+| 1168 | `<stmt_postfix_after_arr>` | -> | { ( } |
+| 1169 | `<stmt_postfix_after_arr>` | -> | { ++ } |
+| 1170 | `<stmt_postfix_after_arr>` | -> | { -- } |
+| 1171 | `<stmt_postfix_after_arr>` | -> | { λ } |
+| 1172 | `<stmt_array_index>` | -> | { intlit } |
+| 1173 | `<stmt_array_index>` | -> | { id } |
+| 1174 | `<stmt_arg_list>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 1175 | `<stmt_arg_list>` | -> | { λ } |
+| 1176 | `<stmt_arg_tail>` | -> | { , } |
+| 1177 | `<stmt_arg_tail>` | -> | { λ } |
+| 1178 | `<arg_expr>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 1179 | `<arg_assign_tail>` | -> | { %=, *=, +=, -=, /=, = } |
+| 1180 | `<arg_assign_tail>` | -> | { λ } |
+| 1181 | `<arg_typed_rhs>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 1182 | `<arg_bool_or_concat>` | -> | { stringlit } |
+| 1183 | `<arg_bool_or_concat>` | -> | { charlit } |
+| 1184 | `<arg_bool_or_concat>` | -> | { string } |
+| 1185 | `<arg_bool_or_concat>` | -> | { intlit } |
+| 1186 | `<arg_bool_or_concat>` | -> | { longlit } |
+| 1187 | `<arg_bool_or_concat>` | -> | { floatlit } |
+| 1188 | `<arg_bool_or_concat>` | -> | { doublelit } |
+| 1189 | `<arg_bool_or_concat>` | -> | { - } |
+| 1190 | `<arg_bool_or_concat>` | -> | { true } |
+| 1191 | `<arg_bool_or_concat>` | -> | { false } |
+| 1192 | `<arg_bool_or_concat>` | -> | { ! } |
+| 1193 | `<arg_bool_or_concat>` | -> | { int } |
+| 1194 | `<arg_bool_or_concat>` | -> | { long } |
+| 1195 | `<arg_bool_or_concat>` | -> | { float } |
+| 1196 | `<arg_bool_or_concat>` | -> | { double } |
+| 1197 | `<arg_bool_or_concat>` | -> | { char } |
+| 1198 | `<arg_bool_or_concat>` | -> | { bool } |
+| 1199 | `<arg_bool_or_concat>` | -> | { id } |
+| 1200 | `<arg_bool_or_concat>` | -> | { ( } |
+| 1201 | `<arg_bool_or_concat>` | -> | { ++ } |
+| 1202 | `<arg_bool_or_concat>` | -> | { -- } |
+| 1203 | `<arg_numeric_or_bool>` | -> | { %, *, +, -, / } |
+| 1204 | `<arg_numeric_or_bool>` | -> | { !=, <, <=, ==, >, >= } |
+| 1205 | `<arg_numeric_or_bool>` | -> | { &&, ||, λ } |
+| 1206 | `<arg_arith_ops>` | -> | { + } |
+| 1207 | `<arg_arith_ops>` | -> | { - } |
+| 1208 | `<arg_arith_ops>` | -> | { * } |
+| 1209 | `<arg_arith_ops>` | -> | { / } |
+| 1210 | `<arg_arith_ops>` | -> | { % } |
+| 1211 | `<arg_numeric_add_ops>` | -> | { + } |
+| 1212 | `<arg_numeric_add_ops>` | -> | { - } |
+| 1213 | `<arg_numeric_add_ops>` | -> | { λ } |
+| 1214 | `<arg_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
+| 1215 | `<arg_after_arith>` | -> | { &&, ||, λ } |
+| 1216 | `<arg_neg_numeric_or_bool>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1217 | `<arg_bool_tail_opt>` | -> | { && } |
+| 1218 | `<arg_bool_tail_opt>` | -> | { || } |
+| 1219 | `<arg_bool_tail_opt>` | -> | { λ } |
+| 1220 | `<arg_bool_or_tail_opt>` | -> | { || } |
+| 1221 | `<arg_bool_or_tail_opt>` | -> | { λ } |
+| 1222 | `<arg_id_toplevel_cont>` | -> | { %, *, +, -, / } |
+| 1223 | `<arg_id_toplevel_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 1224 | `<arg_id_toplevel_cont>` | -> | { ++ } |
+| 1225 | `<arg_id_toplevel_cont>` | -> | { -- } |
+| 1226 | `<arg_id_toplevel_cont>` | -> | { !=, %, &&, (, *, +, -, ., .., /, <, <=, ==, >, >=, [, ||, λ } |
+| 1227 | `<arg_id_after_postfix>` | -> | { %, *, +, -, / } |
+| 1228 | `<arg_id_after_postfix>` | -> | { !=, <, <=, ==, >, >= } |
+| 1229 | `<arg_id_after_postfix>` | -> | { .. } |
+| 1230 | `<arg_id_after_postfix>` | -> | { &&, ||, λ } |
+| 1231 | `<arg_toplevel_paren>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 1232 | `<arg_toplevel_paren_cont>` | -> | { %, *, +, -, / } |
+| 1233 | `<arg_toplevel_paren_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 1234 | `<arg_toplevel_paren_cont>` | -> | { .. } |
+| 1235 | `<arg_toplevel_paren_cont>` | -> | { &&, ||, λ } |
+| 1236 | `<arg_concat_tail_typed>` | -> | { .. } |
+| 1237 | `<arg_concat_tail_typed>` | -> | { λ } |
+| 1238 | `<arg_string_operand>` | -> | { stringlit } |
+| 1239 | `<arg_string_operand>` | -> | { charlit } |
+| 1240 | `<arg_string_operand>` | -> | { id } |
+| 1241 | `<arg_string_operand>` | -> | { string } |
+| 1242 | `<arg_string_operand>` | -> | { char } |
+| 1243 | `<arg_string_operand>` | -> | { ( } |
+| 1244 | `<arg_bool_term>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 1245 | `<arg_bool_and_tail>` | -> | { && } |
+| 1246 | `<arg_bool_and_tail>` | -> | { λ } |
+| 1247 | `<arg_bool_or_tail>` | -> | { || } |
+| 1248 | `<arg_bool_or_tail>` | -> | { λ } |
+| 1249 | `<arg_bool_eq>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 1250 | `<arg_bool_eq_tail>` | -> | { == } |
+| 1251 | `<arg_bool_eq_tail>` | -> | { != } |
+| 1252 | `<arg_bool_eq_tail>` | -> | { λ } |
+| 1253 | `<arg_bool_factor>` | -> | { ! } |
+| 1254 | `<arg_bool_factor>` | -> | { (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 1255 | `<arg_bool_atom>` | -> | { true } |
+| 1256 | `<arg_bool_atom>` | -> | { false } |
+| 1257 | `<arg_bool_atom>` | -> | { id } |
+| 1258 | `<arg_bool_atom>` | -> | { intlit } |
+| 1259 | `<arg_bool_atom>` | -> | { longlit } |
+| 1260 | `<arg_bool_atom>` | -> | { floatlit } |
+| 1261 | `<arg_bool_atom>` | -> | { doublelit } |
+| 1262 | `<arg_bool_atom>` | -> | { - } |
+| 1263 | `<arg_bool_atom>` | -> | { ( } |
+| 1264 | `<arg_bool_atom>` | -> | { int } |
+| 1265 | `<arg_bool_atom>` | -> | { long } |
+| 1266 | `<arg_bool_atom>` | -> | { float } |
+| 1267 | `<arg_bool_atom>` | -> | { double } |
+| 1268 | `<arg_bool_paren>` | -> | { !, (, -, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, true } |
+| 1269 | `<arg_bool_and_or_tail>` | -> | { && } |
+| 1270 | `<arg_bool_and_or_tail>` | -> | { || } |
+| 1271 | `<arg_bool_and_or_tail>` | -> | { λ } |
+| 1272 | `<arg_bool_id_cont>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
+| 1273 | `<arg_bool_id_cont>` | -> | { ++ } |
+| 1274 | `<arg_bool_id_cont>` | -> | { -- } |
+| 1275 | `<arg_bool_id_cont>` | -> | { (, ., [, λ } |
+| 1276 | `<arg_numeric_arith_cmp>` | -> | { + } |
+| 1277 | `<arg_numeric_arith_cmp>` | -> | { - } |
+| 1278 | `<arg_numeric_arith_cmp>` | -> | { * } |
+| 1279 | `<arg_numeric_arith_cmp>` | -> | { / } |
+| 1280 | `<arg_numeric_arith_cmp>` | -> | { % } |
+| 1281 | `<arg_numeric_arith_cmp>` | -> | { !=, <, <=, ==, >, >= } |
+| 1282 | `<arg_numeric_add_cmp>` | -> | { + } |
+| 1283 | `<arg_numeric_add_cmp>` | -> | { - } |
+| 1284 | `<arg_numeric_add_cmp>` | -> | { λ } |
+| 1285 | `<arg_numeric_cmp_required>` | -> | { !=, %, *, +, -, /, <, <=, ==, >, >= } |
+| 1286 | `<arg_numeric_lit_arith>` | -> | { * } |
+| 1287 | `<arg_numeric_lit_arith>` | -> | { / } |
+| 1288 | `<arg_numeric_lit_arith>` | -> | { % } |
+| 1289 | `<arg_numeric_lit_arith>` | -> | { + } |
+| 1290 | `<arg_numeric_lit_arith>` | -> | { - } |
+| 1291 | `<arg_numeric_lit_arith>` | -> | { λ } |
+| 1292 | `<arg_numeric_neg_cmp>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1293 | `<arg_cmp_op>` | -> | { < } |
+| 1294 | `<arg_cmp_op>` | -> | { > } |
+| 1295 | `<arg_cmp_op>` | -> | { <= } |
+| 1296 | `<arg_cmp_op>` | -> | { >= } |
+| 1297 | `<arg_cmp_op>` | -> | { == } |
+| 1298 | `<arg_cmp_op>` | -> | { != } |
+| 1299 | `<numeric_mul_expr_arg>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1300 | `<numeric_mul_tail_arg>` | -> | { * } |
+| 1301 | `<numeric_mul_tail_arg>` | -> | { / } |
+| 1302 | `<numeric_mul_tail_arg>` | -> | { % } |
+| 1303 | `<numeric_mul_tail_arg>` | -> | { λ } |
+| 1304 | `<numeric_add_expr_arg>` | -> | { !, (, ++, -, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1305 | `<numeric_add_tail_arg>` | -> | { + } |
+| 1306 | `<numeric_add_tail_arg>` | -> | { - } |
+| 1307 | `<numeric_add_tail_arg>` | -> | { λ } |
+| 1308 | `<numeric_unary_expr_arg>` | -> | { ! } |
+| 1309 | `<numeric_unary_expr_arg>` | -> | { - } |
+| 1310 | `<numeric_unary_expr_arg>` | -> | { (, ++, --, double, doublelit, float, floatlit, id, int, intlit, long, longlit } |
+| 1311 | `<numeric_postfix_expr_arg>` | -> | { ( } |
+| 1312 | `<numeric_postfix_expr_arg>` | -> | { int } |
+| 1313 | `<numeric_postfix_expr_arg>` | -> | { long } |
+| 1314 | `<numeric_postfix_expr_arg>` | -> | { float } |
+| 1315 | `<numeric_postfix_expr_arg>` | -> | { double } |
+| 1316 | `<numeric_postfix_expr_arg>` | -> | { ++ } |
+| 1317 | `<numeric_postfix_expr_arg>` | -> | { -- } |
+| 1318 | `<numeric_postfix_expr_arg>` | -> | { id } |
+| 1319 | `<numeric_postfix_expr_arg>` | -> | { intlit } |
+| 1320 | `<numeric_postfix_expr_arg>` | -> | { longlit } |
+| 1321 | `<numeric_postfix_expr_arg>` | -> | { floatlit } |
+| 1322 | `<numeric_postfix_expr_arg>` | -> | { doublelit } |
+| 1323 | `<arg_id_postfix>` | -> | { ++ } |
+| 1324 | `<arg_id_postfix>` | -> | { -- } |
+| 1325 | `<arg_id_postfix>` | -> | { (, ., [, λ } |
+| 1326 | `<arg_postfix_chain>` | -> | { [ } |
+| 1327 | `<arg_postfix_chain>` | -> | { . } |
+| 1328 | `<arg_postfix_chain>` | -> | { ( } |
+| 1329 | `<arg_postfix_chain>` | -> | { λ } |
+| 1330 | `<arg_array_access>` | -> | { [ } |
+| 1331 | `<arg_array_access_dim2>` | -> | { [ } |
+| 1332 | `<arg_array_access_dim2>` | -> | { λ } |
+| 1333 | `<arg_postfix_after_arr>` | -> | { . } |
+| 1334 | `<arg_postfix_after_arr>` | -> | { ( } |
+| 1335 | `<arg_postfix_after_arr>` | -> | { λ } |
+| 1336 | `<arg_array_index>` | -> | { intlit } |
+| 1337 | `<arg_array_index>` | -> | { id } |
+| 1338 | `<arg_nested_list>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 1339 | `<arg_nested_list>` | -> | { λ } |
+| 1340 | `<arg_nested_tail>` | -> | { , } |
+| 1341 | `<arg_nested_tail>` | -> | { λ } |
+| 1342 | `<io_stmt>` | -> | { trap } |
+| 1343 | `<io_stmt>` | -> | { thread } |
+| 1344 | `<io_stmt>` | -> | { threadln } |
+| 1345 | `<trap_target>` | -> | { id } |
+| 1346 | `<trap_target_tail>` | -> | { [ } |
+| 1347 | `<trap_target_tail>` | -> | { . } |
+| 1348 | `<trap_target_tail>` | -> | { λ } |
+| 1349 | `<print_args>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 1350 | `<print_tail>` | -> | { , } |
+| 1351 | `<print_tail>` | -> | { λ } |
+| 1352 | `<ctrl_struct>` | -> | { if } |
+| 1353 | `<ctrl_struct>` | -> | { switch } |
+| 1354 | `<ctrl_struct>` | -> | { for } |
+| 1355 | `<ctrl_struct>` | -> | { while } |
+| 1356 | `<ctrl_struct>` | -> | { do } |
+| 1357 | `<ctrl_stmt_list>` | -> | { ++, --, do, for, id, if, switch, thread, threadln, trap, while } |
+| 1358 | `<ctrl_stmt_list>` | -> | { λ } |
+| 1359 | `<non_empty_ctrl_stmt_list>` | -> | { ++, --, do, for, id, if, switch, thread, threadln, trap, while } |
+| 1360 | `<loop_statement_non_return>` | -> | { ++, --, do, for, id, if, switch, thread, threadln, trap, while } |
+| 1361 | `<loop_statement_non_return>` | -> | { break } |
+| 1362 | `<loop_ctrl_stmt_list>` | -> | { ++, --, break, do, for, id, if, switch, thread, threadln, trap, while } |
+| 1363 | `<loop_ctrl_stmt_list>` | -> | { λ } |
+| 1364 | `<non_empty_loop_ctrl_stmt_list>` | -> | { ++, --, break, do, for, id, if, switch, thread, threadln, trap, while } |
+| 1365 | `<else_opt>` | -> | { else } |
+| 1366 | `<else_opt>` | -> | { λ } |
+| 1367 | `<else_body>` | -> | { { } |
+| 1368 | `<else_body>` | -> | { if } |
+| 1369 | `<case_list>` | -> | { case } |
+| 1370 | `<case_list>` | -> | { λ } |
+| 1371 | `<case_val>` | -> | { intlit } |
+| 1372 | `<case_val>` | -> | { longlit } |
+| 1373 | `<case_val>` | -> | { charlit } |
+| 1374 | `<case_val>` | -> | { true } |
+| 1375 | `<case_val>` | -> | { false } |
+| 1376 | `<default_opt>` | -> | { default } |
+| 1377 | `<default_opt>` | -> | { λ } |
+| 1378 | `<break_opt>` | -> | { break } |
+| 1379 | `<break_opt>` | -> | { λ } |
+| 1380 | `<for_init>` | -> | { local } |
+| 1381 | `<for_init>` | -> | { id } |
+| 1382 | `<for_init>` | -> | { λ } |
+| 1383 | `<for_init_assign_tail>` | -> | { %=, *=, +=, -=, /=, = } |
+| 1384 | `<for_init_expr>` | -> | { !, (, ++, -, --, bool, char, charlit, double, doublelit, false, float, floatlit, id, int, intlit, long, longlit, string, stringlit, true } |
+| 1385 | `<for_init_type>` | -> | { int } |
+| 1386 | `<for_init_type>` | -> | { long } |
+| 1387 | `<for_init_type>` | -> | { float } |
+| 1388 | `<for_init_type>` | -> | { double } |
+| 1389 | `<for_init_type>` | -> | { char } |
+| 1390 | `<for_init_type>` | -> | { string } |
+| 1391 | `<for_init_type>` | -> | { bool } |
+| 1392 | `<for_cond>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
+| 1393 | `<condition>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
+| 1394 | `<cond_or>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
+| 1395 | `<cond_or_tail>` | -> | { || } |
+| 1396 | `<cond_or_tail>` | -> | { λ } |
+| 1397 | `<cond_and>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
+| 1398 | `<cond_and_tail>` | -> | { && } |
+| 1399 | `<cond_and_tail>` | -> | { λ } |
+| 1400 | `<cond_not>` | -> | { ! } |
+| 1401 | `<cond_not>` | -> | { (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
+| 1402 | `<cond_atom>` | -> | { true } |
+| 1403 | `<cond_atom>` | -> | { false } |
+| 1404 | `<cond_atom>` | -> | { id } |
+| 1405 | `<cond_atom>` | -> | { ( } |
+| 1406 | `<cond_atom>` | -> | { -, doublelit, floatlit, intlit, longlit } |
+| 1407 | `<cond_atom>` | -> | { ++ } |
+| 1408 | `<cond_atom>` | -> | { -- } |
+| 1409 | `<cond_paren_inner>` | -> | { !, (, ++, -, --, doublelit, false, floatlit, id, intlit, longlit, true } |
+| 1410 | `<cond_paren_start>` | -> | { id } |
+| 1411 | `<cond_paren_start>` | -> | { intlit } |
+| 1412 | `<cond_paren_start>` | -> | { longlit } |
+| 1413 | `<cond_paren_start>` | -> | { floatlit } |
+| 1414 | `<cond_paren_start>` | -> | { doublelit } |
+| 1415 | `<cond_paren_start>` | -> | { true } |
+| 1416 | `<cond_paren_start>` | -> | { false } |
+| 1417 | `<cond_paren_start>` | -> | { ! } |
+| 1418 | `<cond_paren_start>` | -> | { ++ } |
+| 1419 | `<cond_paren_start>` | -> | { -- } |
+| 1420 | `<cond_paren_start>` | -> | { - } |
+| 1421 | `<cond_paren_start>` | -> | { ( } |
+| 1422 | `<cond_paren_cont>` | -> | { %, *, +, -, / } |
+| 1423 | `<cond_paren_cont>` | -> | { !=, <, <=, ==, >, >= } |
+| 1424 | `<cond_paren_cont>` | -> | { &&, ||, λ } |
+| 1425 | `<cond_paren_cont>` | -> | { ++ } |
+| 1426 | `<cond_paren_cont>` | -> | { ++ } |
+| 1427 | `<cond_paren_cont>` | -> | { -- } |
+| 1428 | `<cond_paren_cont>` | -> | { -- } |
+| 1429 | `<cond_paren_arith_ops>` | -> | { + } |
+| 1430 | `<cond_paren_arith_ops>` | -> | { - } |
+| 1431 | `<cond_paren_arith_ops>` | -> | { * } |
+| 1432 | `<cond_paren_arith_ops>` | -> | { / } |
+| 1433 | `<cond_paren_arith_ops>` | -> | { % } |
+| 1434 | `<cond_paren_mul_ops>` | -> | { * } |
+| 1435 | `<cond_paren_mul_ops>` | -> | { / } |
+| 1436 | `<cond_paren_mul_ops>` | -> | { % } |
+| 1437 | `<cond_paren_mul_ops>` | -> | { + } |
+| 1438 | `<cond_paren_mul_ops>` | -> | { - } |
+| 1439 | `<cond_paren_mul_ops>` | -> | { λ } |
+| 1440 | `<cond_paren_unary>` | -> | { ++ } |
+| 1441 | `<cond_paren_unary>` | -> | { -- } |
+| 1442 | `<cond_paren_unary>` | -> | { - } |
+| 1443 | `<cond_paren_unary>` | -> | { (, doublelit, floatlit, id, intlit, longlit } |
+| 1444 | `<cond_paren_primary>` | -> | { intlit } |
+| 1445 | `<cond_paren_primary>` | -> | { longlit } |
+| 1446 | `<cond_paren_primary>` | -> | { floatlit } |
+| 1447 | `<cond_paren_primary>` | -> | { doublelit } |
+| 1448 | `<cond_paren_primary>` | -> | { id } |
+| 1449 | `<cond_paren_primary>` | -> | { ( } |
+| 1450 | `<cond_paren_after_arith>` | -> | { !=, <, <=, ==, >, >= } |
+| 1451 | `<cond_paren_after_arith>` | -> | { λ } |
+| 1452 | `<cond_paren_logic>` | -> | { && } |
+| 1453 | `<cond_paren_logic>` | -> | { || } |
+| 1454 | `<cond_paren_logic>` | -> | { λ } |
+| 1455 | `<cond_paren_tail>` | -> | { !=, <, <=, ==, >, >= } |
+| 1456 | `<cond_paren_tail>` | -> | { λ } |
+| 1457 | `<cond_id_cont>` | -> | { [ } |
+| 1458 | `<cond_id_cont>` | -> | { + } |
+| 1459 | `<cond_id_cont>` | -> | { - } |
+| 1460 | `<cond_id_cont>` | -> | { * } |
+| 1461 | `<cond_id_cont>` | -> | { / } |
+| 1462 | `<cond_id_cont>` | -> | { % } |
+| 1463 | `<cond_id_cont>` | -> | { < } |
+| 1464 | `<cond_id_cont>` | -> | { > } |
+| 1465 | `<cond_id_cont>` | -> | { <= } |
+| 1466 | `<cond_id_cont>` | -> | { >= } |
+| 1467 | `<cond_id_cont>` | -> | { == } |
+| 1468 | `<cond_id_cont>` | -> | { != } |
+| 1469 | `<cond_id_cont>` | -> | { ++ } |
+| 1470 | `<cond_id_cont>` | -> | { ++ } |
+| 1471 | `<cond_id_cont>` | -> | { ++ } |
+| 1472 | `<cond_id_cont>` | -> | { ++ } |
+| 1473 | `<cond_id_cont>` | -> | { ++ } |
+| 1474 | `<cond_id_cont>` | -> | { ++ } |
+| 1475 | `<cond_id_cont>` | -> | { -- } |
+| 1476 | `<cond_id_cont>` | -> | { -- } |
+| 1477 | `<cond_id_cont>` | -> | { -- } |
+| 1478 | `<cond_id_cont>` | -> | { -- } |
+| 1479 | `<cond_id_cont>` | -> | { -- } |
+| 1480 | `<cond_id_cont>` | -> | { -- } |
+| 1481 | `<cond_id_cont>` | -> | { λ } |
+| 1482 | `<cond_arr_index>` | -> | { (, ++, -, --, doublelit, floatlit, id, intlit, longlit } |
+| 1483 | `<cond_id_arr_cont>` | -> | { [ } |
+| 1484 | `<cond_id_arr_cont>` | -> | { !=, %, *, +, ++, -, --, /, <, <=, ==, >, >=, λ } |
+| 1485 | `<cond_id_arr_after>` | -> | { + } |
+| 1486 | `<cond_id_arr_after>` | -> | { - } |
+| 1487 | `<cond_id_arr_after>` | -> | { * } |
+| 1488 | `<cond_id_arr_after>` | -> | { / } |
+| 1489 | `<cond_id_arr_after>` | -> | { % } |
+| 1490 | `<cond_id_arr_after>` | -> | { < } |
+| 1491 | `<cond_id_arr_after>` | -> | { > } |
+| 1492 | `<cond_id_arr_after>` | -> | { <= } |
+| 1493 | `<cond_id_arr_after>` | -> | { >= } |
+| 1494 | `<cond_id_arr_after>` | -> | { == } |
+| 1495 | `<cond_id_arr_after>` | -> | { != } |
+| 1496 | `<cond_id_arr_after>` | -> | { ++ } |
+| 1497 | `<cond_id_arr_after>` | -> | { ++ } |
+| 1498 | `<cond_id_arr_after>` | -> | { ++ } |
+| 1499 | `<cond_id_arr_after>` | -> | { ++ } |
+| 1500 | `<cond_id_arr_after>` | -> | { ++ } |
+| 1501 | `<cond_id_arr_after>` | -> | { ++ } |
+| 1502 | `<cond_id_arr_after>` | -> | { -- } |
+| 1503 | `<cond_id_arr_after>` | -> | { -- } |
+| 1504 | `<cond_id_arr_after>` | -> | { -- } |
+| 1505 | `<cond_id_arr_after>` | -> | { -- } |
+| 1506 | `<cond_id_arr_after>` | -> | { -- } |
+| 1507 | `<cond_id_arr_after>` | -> | { -- } |
+| 1508 | `<cond_id_arr_after>` | -> | { λ } |
+| 1509 | `<cond_lit_cmp>` | -> | { intlit } |
+| 1510 | `<cond_lit_cmp>` | -> | { longlit } |
+| 1511 | `<cond_lit_cmp>` | -> | { floatlit } |
+| 1512 | `<cond_lit_cmp>` | -> | { doublelit } |
+| 1513 | `<cond_lit_cmp>` | -> | { - } |
+| 1514 | `<cond_lit_mul>` | -> | { * } |
+| 1515 | `<cond_lit_mul>` | -> | { / } |
+| 1516 | `<cond_lit_mul>` | -> | { % } |
+| 1517 | `<cond_lit_mul>` | -> | { λ } |
+| 1518 | `<cond_lit_add>` | -> | { + } |
+| 1519 | `<cond_lit_add>` | -> | { - } |
+| 1520 | `<cond_lit_add>` | -> | { λ } |
+| 1521 | `<cond_lit_unary>` | -> | { ++ } |
+| 1522 | `<cond_lit_unary>` | -> | { -- } |
+| 1523 | `<cond_lit_unary>` | -> | { - } |
+| 1524 | `<cond_lit_unary>` | -> | { (, doublelit, floatlit, id, intlit, longlit } |
+| 1525 | `<cond_lit_primary>` | -> | { intlit } |
+| 1526 | `<cond_lit_primary>` | -> | { longlit } |
+| 1527 | `<cond_lit_primary>` | -> | { floatlit } |
+| 1528 | `<cond_lit_primary>` | -> | { doublelit } |
+| 1529 | `<cond_lit_primary>` | -> | { id } |
+| 1530 | `<cond_lit_primary>` | -> | { ( } |
+| 1531 | `<cond_lit_expr>` | -> | { (, ++, -, --, doublelit, floatlit, id, intlit, longlit } |
+| 1532 | `<cond_rhs>` | -> | { (, ++, -, --, doublelit, floatlit, id, intlit, longlit } |
+| 1533 | `<cond_rhs_unary>` | -> | { ++ } |
+| 1534 | `<cond_rhs_unary>` | -> | { -- } |
+| 1535 | `<cond_rhs_unary>` | -> | { - } |
+| 1536 | `<cond_rhs_unary>` | -> | { (, doublelit, floatlit, id, intlit, longlit } |
+| 1537 | `<cond_rhs_primary>` | -> | { intlit } |
+| 1538 | `<cond_rhs_primary>` | -> | { longlit } |
+| 1539 | `<cond_rhs_primary>` | -> | { floatlit } |
+| 1540 | `<cond_rhs_primary>` | -> | { doublelit } |
+| 1541 | `<cond_rhs_primary>` | -> | { id } |
+| 1542 | `<cond_rhs_primary>` | -> | { ( } |
+| 1543 | `<cond_rhs_id_tail>` | -> | { [ } |
+| 1544 | `<cond_rhs_id_tail>` | -> | { ++ } |
+| 1545 | `<cond_rhs_id_tail>` | -> | { -- } |
+| 1546 | `<cond_rhs_id_tail>` | -> | { λ } |
+| 1547 | `<cond_rhs_arr_tail>` | -> | { [ } |
+| 1548 | `<cond_rhs_arr_tail>` | -> | { [ } |
+| 1549 | `<cond_rhs_arr_tail>` | -> | { [ } |
+| 1550 | `<cond_rhs_arr_tail>` | -> | { ++ } |
+| 1551 | `<cond_rhs_arr_tail>` | -> | { -- } |
+| 1552 | `<cond_rhs_arr_tail>` | -> | { λ } |
+| 1553 | `<cond_rhs_mul>` | -> | { * } |
+| 1554 | `<cond_rhs_mul>` | -> | { / } |
+| 1555 | `<cond_rhs_mul>` | -> | { % } |
+| 1556 | `<cond_rhs_mul>` | -> | { λ } |
+| 1557 | `<cond_rhs_add>` | -> | { + } |
+| 1558 | `<cond_rhs_add>` | -> | { - } |
+| 1559 | `<cond_rhs_add>` | -> | { λ } |
+| 1560 | `<cond_cmp>` | -> | { < } |
+| 1561 | `<cond_cmp>` | -> | { > } |
+| 1562 | `<cond_cmp>` | -> | { <= } |
+| 1563 | `<cond_cmp>` | -> | { >= } |
+| 1564 | `<cond_cmp>` | -> | { == } |
+| 1565 | `<cond_cmp>` | -> | { != } |
+| 1566 | `<for_update>` | -> | { id } |
+| 1567 | `<for_update>` | -> | { ++ } |
+| 1568 | `<for_update>` | -> | { -- } |
+| 1569 | `<for_update>` | -> | { λ } |
+| 1570 | `<for_update_tail>` | -> | { ++ } |
+| 1571 | `<for_update_tail>` | -> | { -- } |
+| 1572 | `<for_update_tail>` | -> | { %=, *=, +=, -=, /=, = } |
+| 1573 | `<main_body>` | -> | { ++, --, do, for, id, if, local, return, switch, thread, threadln, trap, using, while } |
+| 1574 | `<main_content>` | -> | { using } |
+| 1575 | `<main_content>` | -> | { local } |
+| 1576 | `<main_content>` | -> | { ++, --, do, for, id, if, switch, thread, threadln, trap, while } |
+| 1577 | `<main_content>` | -> | { return } |
