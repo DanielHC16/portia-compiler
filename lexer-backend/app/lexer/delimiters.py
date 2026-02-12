@@ -28,7 +28,7 @@ class Delimiters:
         self.negative_delim = chars.alphanum + chars.whitespace + ['(']
         self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(']
         self.logical_op_delim = chars.alphabetics + chars.whitespace + ['(', '-']
-        self.exclamation_delim = chars.alphabetics + ['(']
+        self.exclamation_delim = chars.alphabetics + ['(', '!']
         self.unary_delim = chars.alphabetics + chars.whitespace + [';', ')', ']', ',', '}'] + chars.newline
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', '(', '-', "'"]
         
