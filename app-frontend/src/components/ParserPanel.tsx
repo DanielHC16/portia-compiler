@@ -10,6 +10,9 @@ import TokenList from "./TokenList";
 - Also, review how to commit and do changes in GitHub, since we'll be making a lot of iterative changes here.
 */
 
+// TODOS: - - Deep Q/A Testing for Lexer and Parser Panels and Debugging and applying fixes for Lexer and Parser Panels
+
+
 const EXAMPLE = `int main() {
     return 0;
 }`;
