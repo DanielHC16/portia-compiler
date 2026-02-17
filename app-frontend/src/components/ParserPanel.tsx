@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { lexCode, parseTokens, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
-import ASTTreeView from "./ASTTreeView";
+//import ASTTreeView from "./ASTTreeView";
 
 const EXAMPLE = `int main() {
     return 0;
