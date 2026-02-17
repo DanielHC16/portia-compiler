@@ -2,7 +2,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { lexCode, parseTokens, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
-//import ASTTreeView from "./ASTTreeView";
+import ASTTreeView from "./ASTTreeView";
+
+/* 
+- Deep Q/A Testing for Lexer and Parser Panels
+- Debugging and applying fixes for Lexer and Parser Panels
+- Also, review how to commit and do changes in GitHub, since we'll be making a lot of iterative changes here.
+*/
 
 const EXAMPLE = `int main() {
     return 0;
