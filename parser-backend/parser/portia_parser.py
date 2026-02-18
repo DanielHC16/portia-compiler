@@ -1,552 +1,1593 @@
 """
-PORTIA Parser - CFG-Transparent Implementation
-==============================================
-
-This parser is a TRANSPARENT MIRROR of the Lark grammar (portia.lark).
-It performs NO filtering, NO context detection, and NO error message manipulation.
-
-All syntax errors report the EXACT PREDICT set from the grammar.
-If an unexpected token appears in the expected list, the FIX is in the CFG,
-not in Python code.
-
-Architecture Rules:
-- The CFG (Lark grammar) is the single source of truth
-- Parser does NOT alter, filter, rewrite, or post-process error messages
-- All expected tokens come directly from Lark's parser state
-- No semantic assistance during parsing (purely syntactic)
+PORTIA Parser - Recursive Descent Implementation
+=================================================
 """
 
-from typing import List, Dict, Any
-from lark import Lark, UnexpectedInput, UnexpectedToken, Token, Tree, Transformer
-from lark.exceptions import UnexpectedEOF
-from pathlib import Path
+from typing import List, Dict, Any, Optional, Set
+from .grammar import FIRST, EPSILON
 
 
-class PortiaLarkParser:
+def first_of(nonterminal: str) -> str:
+    """Get comma-separated list of terminals in FIRST(nonterminal)."""
+    tokens = FIRST.get(nonterminal, set()) - {EPSILON}
+    return ", ".join(sorted(tokens))
+
+
+class ParseTreeNode:
     """
-    LALR(1) parser for PORTIA language.
-    Wraps Lark parser with transparent error reporting.
+    Node in the parse tree.
+    
+    Attributes:
+        type: Node type (non-terminal name or "terminal")
+        value: For terminals, the token value; for non-terminals, None
+        children: List of child nodes
+        token: Original token dict for terminals
     """
     
-    def __init__(self):
-        grammar_path = Path(__file__).parent / "portia.lark"
-        with open(grammar_path, 'r', encoding='utf-8') as f:
-            grammar = f.read()
+    def __init__(self, node_type: str, value: Any = None, token: Dict = None):
+        self.type = node_type
+        self.value = value
+        self.children: List["ParseTreeNode"] = []
+        self.token = token
+    
+    def add_child(self, child: "ParseTreeNode") -> "ParseTreeNode":
+        """Add a child node and return it."""
+        self.children.append(child)
+        return child
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {"type": self.type}
+        if self.value is not None:
+            result["value"] = self.value
+        if self.token:
+            result["line"] = self.token.get("line", 0)
+            result["column"] = self.token.get("column", 0)
+        if self.children:
+            result["children"] = [c.to_dict() for c in self.children]
+        return result
+    
+    def __repr__(self):
+        if self.value is not None:
+            return f"ParseTreeNode({self.type}, {self.value!r})"
+        return f"ParseTreeNode({self.type}, children={len(self.children)})"
+
+
+class ParseError(Exception):
+    """Raised when a syntax error is encountered."""
+    
+    def __init__(self, message: str, token: Dict = None):
+        self.message = message
+        self.token = token or {}
+        self.line = self.token.get("line", 0)
+        self.column = self.token.get("column", 0)
+        super().__init__(message)
+
+
+# Type keywords and literal types
+TYPE_KEYWORDS = {"int", "long", "float", "double", "char", "string", "bool"}
+LITERAL_TYPES = {"INTLIT", "LONGLIT", "FLOATLIT", "DOUBLELIT", "CHARLIT", "STRINGLIT"}
+
+
+class PortiaParser:
+    """
+    Recursive descent parser for PORTIA language.
+    
+    Usage:
+        parser = PortiaParser(tokens)
+        tree = parser.parse()
+    """
+    
+    def __init__(self, tokens: List[Dict[str, Any]]):
+        """
+        Initialize the parser with a token stream.
         
-        # LALR(1) parser - deterministic, parses all LL(1) grammars
-        self.parser = Lark(
-            grammar,
-            parser='lalr',
-            start='start',
-            lexer='basic',
-            propagate_positions=True
+        Args:
+            tokens: List of token dictionaries from the lexer.
+                   Each token has: type, value, line, column
+        """
+        self.tokens = tokens
+        self.pos = 0
+    
+    # =========================================================================
+    # Token Stream Navigation
+    # =========================================================================
+    
+    def peek(self, offset: int = 0) -> Optional[Dict[str, Any]]:
+        """Look at a token without consuming it."""
+        idx = self.pos + offset
+        if idx < len(self.tokens):
+            return self.tokens[idx]
+        return None
+    
+    def peek_type(self, offset: int = 0) -> Optional[str]:
+        """Get the type of a token without consuming it (normalized to uppercase)."""
+        tok = self.peek(offset)
+        t = tok.get("type") if tok else None
+        return t.upper() if t else None
+    
+    def peek_value(self, offset: int = 0) -> Optional[str]:
+        """Get the value/lexeme of a token without consuming it."""
+        tok = self.peek(offset)
+        if tok is None:
+            return None
+        # Support both 'value' and 'lexeme' fields
+        return tok.get("value") or tok.get("lexeme")
+    
+    def at_end(self) -> bool:
+        """Check if we've consumed all tokens."""
+        return self.pos >= len(self.tokens)
+    
+    def advance(self) -> Optional[Dict[str, Any]]:
+        """Consume and return the current token."""
+        if not self.at_end():
+            token = self.tokens[self.pos]
+            self.pos += 1
+            return token
+        return None
+    
+    def match(self, expected_type: str) -> Dict[str, Any]:
+        """Verify current token type and consume it (case-insensitive)."""
+        current = self.peek()
+        if current is None:
+            raise ParseError(
+                f"Unexpected: end of input\nExpected: {expected_type.lower()}",
+                {"line": 0, "column": 0, "type": "EOF", "value": ""}
+            )
+        actual_type = current.get("type", "").upper()
+        if actual_type != expected_type.upper():
+            raise ParseError(
+                f"Unexpected: {current.get('type')}\nExpected: {expected_type.lower()}",
+                current
+            )
+        return self.advance()
+    
+    def match_value(self, expected_value: str) -> Dict[str, Any]:
+        """Verify current token value and consume it."""
+        current = self.peek()
+        if current is None:
+            raise ParseError(
+                f"Unexpected: end of input\nExpected: {expected_value}",
+                {"line": 0, "column": 0, "type": "EOF", "value": ""}
+            )
+        actual_value = current.get("value") or current.get("lexeme")
+        if actual_value != expected_value:
+            raise ParseError(
+                f"Unexpected: {actual_value}\nExpected: {expected_value}",
+                current
+            )
+        return self.advance()
+    
+    # =========================================================================
+    # Helper Methods
+    # =========================================================================
+    
+    def make_terminal(self, token: Dict[str, Any]) -> ParseTreeNode:
+        """Create a terminal node from a token."""
+        val = token.get("value") or token.get("lexeme")
+        return ParseTreeNode("terminal", val, token)
+    
+    def check(self, *values: str) -> bool:
+        """Check if current token value is one of the given values."""
+        tok = self.peek()
+        if tok is None:
+            return False
+        val = tok.get("value") or tok.get("lexeme")
+        return val in values
+    
+    def check_type(self, *types: str) -> bool:
+        """Check if current token type is one of the given types (case-insensitive)."""
+        tok = self.peek()
+        if tok is None:
+            return False
+        actual = tok.get("type", "").upper()
+        return actual in {t.upper() for t in types}
+    
+    def error(self, expected: str) -> ParseError:
+        """Create a ParseError with current token context."""
+        tok = self.peek() or {"line": 0, "column": 0, "type": "EOF", "value": ""}
+        return ParseError(
+            f"Unexpected: {tok.get('type')}\nExpected: {expected}",
+            tok
         )
+    
+    # =========================================================================
+    # Main Entry Point
+    # =========================================================================
+    
+    def parse(self) -> ParseTreeNode:
+        """Parse the token stream and return a parse tree."""
+        tree = self.parse_program()
         
-        # Terminal name mappings (Lark uppercase -> lexer lowercase)
-        self.terminal_to_lexer_type = self._build_terminal_map()
-        self.token_to_symbol = self._build_symbol_map()
+        if not self.at_end():
+            remaining = self.peek()
+            val = remaining.get("value") or remaining.get("lexeme") or ""
+            raise ParseError(
+                f"Unexpected: {val!r} ({remaining.get('type')})\nExpected: end of program",
+                remaining
+            )
+        return tree
     
-    def _build_symbol_map(self) -> Dict[str, str]:
-        """
-        Map token names to their actual symbols for display.
-        Only punctuation and operators - keywords use their names.
-        """
-        return {
-            "semicolon": ";", "comma": ",", "colon": ":", "dot": ".",
-            "open_paren": "(", "close_paren": ")",
-            "open_brace": "{", "close_brace": "}",
-            "open_bracket": "[", "close_bracket": "]",
-            "assign": "=", "add_assign": "+=", "minus_assign": "-=",
-            "mult_assign": "*=", "div_assign": "/=", "modulo_assign": "%=",
-            "equal": "==", "not_equal": "!=",
-            "less_than": "<", "greater_than": ">",
-            "less_equal": "<=", "greater_equal": ">=",
-            "logical_and": "&&", "logical_or": "||", "logical_not": "!",
-            "add": "+", "subtract": "-", "multiply": "*", "divide": "/",
-            "modulo": "%", "increment": "++", "decrement": "--", "concat": "..",
-            "$END": "EOF",
-        }
+    # =========================================================================
+    # Grammar Rules - Top Level
+    # =========================================================================
     
-    def _build_terminal_map(self) -> Dict[str, str]:
-        """
-        Map Lark terminal names (uppercase) to lexer token types (lowercase).
-        This is purely cosmetic for error messages - NO filtering.
-        """
-        return {
-            "GLOBAL": "global", "LOCAL": "local", "FUNC": "func", "RETURN": "return",
-            "IF": "if", "ELSE": "else", "SWITCH": "switch", "CASE": "case",
-            "DEFAULT": "default", "FOR": "for", "WHILE": "while", "DO": "do",
-            "BREAK": "break", "TRAP": "trap", "THREAD": "thread", "THREADLN": "threadln",
-            "USING": "using", "WEAVE": "weave", "MAIN": "main",
-            "INT": "int", "LONG": "long", "FLOAT": "float", "DOUBLE": "double",
-            "CHAR": "char", "STRING": "string", "BOOL": "bool", "VOID": "void",
-            "VAR": "var", "CONST": "const", "TRUE": "true", "FALSE": "false",
-            "ASSIGN": "assign", "PLUSEQ": "add_assign", "MINUSEQ": "minus_assign",
-            "STAREQ": "mult_assign", "SLASHEQ": "div_assign", "MODEQ": "modulo_assign",
-            "EQ": "equal", "NEQ": "not_equal", "LT": "less_than",
-            "GT": "greater_than", "LTE": "less_equal", "GTE": "greater_equal",
-            "AND": "logical_and", "OR": "logical_or", "NOT": "logical_not",
-            "PLUS": "add", "MINUS": "subtract", "STAR": "multiply", "SLASH": "divide",
-            "MOD": "modulo", "INCR": "increment", "DECR": "decrement", "CONCAT": "concat",
-            "LPAREN": "open_paren", "RPAREN": "close_paren", "LBRACE": "open_brace",
-            "RBRACE": "close_brace", "LBRACK": "open_bracket", "RBRACK": "close_bracket",
-            "SEMICOLON": "semicolon", "COMMA": "comma", "COLON": "colon", "DOT": "dot",
-            "ID": "id", "INTLIT": "intlit", "LONGLIT": "longlit",
-            "FLOATLIT": "floatlit", "DOUBLELIT": "doublelit",
-            "CHARLIT": "charlit", "STRINGLIT": "stringlit",
-            "$END": "$END",
-        }
+    def parse_program(self) -> ParseTreeNode:
+        """program → global_section"""
+        node = ParseTreeNode("program")
+        node.add_child(self.parse_global_section())
+        return node
     
-    def _format_token_for_display(self, token_name: str) -> str:
-        """Format token name for display (symbols for operators, names for keywords)."""
-        return self.token_to_symbol.get(token_name, token_name)
-    
-    def _build_source_from_tokens(self, tokens: List[Dict[str, Any]]) -> str:
+    def parse_global_section(self) -> ParseTreeNode:
         """
-        Reconstruct source code from lexer tokens PRESERVING LINE STRUCTURE.
-        Maintains line breaks so Lark's line numbers match original source.
-        Also builds a column-to-token mapping for accurate error position lookup.
+        global_section → global_decl global_section
+                       | type id array_with_init ; global_section
+                       | weave id { field_list } global_section
+                       | id weave_inst_decl global_section
+                       | function_decl func_and_main
+                       | int main ( ) { main_body }
+                       | ε
         """
-        self._original_tokens = tokens
-        self._tokens_by_line = {}
-        # Map (line, reconstructed_col) -> original_token for error lookup
-        self._reconstructed_col_to_token = {}
+        node = ParseTreeNode("global_section")
         
-        for token in tokens:
-            token_type = token.get("type", "")
-            if token_type in ["space", "newline", "tab", "single_comment", "multi_comment"]:
-                continue
-            line_num = token.get("line", 1)
-            if line_num not in self._tokens_by_line:
-                self._tokens_by_line[line_num] = []
-            self._tokens_by_line[line_num].append(token)
+        if self.at_end():
+            return node  # epsilon
         
-        # Group tokens by line and track reconstructed positions
-        lines_dict = {}
-        for token in tokens:
-            token_type = token.get("type", "")
-            lexeme = token.get("lexeme", "")
-            line_num = token.get("line", 1)
+        val = self.peek_value()
+        
+        if val == "global":
+            # global_decl global_section
+            node.add_child(self.parse_global_decl())
+            node.add_child(self.parse_global_section())
             
-            if token_type in ["space", "newline", "tab", "single_comment", "multi_comment"]:
-                continue
+        elif val == "weave":
+            # weave id { field_list } global_section
+            node.add_child(self.make_terminal(self.advance()))  # weave
+            node.add_child(self.make_terminal(self.match("ID")))  # id
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_field_list())
+            node.add_child(self.make_terminal(self.match_value("}")))
+            node.add_child(self.parse_global_section())
             
-            if lexeme:
-                if line_num not in lines_dict:
-                    lines_dict[line_num] = []
-                lines_dict[line_num].append((lexeme, token))
-        
-        # Reconstruct maintaining line structure and track column mappings
-        max_line = max(lines_dict.keys()) if lines_dict else 1
-        reconstructed_lines = []
-        
-        for line_num in range(1, max_line + 1):
-            if line_num in lines_dict:
-                lexemes = []
-                col = 1  # Reconstructed column starts at 1
-                for lexeme, token in lines_dict[line_num]:
-                    # Map range of columns for this token
-                    for offset in range(len(lexeme)):
-                        self._reconstructed_col_to_token[(line_num, col + offset)] = token
-                    lexemes.append(lexeme)
-                    col += len(lexeme) + 1  # +1 for space separator
-                reconstructed_lines.append(" ".join(lexemes))
+        elif val == "func":
+            # function_decl func_and_main
+            node.add_child(self.parse_function_decl())
+            node.add_child(self.parse_func_and_main())
+            
+        elif val == "int":
+            # Disambiguate: int main() vs int id array_with_init
+            if self.peek_value(1) == "main":
+                # int main ( ) { main_body }
+                node.add_child(self.make_terminal(self.advance()))  # int
+                node.add_child(self.make_terminal(self.advance()))  # main
+                node.add_child(self.make_terminal(self.match_value("(")))
+                node.add_child(self.make_terminal(self.match_value(")")))
+                node.add_child(self.make_terminal(self.match_value("{")))
+                node.add_child(self.parse_main_body())
+                node.add_child(self.make_terminal(self.match_value("}")))
             else:
-                reconstructed_lines.append("")
-        
-        return "\n".join(reconstructed_lines)
-    
-    def _lookup_original_token(self, line: int, lexeme: str, lark_column: int = None) -> Dict[str, Any]:
-        """
-        Look up original token by line and Lark's column from reconstructed source.
-        Uses the column-to-token mapping built during source reconstruction.
-        """
-        # First try the direct column mapping
-        if lark_column is not None and hasattr(self, '_reconstructed_col_to_token'):
-            token = self._reconstructed_col_to_token.get((line, lark_column))
-            if token and token.get("lexeme") == lexeme:
-                return token
-        
-        # Fallback to line-based lookup
-        if not hasattr(self, '_tokens_by_line') or line not in self._tokens_by_line:
-            return None
-        
-        matching_tokens = [t for t in self._tokens_by_line[line] if t.get("lexeme") == lexeme]
-        
-        if not matching_tokens:
-            return None
-        
-        if len(matching_tokens) == 1:
-            return matching_tokens[0]
-        
-        # Multiple matches - find closest to lark_column using reconstructed position
-        if lark_column is not None and hasattr(self, '_reconstructed_col_to_token'):
-            # Find which token lark_column maps to
-            token_at_col = self._reconstructed_col_to_token.get((line, lark_column))
-            if token_at_col in matching_tokens:
-                return token_at_col
-        
-        return matching_tokens[0]
-    
-    def parse(self, tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Parse tokens using Lark LALR(1) parser.
-        Returns dict with success status, AST, and errors.
-        
-        NO post-parse validation - all checking is done by the CFG.
-        """
-        try:
-            source = self._build_source_from_tokens(tokens)
-            tree = self.parser.parse(source)
+                # int id int_array_with_init ; global_section
+                node.add_child(self.make_terminal(self.advance()))  # int
+                node.add_child(self.make_terminal(self.match("ID")))
+                node.add_child(self.parse_array_with_init())
+                node.add_child(self.make_terminal(self.match_value(";")))
+                node.add_child(self.parse_global_section())
+                
+        elif val in ("long", "float", "double", "char", "string", "bool"):
+            # type id array_with_init ; global_section
+            node.add_child(self.make_terminal(self.advance()))  # type
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_array_with_init())
+            node.add_child(self.make_terminal(self.match_value(";")))
+            node.add_child(self.parse_global_section())
             
-            # Transform to AST - no validation, just structure transformation
-            transformer = ASTTransformer(tokens)
-            ast_dict = transformer.transform(tree)
-            
-            return {
-                "success": True,
-                "status": "success",
-                "ast": ast_dict,
-                "errors": [],
-                "token_count": len(tokens)
-            }
-            
-        except UnexpectedEOF as e:
-            return self._handle_unexpected_eof(e, tokens)
+        elif self.check_type("ID"):
+            # id (weave type) weave_inst_decl global_section
+            node.add_child(self.make_terminal(self.advance()))  # weave type id
+            node.add_child(self.parse_weave_inst_decl())
+            node.add_child(self.parse_global_section())
         
-        except UnexpectedToken as e:
-            return self._handle_unexpected_token(e, tokens)
-        
-        except UnexpectedInput as e:
-            return self._handle_unexpected_input(e, tokens)
-        
-        except Exception as e:
-            return {
-                "success": False,
-                "status": "error",
-                "ast": None,
-                "errors": [{
-                    "message": f"Internal parser error: {str(e)}",
-                    "line": 0,
-                    "column": 0,
-                    "token": "",
-                    "type": "internal_error"
-                }],
-                "token_count": len(tokens)
-            }
+        # else: epsilon production
+        return node
     
-    def _handle_unexpected_token(self, error: UnexpectedToken, tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def parse_func_and_main(self) -> ParseTreeNode:
         """
-        Handle UnexpectedToken with TRANSPARENT error reporting.
-        Reports EXACT expected tokens from Lark - NO FILTERING.
+        func_and_main → function_decl func_and_main
+                      | int main ( ) { main_body }
         """
-        unexpected_token = error.token
-        expected = list(error.expected) if hasattr(error, 'expected') else []
+        node = ParseTreeNode("func_and_main")
         
-        # Map Lark terminals to lexer types (cosmetic only, not filtering)
-        expected_lexer_types = []
-        for lark_terminal in expected:
-            lexer_type = self.terminal_to_lexer_type.get(lark_terminal, lark_terminal)
-            expected_lexer_types.append(lexer_type)
-        
-        # Get token info
-        token_type_lark = unexpected_token.type if hasattr(unexpected_token, 'type') else "unknown"
-        token_type = self.terminal_to_lexer_type.get(token_type_lark, token_type_lark)
-        token_type_display = self._format_token_for_display(token_type)
-        token_value = unexpected_token.value if hasattr(unexpected_token, 'value') else ""
-        lark_line = unexpected_token.line if hasattr(unexpected_token, 'line') else 0
-        lark_column = unexpected_token.column if hasattr(unexpected_token, 'column') else 0
-        token_length = len(token_value) if token_value else 1
-        
-        # Get accurate position from original tokens
-        original_token = self._lookup_original_token(lark_line, token_value, lark_column)
-        if original_token:
-            line = original_token.get("line", lark_line)
-            column = original_token.get("column", lark_column)
-        else:
-            line = lark_line
-            column = lark_column
-        
-        # Format expected tokens - NO FILTERING, exact PREDICT set
-        expected_lexer_types = sorted(set(expected_lexer_types))
-        
-        if not expected_lexer_types:
-            expected_str = "[ <EOF> (end of file) ]"
-        elif expected_lexer_types == ['$END']:
-            expected_str = "[ <EOF> (end of file) ]"
-        else:
-            expected_display = []
-            for t in expected_lexer_types:
-                if t == '$END':
-                    expected_display.append("<EOF> (end of file)")
-                else:
-                    expected_display.append(self._format_token_for_display(t))
-            expected_str = f"[ {', '.join(expected_display)} ]"
-        
-        # Format unexpected token
-        if token_type_display == token_value:
-            unexpected_str = f"[ {token_value} ]"
-        else:
-            unexpected_str = f"{token_type_display} [ {token_value} ]"
-        
-        message = f"Syntax Error at line {line}, column {column}. Unexpected: {unexpected_str}. Expected: {expected_str}."
-        
-        return {
-            "success": False,
-            "status": "error",
-            "ast": None,
-            "errors": [{
-                "message": message,
-                "line": line,
-                "column": column,
-                "token": token_type,
-                "token_length": token_length,
-                "type": "syntax_error"
-            }],
-            "token_count": len(tokens)
-        }
-    
-    def _handle_unexpected_eof(self, error: UnexpectedEOF, tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Handle UnexpectedEOF with TRANSPARENT error reporting.
-        Reports EXACT expected tokens from Lark - NO FILTERING.
-        """
-        # Get last token position
-        last_token = None
-        for token in reversed(tokens):
-            if token.get("type") not in ["space", "newline", "tab", "single_comment", "multi_comment"]:
-                last_token = token
-                break
-        
-        if last_token:
-            line = last_token.get("line", 1)
-            column = last_token.get("column", 1) + len(last_token.get("lexeme", ""))
-        else:
-            line = 1
-            column = 1
-        
-        # Get expected tokens - NO FILTERING
-        if hasattr(error, 'expected') and error.expected:
-            expected_lark = list(error.expected)
-            expected_lexer = [self.terminal_to_lexer_type.get(t, t) for t in expected_lark]
-            expected_lexer = sorted(set(expected_lexer))
-            expected_display = [self._format_token_for_display(t) for t in expected_lexer]
-            expected_str = f"[ {', '.join(expected_display)} ]"
-        else:
-            expected_str = "[ valid token to complete program ]"
-        
-        message = f"Syntax Error at line {line}, column {column}. Unexpected: <EOF>. Expected: {expected_str}."
-        
-        return {
-            "success": False,
-            "status": "error",
-            "ast": None,
-            "errors": [{
-                "message": message,
-                "line": line,
-                "column": column,
-                "token": "$END",
-                "token_length": 1,
-                "type": "syntax_error"
-            }],
-            "token_count": len(tokens)
-        }
-    
-    def _handle_unexpected_input(self, error: UnexpectedInput, tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Handle general UnexpectedInput with TRANSPARENT error reporting.
-        Reports EXACT expected tokens from Lark - NO FILTERING.
-        """
-        lark_line = getattr(error, 'line', 0)
-        lark_column = getattr(error, 'column', 0)
-        
-        # Extract token info
-        token_value = ""
-        token_type = "unknown"
-        token_length = 1
-        if hasattr(error, 'token'):
-            token = error.token
-            token_value = token.value if hasattr(token, 'value') else str(token)
-            token_type_lark = token.type if hasattr(token, 'type') else "unknown"
-            token_type = self.terminal_to_lexer_type.get(token_type_lark, token_type_lark)
-            token_length = len(token_value) if token_value else 1
-        
-        # Get accurate position
-        original_token = self._lookup_original_token(lark_line, token_value, lark_column)
-        if original_token:
-            line = original_token.get("line", lark_line)
-            column = original_token.get("column", lark_column)
-        else:
-            line = lark_line
-            column = lark_column
-        
-        # Get expected tokens - NO FILTERING
-        if hasattr(error, 'expected') and error.expected:
-            expected_lark = list(error.expected)
-            expected_lexer = [self.terminal_to_lexer_type.get(t, t) for t in expected_lark]
-            expected_lexer = sorted(set(expected_lexer))
-            
-            if expected_lexer == ['$END']:
-                expected_str = "[ <EOF> (end of file) ]"
-            else:
-                expected_display = []
-                for t in expected_lexer:
-                    if t == '$END':
-                        expected_display.append("<EOF> (end of file)")
-                    else:
-                        expected_display.append(self._format_token_for_display(t))
-                expected_str = f"[ {', '.join(expected_display)} ]"
-        else:
-            expected_str = "[ valid token ]"
-        
-        # Format token
-        token_type_display = self._format_token_for_display(token_type)
-        if token_type_display == token_value:
-            unexpected_str = f"[ {token_value} ]"
-        else:
-            unexpected_str = f"{token_type_display} [ {token_value} ]"
-        
-        message = f"Syntax Error at line {line}, column {column}. Unexpected: {unexpected_str}. Expected: {expected_str}."
-        
-        return {
-            "success": False,
-            "status": "error",
-            "ast": None,
-            "errors": [{
-                "message": message,
-                "line": line,
-                "column": column,
-                "token": token_type,
-                "token_length": token_length,
-                "type": "syntax_error"
-            }],
-            "token_count": len(tokens)
-        }
-    
-    # Legacy method names for backward compatibility
-    def handle_unexpected_token(self, error, tokens):
-        return self._handle_unexpected_token(error, tokens)
-    
-    def handle_unexpected_eof(self, error, tokens):
-        return self._handle_unexpected_eof(error, tokens)
-    
-    def handle_unexpected_input(self, error, tokens):
-        return self._handle_unexpected_input(error, tokens)
-
-
-class ASTTransformer(Transformer):
-    """
-    Transforms Lark parse tree to AST.
-    Preserves EXACT lexer token data - no reconstruction.
-    """
-    
-    def __init__(self, original_tokens: List[Dict[str, Any]]):
-        super().__init__()
-        self.original_tokens = original_tokens
-        self.token_map = {}
-        self.line_tokens = {}
-        
-        for token in original_tokens:
-            line = token.get("line")
-            col = token.get("column")
-            key = (line, col)
-            self.token_map[key] = token
-            
-            if line not in self.line_tokens:
-                self.line_tokens[line] = []
-            self.line_tokens[line].append(token)
-        
-        self._recursion_depth = 0
-        self._max_recursion = 1000
-    
-    def _make_node(self, node_type: str, children: List[Any] = None, token: Token = None) -> Dict[str, Any]:
-        """Create AST node with exact lexer token data."""
-        node = {
-            "node_type": node_type,
-            "children": children or []
-        }
-        
-        if token:
-            original = self.token_map.get((token.line, token.column))
-            
-            if not original and token.line in self.line_tokens:
-                for candidate in self.line_tokens[token.line]:
-                    if candidate.get("lexeme") == token.value:
-                        original = candidate
-                        break
-            
-            if original:
-                node["token_type"] = original.get("type")
-                node["lexeme"] = original.get("lexeme")
-                node["line"] = original.get("line")
-                node["column"] = original.get("column")
-            else:
-                node["token_type"] = token.type
-                node["lexeme"] = token.value
-                node["line"] = token.line if hasattr(token, 'line') else 0
-                node["column"] = token.column if hasattr(token, 'column') else 0
+        if self.check("func"):
+            node.add_child(self.parse_function_decl())
+            node.add_child(self.parse_func_and_main())
+        elif self.check("int") and self.peek_value(1) == "main":
+            node.add_child(self.make_terminal(self.advance()))  # int
+            node.add_child(self.make_terminal(self.advance()))  # main
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_main_body())
+            node.add_child(self.make_terminal(self.match_value("}")))
         
         return node
     
-    def _transform_children(self, children: List[Any]) -> List[Dict[str, Any]]:
-        """Transform child nodes, preserving tokens."""
-        self._recursion_depth += 1
-        if self._recursion_depth > self._max_recursion:
-            raise RecursionError(f"Maximum transformer recursion depth ({self._max_recursion}) exceeded")
-        
-        try:
-            result = []
-            for child in children:
-                if isinstance(child, Token):
-                    result.append(self._make_node("terminal", [], child))
-                elif isinstance(child, Tree):
-                    method_name = child.data
-                    method = getattr(self, method_name, self.__default__)
-                    transformed = method(child.children, child.meta if hasattr(child, 'meta') else None)
-                    result.append(transformed)
-                elif isinstance(child, dict):
-                    result.append(child)
-                elif isinstance(child, list):
-                    result.extend(self._transform_children(child))
-            return result
-        finally:
-            self._recursion_depth -= 1
+    # =========================================================================
+    # Global Declarations
+    # =========================================================================
     
-    def __default__(self, data: str, children: List[Any], meta):
-        """Default transformation - creates node with rule name and children."""
-        processed_children = []
-        for child in children:
-            if isinstance(child, Token):
-                processed_children.append(self._make_node("terminal", [], child))
-            elif isinstance(child, dict):
-                processed_children.append(child)
+    def parse_global_decl(self) -> ParseTreeNode:
+        """
+        global_decl → global mutability type id = literal global_cont ;
+        """
+        node = ParseTreeNode("global_decl")
+        node.add_child(self.make_terminal(self.match_value("global")))
+        node.add_child(self.parse_mutability())
+        
+        # Type determines which literal to expect
+        type_val = self.peek_value()
+        node.add_child(self.make_terminal(self.advance()))  # type
+        node.add_child(self.make_terminal(self.match("ID")))  # id
+        node.add_child(self.make_terminal(self.match_value("=")))
+        
+        # Match appropriate literal or bool value
+        if type_val == "bool":
+            node.add_child(self.parse_bool_lit())
+        else:
+            node.add_child(self.make_terminal(self.advance()))  # literal
+        
+        node.add_child(self.parse_global_cont())
+        node.add_child(self.make_terminal(self.match_value(";")))
+        return node
+    
+    def parse_mutability(self) -> ParseTreeNode:
+        """mutability → var | const"""
+        node = ParseTreeNode("mutability")
+        if self.check("var", "const"):
+            node.add_child(self.make_terminal(self.advance()))
+        else:
+            raise self.error(first_of("mutability"))
+        return node
+    
+    def parse_global_cont(self) -> ParseTreeNode:
+        """global_cont → , id = literal global_cont | ε"""
+        node = ParseTreeNode("global_cont")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))  # ,
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.make_terminal(self.match_value("=")))
+            # literal or bool
+            if self.check("true", "false"):
+                node.add_child(self.parse_bool_lit())
             else:
-                processed_children.append(child)
+                node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_global_cont())
+        return node
+    
+    def parse_bool_lit(self) -> ParseTreeNode:
+        """bool_lit → true | false"""
+        node = ParseTreeNode("bool_lit")
+        if self.check("true", "false"):
+            node.add_child(self.make_terminal(self.advance()))
+        else:
+            raise self.error(first_of("bool_lit"))
+        return node
+    
+    # =========================================================================
+    # Weave (Struct) Declarations
+    # =========================================================================
+    
+    def parse_field_list(self) -> ParseTreeNode:
+        """field_list → field_dec field_list | ε"""
+        node = ParseTreeNode("field_list")
+        # field_dec starts with a type (keyword or ID)
+        if self.peek_value() in TYPE_KEYWORDS or self.check_type("ID"):
+            if not self.check("}"):
+                node.add_child(self.parse_field_dec())
+                node.add_child(self.parse_field_list())
+        return node
+    
+    def parse_field_dec(self) -> ParseTreeNode:
+        """field_dec → field_type id field_arr_opt field_cont ;"""
+        node = ParseTreeNode("field_dec")
+        node.add_child(self.parse_field_type())
+        node.add_child(self.make_terminal(self.match("ID")))
+        node.add_child(self.parse_field_arr_opt())
+        node.add_child(self.parse_field_cont())
+        node.add_child(self.make_terminal(self.match_value(";")))
+        return node
+    
+    def parse_field_type(self) -> ParseTreeNode:
+        """field_type → int | long | float | double | char | string | bool | id"""
+        node = ParseTreeNode("field_type")
+        if self.peek_value() in TYPE_KEYWORDS or self.check_type("ID"):
+            node.add_child(self.make_terminal(self.advance()))
+        else:
+            raise self.error(first_of("field_type"))
+        return node
+    
+    def parse_field_arr_opt(self) -> ParseTreeNode:
+        """field_arr_opt → array_dims | ε"""
+        node = ParseTreeNode("field_arr_opt")
+        if self.check("["):
+            node.add_child(self.parse_array_dims())
+        return node
+    
+    def parse_field_cont(self) -> ParseTreeNode:
+        """field_cont → , id field_arr_opt field_cont | ε"""
+        node = ParseTreeNode("field_cont")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))  # ,
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_field_arr_opt())
+            node.add_child(self.parse_field_cont())
+        return node
+    
+    def parse_weave_inst_decl(self) -> ParseTreeNode:
+        """weave_inst_decl → id weave_inst_tail weave_inst_cont ;
+                          | weave_array_with_init weave_arr_cont ;"""
+        node = ParseTreeNode("weave_inst_decl")
         
-        return self._make_node(data, processed_children)
+        if self.check_type("ID"):
+            node.add_child(self.make_terminal(self.advance()))  # instance id
+            node.add_child(self.parse_weave_inst_tail())
+            node.add_child(self.parse_weave_inst_cont())
+            node.add_child(self.make_terminal(self.match_value(";")))
+        elif self.check("["):
+            node.add_child(self.parse_weave_array_with_init())
+            node.add_child(self.parse_weave_arr_cont())
+            node.add_child(self.make_terminal(self.match_value(";")))
+        else:
+            raise self.error(first_of("weave_inst_decl"))
+        return node
     
-    def program(self, children, meta=None):
-        processed = [self._make_node("terminal", [], c) if isinstance(c, Token) else c for c in children]
-        return self._make_node("program", processed)
+    def parse_weave_inst_tail(self) -> ParseTreeNode:
+        """weave_inst_tail → = { weave_field_value weave_field_list_tail }
+                          | weave_array_with_init"""
+        node = ParseTreeNode("weave_inst_tail")
+        if self.check("="):
+            node.add_child(self.make_terminal(self.advance()))  # =
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_weave_field_value())
+            node.add_child(self.parse_weave_field_list_tail())
+            node.add_child(self.make_terminal(self.match_value("}")))
+        elif self.check("["):
+            node.add_child(self.parse_weave_array_with_init())
+        return node
     
-    def global_dec(self, children, meta=None):
-        processed = [self._make_node("terminal", [], c) if isinstance(c, Token) else c for c in children]
-        return self._make_node("global_dec", processed)
+    def parse_weave_field_value(self) -> ParseTreeNode:
+        """weave_field_value → literal | true | false | { weave_value_list }"""
+        node = ParseTreeNode("weave_field_value")
+        if self.check("{"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_weave_value_list())
+            node.add_child(self.make_terminal(self.match_value("}")))
+        elif self.check("true", "false"):
+            node.add_child(self.make_terminal(self.advance()))
+        elif self.check_type("INTLIT", "LONGLIT", "FLOATLIT", "DOUBLELIT", "CHARLIT", "STRINGLIT"):
+            node.add_child(self.make_terminal(self.advance()))
+        else:
+            raise self.error(first_of("weave_field_value"))
+        return node
     
-    def function(self, children, meta=None):
-        processed = [self._make_node("terminal", [], c) if isinstance(c, Token) else c for c in children]
-        return self._make_node("function", processed)
+    def parse_weave_value_list(self) -> ParseTreeNode:
+        """weave_value_list → weave_field_value weave_value_tail"""
+        node = ParseTreeNode("weave_value_list")
+        node.add_child(self.parse_weave_field_value())
+        node.add_child(self.parse_weave_value_tail())
+        return node
     
-    def main_func(self, children, meta=None):
-        processed = [self._make_node("terminal", [], c) if isinstance(c, Token) else c for c in children]
-        return self._make_node("main_func", processed)
+    def parse_weave_value_tail(self) -> ParseTreeNode:
+        """weave_value_tail → , weave_field_value weave_value_tail | ε"""
+        node = ParseTreeNode("weave_value_tail")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_weave_field_value())
+            node.add_child(self.parse_weave_value_tail())
+        return node
     
-    def statement_list(self, children, meta=None):
-        processed = [self._make_node("terminal", [], c) if isinstance(c, Token) else c for c in children]
-        return self._make_node("statement_list", processed)
+    def parse_weave_field_list_tail(self) -> ParseTreeNode:
+        """weave_field_list_tail → , weave_field_value weave_field_list_tail | ε"""
+        node = ParseTreeNode("weave_field_list_tail")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_weave_field_value())
+            node.add_child(self.parse_weave_field_list_tail())
+        return node
     
-    def expression(self, children, meta=None):
-        if len(children) == 1 and isinstance(children[0], dict):
-            return children[0]
-        processed = [self._make_node("terminal", [], c) if isinstance(c, Token) else c for c in children]
-        return self._make_node("expression", processed)
+    def parse_weave_inst_cont(self) -> ParseTreeNode:
+        """weave_inst_cont → , id weave_inst_tail weave_inst_cont | ε"""
+        node = ParseTreeNode("weave_inst_cont")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_weave_inst_tail())
+            node.add_child(self.parse_weave_inst_cont())
+        return node
+    
+    def parse_weave_arr_cont(self) -> ParseTreeNode:
+        """weave_arr_cont → , id weave_array_with_init weave_arr_cont | ε"""
+        node = ParseTreeNode("weave_arr_cont")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_weave_array_with_init())
+            node.add_child(self.parse_weave_arr_cont())
+        return node
+    
+    def parse_weave_array_with_init(self) -> ParseTreeNode:
+        """weave_array_with_init → [ size ] weave_array_init_tail"""
+        node = ParseTreeNode("weave_array_with_init")
+        node.add_child(self.make_terminal(self.match_value("[")))
+        node.add_child(self.parse_size())
+        node.add_child(self.make_terminal(self.match_value("]")))
+        node.add_child(self.parse_array_init_tail())
+        return node
+    
+    # =========================================================================
+    # Array Declarations and Initialization
+    # =========================================================================
+    
+    def parse_array_dims(self) -> ParseTreeNode:
+        """array_dims → [ size ] array_dim2_opt"""
+        node = ParseTreeNode("array_dims")
+        node.add_child(self.make_terminal(self.match_value("[")))
+        node.add_child(self.parse_size())
+        node.add_child(self.make_terminal(self.match_value("]")))
+        node.add_child(self.parse_array_dim2_opt())
+        return node
+    
+    def parse_array_dim2_opt(self) -> ParseTreeNode:
+        """array_dim2_opt → [ size ] | ε"""
+        node = ParseTreeNode("array_dim2_opt")
+        if self.check("["):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_size())
+            node.add_child(self.make_terminal(self.match_value("]")))
+        return node
+    
+    def parse_size(self) -> ParseTreeNode:
+        """size → intlit | id"""
+        node = ParseTreeNode("size")
+        if self.check_type("INTLIT"):
+            node.add_child(self.make_terminal(self.advance()))
+        elif self.check_type("ID"):
+            node.add_child(self.make_terminal(self.advance()))
+        else:
+            raise self.error(first_of("size"))
+        return node
+    
+    def parse_array_with_init(self) -> ParseTreeNode:
+        """array_with_init → [ size ] array_init_tail | ε (for simple vars)"""
+        node = ParseTreeNode("array_with_init")
+        if self.check("["):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_size())
+            node.add_child(self.make_terminal(self.match_value("]")))
+            node.add_child(self.parse_array_init_tail())
+        return node
+    
+    def parse_array_init_tail(self) -> ParseTreeNode:
+        """array_init_tail → [ size ] array_init_opt_2d | array_init_opt_1d"""
+        node = ParseTreeNode("array_init_tail")
+        if self.check("["):
+            # 2D array
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_size())
+            node.add_child(self.make_terminal(self.match_value("]")))
+            node.add_child(self.parse_array_init_opt())
+        else:
+            # 1D array or no init
+            node.add_child(self.parse_array_init_opt())
+        return node
+    
+    def parse_array_init_opt(self) -> ParseTreeNode:
+        """array_init_opt → = { ... } | ε"""
+        node = ParseTreeNode("array_init_opt")
+        if self.check("="):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_array_init_content())
+            node.add_child(self.make_terminal(self.match_value("}")))
+        return node
+    
+    def parse_array_init_content(self) -> ParseTreeNode:
+        """Parse array initializer content (elements or nested arrays)"""
+        node = ParseTreeNode("array_init_content")
+        # Simplified: consume until matching }
+        depth = 1
+        while not self.at_end() and depth > 0:
+            if self.check("}"):
+                depth -= 1
+                if depth == 0:
+                    break
+            elif self.check("{"):
+                depth += 1
+            node.add_child(self.make_terminal(self.advance()))
+        return node
+    
+    # =========================================================================
+    # Function Declarations
+    # =========================================================================
+    
+    def parse_function_decl(self) -> ParseTreeNode:
+        """
+        function_decl → func return_type func_signature { function_body }
+        """
+        node = ParseTreeNode("function_decl")
+        node.add_child(self.make_terminal(self.match_value("func")))
+        
+        # Return type
+        ret_type = self.peek_value()
+        if ret_type == "void":
+            node.add_child(self.make_terminal(self.advance()))  # void
+            node.add_child(self.make_terminal(self.match("ID")))  # name
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_param_list())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_function_body_void())
+            node.add_child(self.make_terminal(self.match_value("}")))
+        elif ret_type in TYPE_KEYWORDS:
+            node.add_child(self.make_terminal(self.advance()))  # type
+            # Check for array return type
+            if self.check("["):
+                node.add_child(self.parse_array_dims())
+            node.add_child(self.make_terminal(self.match("ID")))  # name
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_param_list())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_function_body())
+            node.add_child(self.make_terminal(self.match_value("}")))
+        elif self.check_type("ID"):
+            # Weave return type
+            node.add_child(self.make_terminal(self.advance()))  # weave type
+            # Could be: id ( ... ) or . id id ( ... ) or [ ] id ( ... )
+            if self.check("."):
+                node.add_child(self.make_terminal(self.advance()))  # .
+                node.add_child(self.make_terminal(self.match("ID")))  # namespace
+            elif self.check("["):
+                node.add_child(self.parse_array_dims())
+            node.add_child(self.make_terminal(self.match("ID")))  # name
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_param_list())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_function_body())
+            node.add_child(self.make_terminal(self.match_value("}")))
+        else:
+            raise self.error(first_of("param_type") + ", void")
+        
+        return node
+    
+    def parse_param_list(self) -> ParseTreeNode:
+        """param_list → param_type id param_arr_opt param_cont | ε"""
+        node = ParseTreeNode("param_list")
+        if self.peek_value() in TYPE_KEYWORDS or self.check_type("ID"):
+            if not self.check(")"):
+                node.add_child(self.parse_param_type())
+                node.add_child(self.make_terminal(self.match("ID")))
+                node.add_child(self.parse_param_arr_opt())
+                node.add_child(self.parse_param_cont())
+        return node
+    
+    def parse_param_type(self) -> ParseTreeNode:
+        """param_type → int | long | float | double | char | string | bool | id"""
+        node = ParseTreeNode("param_type")
+        if self.peek_value() in TYPE_KEYWORDS or self.check_type("ID"):
+            node.add_child(self.make_terminal(self.advance()))
+        else:
+            raise self.error(first_of("param_type"))
+        return node
+    
+    def parse_param_arr_opt(self) -> ParseTreeNode:
+        """param_arr_opt → array_dims | ε"""
+        node = ParseTreeNode("param_arr_opt")
+        if self.check("["):
+            node.add_child(self.parse_array_dims())
+        return node
+    
+    def parse_param_cont(self) -> ParseTreeNode:
+        """param_cont → , param_type id param_arr_opt param_cont | ε"""
+        node = ParseTreeNode("param_cont")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_param_type())
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_param_arr_opt())
+            node.add_child(self.parse_param_cont())
+        return node
+    
+    def parse_function_body(self) -> ParseTreeNode:
+        """Generic function body with return"""
+        node = ParseTreeNode("function_body")
+        node.add_child(self.parse_func_content())
+        return node
+    
+    def parse_function_body_void(self) -> ParseTreeNode:
+        """Function body without mandatory return"""
+        node = ParseTreeNode("function_body_void")
+        node.add_child(self.parse_func_content_void())
+        return node
+    
+    def parse_func_content(self) -> ParseTreeNode:
+        """func_content → using ... | local ... | statement | return ..."""
+        node = ParseTreeNode("func_content")
+        
+        if self.check("using"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_using_cont())
+            node.add_child(self.make_terminal(self.match_value(";")))
+            node.add_child(self.parse_func_content())
+        elif self.check("local"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_mutability())
+            node.add_child(self.parse_local_dec_body())
+            node.add_child(self.parse_func_content())
+        elif self.check("return"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+            node.add_child(self.make_terminal(self.match_value(";")))
+        elif not self.check("}"):
+            node.add_child(self.parse_statement_non_return())
+            node.add_child(self.parse_func_content())
+        
+        return node
+    
+    def parse_func_content_void(self) -> ParseTreeNode:
+        """func_content_void → using ... | local ... | statement | return ;"""
+        node = ParseTreeNode("func_content_void")
+        
+        if self.check("using"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_using_cont())
+            node.add_child(self.make_terminal(self.match_value(";")))
+            node.add_child(self.parse_func_content_void())
+        elif self.check("local"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_mutability())
+            node.add_child(self.parse_local_dec_body())
+            node.add_child(self.parse_func_content_void())
+        elif self.check("return"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match_value(";")))
+        elif not self.check("}"):
+            node.add_child(self.parse_statement_non_return())
+            node.add_child(self.parse_func_content_void())
+        
+        return node
+    
+    def parse_using_cont(self) -> ParseTreeNode:
+        """using_cont → , id using_cont | ε"""
+        node = ParseTreeNode("using_cont")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_using_cont())
+        return node
+    
+    def parse_local_dec_body(self) -> ParseTreeNode:
+        """local_dec_body → type id local_tail"""
+        node = ParseTreeNode("local_dec_body")
+        # Type
+        if self.peek_value() in TYPE_KEYWORDS:
+            node.add_child(self.make_terminal(self.advance()))
+        elif self.check_type("ID"):
+            node.add_child(self.make_terminal(self.advance()))
+        else:
+            raise self.error(first_of("param_type"))
+        
+        node.add_child(self.make_terminal(self.match("ID")))
+        node.add_child(self.parse_local_tail())
+        return node
+    
+    def parse_local_tail(self) -> ParseTreeNode:
+        """local_tail → array_with_init ; | = expr local_cont ;"""
+        node = ParseTreeNode("local_tail")
+        if self.check("["):
+            node.add_child(self.parse_array_with_init())
+            node.add_child(self.make_terminal(self.match_value(";")))
+        elif self.check("="):
+            node.add_child(self.make_terminal(self.advance()))
+            # Could be literal or expression or { } for weave
+            if self.check("{"):
+                node.add_child(self.make_terminal(self.advance()))
+                node.add_child(self.parse_weave_value_list())
+                node.add_child(self.make_terminal(self.match_value("}")))
+            else:
+                node.add_child(self.parse_expression())
+            node.add_child(self.parse_local_cont())
+            node.add_child(self.make_terminal(self.match_value(";")))
+        else:
+            node.add_child(self.make_terminal(self.match_value(";")))
+        return node
+    
+    def parse_local_cont(self) -> ParseTreeNode:
+        """local_cont → , id = expr local_cont | ε"""
+        node = ParseTreeNode("local_cont")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.make_terminal(self.match_value("=")))
+            if self.check("{"):
+                node.add_child(self.make_terminal(self.advance()))
+                node.add_child(self.parse_weave_value_list())
+                node.add_child(self.make_terminal(self.match_value("}")))
+            else:
+                node.add_child(self.parse_expression())
+            node.add_child(self.parse_local_cont())
+        return node
+    
+    # =========================================================================
+    # Main Function
+    # =========================================================================
+    
+    def parse_main_body(self) -> ParseTreeNode:
+        """main_body → main_content"""
+        node = ParseTreeNode("main_body")
+        node.add_child(self.parse_main_content())
+        return node
+    
+    def parse_main_content(self) -> ParseTreeNode:
+        """
+        main_content → using id using_cont ; main_content
+                     | local mutability local_dec_body main_content
+                     | statement_non_return main_content
+                     | return intlit ;
+        """
+        node = ParseTreeNode("main_content")
+        
+        if self.check("using"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_using_cont())
+            node.add_child(self.make_terminal(self.match_value(";")))
+            node.add_child(self.parse_main_content())
+        elif self.check("local"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_mutability())
+            node.add_child(self.parse_local_dec_body())
+            node.add_child(self.parse_main_content())
+        elif self.check("return"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("INTLIT")))
+            node.add_child(self.make_terminal(self.match_value(";")))
+        elif not self.check("}"):
+            # statement_non_return
+            node.add_child(self.parse_statement_non_return())
+            node.add_child(self.parse_main_content())
+        
+        return node
+    
+    # =========================================================================
+    # Statements
+    # =========================================================================
+    
+    def parse_statement_non_return(self) -> ParseTreeNode:
+        """
+        statement_non_return → effect_stmt ;
+                             | io_stmt
+                             | ctrl_struct
+        """
+        node = ParseTreeNode("statement_non_return")
+        
+        if self.check("trap", "thread", "threadln"):
+            node.add_child(self.parse_io_stmt())
+        elif self.check("if", "switch", "for", "while", "do"):
+            node.add_child(self.parse_ctrl_struct())
+        else:
+            # effect_stmt (assignments, calls, ++/--)
+            node.add_child(self.parse_effect_stmt())
+            node.add_child(self.make_terminal(self.match_value(";")))
+        
+        return node
+    
+    def parse_io_stmt(self) -> ParseTreeNode:
+        """
+        io_stmt → trap ( trap_target ) ;
+                | thread ( print_args ) ;
+                | threadln ( print_args ) ;
+        """
+        node = ParseTreeNode("io_stmt")
+        
+        if self.check("trap"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_trap_target())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value(";")))
+        elif self.check("thread", "threadln"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_print_args())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value(";")))
+        else:
+            raise self.error(first_of("io_stmt"))
+        
+        return node
+    
+    def parse_trap_target(self) -> ParseTreeNode:
+        """trap_target → id | id [ expr ]"""
+        node = ParseTreeNode("trap_target")
+        node.add_child(self.make_terminal(self.match("ID")))
+        if self.check("["):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+            node.add_child(self.make_terminal(self.match_value("]")))
+        return node
+    
+    def parse_print_args(self) -> ParseTreeNode:
+        """print_args → expression print_args_tail | ε"""
+        node = ParseTreeNode("print_args")
+        if not self.check(")"):
+            node.add_child(self.parse_expression())
+            node.add_child(self.parse_print_args_tail())
+        return node
+    
+    def parse_print_args_tail(self) -> ParseTreeNode:
+        """print_args_tail → , expression print_args_tail | ε"""
+        node = ParseTreeNode("print_args_tail")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+            node.add_child(self.parse_print_args_tail())
+        return node
+    
+    # =========================================================================
+    # Control Structures
+    # =========================================================================
+    
+    def parse_ctrl_struct(self) -> ParseTreeNode:
+        """
+        ctrl_struct → if ( condition ) { stmt_list } else_opt
+                    | switch ( arg_expr ) { case_list default_opt }
+                    | for ( for_init ; for_cond ; for_update ) { stmt_list }
+                    | while ( condition ) { stmt_list }
+                    | do { stmt_list } while ( condition ) ;
+        """
+        node = ParseTreeNode("ctrl_struct")
+        
+        if self.check("if"):
+            node.add_child(self.make_terminal(self.advance()))  # if
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_condition())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_stmt_list())
+            node.add_child(self.make_terminal(self.match_value("}")))
+            node.add_child(self.parse_else_opt())
+            
+        elif self.check("switch"):
+            node.add_child(self.make_terminal(self.advance()))  # switch
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_expression())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_case_list())
+            node.add_child(self.parse_default_opt())
+            node.add_child(self.make_terminal(self.match_value("}")))
+            
+        elif self.check("for"):
+            node.add_child(self.make_terminal(self.advance()))  # for
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_for_init())
+            node.add_child(self.make_terminal(self.match_value(";")))
+            node.add_child(self.parse_for_cond())
+            node.add_child(self.make_terminal(self.match_value(";")))
+            node.add_child(self.parse_for_update())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_loop_stmt_list())
+            node.add_child(self.make_terminal(self.match_value("}")))
+            
+        elif self.check("while"):
+            node.add_child(self.make_terminal(self.advance()))  # while
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_condition())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_loop_stmt_list())
+            node.add_child(self.make_terminal(self.match_value("}")))
+            
+        elif self.check("do"):
+            node.add_child(self.make_terminal(self.advance()))  # do
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_loop_stmt_list())
+            node.add_child(self.make_terminal(self.match_value("}")))
+            node.add_child(self.make_terminal(self.match_value("while")))
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_condition())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value(";")))
+        else:
+            raise self.error("do, for, if, switch, while")
+        
+        return node
+    
+    def parse_else_opt(self) -> ParseTreeNode:
+        """else_opt → else else_body | ε"""
+        node = ParseTreeNode("else_opt")
+        if self.check("else"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_else_body())
+        return node
+    
+    def parse_else_body(self) -> ParseTreeNode:
+        """else_body → { stmt_list } | if ( condition ) { stmt_list } else_opt"""
+        node = ParseTreeNode("else_body")
+        if self.check("{"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_stmt_list())
+            node.add_child(self.make_terminal(self.match_value("}")))
+        elif self.check("if"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match_value("(")))
+            node.add_child(self.parse_condition())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.make_terminal(self.match_value("{")))
+            node.add_child(self.parse_stmt_list())
+            node.add_child(self.make_terminal(self.match_value("}")))
+            node.add_child(self.parse_else_opt())
+        else:
+            raise self.error("{, if")
+        return node
+    
+    def parse_stmt_list(self) -> ParseTreeNode:
+        """stmt_list → statement stmt_list | ε"""
+        node = ParseTreeNode("stmt_list")
+        while not self.check("}") and not self.at_end():
+            node.add_child(self.parse_statement_non_return())
+        return node
+    
+    def parse_loop_stmt_list(self) -> ParseTreeNode:
+        """loop_stmt_list → loop_statement loop_stmt_list | ε"""
+        node = ParseTreeNode("loop_stmt_list")
+        while not self.check("}") and not self.at_end():
+            if self.check("break"):
+                node.add_child(self.make_terminal(self.advance()))
+                node.add_child(self.make_terminal(self.match_value(";")))
+            else:
+                node.add_child(self.parse_statement_non_return())
+        return node
+    
+    def parse_case_list(self) -> ParseTreeNode:
+        """case_list → case case_val : stmt_list break_opt case_list | ε"""
+        node = ParseTreeNode("case_list")
+        while self.check("case"):
+            node.add_child(self.make_terminal(self.advance()))  # case
+            node.add_child(self.parse_case_val())
+            node.add_child(self.make_terminal(self.match_value(":")))
+            node.add_child(self.parse_case_stmt_list())
+            node.add_child(self.parse_break_opt())
+        return node
+    
+    def parse_case_val(self) -> ParseTreeNode:
+        """case_val → intlit | longlit | charlit | true | false"""
+        node = ParseTreeNode("case_val")
+        if self.check_type("INTLIT", "LONGLIT", "CHARLIT") or self.check("true", "false"):
+            node.add_child(self.make_terminal(self.advance()))
+        else:
+            raise self.error(first_of("case_val"))
+        return node
+    
+    def parse_case_stmt_list(self) -> ParseTreeNode:
+        """Statements within a case block"""
+        node = ParseTreeNode("case_stmt_list")
+        while not self.check("case", "default", "}", "break") and not self.at_end():
+            node.add_child(self.parse_statement_non_return())
+        return node
+    
+    def parse_break_opt(self) -> ParseTreeNode:
+        """break_opt → break ; | ε"""
+        node = ParseTreeNode("break_opt")
+        if self.check("break"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match_value(";")))
+        return node
+    
+    def parse_default_opt(self) -> ParseTreeNode:
+        """default_opt → default : stmt_list break_opt | ε"""
+        node = ParseTreeNode("default_opt")
+        if self.check("default"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match_value(":")))
+            node.add_child(self.parse_case_stmt_list())
+            node.add_child(self.parse_break_opt())
+        return node
+    
+    def parse_for_init(self) -> ParseTreeNode:
+        """for_init → local mutability type id = expr | id = expr | ε"""
+        node = ParseTreeNode("for_init")
+        if self.check("local"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_mutability())
+            node.add_child(self.make_terminal(self.advance()))  # type
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.make_terminal(self.match_value("=")))
+            node.add_child(self.parse_expression())
+        elif self.check_type("ID"):
+            node.add_child(self.make_terminal(self.advance()))  # id
+            node.add_child(self.make_terminal(self.match_value("=")))
+            node.add_child(self.parse_expression())
+        # else: epsilon
+        return node
+    
+    def parse_for_cond(self) -> ParseTreeNode:
+        """for_cond → condition | ε"""
+        node = ParseTreeNode("for_cond")
+        if not self.check(";"):
+            node.add_child(self.parse_condition())
+        return node
+    
+    def parse_for_update(self) -> ParseTreeNode:
+        """for_update → id for_update_tail | ++id | --id | ε"""
+        node = ParseTreeNode("for_update")
+        if self.check("++"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+        elif self.check("--"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+        elif self.check_type("ID"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_for_update_tail())
+        return node
+    
+    def parse_for_update_tail(self) -> ParseTreeNode:
+        """for_update_tail → ++ | -- | assign_op expr"""
+        node = ParseTreeNode("for_update_tail")
+        if self.check("++", "--"):
+            node.add_child(self.make_terminal(self.advance()))
+        elif self.check("=", "+=", "-=", "*=", "/=", "%="):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+        return node
+    
+    # =========================================================================
+    # Effect Statements (side effects: assignments, calls, ++/--)
+    # =========================================================================
+    
+    def parse_effect_stmt(self) -> ParseTreeNode:
+        """
+        effect_stmt → ++id effect_chain
+                    | --id effect_chain
+                    | id effect_id_cont
+        """
+        node = ParseTreeNode("effect_stmt")
+        
+        if self.check("++"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_effect_chain())
+        elif self.check("--"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_effect_chain())
+        elif self.check_type("ID"):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_effect_id_cont())
+        else:
+            raise self.error(first_of("effect_stmt"))
+        
+        return node
+    
+    def parse_effect_chain(self) -> ParseTreeNode:
+        """effect_chain → [ expr ] effect_chain | . id effect_chain | ε"""
+        node = ParseTreeNode("effect_chain")
+        if self.check("["):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+            node.add_child(self.make_terminal(self.match_value("]")))
+            node.add_child(self.parse_effect_chain())
+        elif self.check("."):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_effect_chain())
+        return node
+    
+    def parse_effect_id_cont(self) -> ParseTreeNode:
+        """
+        effect_id_cont → = expr
+                       | += expr | -= expr | *= expr | /= expr | %= expr
+                       | ++ | --
+                       | ( arg_list ) effect_call_cont
+                       | [ expr ] effect_arr_cont
+                       | . id effect_member_cont
+        """
+        node = ParseTreeNode("effect_id_cont")
+        
+        if self.check("="):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+        elif self.check("+=", "-=", "*=", "/=", "%="):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+        elif self.check("++", "--"):
+            node.add_child(self.make_terminal(self.advance()))
+        elif self.check("("):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_arg_list())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.parse_effect_call_cont())
+        elif self.check("["):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+            node.add_child(self.make_terminal(self.match_value("]")))
+            node.add_child(self.parse_effect_arr_cont())
+        elif self.check("."):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_effect_member_cont())
+        else:
+            raise self.error(first_of("assign_op") + ", ++, --, (, [, .")
+        
+        return node
+    
+    def parse_effect_call_cont(self) -> ParseTreeNode:
+        """Continue after function call in effect stmt"""
+        node = ParseTreeNode("effect_call_cont")
+        if self.check("."):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_effect_member_cont())
+        elif self.check("["):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+            node.add_child(self.make_terminal(self.match_value("]")))
+            node.add_child(self.parse_effect_arr_cont())
+        return node
+    
+    def parse_effect_arr_cont(self) -> ParseTreeNode:
+        """Continue after array access in effect stmt"""
+        node = ParseTreeNode("effect_arr_cont")
+        if self.check("["):
+            # 2D array
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+            node.add_child(self.make_terminal(self.match_value("]")))
+            node.add_child(self.parse_effect_simple_cont())
+        else:
+            node.add_child(self.parse_effect_simple_cont())
+        return node
+    
+    def parse_effect_simple_cont(self) -> ParseTreeNode:
+        """Simple continuation: assignment or postfix"""
+        node = ParseTreeNode("effect_simple_cont")
+        if self.check("=", "+=", "-=", "*=", "/=", "%="):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+        elif self.check("++", "--"):
+            node.add_child(self.make_terminal(self.advance()))
+        elif self.check("."):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_effect_member_cont())
+        elif self.check("("):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_arg_list())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.parse_effect_call_cont())
+        return node
+    
+    def parse_effect_member_cont(self) -> ParseTreeNode:
+        """Continue after member access"""
+        node = ParseTreeNode("effect_member_cont")
+        if self.check("=", "+=", "-=", "*=", "/=", "%="):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+        elif self.check("++", "--"):
+            node.add_child(self.make_terminal(self.advance()))
+        elif self.check("("):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_arg_list())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            node.add_child(self.parse_effect_call_cont())
+        elif self.check("["):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+            node.add_child(self.make_terminal(self.match_value("]")))
+            node.add_child(self.parse_effect_arr_cont())
+        elif self.check("."):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.make_terminal(self.match("ID")))
+            node.add_child(self.parse_effect_member_cont())
+        return node
+    
+    def parse_arg_list(self) -> ParseTreeNode:
+        """arg_list → expression arg_tail | ε"""
+        node = ParseTreeNode("arg_list")
+        if not self.check(")"):
+            node.add_child(self.parse_expression())
+            node.add_child(self.parse_arg_tail())
+        return node
+    
+    def parse_arg_tail(self) -> ParseTreeNode:
+        """arg_tail → , expression arg_tail | ε"""
+        node = ParseTreeNode("arg_tail")
+        if self.check(","):
+            node.add_child(self.make_terminal(self.advance()))
+            node.add_child(self.parse_expression())
+            node.add_child(self.parse_arg_tail())
+        return node
+    
+    # =========================================================================
+    # Expressions - Precedence-Based Recursive Descent
+    # =========================================================================
+    #
+    # Precedence (lowest to highest):
+    #   1. Assignment: =, +=, -=, *=, /=, %= (right-associative)
+    #   2. Logical OR: || (left-associative)
+    #   3. Logical AND: && (left-associative)
+    #   4. Equality: ==, != (left-associative)
+    #   5. Relational: <, >, <=, >= (left-associative)
+    #   6. Additive: +, -, .. (left-associative)
+    #   7. Multiplicative: *, /, % (left-associative)
+    #   8. Unary: !, -, ++, -- (right-associative, prefix)
+    #   9. Postfix: (), [], ., ++, -- (left-associative)
+    #  10. Primary: literals, identifiers, parenthesized, type casts
+    #
+    # =========================================================================
+    
+    # Assignment operators (right-associative)
+    ASSIGN_OPS = {"=", "+=", "-=", "*=", "/=", "%="}
+    
+    def parse_expression(self) -> ParseTreeNode:
+        """
+        expression → assignment
+        
+        Entry point for expression parsing.
+        """
+        return self.parse_assignment()
+    
+    def parse_assignment(self) -> ParseTreeNode:
+        """
+        assignment → logical_or ( assign_op assignment )?
+        
+        Right-associative: a = b = c parses as a = (b = c)
+        """
+        left = self.parse_logical_or()
+        
+        if self.peek_value() in self.ASSIGN_OPS:
+            node = ParseTreeNode("assignment")
+            node.add_child(left)
+            node.add_child(self.make_terminal(self.advance()))  # operator
+            node.add_child(self.parse_assignment())  # right-recursive for right-associativity
+            return node
+        
+        return left
+    
+    def parse_logical_or(self) -> ParseTreeNode:
+        """
+        logical_or → logical_and ( '||' logical_and )*
+        
+        Left-associative: a || b || c parses as (a || b) || c
+        """
+        left = self.parse_logical_and()
+        
+        while self.check("||"):
+            node = ParseTreeNode("logical_or")
+            node.add_child(left)
+            node.add_child(self.make_terminal(self.advance()))  # ||
+            node.add_child(self.parse_logical_and())
+            left = node
+        
+        return left
+    
+    def parse_logical_and(self) -> ParseTreeNode:
+        """
+        logical_and → equality ( '&&' equality )*
+        
+        Left-associative: a && b && c parses as (a && b) && c
+        """
+        left = self.parse_equality()
+        
+        while self.check("&&"):
+            node = ParseTreeNode("logical_and")
+            node.add_child(left)
+            node.add_child(self.make_terminal(self.advance()))  # &&
+            node.add_child(self.parse_equality())
+            left = node
+        
+        return left
+    
+    def parse_equality(self) -> ParseTreeNode:
+        """
+        equality → relational ( ('==' | '!=') relational )*
+        
+        Left-associative: a == b != c parses as (a == b) != c
+        """
+        left = self.parse_relational()
+        
+        while self.check("==", "!="):
+            node = ParseTreeNode("equality")
+            node.add_child(left)
+            node.add_child(self.make_terminal(self.advance()))  # == or !=
+            node.add_child(self.parse_relational())
+            left = node
+        
+        return left
+    
+    def parse_relational(self) -> ParseTreeNode:
+        """
+        relational → additive ( ('<' | '>' | '<=' | '>=') additive )*
+        
+        Left-associative: a < b > c parses as (a < b) > c
+        """
+        left = self.parse_additive()
+        
+        while self.check("<", ">", "<=", ">="):
+            node = ParseTreeNode("relational")
+            node.add_child(left)
+            node.add_child(self.make_terminal(self.advance()))  # operator
+            node.add_child(self.parse_additive())
+            left = node
+        
+        return left
+    
+    def parse_additive(self) -> ParseTreeNode:
+        """
+        additive → multiplicative ( ('+' | '-' | '..') multiplicative )*
+        
+        Left-associative: a + b - c parses as (a + b) - c
+        '..' is string concatenation in PORTIA
+        """
+        left = self.parse_multiplicative()
+        
+        while self.check("+", "-", ".."):
+            node = ParseTreeNode("additive")
+            node.add_child(left)
+            node.add_child(self.make_terminal(self.advance()))  # operator
+            node.add_child(self.parse_multiplicative())
+            left = node
+        
+        return left
+    
+    def parse_multiplicative(self) -> ParseTreeNode:
+        """
+        multiplicative → unary ( ('*' | '/' | '%') unary )*
+        
+        Left-associative: a * b / c parses as (a * b) / c
+        """
+        left = self.parse_unary()
+        
+        while self.check("*", "/", "%"):
+            node = ParseTreeNode("multiplicative")
+            node.add_child(left)
+            node.add_child(self.make_terminal(self.advance()))  # operator
+            node.add_child(self.parse_unary())
+            left = node
+        
+        return left
+    
+    def parse_unary(self) -> ParseTreeNode:
+        """
+        unary → ('!' | '-' | '++' | '--') unary
+              | postfix
+        
+        Right-associative (prefix): --++x parses as --(++x)
+        """
+        if self.check("!", "-", "++", "--"):
+            node = ParseTreeNode("unary")
+            node.add_child(self.make_terminal(self.advance()))  # operator
+            node.add_child(self.parse_unary())  # right-recursive
+            return node
+        
+        return self.parse_postfix()
+    
+    def parse_postfix(self) -> ParseTreeNode:
+        """
+        postfix → primary postfix_chain
+        
+        postfix_chain → '(' arg_list ')' postfix_chain    (function call)
+                      | '[' expression ']' postfix_chain  (array subscript)
+                      | '.' ID postfix_chain              (member access)
+                      | '++'                              (postfix increment)
+                      | '--'                              (postfix decrement)
+                      | ε
+        
+        Left-associative: a.b[c](d) parses as ((a.b)[c])(d)
+        """
+        left = self.parse_primary()
+        
+        while True:
+            if self.check("("):
+                # Function call: expr(args)
+                node = ParseTreeNode("call")
+                node.add_child(left)
+                node.add_child(self.make_terminal(self.advance()))  # (
+                node.add_child(self.parse_arg_list())
+                node.add_child(self.make_terminal(self.match_value(")")))
+                left = node
+                
+            elif self.check("["):
+                # Array subscript: expr[index]
+                node = ParseTreeNode("subscript")
+                node.add_child(left)
+                node.add_child(self.make_terminal(self.advance()))  # [
+                node.add_child(self.parse_expression())
+                node.add_child(self.make_terminal(self.match_value("]")))
+                left = node
+                
+            elif self.check("."):
+                # Member access: expr.field
+                node = ParseTreeNode("member_access")
+                node.add_child(left)
+                node.add_child(self.make_terminal(self.advance()))  # .
+                node.add_child(self.make_terminal(self.match("ID")))
+                left = node
+                
+            elif self.check("++"):
+                # Postfix increment: expr++
+                node = ParseTreeNode("postfix_inc")
+                node.add_child(left)
+                node.add_child(self.make_terminal(self.advance()))  # ++
+                left = node
+                
+            elif self.check("--"):
+                # Postfix decrement: expr--
+                node = ParseTreeNode("postfix_dec")
+                node.add_child(left)
+                node.add_child(self.make_terminal(self.advance()))  # --
+                left = node
+                
+            else:
+                break
+        
+        return left
+    
+    def parse_primary(self) -> ParseTreeNode:
+        """
+        primary → INTLIT | LONGLIT | FLOATLIT | DOUBLELIT | CHARLIT | STRINGLIT
+                | 'true' | 'false'
+                | ID
+                | '(' expression ')'
+                | type '(' expression ')'   (type cast)
+        """
+        node = ParseTreeNode("primary")
+        
+        # Literals
+        if self.check_type("INTLIT", "LONGLIT", "FLOATLIT", "DOUBLELIT", "CHARLIT", "STRINGLIT"):
+            node.add_child(self.make_terminal(self.advance()))
+            return node
+        
+        # Boolean literals
+        if self.check("true", "false"):
+            node.add_child(self.make_terminal(self.advance()))
+            return node
+        
+        # Parenthesized expression
+        if self.check("("):
+            node.add_child(self.make_terminal(self.advance()))  # (
+            node.add_child(self.parse_expression())
+            node.add_child(self.make_terminal(self.match_value(")")))
+            return node
+        
+        # Type cast: int(expr), string(expr), etc.
+        if self.peek_value() in TYPE_KEYWORDS:
+            cast_node = ParseTreeNode("type_cast")
+            cast_node.add_child(self.make_terminal(self.advance()))  # type
+            cast_node.add_child(self.make_terminal(self.match_value("(")))
+            cast_node.add_child(self.parse_expression())
+            cast_node.add_child(self.make_terminal(self.match_value(")")))
+            return cast_node
+        
+        # Identifier
+        if self.check_type("ID"):
+            node.add_child(self.make_terminal(self.advance()))
+            return node
+        
+        # Error: unexpected token
+        raise self.error(first_of("expression"))
+    
+    def parse_condition(self) -> ParseTreeNode:
+        """
+        condition → expression
+        
+        Conditions are just expressions that evaluate to boolean.
+        """
+        node = ParseTreeNode("condition")
+        node.add_child(self.parse_expression())
+        return node
