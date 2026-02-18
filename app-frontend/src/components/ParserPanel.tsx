@@ -77,11 +77,11 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
       // If no lexical errors, run parser
       if (lexResp.errors.length === 0) {
         try {
-          // Filter out comment tokens before parsing
-          const tokensWithoutComments = lexResp.tokens.filter((token: Token) => 
-            token.type !== 'single_comment' && token.type !== 'multi_comment'
+          // Filter out whitespace, newline, and comment tokens before parsing
+          const tokensForParser = lexResp.tokens.filter((token: Token) => 
+            !['space', 'newline', 'single_comment', 'multi_comment'].includes(token.type)
           );
-          const parseResp = await parseTokens(tokensWithoutComments, normalizedCode, lexResp.errors, { signal: controller.signal });
+          const parseResp = await parseTokens(tokensForParser, normalizedCode, lexResp.errors, { signal: controller.signal });
           
           // Debug: log the parse response
           console.log('[Parser Response]', parseResp);
@@ -108,10 +108,6 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
             const errorMessages = errorObjects.map((e: any) => e.message);
             setParseErrors(errorMessages);
             setParseErrorObjects(errorObjects);
-            setAst(null);
-          } else if (parseResp.status === "tba") {
-            setParseErrors([`Parser logic in progress: ${parseResp.message}`]);
-            setParseErrorObjects([]);
             setAst(null);
           } else {
             setParseErrors([]);
@@ -466,13 +462,13 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
             }}>
               {lexErrors.length > 0 ? `Lexical Errors: ${lexErrors.length}` : 
                parseErrors.length > 0 ? `Syntax Errors: ${parseErrors.length}` : 
-               tokens.length > 0 ? '✓ Parsing success' : 'No errors'}
+               tokens.length > 0 ? '✓ Parse complete' : 'Ready'}
             </div>
           </div>
           <div style={{ flex: "1 1 auto", overflow: "auto" }}>
             {lexErrors.length === 0 && parseErrors.length === 0 ? (
               <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>
-                {tokens.length > 0 ? "No syntax errors" : "Run parser to analyze code"}
+                {tokens.length > 0 ? "No syntax errors." : "Run parser to analyze code"}
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

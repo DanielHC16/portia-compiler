@@ -3,32 +3,82 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
+from .portia_parser import PortiaParser, ParseError
+
 router = APIRouter()
 
-# Lazy load parser to avoid initialization issues
-_parser = None
-
-def get_parser():
-    global _parser
-    if _parser is None:
-        from .portia_parser import PortiaLarkParser
-        _parser = PortiaLarkParser()
-    return _parser
 
 class TokensPayload(BaseModel):
     tokens: List[Dict[str, Any]]
     source: Optional[str] = None
-    lexer_errors: Optional[List[Dict[str, Any]]] = None  # Lexer errors if any
+    lexer_errors: Optional[List[Dict[str, Any]]] = None
+
 
 class SourcePayload(BaseModel):
     source: str
 
+
+def parse_with_parser(tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Parse tokens using PortiaParser recursive descent parser.
+    Returns API response dict compatible with frontend.
+    """
+    if not tokens:
+        return {
+            "success": True,
+            "status": "success",
+            "ast": {"type": "program", "children": [{"type": "global_section", "children": []}]},
+            "errors": [],
+            "token_count": 0
+        }
+    
+    try:
+        parser = PortiaParser(tokens)
+        tree = parser.parse()
+        return {
+            "success": True,
+            "status": "success",
+            "ast": tree.to_dict(),
+            "errors": [],
+            "token_count": len(tokens)
+        }
+    except ParseError as e:
+        return {
+            "success": False,
+            "status": "error",
+            "ast": None,
+            "errors": [{
+                "message": e.message,
+                "line": e.line,
+                "column": e.column,
+                "token": e.token.get("value", ""),
+                "type": "syntax_error"
+            }],
+            "token_count": len(tokens)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "status": "error",
+            "ast": None,
+            "errors": [{
+                "message": str(e),
+                "line": 0,
+                "column": 0,
+                "token": "",
+                "type": "internal_error"
+            }],
+            "token_count": len(tokens)
+        }
+
+
 @router.post("/parse")
 def parse_tokens(payload: TokensPayload):
-    # Accepts POST /parse with JSON { tokens: [...], source?: "...", lexer_errors?: [...] }
-    # Refuses to parse if lexer errors exist
-    
-    # Check for lexer errors - if present, do not parse
+    """
+    POST /parse
+    Body: { tokens: [...], source?: "...", lexer_errors?: [...] }
+    """
+    # Block parsing if lexer errors exist
     if payload.lexer_errors and len(payload.lexer_errors) > 0:
         return {
             "success": False,
@@ -44,17 +94,18 @@ def parse_tokens(payload: TokensPayload):
             "token_count": len(payload.tokens)
         }
     
-    # No lexer errors - proceed with parsing
-    parser = get_parser()
-    return parser.parse(payload.tokens)
+    return parse_with_parser(payload.tokens)
+
 
 @router.post("/parse/source")
 def parse_source(payload: SourcePayload):
-    # Accepts POST /parse/source with JSON { source: "..." }
-    # First calls lexer, then parses tokens
+    """
+    POST /parse/source
+    Body: { source: "..." }
+    Calls lexer first, then parses tokens.
+    """
     import requests
     try:
-        # Call lexer API
         response = requests.post("http://localhost:8000/lex", json={"code": payload.source})
         if response.status_code != 200:
             return {
@@ -67,7 +118,6 @@ def parse_source(payload: SourcePayload):
         
         lex_result = response.json()
         
-        # Check for lexer errors
         if lex_result.get("errors"):
             return {
                 "success": False,
@@ -77,10 +127,8 @@ def parse_source(payload: SourcePayload):
                 "errors": lex_result["errors"]
             }
         
-        # Parse tokens
-        parser = get_parser()
         tokens = lex_result.get("tokens", [])
-        return parser.parse(tokens)
+        return parse_with_parser(tokens)
         
     except Exception as e:
         return {
