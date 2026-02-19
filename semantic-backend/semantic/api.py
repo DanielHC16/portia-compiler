@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 from .semantic_analyzer import SemanticAnalyzer
 
 router = APIRouter()
-analyzer = SemanticAnalyzer()
 
 class TokensPayload(BaseModel):
     tokens: List[Dict[str, Any]]
@@ -23,14 +22,23 @@ class GenericPayload(BaseModel):
 def analyze_tokens(payload: TokensPayload):
     """
     Accepts POST /analyze with JSON { tokens: [...], metadata?: {...} }.
-    Returns a TBA placeholder semantic analysis.
+    Note: Semantic analysis typically works on AST, not tokens.
+    This endpoint is kept for compatibility but prefer /analyze/ast.
     """
-    return analyzer.analyze(payload.tokens)
+    # For now, just return success since we work on AST
+    return {
+        "success": True,
+        "errors": [],
+        "warnings": [],
+        "message": "Token-based analysis not implemented. Use /analyze/ast with parsed AST."
+    }
 
 @router.post("/analyze/ast")
 def analyze_ast(payload: AstPayload):
     """
     Accepts POST /analyze/ast with JSON { ast: {...}, metadata?: {...} }.
-    Returns a TBA placeholder semantic analysis.
+    Returns semantic analysis results.
     """
-    return analyzer.analyze({"nodes": payload.ast if isinstance(payload.ast, dict) else {}, "metadata": payload.metadata})
+    analyzer = SemanticAnalyzer()
+    result = analyzer.analyze(payload.ast)
+    return result

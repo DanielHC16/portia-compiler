@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import LexerPanel from "./LexerPanel";
 import ParserPanel from "./ParserPanel";
-import SemanticTBA from "./SemanticTBA";
+import SemanticPanel from "./SemanticPanel";
 import type { Token, LexError } from "../api";
 
 export default function ViewSwitcher() {
@@ -108,7 +108,12 @@ export default function ViewSwitcher() {
         />
       </div>
       <div style={{ display: view === "semantics" ? "block" : "none", height: "100%" }}>
-        <SemanticTBA />
+        <SemanticPanel 
+          sharedCode={sharedCode}
+          setSharedCode={setSharedCode}
+          sharedTokens={sharedTokens}
+          sharedLexErrors={sharedLexErrors}
+        />
       </div>
     </div>
   );
