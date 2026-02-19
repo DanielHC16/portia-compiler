@@ -18,7 +18,8 @@ class CharacterClasses:
     alphanum = alphabetics + numbers
 
     # Horizontal whitespace considered generic separators
-    whitespace = [' ', '\t']
+    # Include NBSP (\xa0) which can appear from copy-paste or certain editors
+    whitespace = [' ', '\t', '\xa0']
     newline = ['\n']
 
     # Printable ASCII subset (used for escape / comment permissive matching)

@@ -78,6 +78,9 @@ class PortiaParser:
         tree = parser.parse()
     """
     
+    # Token types to skip (whitespace, comments, newlines)
+    SKIP_TOKENS = {"newline", "NEWLINE", "whitespace", "WHITESPACE", "comment", "COMMENT", "space", "SPACE"}
+    
     def __init__(self, tokens: List[Dict[str, Any]]):
         """
         Initialize the parser with a token stream.
@@ -86,7 +89,8 @@ class PortiaParser:
             tokens: List of token dictionaries from the lexer.
                    Each token has: type, value, line, column
         """
-        self.tokens = tokens
+        # Filter out newlines, whitespace, and space tokens
+        self.tokens = [t for t in tokens if t.get("type") not in self.SKIP_TOKENS]
         self.pos = 0
     
     # =========================================================================

@@ -1227,7 +1227,8 @@ class LexicalAnalyzer:
             case 's0':
                 match currChar:
                     # Whitespace - ignore and stay in s0
-                    case ' ' | '\t' | '\n' | '\r': return 's0'
+                    # Include NBSP (\xa0) which can appear from copy-paste
+                    case ' ' | '\t' | '\n' | '\r' | '\xa0': return 's0'
 
                     # String literal - MUST come before identifier pattern
                     case '"': return 's272'

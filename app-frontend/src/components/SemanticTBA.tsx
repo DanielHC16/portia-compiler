@@ -1,6 +1,6 @@
 // src/components/SemanticTBA.tsx
 import { useState } from "react";
-import { lexCode, analyzeTokens } from "../api";
+import { lexCode, parseTokens, analyzeAst } from "../api";
 
 const EXAMPLE = `int main() {
   return 0;
@@ -16,10 +16,41 @@ export default function SemanticTBA() {
     setLoading(true);
     setResult(null);
     try {
+      // Phase 1: Lexical Analysis
       const lexResp = await lexCode(source);
-      const tokens = lexResp.tokens;
-      const analysis = await analyzeTokens(tokens);
-      setResult({ lex: lexResp, analysis });
+      if (lexResp.errors && lexResp.errors.length > 0) {
+        setResult({ 
+          phase: "lexer",
+          success: false,
+          errors: lexResp.errors,
+          message: "Lexer errors - cannot proceed to parsing"
+        });
+        return;
+      }
+      
+      // Phase 2: Parsing
+      const parseResp = await parseTokens(lexResp.tokens, source, lexResp.errors);
+      if (!parseResp.success || !parseResp.ast) {
+        setResult({ 
+          phase: "parser",
+          success: false,
+          errors: parseResp.errors,
+          message: "Parser errors - cannot proceed to semantic analysis"
+        });
+        return;
+      }
+      
+      // Phase 3: Semantic Analysis
+      const semanticResp = await analyzeAst(parseResp.ast);
+      
+      setResult({
+        phase: "semantic",
+        success: semanticResp.success,
+        errors: semanticResp.errors || [],
+        warnings: semanticResp.warnings || [],
+        symbol_table: semanticResp.symbol_table,
+        ast: parseResp.ast
+      });
     } catch (err: any) {
       setResult({ error: err.message });
     } finally {

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { lexCode, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
+import ErrorDisplay from "./ErrorDisplay";
 
 const EXAMPLE = `int main() {
     return 0;
@@ -396,24 +397,8 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
               {errors.length === 0 ? (
                 <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>{tokens.length > 0 ? "No lexical errors" : "Run lexer to analyze code"}</div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {errors.map((err, i) => (
-                    <div key={i} style={{
-                      padding: "10px 14px",
-                      background: "rgba(234, 179, 8, 0.08)",
-                      border: "1px solid rgba(234, 179, 8, 0.3)",
-                      borderLeft: "4px solid rgba(234, 179, 8, 0.8)",
-                      borderRadius: 6,
-                      fontSize: 13,
-                    }}>
-                      <div style={{ fontWeight: 600, color: "rgb(234, 179, 8)", marginBottom: 6, fontSize: 14 }}>
-                        {err.message}
-                      </div>
-                      <div style={{ fontSize: 12, color: "rgba(234, 179, 8, 0.7)", fontWeight: 500 }}>
-                        at line {err.line}, column {err.column}
-                      </div>
-                    </div>
-                  ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <ErrorDisplay errors={errors} errorType="lexical" />
                 </div>
               )}
             </div>

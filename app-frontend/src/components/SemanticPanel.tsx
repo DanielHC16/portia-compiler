@@ -1,18 +1,8 @@
-// src/components/ParserPanel.tsx
+// src/components/SemanticPanel.tsx
 import { useEffect, useRef, useState, useCallback } from "react";
-import { lexCode, parseTokens, type Token, type LexError } from "../api";
+import { lexCode, parseTokens, analyzeAst, type Token, type LexError } from "../api";
 import TokenList from "./TokenList";
 import ErrorDisplay from "./ErrorDisplay";
-// import ASTTreeView from "./ASTTreeView";
-
-/* 
-- Deep Q/A Testing for Lexer and Parser Panels
-- Debugging and applying fixes for Lexer and Parser Panels
-- Also, review how to commit and do changes in GitHub, since we'll be making a lot of iterative changes here.
-*/
-
-// TODOS: - - Deep Q/A Testing for Lexer and Parser Panels and Debugging and applying fixes for Lexer and Parser Panels
-
 
 const EXAMPLE = `int main() {
     return 0;
@@ -20,25 +10,33 @@ const EXAMPLE = `int main() {
 
 type SimpleToken = Token & { start?: number; end?: number };
 
-type ParserPanelProps = {
+type SemanticError = {
+  message: string;
+  line: number;
+  column: number;
+  type?: string;
+};
+
+type SemanticPanelProps = {
   sharedCode: string;
   setSharedCode: (code: string) => void;
   sharedTokens: Token[];
   sharedLexErrors: LexError[];
 };
 
-export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, sharedLexErrors }: ParserPanelProps) {
+export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens, sharedLexErrors }: SemanticPanelProps) {
   const [lexedCode, setLexedCode] = useState<string>(sharedCode || "");
   const [tokens, setTokens] = useState<SimpleToken[]>(sharedTokens as SimpleToken[] || []);
   const [lexErrors, setLexErrors] = useState<LexError[]>(sharedLexErrors || []);
-  const [parseErrors, setParseErrors] = useState<string[]>([]);
-  const [parseErrorObjects, setParseErrorObjects] = useState<LexError[]>([]);
+  const [parseErrors, setParseErrors] = useState<LexError[]>([]);
+  const [semanticErrors, setSemanticErrors] = useState<SemanticError[]>([]);
   const [ast, setAst] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<'tokens' | 'tree' | 'json'>('tokens');
+  const [rightPanelView, setRightPanelView] = useState<'tokens' | 'ast'>('tokens');
   const [loading, setLoading] = useState(false);
   const [hideComments, _setHideComments] = useState(false);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
   
-  // Sync tokens/errors with shared state when it changes (but not code - that's shared)
+  // Sync tokens/errors with shared state when it changes
   useEffect(() => {
     setLexedCode(sharedCode || "");
     setTokens(sharedTokens as SimpleToken[] || []);
@@ -57,8 +55,8 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
       .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
   };
 
-  // Run lexer and parser
-  async function runParser() {
+  // Run full pipeline: lexer -> parser -> semantic
+  async function runSemanticAnalysis() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -66,64 +64,62 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
     setLoading(true);
     setLexErrors([]);
     setParseErrors([]);
+    setSemanticErrors([]);
+    setAnalysisComplete(false);
     
     try {
-      // First run lexer
+      // Step 1: Run lexer
       const normalizedCode = normalizeQuotes(sharedCode).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const lexResp = await lexCode(normalizedCode, { signal: controller.signal });
       setTokens(lexResp.tokens as SimpleToken[]);
       setLexErrors(lexResp.errors);
       setLexedCode(normalizedCode);
       
-      // If no lexical errors, run parser
-      if (lexResp.errors.length === 0) {
-        try {
-          // Filter out whitespace, newline, and comment tokens before parsing
-          const tokensForParser = lexResp.tokens.filter((token: Token) => 
-            !['space', 'newline', 'single_comment', 'multi_comment'].includes(token.type)
-          );
-          const parseResp = await parseTokens(tokensForParser, normalizedCode, lexResp.errors, { signal: controller.signal });
-          
-          // Debug: log the parse response
-          console.log('[Parser Response]', parseResp);
-          console.log('[Errors]', parseResp.errors);
-          
-          // Check if parser succeeded
-          if (parseResp.success && parseResp.ast) {
-            setAst(parseResp.ast);
-            setParseErrors([]);
-            setParseErrorObjects([]);
-          } else if (parseResp.errors && parseResp.errors.length > 0) {
-            // Store both error objects (for highlighting) and error strings (for display)
-            const errorObjects = parseResp.errors.map((e: any) => {
-              if (typeof e === 'object' && e.message) {
-                return { 
-                  message: e.message, 
-                  line: e.line || 0, 
-                  column: e.column || 0,
-                  token_length: e.token_length || 0  // Include token length for exact highlighting
-                };
-              }
-              return { message: String(e), line: 0, column: 0, token_length: 0 };
-            });
-            const errorMessages = errorObjects.map((e: any) => e.message);
-            setParseErrors(errorMessages);
-            setParseErrorObjects(errorObjects);
-            setAst(null);
-          } else {
-            setParseErrors([]);
-            setParseErrorObjects([]);
-            setAst(parseResp.ast || null);
-          }
-        } catch (err: any) {
-          if (err?.name !== 'AbortError') {
-            setParseErrors([err?.message ?? String(err)]);
-            setAst(null);
-          }
-        }
-      } else {
-        setParseErrors(["Cannot parse: lexical errors present"]);
+      if (lexResp.errors.length > 0) {
         setAst(null);
+        return;
+      }
+      
+      // Step 2: Run parser
+      const tokensForParser = lexResp.tokens.filter((token: Token) => 
+        !['space', 'newline', 'single_comment', 'multi_comment'].includes(token.type)
+      );
+      const parseResp = await parseTokens(tokensForParser, normalizedCode, lexResp.errors, { signal: controller.signal });
+      
+      if (!parseResp.success || !parseResp.ast) {
+        const errorObjects = parseResp.errors?.map((e: any) => ({
+          message: e.message || String(e),
+          line: e.line || 0,
+          column: e.column || 0,
+          token_length: e.token_length || 0
+        })) || [{ message: "Parse failed", line: 0, column: 0, token_length: 0 }];
+        setParseErrors(errorObjects);
+        setAst(null);
+        return;
+      }
+      
+      setAst(parseResp.ast);
+      setParseErrors([]);
+      
+      // Step 3: Run semantic analysis
+      try {
+        const semanticResp = await analyzeAst(parseResp.ast, { signal: controller.signal });
+        
+        if (semanticResp.errors && semanticResp.errors.length > 0) {
+          setSemanticErrors(semanticResp.errors.map((e: any) => ({
+            message: e.message || String(e),
+            line: e.line || 0,
+            column: e.column || 0,
+            type: e.type || 'semantic_error'
+          })));
+        } else {
+          setSemanticErrors([]);
+          setAnalysisComplete(true);
+        }
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          setSemanticErrors([{ message: err?.message ?? String(err), line: 0, column: 0, type: 'internal_error' }]);
+        }
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
@@ -136,18 +132,17 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
     }
   }
 
-  // Code is read-only in Parser Panel - all changes come from Lexer Panel
-
   // Reset function
   const handleReset = useCallback(() => {
     setSharedCode(EXAMPLE);
     setTokens([]);
     setLexErrors([]);
     setParseErrors([]);
-    setParseErrorObjects([]);
+    setSemanticErrors([]);
     setAst(null);
-    setViewMode('tokens');
+    setRightPanelView('tokens');
     setLexedCode("");
+    setAnalysisComplete(false);
   }, [setSharedCode]);
 
   // Handle code changes
@@ -194,19 +189,15 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
     if (!src) return [{ text: "", cls: undefined }];
 
     try {
-      // Calculate line start positions (0-indexed character positions)
       const lineStarts: number[] = [0];
       for (let i = 0; i < src.length; i++) {
         if (src[i] === '\n') lineStarts.push(i + 1);
       }
 
-      // Collect all ranges: syntax tokens + error underlines
-      // Error ranges take priority and will be rendered separately
       type Range = { start: number; end: number; cls?: string; isError: boolean };
       const tokenRanges: Range[] = [];
       const errorRanges: Range[] = [];
 
-      // 1. Build syntax token ranges
       for (const tok of toks) {
         if (!tok.lexeme || tok.line === undefined || tok.column === undefined) continue;
         if (tok.line < 1 || tok.line > lineStarts.length) continue;
@@ -215,50 +206,31 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
         let start = lineStart + tok.column - 1;
         let end = start + tok.lexeme.length;
         
-        // Verify position matches
         if (start >= 0 && end <= src.length && src.slice(start, end) === tok.lexeme) {
           tokenRanges.push({ start, end, cls: tokenClass(tok.type), isError: false });
         }
       }
 
-      // 2. Build error ranges from parser-provided data ONLY
-      // NO merging, NO text search, NO token inference
       for (const err of errs) {
-        if (err.line === undefined || err.line < 1 || err.column === undefined || err.column < 1) {
-          continue;
-        }
-        if (err.line > lineStarts.length) {
-          continue;
-        }
+        if (err.line === undefined || err.line < 1 || err.column === undefined || err.column < 1) continue;
+        if (err.line > lineStarts.length) continue;
 
         const lineStart = lineStarts[err.line - 1];
-        const errorStart = lineStart + err.column - 1; // 1-based column → 0-based index
-        const errorLength = err.token_length || 1;
+        const errorStart = lineStart + err.column - 1;
+        const errorLength = (err as any).token_length || 1;
         const errorEnd = errorStart + errorLength;
 
-        if (errorStart < 0 || errorEnd > src.length) {
-          continue;
+        if (errorStart >= 0 && errorEnd <= src.length) {
+          errorRanges.push({ start: errorStart, end: errorEnd, cls: 'hl-error', isError: true });
         }
-
-        console.log('[Error Underline] Range:', err.line, err.column, '→ chars', errorStart, '-', errorEnd, '=', JSON.stringify(src.slice(errorStart, errorEnd)));
-        
-        // Always add standalone error range - never merge into tokens
-        errorRanges.push({ start: errorStart, end: errorEnd, cls: 'hl-error', isError: true });
       }
 
-      // 3. Build final segments by merging token and error ranges
-      // Errors take visual priority (rendered on top via CSS)
       const allRanges = [...tokenRanges, ...errorRanges];
       if (allRanges.length === 0) return [{ text: src, cls: undefined }];
 
-      // Sort by start position, errors first at same position
       allRanges.sort((a, b) => a.start - b.start || (a.isError ? -1 : 1));
 
-      // Build non-overlapping segments using sweep line algorithm
       const segments: { text: string; cls?: string }[] = [];
-
-      // Create a simple segment list from all ranges
-      // Handle overlaps by letting error class override
       const points = new Set<number>();
       for (const r of allRanges) {
         points.add(r.start);
@@ -273,10 +245,8 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
         const segEnd = sortedPoints[i + 1];
         if (segStart >= segEnd) continue;
 
-        // Find all ranges covering this segment
         const coveringRanges = allRanges.filter(r => r.start <= segStart && r.end >= segEnd);
         
-        // Determine class: error takes priority, then token class
         let cls: string | undefined;
         const hasError = coveringRanges.some(r => r.isError);
         const tokenRange = coveringRanges.find(r => !r.isError && r.cls);
@@ -294,17 +264,15 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
 
       return segments.length > 0 ? segments : [{ text: src, cls: undefined }];
     } catch (e) {
-      console.error('[Highlight] Exception:', e);
       return [{ text: src, cls: undefined }];
     }
   }, []);
 
   const highlightedHTML = useCallback(() => {
     try {
-      if (lexedCode && sharedCode === lexedCode && (tokens.length > 0 || lexErrors.length > 0 || parseErrorObjects.length > 0)) {
-        // Combine lexical and parser errors for highlighting
-        const allErrors = [...lexErrors, ...parseErrorObjects];
-        const rawSegments = buildHighlightsFromTokens(sharedCode, tokens, allErrors);
+      const allErrors = [...lexErrors, ...parseErrors, ...semanticErrors.map(e => ({ ...e, token_length: 1 }))];
+      if (lexedCode && sharedCode === lexedCode && (tokens.length > 0 || allErrors.length > 0)) {
+        const rawSegments = buildHighlightsFromTokens(sharedCode, tokens, allErrors as LexError[]);
         const html = rawSegments
           .map(s => s.cls ? `<span class="${s.cls}">${escapeHtml(s.text)}</span>` : escapeHtml(s.text))
           .join("");
@@ -312,27 +280,30 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
       }
       return escapeHtml(sharedCode);
     } catch (e) {
-      // Fallback on any error
       return escapeHtml(sharedCode);
     }
-  }, [sharedCode, lexedCode, tokens, lexErrors, parseErrorObjects, buildHighlightsFromTokens]);
+  }, [sharedCode, lexedCode, tokens, lexErrors, parseErrors, semanticErrors, buildHighlightsFromTokens]);
   
   const lines = sharedCode.split('\n');
   const lineCount = lines.length;
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
+  // Determine overall status
+  const hasErrors = lexErrors.length > 0 || parseErrors.length > 0 || semanticErrors.length > 0;
+  const isSuccess = analysisComplete && !hasErrors;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%", padding: 16 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Syntax Analyzer</h2>
+        <h2 style={{ margin: 0 }}>Semantic Analyzer</h2>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: 'center' }}>
           <button 
             className="btn" 
-            onClick={runParser} 
+            onClick={runSemanticAnalysis} 
             disabled={loading}
           >
-            {loading ? "Analyzing..." : "Run Parser"}
+            {loading ? "Analyzing..." : "Run Analyzer"}
           </button>
           <button className="btn ghost" onClick={handleReset}>
             Reset
@@ -340,7 +311,7 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
         </div>
       </div>
 
-      {/* Grid layout: Top row (Source + Tokens), Bottom row (Terminal) */}
+      {/* Grid layout: Top row (Source + Tokens/AST), Bottom row (Terminal) */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 16, flex: "1 1 auto", minHeight: 0 }}>
         {/* Top-Left: Source Code */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
@@ -441,35 +412,69 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
           </div>
         </div>
 
-        {/* Top-Right: Tokens Panel */}
+        {/* Top-Right: Tokens / AST Panel with toggle */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-          <h3 style={{ margin: 0, marginBottom: 12 }}>Tokens</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>{rightPanelView === 'tokens' ? 'Tokens' : 'AST'}</h3>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button 
+                className={`btn small ${rightPanelView === 'tokens' ? '' : 'ghost'}`}
+                onClick={() => setRightPanelView('tokens')}
+                style={{ padding: '4px 12px', fontSize: 12 }}
+              >
+                Tokens
+              </button>
+              <button 
+                className={`btn small ${rightPanelView === 'ast' ? '' : 'ghost'}`}
+                onClick={() => setRightPanelView('ast')}
+                disabled={!ast}
+                style={{ padding: '4px 12px', fontSize: 12, opacity: ast ? 1 : 0.5 }}
+              >
+                AST
+              </button>
+            </div>
+          </div>
           <div style={{ flex: "1 1 auto", overflow: "auto" }}>
-            <TokenList tokens={tokens} hideComments={hideComments} />
+            {rightPanelView === 'tokens' ? (
+              <TokenList tokens={tokens} hideComments={hideComments} />
+            ) : (
+              <pre style={{
+                margin: 0,
+                padding: 8,
+                fontSize: 12,
+                fontFamily: "var(--mono)",
+                whiteSpace: "pre-wrap",
+                wordWrap: "break-word",
+                lineHeight: 1.5,
+              }}>
+                {ast ? JSON.stringify(ast, null, 2) : "No AST available. Run analyzer first."}
+              </pre>
+            )}
           </div>
         </div>
 
-        {/* Bottom: Terminal / Errors Panel (full width) */}
+        {/* Bottom: Terminal / Results Panel (full width) */}
         <div className="panel" style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h3 style={{ margin: 0 }}>Terminal</h3>
             <div className="small" style={{
-              color: (lexErrors.length > 0 || parseErrors.length > 0) ? "var(--text-muted)" : tokens.length > 0 ? "var(--success)" : "var(--text-muted)",
-              fontWeight: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? 600 : 400,
-              padding: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "4px 12px" : "0",
-              borderRadius: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "12px" : "0",
-              backgroundColor: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "rgba(34, 197, 94, 0.1)" : "transparent",
-              border: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "1px solid rgba(34, 197, 94, 0.3)" : "none"
+              color: hasErrors ? "var(--text-muted)" : isSuccess ? "var(--success)" : "var(--text-muted)",
+              fontWeight: isSuccess ? 600 : 400,
+              padding: isSuccess ? "4px 12px" : "0",
+              borderRadius: isSuccess ? "12px" : "0",
+              backgroundColor: isSuccess ? "rgba(34, 197, 94, 0.1)" : "transparent",
+              border: isSuccess ? "1px solid rgba(34, 197, 94, 0.3)" : "none"
             }}>
               {lexErrors.length > 0 ? `Lexical Errors: ${lexErrors.length}` : 
                parseErrors.length > 0 ? `Syntax Errors: ${parseErrors.length}` : 
-               tokens.length > 0 ? '✓ Parse complete' : 'Ready'}
+               semanticErrors.length > 0 ? `Semantic Errors: ${semanticErrors.length}` :
+               isSuccess ? '✓ Semantic Analysis Complete' : 'Ready'}
             </div>
           </div>
           <div style={{ flex: "1 1 auto", overflow: "auto" }}>
-            {lexErrors.length === 0 && parseErrors.length === 0 ? (
-              <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>
-                {tokens.length > 0 ? "No syntax errors." : "Run parser to analyze code"}
+            {!hasErrors ? (
+              <div style={{ color: isSuccess ? "var(--success)" : "var(--text-muted)", fontStyle: "italic", fontSize: "13px" }}>
+                {isSuccess ? "Semantic analysis successful. No errors found." : "Run analyzer to check code"}
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -477,7 +482,10 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
                 <ErrorDisplay errors={lexErrors} errorType="lexical" />
                 
                 {/* Parse errors */}
-                <ErrorDisplay errors={parseErrorObjects} errorType="syntax" />
+                <ErrorDisplay errors={parseErrors} errorType="syntax" />
+                
+                {/* Semantic errors */}
+                <ErrorDisplay errors={semanticErrors} errorType="semantic" />
               </div>
             )}
           </div>
