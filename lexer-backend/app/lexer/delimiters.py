@@ -18,10 +18,10 @@ class Delimiters:
 
         # DATA TYPE DELIMITER
         # dtype_delim: allows '(' immediately after castable primitive type keywords
-        # Patterns: int(expr), float(x) -- function-style cast syntax
-        # Also allows '[' for function parameters with arrays: int func(int arr[5])
+        # Patterns: (int)expr -- cast syntax, int func(int arr[5]) -- array params
+        # Also allows ')' for cast patterns like (int)x where dtype follows '('
         # Excludes 'void' and 'weave' (not valid cast targets)
-        self.dtype_delim = chars.whitespace + ['('] + chars.newline
+        self.dtype_delim = chars.whitespace + ['(', '[', ')'] + chars.newline
 
         # RESERVED SYMBOLS DELIMITER
         # Arithmetic and logical operator delimiters
@@ -34,7 +34,7 @@ class Delimiters:
         
         # Grouping symbol delimiters
         self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '-', '(', ';', "'", '..'] 
-        self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<','!', '=', '&', '|', '{', ';', ')', "'",'..'] + chars.whitespace + chars.newline
+        self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<','!', '=', '&', '|', '{', ';', ')', '(',  "'",',','..'] + chars.whitespace + chars.newline
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '[',  '>', '<', '!', '=', '&', '|', '..'] + chars.whitespace
         self.open_curly_delim = chars.whitespace + chars.newline + chars.alphanum + ['{', '"', "'", '-', '!']
         self.close_curly_delim = chars.whitespace + chars.newline + [';', ',', None] + chars.alphabetics + ['}']
@@ -60,7 +60,7 @@ class Delimiters:
 
         # LITERALS DELIMITER
         # String literal delimiters
-        self.str_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', ',', '..']
+        self.str_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', ',', ':', '..']
         
         # Character literal delimiters
         self.char_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', ',', ':', '..']

@@ -27,7 +27,7 @@ def parse_with_parser(tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
         return {
             "success": True,
             "status": "success",
-            "ast": {"type": "program", "children": [{"type": "global_section", "children": []}]},
+            "ast": {"node": "Program", "globals": [], "functions": []},
             "errors": [],
             "token_count": 0
         }
