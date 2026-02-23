@@ -17,35 +17,39 @@ interface ErrorDisplayProps {
 }
 
 // Color schemes for different error types
+// Lexer = Yellow, Parser = Orange, Semantic = Red
 const errorColors = {
   lexical: {
     primary: 'rgb(234, 179, 8)',
-    bg: 'rgba(234, 179, 8, 0.08)',
+    bg: 'rgba(234, 179, 8, 0.1)',
     border: 'rgba(234, 179, 8, 0.3)',
-    accent: 'rgba(234, 179, 8, 0.8)',
+    accent: 'rgb(234, 179, 8)',
     label: 'Lexical Error'
   },
   syntax: {
-    primary: 'rgb(239, 68, 68)',
-    bg: 'rgba(239, 68, 68, 0.08)',
-    border: 'rgba(239, 68, 68, 0.3)',
-    accent: 'rgba(239, 68, 68, 0.8)',
+    primary: 'rgb(249, 115, 22)',
+    bg: 'rgba(249, 115, 22, 0.1)',
+    border: 'rgba(249, 115, 22, 0.3)',
+    accent: 'rgb(249, 115, 22)',
     label: 'Parsing Error'
   },
   semantic: {
-    primary: 'rgb(139, 92, 246)',
-    bg: 'rgba(139, 92, 246, 0.08)',
-    border: 'rgba(139, 92, 246, 0.3)',
-    accent: 'rgba(139, 92, 246, 0.8)',
+    primary: 'rgb(239, 68, 68)',
+    bg: 'rgba(239, 68, 68, 0.1)',
+    border: 'rgba(239, 68, 68, 0.3)',
+    accent: 'rgb(239, 68, 68)',
     label: 'Semantic Error'
   }
 };
 
-// Parse and format error message - put Unexpected/Expected on separate lines
+// Parse and format error message - clean up duplicates and format nicely
 function formatErrorMessage(msg: string): React.ReactNode {
+  // Remove duplicate token formats like "'token' (token)" -> "'token'"
+  let cleanMsg = msg.replace(/'([^']+)'\s*\(\1\)/g, "'$1'");
+  
   // Try to extract Unexpected and Expected parts
-  const unexpectedMatch = msg.match(/Unexpected:\s*(.+?)(?=\s*Expected:|$)/s);
-  const expectedMatch = msg.match(/Expected:\s*(.+)/s);
+  const unexpectedMatch = cleanMsg.match(/Unexpected:\s*(.+?)(?=\s*Expected:|$)/s);
+  const expectedMatch = cleanMsg.match(/Expected:\s*(.+)/s);
 
   if (unexpectedMatch || expectedMatch) {
     return (
@@ -66,7 +70,7 @@ function formatErrorMessage(msg: string): React.ReactNode {
     );
   }
 
-  return msg;
+  return cleanMsg;
 }
 
 export default function ErrorDisplay({ errors, errorType }: ErrorDisplayProps) {

@@ -2,5 +2,15 @@
     "python-envs.pythonProjects": [],
     "cSpell.words": [
         "lastgroup"
-    ]
+    ],
+    "css.customData": [],
+    "css.validate": false,
+    "scss.validate": false,
+    "less.validate": false,
+    "files.associations": {
+        "*.css": "tailwindcss"
+    },
+    "editor.quickSuggestions": {
+        "strings": true
+    }
 }
