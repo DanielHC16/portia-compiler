@@ -77,9 +77,11 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
           
           // Check if parser succeeded
           if (parseResp.success && parseResp.ast) {
+            console.log("AST:", parseResp.ast);
             setParseErrors([]);
             setParseErrorObjects([]);
           } else if (parseResp.errors && parseResp.errors.length > 0) {
+            console.error("Parse Errors:", parseResp.errors);
             const errorObjects = parseResp.errors.map((e: any) => {
               if (typeof e === 'object' && e.message) {
                 return { 

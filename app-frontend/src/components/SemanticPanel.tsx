@@ -31,8 +31,6 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
   const [lexErrors, setLexErrors] = useState<LexError[]>(sharedLexErrors || []);
   const [parseErrors, setParseErrors] = useState<LexError[]>([]);
   const [semanticErrors, setSemanticErrors] = useState<SemanticError[]>([]);
-  const [ast, setAst] = useState<any>(null);
-  const [rightPanelView, setRightPanelView] = useState<'tokens' | 'ast'>('tokens');
   const [loading, setLoading] = useState(false);
   const [hideComments] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
@@ -69,7 +67,6 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
     setLexErrors([]);
     setParseErrors([]);
     setSemanticErrors([]);
-    setAst(null);
     setAnalysisComplete(false);
     
     try {
@@ -91,6 +88,7 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
       const parseResp = await parseTokens(tokensForParser, normalizedCode, lexResp.errors, { signal: controller.signal });
       
       if (!parseResp.success || !parseResp.ast) {
+        console.error("Parse Errors:", parseResp.errors);
         if (parseResp.errors && parseResp.errors.length > 0) {
           const errorObjects = parseResp.errors.map((e: any) => {
             if (typeof e === 'object' && e.message) {
@@ -104,7 +102,7 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
         return;
       }
       
-      setAst(parseResp.ast);
+      console.log("AST:", parseResp.ast);
       
       // Step 3: Semantic Analysis
       try {
@@ -150,9 +148,7 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
     setLexErrors([]);
     setParseErrors([]);
     setSemanticErrors([]);
-    setAst(null);
     setAnalysisComplete(false);
-    setRightPanelView('tokens');
   }, [setSharedCode]);
 
   // Get total error count
@@ -211,45 +207,11 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
             </div>
           </div>
 
-          {/* Tokens/AST Panel */}
+          {/* Tokens Panel */}
           <div className="panel" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexShrink: 0 }}>
-              <h3 style={{ margin: 0 }}>{rightPanelView === 'tokens' ? 'Tokens' : 'AST'}</h3>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button 
-                  className={`btn ${rightPanelView === 'tokens' ? '' : 'ghost'}`}
-                  onClick={() => setRightPanelView('tokens')}
-                  style={{ padding: '4px 12px', fontSize: '12px' }}
-                >
-                  Tokens
-                </button>
-                <button 
-                  className={`btn ${rightPanelView === 'ast' ? '' : 'ghost'}`}
-                  onClick={() => setRightPanelView('ast')}
-                  style={{ padding: '4px 12px', fontSize: '12px' }}
-                  disabled={!ast}
-                >
-                  AST
-                </button>
-              </div>
-            </div>
+            <h3 style={{ margin: 0, marginBottom: 12, flexShrink: 0 }}>Tokens</h3>
             <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-              {rightPanelView === 'tokens' ? (
-                <TokenList tokens={tokens} hideComments={hideComments} />
-              ) : (
-                <pre style={{ 
-                  margin: 0, 
-                  padding: 12, 
-                  fontSize: 12, 
-                  fontFamily: 'var(--mono)', 
-                  background: 'var(--bg-secondary)', 
-                  borderRadius: 6,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word'
-                }}>
-                  {ast ? JSON.stringify(ast, null, 2) : 'No AST available. Run semantic analyzer first.'}
-                </pre>
-              )}
+              <TokenList tokens={tokens} hideComments={hideComments} />
             </div>
           </div>
         </div>
