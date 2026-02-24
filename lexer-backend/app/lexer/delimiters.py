@@ -10,7 +10,7 @@ from .character_classes import CharacterClasses
 
 class Delimiters:
     # Container for delimiter category lists.
-    # Lists reused by the lexer; no mutation should occur at runtime.
+    # Lists reused by the lexer; no mutations
 
     def __init__(self, chars: CharacterClasses):
         # Build all delimiter sets using provided character classes.

@@ -1,11 +1,10 @@
 """
 PORTIA Language Grammar Definition
 ===================================
-Authoritative source: revised-documents/[CFG REVAMP] *.csv
 
 This module exports every token-class constant, FIRST set, FOLLOW set,
 and PREDICT set used by the recursive-descent parser so that
-``portia_parser.py`` never hard-codes raw token strings.
+portia_parser.py never hard-codes raw token strings.
 
 247 productions · 116 non-terminals
 """
@@ -339,13 +338,6 @@ FOLLOW = {
 
 # =========================================================================
 # PREDICT sets  (keyed by production number 1-247)
-#
-# Updated for revised CFG (247 productions, 116 non-terminals).
-# Key changes from prior grammar:
-#   - Productions 183-202: NEW bool_ctrl 5-way split, cmp_start, rel_op
-#   - Productions 203+ renumbered (+12 from old scheme)
-#   - case_stmt (217) and default_stmt (227) now include ret_ctrl_body
-#   - ret_ctrl_body FOLLOW includes {}, case, default}
 # =========================================================================
 PREDICT = {
     # -- program / global_dec  (1-4) ----------------------------------

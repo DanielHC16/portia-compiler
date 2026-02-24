@@ -47,7 +47,7 @@ function formatErrorMessage(msg: string): React.ReactNode {
   // Remove duplicate token formats like "'token' (token)" -> "'token'"
   let cleanMsg = msg.replace(/'([^']+)'\s*\(\1\)/g, "'$1'");
   
-  // Try to extract Unexpected and Expected parts
+  // Try to extract Unexpected and Expected parts (parser errors)
   const unexpectedMatch = cleanMsg.match(/Unexpected:\s*(.+?)(?=\s*Expected:|$)/s);
   const expectedMatch = cleanMsg.match(/Expected:\s*(.+)/s);
 
@@ -67,6 +67,28 @@ function formatErrorMessage(msg: string): React.ReactNode {
           </div>
         )}
       </div>
+    );
+  }
+
+  // Highlight quoted identifiers in monospace (e.g. 'varName', 'int')
+  const parts = cleanMsg.split(/(\'[^\']*\')/g);
+  if (parts.length > 1) {
+    return (
+      <span>
+        {parts.map((part, i) =>
+          part.startsWith("'") && part.endsWith("'") ? (
+            <code key={i} style={{
+              fontFamily: 'var(--mono)',
+              background: 'rgba(128,128,128,0.15)',
+              padding: '1px 5px',
+              borderRadius: 3,
+              fontSize: '0.92em',
+            }}>{part.slice(1, -1)}</code>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </span>
     );
   }
 

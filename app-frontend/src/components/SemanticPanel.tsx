@@ -154,11 +154,12 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
   // Get total error count
   const totalErrors = lexErrors.length + parseErrors.length + semanticErrors.length;
 
-  // Convert semantic errors to LexError format for ErrorDisplay
-  const semanticErrorsAsLexErrors: LexError[] = semanticErrors.map(e => ({
+  // Convert semantic errors to CompilerError format for ErrorDisplay (preserving type)
+  const semanticErrorsForDisplay = semanticErrors.map(e => ({
     message: e.message,
     line: e.line,
-    column: e.column
+    column: e.column,
+    type: e.type
   }));
 
   return (
@@ -243,7 +244,7 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <ErrorDisplay errors={lexErrors} errorType="lexical" />
                 <ErrorDisplay errors={parseErrors} errorType="syntax" />
-                <ErrorDisplay errors={semanticErrorsAsLexErrors} errorType="semantic" />
+                <ErrorDisplay errors={semanticErrorsForDisplay} errorType="semantic" />
               </div>
             )}
           </div>
