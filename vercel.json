@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "buildCommand": "npm --prefix app-frontend install && npm --prefix app-frontend run build",
+  "outputDirectory": "app-frontend/dist",
+  "framework": null,
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.12"
+    }
+  }
+}

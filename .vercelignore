@@ -1,0 +1,12 @@
+# Exclude Python virtual environments (large, not needed by Vercel)
+lexer-backend/.venv-py312
+parser-backend/.venv-py312
+semantic-backend/.venv-py312
+
+# Exclude test scripts
+test-scripts/
+
+# Exclude Python caches
+**/__pycache__
+**/*.pyc
+**/*.pyo
