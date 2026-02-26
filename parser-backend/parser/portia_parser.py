@@ -1829,7 +1829,7 @@ class PortiaParser:
     # =====================================================================
 
     def parse_main_func(self) -> FunctionDecl:
-        self.match_value("int", also_expected=PREDICT[1])
+        self.match_value("int", also_expected={"func"})
         self.match_value("main")
         self.match_value("(")
         self.match_value(")")
