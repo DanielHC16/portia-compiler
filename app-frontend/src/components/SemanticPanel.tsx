@@ -5,6 +5,37 @@ import TokenList from "./TokenList";
 import ErrorDisplay from "./ErrorDisplay";
 import { PortiaEditor, type EditorError } from "../codemirror";
 
+// Console logging helper for semantic analysis
+function logSemanticResult(symbolTable: any, success: boolean, errors: any[]) {
+  if (success) {
+    console.log(
+      "%c✓ SEMANTIC ANALYSIS SUCCESSFUL",
+      "color: #22c55e; font-weight: bold; font-size: 14px;"
+    );
+    console.log("%cSymbol Table:", "color: #a855f7; font-weight: bold;");
+    console.table(
+      Object.entries(symbolTable || {}).map(([name, info]: [string, any]) => ({
+        ID: name,
+        TYPE: info.dtype || info.ret_type || "-",
+        DIMS: info.dims ? JSON.stringify(info.dims) : "-",
+        DECLARED: info.line || "-",
+        ACCESSED: "-",
+        PARAMETERS: info.params ? info.params.map((p: any) => `${p.dtype} ${p.name}`).join(", ") : "-",
+        ARGS: "-",
+        VALUE: "-",
+      }))
+    );
+    console.log("%cFull Symbol Table:", "color: #06b6d4;");
+    console.dir(symbolTable, { depth: null });
+  } else {
+    console.log(
+      "%c✗ SEMANTIC ANALYSIS FAILED",
+      "color: #ef4444; font-weight: bold; font-size: 14px;"
+    );
+    console.error("%cSemantic Errors:", "color: #ef4444; font-weight: bold;", errors);
+  }
+}
+
 const EXAMPLE = `int main() {
     return 0;
 }`;
@@ -116,6 +147,9 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
             type: e.type || 'error'
           }));
           setSemanticErrors(semErrors);
+          logSemanticResult(semanticResp.symbol_table, false, semErrors);
+        } else {
+          logSemanticResult(semanticResp.symbol_table, true, []);
         }
         
         setAnalysisComplete(true);
@@ -237,7 +271,7 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
           </div>
           <div style={{ flex: "1 1 auto", overflow: "auto" }}>
             {totalErrors === 0 ? (
-              <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>
+              <div style={{ color: analysisComplete ? "var(--success)" : "var(--text-muted)", fontStyle: "italic", fontSize: "13px" }}>
                 {analysisComplete ? "No errors found." : "Run analyzer to check code"}
               </div>
             ) : (

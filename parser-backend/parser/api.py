@@ -18,7 +18,7 @@ class SourcePayload(BaseModel):
     source: str
 
 
-def parse_with_parser(tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
+def parse_with_parser(tokens: List[Dict[str, Any]], source: Optional[str] = None) -> Dict[str, Any]:
     """
     Parse tokens using PortiaParser recursive descent parser.
     Returns API response dict compatible with frontend.
@@ -94,7 +94,7 @@ def parse_tokens(payload: TokensPayload):
             "token_count": len(payload.tokens)
         }
     
-    return parse_with_parser(payload.tokens)
+    return parse_with_parser(payload.tokens, source=payload.source)
 
 
 @router.post("/parse/source")
@@ -128,7 +128,7 @@ def parse_source(payload: SourcePayload):
             }
         
         tokens = lex_result.get("tokens", [])
-        return parse_with_parser(tokens)
+        return parse_with_parser(tokens, source=payload.source)
         
     except Exception as e:
         return {

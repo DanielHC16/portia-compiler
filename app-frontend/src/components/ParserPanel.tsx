@@ -5,6 +5,23 @@ import TokenList from "./TokenList";
 import ErrorDisplay from "./ErrorDisplay";
 import { PortiaEditor, type EditorError } from "../codemirror";
 
+// Console logging helper for AST tree
+function logAST(ast: any, success: boolean) {
+  if (success && ast) {
+    console.log(
+      "%c✓ PARSE SUCCESSFUL",
+      "color: #22c55e; font-weight: bold; font-size: 14px;"
+    );
+    console.log("%cAST Tree:", "color: #06b6d4; font-weight: bold;");
+    console.dir(ast, { depth: null });
+  } else {
+    console.log(
+      "%c✗ PARSE FAILED",
+      "color: #ef4444; font-weight: bold; font-size: 14px;"
+    );
+  }
+}
+
 const EXAMPLE = `int main() {
     return 0;
 }`;
@@ -24,6 +41,7 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
   const [lexErrors, setLexErrors] = useState<LexError[]>(sharedLexErrors || []);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [parseErrorObjects, setParseErrorObjects] = useState<LexError[]>([]);
+  const [parseSuccess, setParseSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hideComments] = useState(false);
   
@@ -58,6 +76,7 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
     setLexErrors([]);
     setParseErrors([]);
     setParseErrorObjects([]);
+    setParseSuccess(false);
     
     try {
       // First run lexer
@@ -77,11 +96,13 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
           
           // Check if parser succeeded
           if (parseResp.success && parseResp.ast) {
-            console.log("AST:", parseResp.ast);
+            logAST(parseResp.ast, true);
+            setParseSuccess(true);
             setParseErrors([]);
             setParseErrorObjects([]);
           } else if (parseResp.errors && parseResp.errors.length > 0) {
-            console.error("Parse Errors:", parseResp.errors);
+            logAST(null, false);
+            console.error("%cParse Errors:", "color: #ef4444; font-weight: bold;", parseResp.errors);
             const errorObjects = parseResp.errors.map((e: any) => {
               if (typeof e === 'object' && e.message) {
                 return { 
@@ -132,6 +153,7 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
     setLexErrors([]);
     setParseErrors([]);
     setParseErrorObjects([]);
+    setParseSuccess(false);
   }, [setSharedCode]);
 
   return (
@@ -194,22 +216,22 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexShrink: 0 }}>
             <h3 style={{ margin: 0 }}>Terminal</h3>
             <div className="small" style={{
-              color: (lexErrors.length > 0 || parseErrors.length > 0) ? "var(--text-muted)" : tokens.length > 0 ? "var(--success)" : "var(--text-muted)",
-              fontWeight: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? 600 : 400,
-              padding: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "4px 12px" : "0",
-              borderRadius: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "12px" : "0",
-              backgroundColor: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "rgba(34, 197, 94, 0.1)" : "transparent",
-              border: tokens.length > 0 && lexErrors.length === 0 && parseErrors.length === 0 ? "1px solid rgba(34, 197, 94, 0.3)" : "none"
+              color: (lexErrors.length > 0 || parseErrors.length > 0) ? "var(--text-muted)" : parseSuccess ? "var(--success)" : "var(--text-muted)",
+              fontWeight: parseSuccess && lexErrors.length === 0 && parseErrors.length === 0 ? 600 : 400,
+              padding: parseSuccess && lexErrors.length === 0 && parseErrors.length === 0 ? "4px 12px" : "0",
+              borderRadius: parseSuccess && lexErrors.length === 0 && parseErrors.length === 0 ? "12px" : "0",
+              backgroundColor: parseSuccess && lexErrors.length === 0 && parseErrors.length === 0 ? "rgba(34, 197, 94, 0.1)" : "transparent",
+              border: parseSuccess && lexErrors.length === 0 && parseErrors.length === 0 ? "1px solid rgba(34, 197, 94, 0.3)" : "none"
             }}>
               {lexErrors.length > 0 ? `Lexical Errors: ${lexErrors.length}` : 
                parseErrors.length > 0 ? `Syntax Errors: ${parseErrors.length}` : 
-               tokens.length > 0 ? '✓ Parse complete' : 'Ready'}
+               parseSuccess ? '✓ Parse complete' : 'Ready'}
             </div>
           </div>
           <div style={{ flex: "1 1 auto", overflow: "auto" }}>
             {lexErrors.length === 0 && parseErrors.length === 0 ? (
-              <div style={{ color: "var(--success)", fontStyle: "italic", fontSize: "13px" }}>
-                {tokens.length > 0 ? "No syntax errors." : "Run parser to analyze code"}
+              <div style={{ color: parseSuccess ? "var(--success)" : "var(--text-muted)", fontStyle: "italic", fontSize: "13px" }}>
+                {parseSuccess ? "No syntax errors." : "Run parser to analyze code"}
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

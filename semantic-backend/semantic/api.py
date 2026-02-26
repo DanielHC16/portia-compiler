@@ -7,16 +7,21 @@ from .semantic_analyzer import SemanticAnalyzer
 
 router = APIRouter()
 
+
 class TokensPayload(BaseModel):
     tokens: List[Dict[str, Any]]
     metadata: Optional[Dict[str, Any]] = None
 
+
 class AstPayload(BaseModel):
     ast: Dict[str, Any]
+    source: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+
 
 class GenericPayload(BaseModel):
     payload: Dict[str, Any]
+
 
 @router.post("/analyze")
 def analyze_tokens(payload: TokensPayload):
@@ -33,10 +38,11 @@ def analyze_tokens(payload: TokensPayload):
         "message": "Token-based analysis not implemented. Use /analyze/ast with parsed AST."
     }
 
+
 @router.post("/analyze/ast")
 def analyze_ast(payload: AstPayload):
     """
-    Accepts POST /analyze/ast with JSON { ast: {...}, metadata?: {...} }.
+    Accepts POST /analyze/ast with JSON { ast: {...}, source?: "...", metadata?: {...} }.
     Returns semantic analysis results.
     """
     analyzer = SemanticAnalyzer()
