@@ -218,15 +218,16 @@ class LexicalAnalyzer:
             if token_type in operator_types and next_char is None:
                 return False
 
-            # String and char literals - EOF and newline are NOT allowed
+            # String and char literals - check against delimiter lists
+            # Note: EOF (None) is implicitly allowed for literals (program can end with a string/char literal)
             if token_type == 'stringlit':
-                if next_char is None or next_char == '\n':
-                    return False
+                if next_char is None:
+                    return True  # EOF is allowed after string literals
                 return char_in_delimiters(next_char, self.str_lit_delim)
 
             if token_type == 'charlit':
-                if next_char is None or next_char == '\n':
-                    return False
+                if next_char is None:
+                    return True  # EOF is allowed after char literals
                 return char_in_delimiters(next_char, self.char_lit_delim)
 
             # Check delimiter tokens BEFORE EOF handling
