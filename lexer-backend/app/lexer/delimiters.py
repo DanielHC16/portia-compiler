@@ -25,19 +25,17 @@ class Delimiters:
 
         # RESERVED SYMBOLS DELIMITER
         # Arithmetic and logical operator delimiters
-        self.negative_delim = chars.alphanum + chars.whitespace + ['(']
         self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '-']
         self.logical_op_delim = chars.alphanum + chars.whitespace + ['(', '-']
         self.exclamation_delim = chars.alphabetics + ['(', '!']
-        self.unary_delim = chars.alphabetics + chars.whitespace + [';', ')', ']', ',', '}'] + chars.newline
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', '(', '-', "'"]
         
         # Grouping symbol delimiters
         self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '-', '(', ';', "'", '..'] 
-        self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<','!', '=', '&', '|', '{', ';', ')', '(',  "'",',','..', '"' ] + chars.whitespace + chars.newline
+        self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<','!', '=', '&', '|', '{', ';', ')', '(',  "'",',','..','"'] + chars.whitespace + chars.newline
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '[',  '>', '<', '!', '=', '&', '|', '..'] + chars.whitespace
         self.open_curly_delim = chars.whitespace + chars.newline + chars.alphanum + ['{', '"', "'", '-', '!','}']
-        self.close_curly_delim = chars.whitespace + chars.newline + [';', ',', None] + chars.alphabetics + ['}']
+        self.close_curly_delim = chars.whitespace + chars.newline + [';', ','] + chars.alphabetics + ['}']
 
         # Punctuation delimiters
         self.semicolon_delim = chars.alphanum + chars.whitespace + chars.newline + [')','}']
