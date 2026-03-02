@@ -2020,7 +2020,6 @@ class LexicalAnalyzer:
             case 's152':  # After '-' (intermediate state)
                 match currChar:
                     case '=': return 's154'  # -= path
-                    case '-': return 'UNDEFINED'  # Block -- (removed from language)
                     case 'ANY': return 's153'  # Single - final (marithmetic_delim) - for is_final_state check
                     case _: return 's153'  # Any other character transitions to final state
             case 's153':  # Single - final (marithmetic_delim)
@@ -2040,7 +2039,6 @@ class LexicalAnalyzer:
             case 's156':  # After '+' (intermediate state)
                 match currChar:
                     case '=': return 's158'  # += path
-                    case '+': return 'UNDEFINED'  # Block ++ (removed from language)
                     case 'ANY': return 's157'  # Single + final 
                     case _: return 's157'  # Any other character transitions to final state
             case 's157':  # Single + final (sign_delim)
