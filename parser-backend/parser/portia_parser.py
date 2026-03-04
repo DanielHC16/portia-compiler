@@ -1114,15 +1114,15 @@ class PortiaParser:
 
     def parse_arr_or_func(self, name: str) -> ASTNode:
         if self.check("["):
-            # [144] [ size ] 2D_array
+            # [144] [ size_mod ] 2D_array
             self.advance()
-            idx1 = self._parse_index_expr()
+            idx1 = self._parse_size_mod()
             self.match_value("]")
             indices = [idx1]
             # [147-148] 2D_array
             if self.check("["):
                 self.advance()
-                idx2 = self._parse_index_expr()
+                idx2 = self._parse_size_mod()
                 self.match_value("]")
                 indices.append(idx2)
             return Identifier(name, indices=indices)
