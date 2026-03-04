@@ -10,7 +10,7 @@ Node dispatch uses the "node" field:
   ReturnStmt, BreakStmt, IOStmt
 """
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 
 # =============================================================================
@@ -309,6 +309,45 @@ class SemanticAnalyzer:
 
     def _warn(self, msg: str, line: int = 0, col: int = 0) -> None:
         self._warnings.append({"message": msg, "line": line, "column": col, "type": "warning"})
+
+    def _extract_loc(self, node: Any) -> Tuple[int, int]:
+        """
+        Recursively extract (line, col) from an AST node.
+        For composite nodes like BinaryOp/UnaryOp, drill into operands.
+        Returns (0, 0) if no location found.
+        """
+        if node is None:
+            return (0, 0)
+        if isinstance(node, dict):
+            # Direct line/col on node
+            if node.get("line", 0) and node.get("col", 0):
+                return (node["line"], node["col"])
+            # For BinaryOp, try left operand first
+            if "left" in node:
+                loc = self._extract_loc(node["left"])
+                if loc != (0, 0):
+                    return loc
+            # For UnaryOp, try operand
+            if "operand" in node:
+                loc = self._extract_loc(node["operand"])
+                if loc != (0, 0):
+                    return loc
+            # For function calls, try name
+            if "name" in node and isinstance(node["name"], dict):
+                loc = self._extract_loc(node["name"])
+                if loc != (0, 0):
+                    return loc
+            # Try right operand
+            if "right" in node:
+                loc = self._extract_loc(node["right"])
+                if loc != (0, 0):
+                    return loc
+            # Try condition (for ternary)
+            if "condition" in node:
+                loc = self._extract_loc(node["condition"])
+                if loc != (0, 0):
+                    return loc
+        return (0, 0)
 
     # -------------------------------------------------------------------------
     # Public entry point
@@ -687,7 +726,9 @@ class SemanticAnalyzer:
                     line, col,
                 )
             else:
-                rv_type = self._infer_type(ret_value)
+                # Allow whole-array usage when the function returns an array
+                allow_whole = len(ret_dims) > 0
+                rv_type = self._infer_type(ret_value, allow_whole_array=allow_whole)
                 if rv_type and rv_type != "unknown":
                     # Check base type compatibility
                     if not _compatible(ret_type, rv_type):
@@ -699,37 +740,40 @@ class SemanticAnalyzer:
                         )
                     # Check array dimension compatibility
                     ret_val_dims = self._get_expr_dims(ret_value)
-                    func_expects_array = len(ret_dims) > 0
-                    value_is_array = len(ret_val_dims) > 0
-                    rv_line = ret_value.get("line", line)
-                    rv_col = ret_value.get("col", col)
                     
-                    if func_expects_array and not value_is_array:
-                        # Function expects array return but got scalar
-                        dims_str = "x".join(str(d) for d in ret_dims)
-                        self._err(
-                            f"Return type mismatch in '{name}': "
-                            f"expected '{ret_type}[{dims_str}]' but got '{rv_type}'",
-                            rv_line, rv_col,
-                        )
-                    elif not func_expects_array and value_is_array:
-                        # Function expects scalar return but got array
-                        dims_str = "x".join(str(d) for d in ret_val_dims)
-                        self._err(
-                            f"Return type mismatch in '{name}': "
-                            f"expected scalar '{ret_type}' but got array '{rv_type}[{dims_str}]'",
-                            rv_line, rv_col,
-                        )
-                    elif func_expects_array and value_is_array:
-                        # Both are arrays, check dimensions match
-                        if ret_dims != ret_val_dims:
-                            expected_dims = "x".join(str(d) for d in ret_dims)
-                            actual_dims = "x".join(str(d) for d in ret_val_dims)
+                    # Skip dimension checks if dims are invalid (e.g., jagged array)
+                    if ret_val_dims is not None:
+                        func_expects_array = len(ret_dims) > 0
+                        value_is_array = len(ret_val_dims) > 0
+                        rv_line = ret_value.get("line", line)
+                        rv_col = ret_value.get("col", col)
+                        
+                        if func_expects_array and not value_is_array:
+                            # Function expects array return but got scalar
+                            dims_str = "x".join(str(d) for d in ret_dims)
                             self._err(
                                 f"Return type mismatch in '{name}': "
-                                f"expected '{ret_type}[{expected_dims}]' but got '{rv_type}[{actual_dims}]'",
+                                f"expected '{ret_type}[{dims_str}]' but got '{rv_type}'",
                                 rv_line, rv_col,
                             )
+                        elif not func_expects_array and value_is_array:
+                            # Function expects scalar return but got array
+                            dims_str = "x".join(str(d) for d in ret_val_dims)
+                            self._err(
+                                f"Return type mismatch in '{name}': "
+                                f"expected scalar '{ret_type}' but got array '{rv_type}[{dims_str}]'",
+                                rv_line, rv_col,
+                            )
+                        elif func_expects_array and value_is_array:
+                            # Both are arrays, check dimensions match
+                            if ret_dims != ret_val_dims:
+                                expected_dims = "x".join(str(d) for d in ret_dims)
+                                actual_dims = "x".join(str(d) for d in ret_val_dims)
+                                self._err(
+                                    f"Return type mismatch in '{name}': "
+                                    f"expected '{ret_type}[{expected_dims}]' but got '{rv_type}[{actual_dims}]'",
+                                    rv_line, rv_col,
+                                )
         else:
             if ret_value is not None:
                 self._err(
@@ -887,11 +931,14 @@ class SemanticAnalyzer:
             if field_sym is None:
                 continue
             et = self._infer_type(elem)
+            # Use element's line/col if available, otherwise fall back to declaration line/col
+            elem_line = elem.get("line", line)
+            elem_col = elem.get("col", col)
             if et and et != "unknown" and not _compatible(field_sym.dtype, et):
                 self._err(
                     f"Weave '{dtype}' field '{field_name}' expects "
                     f"'{field_sym.dtype}' but got '{et}'",
-                    line, col,
+                    elem_line, elem_col,
                 )
 
     # -------------------------------------------------------------------------
@@ -984,21 +1031,22 @@ class SemanticAnalyzer:
 
             if sym.is_array:
                 # Allow whole-array assignment only when the RHS is a function
-                # call whose return type is an array with matching dimensions.
+                # call or array literal with matching dimensions.
                 if value.get("node") == "FunctionCall":
                     fname = value.get("name", "")
                     fsym = self._global.lookup(fname)
                     if fsym and fsym.is_func and fsym.ret_dims:
-                        if len(fsym.ret_dims) == len(sym.dims):
+                        if list(fsym.ret_dims) == list(sym.dims):
                             # Valid whole-array assignment from function return.
                             # Still validate the call itself (arg count/types).
                             self._infer_type(value)
                             return
                         else:
+                            expected_dims = "x".join(str(d) for d in sym.dims)
+                            actual_dims = "x".join(str(d) for d in fsym.ret_dims)
                             self._err(
-                                f"Cannot assign return of '{fname}' "
-                                f"({len(fsym.ret_dims)}D) to array '{tname}' "
-                                f"({len(sym.dims)}D): dimension count mismatch",
+                                f"Cannot assign return of '{fname}' with dimensions [{actual_dims}] "
+                                f"to array '{tname}' with dimensions [{expected_dims}]",
                                 line, col,
                             )
                             return
@@ -1008,8 +1056,12 @@ class SemanticAnalyzer:
                         line, col,
                     )
                     return
+                # Rule C1: Arrays cannot be updated as a whole except through
+                # a function return of identical type and dimensions.
+                # Array literals and direct array-to-array assignments are NOT allowed.
                 self._err(
-                    f"Cannot assign scalar to array '{tname}'; use indexed assignment",
+                    f"Cannot reassign array '{tname}' as a whole; "
+                    ,
                     line, col,
                 )
                 return
@@ -1116,8 +1168,6 @@ class SemanticAnalyzer:
         body      = node.get("body")       or []
         init      = node.get("init")
         update    = node.get("update")
-        line      = node.get("line", 0)
-        col       = node.get("col",  0)
 
         self._in_loop += 1
         if self._scope:
@@ -1129,11 +1179,13 @@ class SemanticAnalyzer:
 
         if condition:
             ct = self._infer_type(condition)
+            # Get line/col from condition expression; fall back to left operand for BinaryOp
+            cond_line, cond_col = self._extract_loc(condition)
             if ct and ct != "bool" and ct != "unknown":
                 self._err(
                     f"{kind.capitalize()} loop condition must be boolean, "
                     f"got '{ct}'",
-                    line, col,
+                    cond_line, cond_col,
                 )
 
         for stmt in body:
@@ -1161,7 +1213,9 @@ class SemanticAnalyzer:
                     line, col,
                 )
             else:
-                rv = self._infer_type(value)
+                # Allow whole-array usage when the function returns an array
+                allow_whole = len(self._ret_dims) > 0
+                rv = self._infer_type(value, allow_whole_array=allow_whole)
                 if rv and rv != "unknown":
                     # Check base type compatibility
                     if not _compatible(self._ret_type, rv):
@@ -1172,6 +1226,11 @@ class SemanticAnalyzer:
                         )
                     # Check array dimension compatibility
                     ret_val_dims = self._get_expr_dims(value)
+                    
+                    # Skip dimension checks if dims are invalid (e.g., jagged array)
+                    if ret_val_dims is None:
+                        return
+                    
                     func_expects_array = len(self._ret_dims) > 0
                     value_is_array = len(ret_val_dims) > 0
                     
@@ -1202,10 +1261,11 @@ class SemanticAnalyzer:
                                 line, col,
                             )
 
-    def _get_expr_dims(self, expr: Optional[Dict[str, Any]]) -> List[int]:
+    def _get_expr_dims(self, expr: Optional[Dict[str, Any]]) -> Optional[List[int]]:
         """
         Get the array dimensions of an expression.
-        Returns empty list for scalar values, or the dimension list for arrays.
+        Returns empty list for scalar values, dimension list for arrays,
+        or None if dimensions are invalid (e.g., jagged array).
         """
         if expr is None:
             return []
@@ -1245,6 +1305,20 @@ class SemanticAnalyzer:
         if ntype in ("BinaryOp", "UnaryOp"):
             # Binary and unary operations produce scalar values
             return []
+
+        if ntype == "ArrayLiteral":
+            # Array literal has explicit dimensions, but check for jagged arrays
+            dims = expr.get("dims", [])
+            elements = expr.get("elements", [])
+            # For 2D arrays, verify all rows have consistent length
+            if dims and len(dims) == 2 and elements:
+                expected_len = len(elements[0]) if elements[0] else 0
+                for row in elements[1:]:
+                    row_len = len(row) if isinstance(row, list) else 0
+                    if row_len != expected_len:
+                        # Jagged array - return None to skip further dim checks
+                        return None
+            return list(dims) if dims else []
 
         return []
 
@@ -1326,7 +1400,7 @@ class SemanticAnalyzer:
     # Type inference
     # -------------------------------------------------------------------------
 
-    def _infer_type(self, expr: Optional[Dict[str, Any]]) -> Optional[str]:
+    def _infer_type(self, expr: Optional[Dict[str, Any]], allow_whole_array: bool = False) -> Optional[str]:
         if expr is None:
             return None
         ntype = expr.get("node")
@@ -1335,7 +1409,7 @@ class SemanticAnalyzer:
             return _lit_type(expr.get("dtype", ""))
 
         if ntype == "Identifier":
-            return self._infer_identifier(expr)
+            return self._infer_identifier(expr, allow_whole_array=allow_whole_array)
 
         if ntype == "BinaryOp":
             return self._infer_binary(expr)
@@ -1383,9 +1457,12 @@ class SemanticAnalyzer:
         if ntype == "FunctionCall":
             return self._infer_call(expr)
 
+        if ntype == "ArrayLiteral":
+            return self._infer_array_literal(expr)
+
         return "unknown"
 
-    def _infer_identifier(self, expr: Dict[str, Any]) -> Optional[str]:
+    def _infer_identifier(self, expr: Dict[str, Any], allow_whole_array: bool = False) -> Optional[str]:
         name    = expr.get("name", "")
         member  = expr.get("member")
         indices = expr.get("indices") or []
@@ -1428,14 +1505,18 @@ class SemanticAnalyzer:
                 return "unknown"
             return field.dtype
 
-        # Reject arrays used without indexing in expressions
-        if sym.is_array:
+        # Reject arrays used without indexing in expressions (unless explicitly allowed)
+        if sym.is_array and not allow_whole_array:
             self._err(
                 f"Array '{name}' cannot be used as a whole value in expressions; "
                 f"use indexed access (e.g., {name}[0])",
                 line, col,
             )
             return "unknown"
+
+        # If whole-array is allowed, return the dtype for array matching
+        if sym.is_array:
+            return sym.dtype
 
         # Reject weave instances used without member access in expressions
         weave_sym = self._global.lookup(sym.dtype)
@@ -1580,6 +1661,70 @@ class SemanticAnalyzer:
 
         return ot
 
+    def _infer_array_literal(self, expr: Dict[str, Any]) -> Optional[str]:
+        """Infer type of an array literal expression.
+        
+        For array literals like { 1, 2, 3 } or { { 1, 2 }, { 3, 4 } },
+        infer the element type from the first element.
+        """
+        elements = expr.get("elements", [])
+        dims = expr.get("dims", [])
+        line = expr.get("line", 0)
+        col = expr.get("col", 0)
+        
+        if not elements:
+            return "unknown"
+        
+        # For 2D arrays, elements is a list of lists
+        if dims and len(dims) == 2:
+            # Validate all rows have the same length (jagged array check)
+            if elements:
+                expected_len = len(elements[0]) if elements[0] else 0
+                for i, row in enumerate(elements[1:], start=2):
+                    row_len = len(row) if isinstance(row, list) else 0
+                    if row_len != expected_len:
+                        self._err(
+                            f"Row {i} has {row_len} elements but row 1 has {expected_len}",
+                            line, col,
+                        )
+            first_row = elements[0] if elements else []
+            first_elem = first_row[0] if first_row else None
+        else:
+            first_elem = elements[0] if elements else None
+        
+        if first_elem is None:
+            return "unknown"
+        
+        # Infer type from first element
+        elem_type = self._infer_type(first_elem)
+        
+        # Validate all elements have compatible types
+        if dims and len(dims) == 2:
+            # 2D array
+            for row in elements:
+                for elem in row:
+                    et = self._infer_type(elem)
+                    if et and et != "unknown" and elem_type and elem_type != "unknown":
+                        if not _compatible(elem_type, et):
+                            self._err(
+                                f"Array literal element type mismatch: expected '{elem_type}' "
+                                f"but got '{et}'",
+                                elem.get("line", line), elem.get("col", col),
+                            )
+        else:
+            # 1D array
+            for elem in elements:
+                et = self._infer_type(elem)
+                if et and et != "unknown" and elem_type and elem_type != "unknown":
+                    if not _compatible(elem_type, et):
+                        self._err(
+                            f"Array literal element type mismatch: expected '{elem_type}' "
+                            f"but got '{et}'",
+                            elem.get("line", line), elem.get("col", col),
+                        )
+        
+        return elem_type
+
     def _infer_call(self, expr: Dict[str, Any]) -> Optional[str]:
         name = expr.get("name", "")
         args = expr.get("args") or []
@@ -1604,13 +1749,16 @@ class SemanticAnalyzer:
             acol  = arg.get("col",  col)
 
             if param.is_array:
-                # Array parameter: only an unindexed, non-member identifier is valid.
-                # Type and dimensions must match exactly (no widening).
+                # Array parameter: accept:
+                #   1. Unindexed, non-member identifier that is an array variable
+                #   2. Function call that returns an array with matching dimensions
                 is_bare_ident = (
                     arg.get("node") == "Identifier"
                     and not (arg.get("indices") or [])
                     and not arg.get("member")
                 )
+                is_func_call = arg.get("node") == "FunctionCall"
+                
                 if is_bare_ident:
                     arg_sym = self._lookup_symbol(arg.get("name", ""), aline, acol)
                     if arg_sym is not None:
@@ -1633,9 +1781,44 @@ class SemanticAnalyzer:
                                 f"expected '{param.dtype}' array but got '{arg_sym.dtype}' array",
                                 aline, acol,
                             )
+                elif is_func_call:
+                    # Function call that returns an array - validate return type dimensions
+                    fcall_name = arg.get("name", "")
+                    # Look up the called function directly in global scope (functions are always global)
+                    fsym_arg = self._global.lookup(fcall_name)
+                    if fsym_arg and fsym_arg.is_func:
+                        # Process the function call (validate args, etc.)
+                        self._infer_type(arg)
+                        # Check if return type is an array
+                        if not fsym_arg.ret_dims:
+                            self._err(
+                                f"Argument {idx + 1} to '{name}': "
+                                f"function '{fcall_name}' returns scalar, not array",
+                                aline, acol,
+                            )
+                        elif fsym_arg.ret_dims != param.dims:
+                            self._err(
+                                f"Argument {idx + 1} to '{name}': "
+                                f"expected '{param.dtype}[{'x'.join(str(d) for d in param.dims)}]' "
+                                f"but function returns '[{'x'.join(str(d) for d in fsym_arg.ret_dims)}]'",
+                                aline, acol,
+                            )
+                        elif _norm(fsym_arg.ret_type) != _norm(param.dtype):
+                            self._err(
+                                f"Argument {idx + 1} to '{name}': "
+                                f"expected '{param.dtype}' array but function returns '{fsym_arg.ret_type}' array",
+                                aline, acol,
+                            )
+                    else:
+                        # Unknown function or not a function
+                        self._infer_type(arg)
+                        self._err(
+                            f"Argument {idx + 1} to '{name}': expected array argument",
+                            aline, acol,
+                        )
                 else:
-                    # A non-identifier expression (literal, binary, member) can never
-                    # be a whole array — evaluate for side effects then error.
+                    # A non-identifier, non-function-call expression (literal, binary, member)
+                    # can never be a whole array — evaluate for side effects then error.
                     self._infer_type(arg)
                     self._err(
                         f"Argument {idx + 1} to '{name}': expected array argument",
@@ -1740,6 +1923,17 @@ class SemanticAnalyzer:
                     f"const arrays must be fully initialized",
                     line, col,
                 )
+            
+            # Check for jagged arrays: all rows must have the same length
+            if init:
+                row_lengths = [len(row) if isinstance(row, list) else 0 for row in init]
+                if len(set(row_lengths)) > 1:
+                    self._err(
+                        f"rows have different lengths {row_lengths}",
+                        line, col,
+                    )
+                    return  # Don't continue checking if jagged
+            
             for row in init:
                 if not isinstance(row, list):
                     continue

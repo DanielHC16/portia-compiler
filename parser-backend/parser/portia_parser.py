@@ -15,7 +15,7 @@ from .grammar import (
 )
 
 from .ast_nodes import (
-    ASTNode, Program, Literal, Identifier, BinaryOp, UnaryOp,
+    ASTNode, Program, Literal, ArrayLiteral, Identifier, BinaryOp, UnaryOp,
     Cast, FunctionCall, Assignment,
     VarDecl, WeaveDecl, FunctionDecl,
     IfStmt, SwitchStmt, LoopStmt, ReturnStmt, BreakStmt, IOStmt,
@@ -230,19 +230,23 @@ class PortiaParser:
             dtype = self.parse_dtype()
             id_tok = self.match("ID")
             name = id_tok.get("value") or id_tok.get("lexeme")
-            return self.parse_var_or_arr(dtype, name, mutable, is_global)
+            line = id_tok.get("line", 0)
+            col = id_tok.get("column", 0)
+            return self.parse_var_or_arr(dtype, name, mutable, is_global, line, col)
         elif self.check_type("ID"):
             # [8] Weave instantiation: WeaveType varName = { weave_init_list }
             id_tok = self.advance()
             weave_type = id_tok.get("value") or id_tok.get("lexeme")
             var_tok = self.match("ID")
             var_name = var_tok.get("value") or var_tok.get("lexeme")
+            line = var_tok.get("line", 0)
+            col = var_tok.get("column", 0)
             self.match_value("=")
             self.match_value("{")
             init = self.parse_weave_init_list()
             self.match_value("}", also_expected={","})
             return [VarDecl(var_name, dtype=weave_type, mutable=mutable,
-                            is_global=is_global, init=init)]
+                            is_global=is_global, init=init, line=line, col=col)]
         else:
             raise self.error(FIRST["var_or_weave"])
 
@@ -256,19 +260,23 @@ class PortiaParser:
             dtype = self.parse_dtype()
             id_tok = self.match("ID")
             name = id_tok.get("value") or id_tok.get("lexeme")
-            return self.parse_const_or_arr(dtype, name, is_global)
+            line = id_tok.get("line", 0)
+            col = id_tok.get("column", 0)
+            return self.parse_const_or_arr(dtype, name, is_global, line, col)
         elif self.check_type("ID"):
             # [10] Const weave instantiation: WeaveType varName = { weave_init_list }
             id_tok = self.advance()
             weave_type = id_tok.get("value") or id_tok.get("lexeme")
             var_tok = self.match("ID")
             var_name = var_tok.get("value") or var_tok.get("lexeme")
+            line = var_tok.get("line", 0)
+            col = var_tok.get("column", 0)
             self.match_value("=")
             self.match_value("{")
             init = self.parse_weave_init_list()
             self.match_value("}", also_expected={","})
             return [VarDecl(var_name, dtype=weave_type, mutable=False,
-                            is_global=is_global, init=init)]
+                            is_global=is_global, init=init, line=line, col=col)]
         else:
             raise self.error(FIRST["const_weave"])
 
@@ -287,12 +295,13 @@ class PortiaParser:
     # [18-19]  var_or_arr
     # =====================================================================
 
-    def parse_var_or_arr(self, dtype: str, name: str, mutable: bool, is_global: bool) -> List[VarDecl]:
+    def parse_var_or_arr(self, dtype: str, name: str, mutable: bool, is_global: bool,
+                         line: int = 0, col: int = 0) -> List[VarDecl]:
         if self.check("="):
             # [18] = value multi_dec
             self.advance()
             init = self.parse_value()
-            first = VarDecl(name, dtype, mutable=mutable, is_global=is_global, init=init)
+            first = VarDecl(name, dtype, mutable=mutable, is_global=is_global, init=init, line=line, col=col)
             rest = self.parse_multi_dec(dtype, mutable, is_global)
             return [first] + rest
         elif self.check("["):
@@ -300,7 +309,7 @@ class PortiaParser:
             self.advance()
             dim1 = self.parse_size()
             self.match_value("]")
-            return [self.parse_var_1d_or_2d(dtype, name, dim1, mutable, is_global)]
+            return [self.parse_var_1d_or_2d(dtype, name, dim1, mutable, is_global, line, col)]
         else:
             raise self.error(FIRST["var_or_arr"])
 
@@ -308,12 +317,13 @@ class PortiaParser:
     # [20-21]  const_or_arr
     # =====================================================================
 
-    def parse_const_or_arr(self, dtype: str, name: str, is_global: bool) -> List[VarDecl]:
+    def parse_const_or_arr(self, dtype: str, name: str, is_global: bool,
+                           line: int = 0, col: int = 0) -> List[VarDecl]:
         if self.check("="):
             # [20] = literals_num multi_dec
             self.advance()
             init = self.parse_literals_num()
-            first = VarDecl(name, dtype, mutable=False, is_global=is_global, init=init)
+            first = VarDecl(name, dtype, mutable=False, is_global=is_global, init=init, line=line, col=col)
             rest = self.parse_multi_dec(dtype, False, is_global)
             return [first] + rest
         elif self.check("["):
@@ -321,7 +331,7 @@ class PortiaParser:
             self.advance()
             dim1 = self.parse_size()
             self.match_value("]")
-            return [self.parse_const_1d_or_2d(dtype, name, dim1, is_global)]
+            return [self.parse_const_1d_or_2d(dtype, name, dim1, is_global, line, col)]
         else:
             raise self.error(FIRST["const_or_arr"])
 
@@ -343,9 +353,11 @@ class PortiaParser:
             self.advance()
             id_tok = self.match("ID")
             name = id_tok.get("value") or id_tok.get("lexeme")
+            line = id_tok.get("line", 0)
+            col = id_tok.get("column", 0)
             self.match_value("=")
             init = self.parse_value()
-            decls.append(VarDecl(name, dtype, mutable=mutable, is_global=is_global, init=init))
+            decls.append(VarDecl(name, dtype, mutable=mutable, is_global=is_global, init=init, line=line, col=col))
         # [24] e -- FOLLOW: {;}
         return decls
 
@@ -379,7 +391,8 @@ class PortiaParser:
         if self.check_type(*NUM_LIT_TYPES):
             t = self.advance()
             dtype = t.get("type", "").upper()
-            return Literal(t.get("value") or t.get("lexeme"), dtype)
+            return Literal(t.get("value") or t.get("lexeme"), dtype,
+                           line=t.get("line", 0), col=t.get("column", 0))
         else:
             raise self.error(FIRST["num_lit"])
 
@@ -388,7 +401,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_var_1d_or_2d(self, dtype: str, name: str, dim1: int,
-                           mutable: bool, is_global: bool) -> VarDecl:
+                           mutable: bool, is_global: bool,
+                           line: int = 0, col: int = 0) -> VarDecl:
         if self.check("="):
             # [32] = { 1D_elem_list }
             self.advance()
@@ -396,7 +410,7 @@ class PortiaParser:
             init = self.parse_1d_elem_list()
             self.match_value("}", also_expected={","})
             return VarDecl(name, dtype, mutable=mutable, is_global=is_global,
-                           dims=[dim1], init=init)
+                           dims=[dim1], init=init, line=line, col=col)
         elif self.check("["):
             # [33] [ size ] arr_2D_init_opt
             self.advance()
@@ -404,9 +418,9 @@ class PortiaParser:
             self.match_value("]")
             init = self.parse_arr_2d_init_opt()
             return VarDecl(name, dtype, mutable=mutable, is_global=is_global,
-                           dims=[dim1, dim2], init=init)
+                           dims=[dim1, dim2], init=init, line=line, col=col)
         # [34] e -- FOLLOW: {, ;}
-        return VarDecl(name, dtype, mutable=mutable, is_global=is_global, dims=[dim1])
+        return VarDecl(name, dtype, mutable=mutable, is_global=is_global, dims=[dim1], line=line, col=col)
 
     # =====================================================================
     # [35]  1D_elem_list -> elem_value 1D_elem_list_tail
@@ -430,7 +444,8 @@ class PortiaParser:
         if self.check_type("ID"):
             # [37] id
             tok = self.advance()
-            return Identifier(tok.get("value") or tok.get("lexeme"))
+            return Identifier(tok.get("value") or tok.get("lexeme"),
+                              line=tok.get("line", 0), col=tok.get("column", 0))
         else:
             # [36] literals
             return self.parse_literals()
@@ -485,7 +500,7 @@ class PortiaParser:
     # =====================================================================
 
     def parse_const_1d_or_2d(self, dtype: str, name: str, dim1: int,
-                             is_global: bool) -> VarDecl:
+                             is_global: bool, line: int = 0, col: int = 0) -> VarDecl:
         if self.check("="):
             # [46] = { 1D_elem_list }
             self.advance()
@@ -493,7 +508,7 @@ class PortiaParser:
             init = self.parse_1d_elem_list()
             self.match_value("}", also_expected={","})
             return VarDecl(name, dtype, mutable=False, is_global=is_global,
-                           dims=[dim1], init=init)
+                           dims=[dim1], init=init, line=line, col=col)
         elif self.check("["):
             # [47] [ size ] arr_2D_init
             self.advance()
@@ -501,7 +516,7 @@ class PortiaParser:
             self.match_value("]")
             init = self.parse_arr_2d_init()
             return VarDecl(name, dtype, mutable=False, is_global=is_global,
-                           dims=[dim1, dim2], init=init)
+                           dims=[dim1, dim2], init=init, line=line, col=col)
         else:
             raise self.error(FIRST["const_1D_or_2D"])
 
@@ -527,7 +542,8 @@ class PortiaParser:
         if self.check_type("ID"):
             # [50] id
             tok = self.advance()
-            return Identifier(tok.get("value") or tok.get("lexeme"))
+            return Identifier(tok.get("value") or tok.get("lexeme"),
+                              line=tok.get("line", 0), col=tok.get("column", 0))
         else:
             # [49] literals_num
             return self.parse_literals_num()
@@ -671,16 +687,20 @@ class PortiaParser:
             dtype = self.parse_dtype()
             id_tok = self.match("ID")
             name = id_tok.get("value") or id_tok.get("lexeme")
+            line = id_tok.get("line", 0)
+            col = id_tok.get("column", 0)
             dims = self.parse_param_struct()
-            params.append(VarDecl(name, dtype, dims=dims))
+            params.append(VarDecl(name, dtype, dims=dims, line=line, col=col))
             while self.check(","):
                 # [68] , dtype id param_struct
                 self.advance()
                 dtype = self.parse_dtype()
                 id_tok = self.match("ID")
                 name = id_tok.get("value") or id_tok.get("lexeme")
+                line = id_tok.get("line", 0)
+                col = id_tok.get("column", 0)
                 dims = self.parse_param_struct()
-                params.append(VarDecl(name, dtype, dims=dims))
+                params.append(VarDecl(name, dtype, dims=dims, line=line, col=col))
         # [67] e -- FOLLOW: {)}
         return params
 
@@ -836,23 +856,25 @@ class PortiaParser:
     def parse_assign_expr(self) -> ASTNode:
         tok = self.match("ID")
         name = tok.get("value") or tok.get("lexeme")
-        return self.parse_mod_or_call(name)
+        line = tok.get("line", 0)
+        col = tok.get("column", 0)
+        return self.parse_mod_or_call(name, line, col)
 
     # =====================================================================
     # [91-92]  mod_or_call
     # =====================================================================
 
-    def parse_mod_or_call(self, name: str) -> ASTNode:
+    def parse_mod_or_call(self, name: str, line: int = 0, col: int = 0) -> ASTNode:
         if self.check("("):
             # [92] ( arg )  →  function-call statement
             self.advance()
             args = self.parse_arg()
             self.match_value(")", also_expected=PREDICT[149] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
-            return FunctionCall(name, args)
+            return FunctionCall(name, args, line=line, col=col)
         else:
             # [91] assign_mod_opt assign_stmt_op
-            target = self.parse_assign_mod_opt(name)
-            return self.parse_assign_stmt_op(target)
+            target = self.parse_assign_mod_opt(name, line, col)
+            return self.parse_assign_stmt_op(target, line, col)
 
     # =====================================================================
     # [93-95]  assign_mod_opt
@@ -861,13 +883,13 @@ class PortiaParser:
     #   95: ε             (plain identifier → FOLLOW = ASSIGN_OPS)
     # =====================================================================
 
-    def parse_assign_mod_opt(self, name: str) -> Identifier:
+    def parse_assign_mod_opt(self, name: str, line: int = 0, col: int = 0) -> Identifier:
         if self.check("."):
             # [93] . id  →  member access
             self.advance()
             member_tok = self.match("ID")
             member = member_tok.get("value") or member_tok.get("lexeme")
-            return Identifier(name, member=member)
+            return Identifier(name, member=member, line=line, col=col)
         elif self.check("["):
             # [94] [ size_mod ] lhs_index_2d_opt
             self.advance()
@@ -881,9 +903,9 @@ class PortiaParser:
                 self.match_value("]")
                 indices.append(idx2)
             # [97] e
-            return Identifier(name, indices=indices)
+            return Identifier(name, indices=indices, line=line, col=col)
         # [95] e -- plain identifier
-        return Identifier(name)
+        return Identifier(name, line=line, col=col)
 
     def _parse_size_mod(self) -> ASTNode:
         """Parse size_mod: intlit | id  (prods 104-105).
@@ -893,12 +915,12 @@ class PortiaParser:
             # [104] intlit
             tok = self.advance()
             val = tok.get("value") or tok.get("lexeme")
-            return Literal(int(val), "INTLIT")
+            return Literal(int(val), "INTLIT", line=tok.get("line", 0), col=tok.get("column", 0))
         elif self.check_type("ID"):
             # [105] id
             tok = self.advance()
             name = tok.get("value") or tok.get("lexeme")
-            return Identifier(name)
+            return Identifier(name, line=tok.get("line", 0), col=tok.get("column", 0))
         else:
             raise self.error({"intlit", "id"})
 
@@ -907,18 +929,23 @@ class PortiaParser:
         trap_suffix, and declaration sizing."""
         tok = self.match("INTLIT")
         val = tok.get("value") or tok.get("lexeme")
-        return Literal(int(val), "INTLIT")
+        return Literal(int(val), "INTLIT", line=tok.get("line", 0), col=tok.get("column", 0))
 
     # =====================================================================
     # [98-103]  assign_stmt_op
+    #           Extended to support array literal assignments: arr = { ... }
     # =====================================================================
 
-    def parse_assign_stmt_op(self, target: Identifier) -> Assignment:
+    def parse_assign_stmt_op(self, target: Identifier, line: int = 0, col: int = 0) -> Assignment:
         if self.check(*ASSIGN_OPS):
             op_tok = self.advance()
             op = op_tok.get("value") or op_tok.get("lexeme")
-            value = self.parse_value()
-            return Assignment(target, op, value)
+            # Check for array literal on RHS
+            if op == "=" and self.check("{"):
+                value = self.parse_array_literal()
+            else:
+                value = self.parse_value()
+            return Assignment(target, op, value, line=line, col=col)
         else:
             raise self.error(ASSIGN_OPS)
 
@@ -1084,7 +1111,9 @@ class PortiaParser:
             # [140] id iden_mod
             tok = self.advance()
             name = tok.get("value") or tok.get("lexeme")
-            return self.parse_iden_mod(name)
+            line = tok.get("line", 0)
+            col = tok.get("column", 0)
+            return self.parse_iden_mod(name, line, col)
         elif self.check_type(*LITERAL_TYPES) or self.check(*BOOL_LITERALS):
             # [141] literals
             return self.parse_literals()
@@ -1095,24 +1124,24 @@ class PortiaParser:
     # [142-143]  iden_mod  →  builds Identifier / FunctionCall
     # =====================================================================
 
-    def parse_iden_mod(self, name: str) -> ASTNode:
+    def parse_iden_mod(self, name: str, line: int = 0, col: int = 0) -> ASTNode:
         if self.check("."):
             # [143] . id  →  member access
             self.advance()
             member_tok = self.match("ID")
             member = member_tok.get("value") or member_tok.get("lexeme")
-            return Identifier(name, member=member)
+            return Identifier(name, member=member, line=line, col=col)
         elif self.check("[", "("):
             # [142] arr_or_func
-            return self.parse_arr_or_func(name)
+            return self.parse_arr_or_func(name, line, col)
         # e  →  plain identifier
-        return Identifier(name)
+        return Identifier(name, line=line, col=col)
 
     # =====================================================================
     # [144-146]  arr_or_func  →  builds Identifier (indexed) / FunctionCall
     # =====================================================================
 
-    def parse_arr_or_func(self, name: str) -> ASTNode:
+    def parse_arr_or_func(self, name: str, line: int = 0, col: int = 0) -> ASTNode:
         if self.check("["):
             # [144] [ size_mod ] 2D_array
             self.advance()
@@ -1125,15 +1154,15 @@ class PortiaParser:
                 idx2 = self._parse_size_mod()
                 self.match_value("]")
                 indices.append(idx2)
-            return Identifier(name, indices=indices)
+            return Identifier(name, indices=indices, line=line, col=col)
         elif self.check("("):
             # [145] ( arg )
             self.advance()
             args = self.parse_arg()
             self.match_value(")", also_expected=PREDICT[149] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
-            return FunctionCall(name, args)
+            return FunctionCall(name, args, line=line, col=col)
         # [146] e
-        return Identifier(name)
+        return Identifier(name, line=line, col=col)
 
     # =====================================================================
     # [149-156]  literals  →  returns Literal node
@@ -1143,28 +1172,28 @@ class PortiaParser:
         tok = self.peek()
         if self.check_type("INTLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "INTLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "INTLIT", line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("LONGLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "LONGLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "LONGLIT", line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("FLOATLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "FLOATLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "FLOATLIT", line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("DOUBLELIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "DOUBLELIT")
+            return Literal(t.get("value") or t.get("lexeme"), "DOUBLELIT", line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("CHARLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "CHARLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "CHARLIT", line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("STRINGLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "STRINGLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "STRINGLIT", line=t.get("line", 0), col=t.get("column", 0))
         elif self.check("true"):
-            self.advance()
-            return Literal(True, "bool")
+            t = self.advance()
+            return Literal(True, "bool", line=t.get("line", 0), col=t.get("column", 0))
         elif self.check("false"):
-            self.advance()
-            return Literal(False, "bool")
+            t = self.advance()
+            return Literal(False, "bool", line=t.get("line", 0), col=t.get("column", 0))
         else:
             raise self.error(FIRST["literals"])
 
@@ -1218,27 +1247,29 @@ class PortiaParser:
     def parse_trap_target(self) -> Identifier:
         tok = self.match("ID")
         name = tok.get("value") or tok.get("lexeme")
-        return self.parse_trap_suffix(name)
+        line = tok.get("line", 0)
+        col = tok.get("column", 0)
+        return self.parse_trap_suffix(name, line, col)
 
     # =====================================================================
     # [165-167]  trap_suffix
     # =====================================================================
 
-    def parse_trap_suffix(self, name: str) -> Identifier:
+    def parse_trap_suffix(self, name: str, line: int = 0, col: int = 0) -> Identifier:
         if self.check("["):
             # [165] [ size ]
             self.advance()
             idx = self._parse_index_expr()
             self.match_value("]")
-            return Identifier(name, indices=[idx])
+            return Identifier(name, indices=[idx], line=line, col=col)
         elif self.check("."):
             # [166] . id
             self.advance()
             member_tok = self.match("ID")
             member = member_tok.get("value") or member_tok.get("lexeme")
-            return Identifier(name, member=member)
+            return Identifier(name, member=member, line=line, col=col)
         # [167] e -- FOLLOW: {)}
-        return Identifier(name)
+        return Identifier(name, line=line, col=col)
 
     # =====================================================================
     # [168-169]  output_stmt
@@ -1424,21 +1455,23 @@ class PortiaParser:
             # [183] id iden_mod mult_div_modulo_cont add_min_cont bool_ctrl_tail
             tok = self.advance()
             name = tok.get("value") or tok.get("lexeme")
-            node = self.parse_iden_mod(name)
+            line = tok.get("line", 0)
+            col = tok.get("column", 0)
+            node = self.parse_iden_mod(name, line, col)
             node = self._parse_mult_cont(node)
             node = self._parse_add_cont(node)
             return self.parse_bool_ctrl_tail(node)
         elif self.check("true"):
             # [184] true mult_div_modulo_cont add_min_cont bool_ctrl_tail
-            self.advance()
-            node: ASTNode = Literal(True, "bool")
+            t = self.advance()
+            node: ASTNode = Literal(True, "bool", line=t.get("line", 0), col=t.get("column", 0))
             node = self._parse_mult_cont(node)
             node = self._parse_add_cont(node)
             return self.parse_bool_ctrl_tail(node)
         elif self.check("false"):
             # [185] false mult_div_modulo_cont add_min_cont bool_ctrl_tail
-            self.advance()
-            node = Literal(False, "bool")
+            t = self.advance()
+            node = Literal(False, "bool", line=t.get("line", 0), col=t.get("column", 0))
             node = self._parse_mult_cont(node)
             node = self._parse_add_cont(node)
             return self.parse_bool_ctrl_tail(node)
@@ -1511,22 +1544,28 @@ class PortiaParser:
             return UnaryOp("-", operand)
         elif self.check_type("INTLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "INTLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "INTLIT",
+                           line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("LONGLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "LONGLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "LONGLIT",
+                           line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("FLOATLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "FLOATLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "FLOATLIT",
+                           line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("DOUBLELIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "DOUBLELIT")
+            return Literal(t.get("value") or t.get("lexeme"), "DOUBLELIT",
+                           line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("CHARLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "CHARLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "CHARLIT",
+                           line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("STRINGLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "STRINGLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "STRINGLIT",
+                           line=t.get("line", 0), col=t.get("column", 0))
         else:
             raise self.error(FIRST["cmp_start"])
 
@@ -1642,19 +1681,22 @@ class PortiaParser:
     def parse_unique_val(self) -> ASTNode:
         if self.check_type("CHARLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "CHARLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "CHARLIT",
+                           line=t.get("line", 0), col=t.get("column", 0))
         elif self.check("true"):
-            self.advance()
-            return Literal(True, "bool")
+            t = self.advance()
+            return Literal(True, "bool", line=t.get("line", 0), col=t.get("column", 0))
         elif self.check("false"):
-            self.advance()
-            return Literal(False, "bool")
+            t = self.advance()
+            return Literal(False, "bool", line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("INTLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "INTLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "INTLIT",
+                           line=t.get("line", 0), col=t.get("column", 0))
         elif self.check_type("LONGLIT"):
             t = self.advance()
-            return Literal(t.get("value") or t.get("lexeme"), "LONGLIT")
+            return Literal(t.get("value") or t.get("lexeme"), "LONGLIT",
+                           line=t.get("line", 0), col=t.get("column", 0))
         elif self.check("-"):
             # [220] - whole_lit
             self.advance()
@@ -1744,16 +1786,20 @@ class PortiaParser:
             dtype = self.parse_dtype()
             id_tok = self.match("ID")
             name = id_tok.get("value") or id_tok.get("lexeme")
+            line = id_tok.get("line", 0)
+            col = id_tok.get("column", 0)
             self.match_value("=")
             init_val = self.parse_literals_num()
-            return VarDecl(name, dtype, mutable=True, init=init_val)
+            return VarDecl(name, dtype, mutable=True, init=init_val, line=line, col=col)
         elif self.check_type("ID"):
             # [230] id = literals_num
             id_tok = self.advance()
             name = id_tok.get("value") or id_tok.get("lexeme")
+            line = id_tok.get("line", 0)
+            col = id_tok.get("column", 0)
             self.match_value("=")
             init_val = self.parse_literals_num()
-            return Assignment(Identifier(name), "=", init_val)
+            return Assignment(Identifier(name, line=line, col=col), "=", init_val, line=line, col=col)
         # [231] e -- FOLLOW: {;}
         return None
 
@@ -1766,12 +1812,14 @@ class PortiaParser:
             # [232] id update_op arith_expr
             id_tok = self.advance()
             name = id_tok.get("value") or id_tok.get("lexeme")
+            line = id_tok.get("line", 0)
+            col = id_tok.get("column", 0)
             if not self.check(*UPDATE_OPS):
                 raise self.error(UPDATE_OPS)
             op_tok = self.advance()
             op = op_tok.get("value") or op_tok.get("lexeme")
             value = self.parse_arith_expr()
-            return Assignment(Identifier(name), op, value)
+            return Assignment(Identifier(name, line=line, col=col), op, value, line=line, col=col)
         # [233] e -- FOLLOW: {)}
         return None
 
@@ -1815,13 +1863,45 @@ class PortiaParser:
 
     # =====================================================================
     # [241]  ret_stmt -> return value ;
+    #        Extended to also support: return { array_literal } ;
     # =====================================================================
 
     def parse_ret_stmt(self) -> ReturnStmt:
-        self.match_value("return", also_expected=PREDICT[74])
-        value = self.parse_value()
+        ret_tok = self.match_value("return", also_expected=PREDICT[74] | {"{"})
+        line = ret_tok.get("line", 0)
+        col = ret_tok.get("column", 0)
+        
+        # Check for array literal syntax
+        if self.check("{"):
+            value = self.parse_array_literal()
+        else:
+            value = self.parse_value()
         self.match_value(";", also_expected=MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
-        return ReturnStmt(value)
+        return ReturnStmt(value, line=line, col=col)
+
+    # =====================================================================
+    # Array literal parsing (for return statements)
+    # =====================================================================
+
+    def parse_array_literal(self) -> ArrayLiteral:
+        """Parse { elem, ... } or { { elem, ... }, { elem, ... }, ... }"""
+        open_brace = self.match_value("{")
+        line = open_brace.get("line", 0)
+        col = open_brace.get("column", 0)
+        
+        # Check if this is a 2D array (starts with nested {)
+        if self.check("{"):
+            # 2D array literal (row validation done in parse_2d_elem_list)
+            rows = self.parse_2d_elem_list()
+            self.match_value("}", also_expected={","})
+            dims = [len(rows), len(rows[0]) if rows else 0]
+            return ArrayLiteral(rows, dims=dims, line=line, col=col)
+        else:
+            # 1D array literal
+            elements = self.parse_1d_elem_list()
+            self.match_value("}", also_expected={","})
+            dims = [len(elements)]
+            return ArrayLiteral(elements, dims=dims, line=line, col=col)
 
     # =====================================================================
     # [242]  main_func -> int main ( ) { main_body }

@@ -18,10 +18,26 @@ from typing import Any, Dict, List, Optional
 # =========================================================================
 
 class ASTNode:
-    """Abstract base for every AST node."""
+    """Abstract base for every AST node.
+    
+    All nodes can optionally store source location (line, col) for error reporting.
+    """
+    
+    # Default line/col for nodes that don't set them
+    line: int = 0
+    col: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         raise NotImplementedError
+    
+    def _loc_dict(self) -> Dict[str, Any]:
+        """Return dict with line/col if they are set (non-zero)."""
+        d: Dict[str, Any] = {}
+        if self.line > 0:
+            d["line"] = self.line
+        if self.col > 0:
+            d["col"] = self.col
+        return d
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -70,6 +86,8 @@ class VarDecl(ASTNode):
     is_global:  declared inside a ``global`` block
     dims:       list of dimension sizes (empty → scalar, len 1 → 1-D, …)
     init:       optional initializer expression / list of expressions
+    line:       source line number (1-based)
+    col:        source column number (1-based)
     """
 
     def __init__(
@@ -80,6 +98,8 @@ class VarDecl(ASTNode):
         is_global: bool = False,
         dims: List[int] | None = None,
         init: ASTNode | List[ASTNode] | None = None,
+        line: int = 0,
+        col: int = 0,
     ):
         self.name = name
         self.dtype = dtype
@@ -87,6 +107,8 @@ class VarDecl(ASTNode):
         self.is_global = is_global
         self.dims: List[int] = dims or []
         self.init = init
+        self.line = line
+        self.col = col
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -106,6 +128,7 @@ class VarDecl(ASTNode):
                 ]
             else:
                 d["init"] = self.init.to_dict()
+        d.update(self._loc_dict())
         return d
 
 
@@ -192,12 +215,54 @@ class FunctionDecl(ASTNode):
 class Literal(ASTNode):
     """Literal value: int, long, float, double, char, string, bool."""
 
-    def __init__(self, value: Any, dtype: str):
+    def __init__(self, value: Any, dtype: str, line: int = 0, col: int = 0):
         self.value = value
         self.dtype = dtype  # e.g. "INTLIT", "STRINGLIT", "bool"
+        self.line = line
+        self.col = col
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"node": "Literal", "value": self.value, "dtype": self.dtype}
+        d = {"node": "Literal", "value": self.value, "dtype": self.dtype}
+        d.update(self._loc_dict())
+        return d
+
+
+class ArrayLiteral(ASTNode):
+    """Array literal: { elem, elem, ... } or nested for 2D arrays.
+    
+    Parameters
+    ----------
+    elements: list of ASTNode (for 1D) or list of list of ASTNode (for 2D)
+    dims:     dimension sizes inferred from elements (e.g. [3] or [2, 3])
+    line:     source line number (1-based)
+    col:      source column number (1-based)
+    """
+
+    def __init__(
+        self,
+        elements: List[Any],
+        dims: List[int] | None = None,
+        line: int = 0,
+        col: int = 0,
+    ):
+        self.elements = elements
+        self.dims = dims or []
+        self.line = line
+        self.col = col
+
+    def to_dict(self) -> Dict[str, Any]:
+        # For 2D arrays, elements is a list of lists
+        if self.dims and len(self.dims) == 2:
+            # 2D array
+            serialized = [
+                [e.to_dict() for e in row] for row in self.elements
+            ]
+        else:
+            # 1D array
+            serialized = [e.to_dict() for e in self.elements]
+        d = {"node": "ArrayLiteral", "elements": serialized, "dims": self.dims}
+        d.update(self._loc_dict())
+        return d
 
 
 class Identifier(ASTNode):
@@ -208,6 +273,8 @@ class Identifier(ASTNode):
     name:    identifier name
     member:  ``"field"`` for ``id.field``
     indices: list of index expressions for ``id[i]`` or ``id[i][j]``
+    line:    source line number (1-based)
+    col:     source column number (1-based)
     """
 
     def __init__(
@@ -215,10 +282,14 @@ class Identifier(ASTNode):
         name: str,
         member: str | None = None,
         indices: List[ASTNode] | None = None,
+        line: int = 0,
+        col: int = 0,
     ):
         self.name = name
         self.member = member
         self.indices: List[ASTNode] = indices or []
+        self.line = line
+        self.col = col
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {"node": "Identifier", "name": self.name}
@@ -226,6 +297,7 @@ class Identifier(ASTNode):
             d["member"] = self.member
         if self.indices:
             d["indices"] = [i.to_dict() for i in self.indices]
+        d.update(self._loc_dict())
         return d
 
 
@@ -237,20 +309,26 @@ class BinaryOp(ASTNode):
     op:    operator symbol (``"+"``, ``"=="``, ``"&&"``, ``".."``, …)
     left:  left operand
     right: right operand
+    line:  source line number (1-based)
+    col:   source column number (1-based)
     """
 
-    def __init__(self, op: str, left: ASTNode, right: ASTNode):
+    def __init__(self, op: str, left: ASTNode, right: ASTNode, line: int = 0, col: int = 0):
         self.op = op
         self.left = left
         self.right = right
+        self.line = line
+        self.col = col
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "node": "BinaryOp",
             "op": self.op,
             "left": self.left.to_dict(),
             "right": self.right.to_dict(),
         }
+        d.update(self._loc_dict())
+        return d
 
 
 class UnaryOp(ASTNode):
@@ -260,18 +338,24 @@ class UnaryOp(ASTNode):
     ----------
     op:      operator symbol
     operand: the inner expression
+    line:    source line number (1-based)
+    col:     source column number (1-based)
     """
 
-    def __init__(self, op: str, operand: ASTNode):
+    def __init__(self, op: str, operand: ASTNode, line: int = 0, col: int = 0):
         self.op = op
         self.operand = operand
+        self.line = line
+        self.col = col
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "node": "UnaryOp",
             "op": self.op,
             "operand": self.operand.to_dict(),
         }
+        d.update(self._loc_dict())
+        return d
 
 
 class Cast(ASTNode):
@@ -292,16 +376,20 @@ class Cast(ASTNode):
 class FunctionCall(ASTNode):
     """Function call expression: ``id(arg, …)``."""
 
-    def __init__(self, name: str, args: List[ASTNode] | None = None):
+    def __init__(self, name: str, args: List[ASTNode] | None = None, line: int = 0, col: int = 0):
         self.name = name
         self.args: List[ASTNode] = args or []
+        self.line = line
+        self.col = col
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "node": "FunctionCall",
             "name": self.name,
             "args": [a.to_dict() for a in self.args],
         }
+        d.update(self._loc_dict())
+        return d
 
 
 # =========================================================================
@@ -316,20 +404,26 @@ class Assignment(ASTNode):
     target: left-hand side (``Identifier``)
     op:     assignment operator (``"="``, ``"+="``, …)
     value:  right-hand side expression
+    line:   source line number (1-based)
+    col:    source column number (1-based)
     """
 
-    def __init__(self, target: Identifier, op: str, value: ASTNode):
+    def __init__(self, target: Identifier, op: str, value: ASTNode, line: int = 0, col: int = 0):
         self.target = target
         self.op = op
         self.value = value
+        self.line = line
+        self.col = col
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "node": "Assignment",
             "target": self.target.to_dict(),
             "op": self.op,
             "value": self.value.to_dict(),
         }
+        d.update(self._loc_dict())
+        return d
 
 
 class IfStmt(ASTNode):
@@ -446,18 +540,28 @@ class LoopStmt(ASTNode):
 class ReturnStmt(ASTNode):
     """Return statement with an expression."""
 
-    def __init__(self, value: ASTNode):
+    def __init__(self, value: ASTNode, line: int = 0, col: int = 0):
         self.value = value
+        self.line = line
+        self.col = col
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"node": "ReturnStmt", "value": self.value.to_dict()}
+        d = {"node": "ReturnStmt", "value": self.value.to_dict()}
+        d.update(self._loc_dict())
+        return d
 
 
 class BreakStmt(ASTNode):
     """Break statement."""
 
+    def __init__(self, line: int = 0, col: int = 0):
+        self.line = line
+        self.col = col
+
     def to_dict(self) -> Dict[str, Any]:
-        return {"node": "BreakStmt"}
+        d = {"node": "BreakStmt"}
+        d.update(self._loc_dict())
+        return d
 
 
 class IOStmt(ASTNode):
