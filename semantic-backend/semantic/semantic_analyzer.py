@@ -1466,12 +1466,23 @@ class SemanticAnalyzer:
             return "bool"
 
         if op == "..":
-            for t in (lt, rt):
-                if t and t != "string":
-                    self._err(
-                        f"String concat '..' requires string operands, got '{t}'",
-                        line, col,
-                    )
+            # String concatenation rules:
+            # - Left operand must be string or char
+            # - Right operand can be any stringifiable type (int, long, float, double, bool, char, string)
+            stringifiable = NUMERIC_TYPES | {"char", "string", "bool"}
+            left_valid = {"string", "char"}
+            
+            if lt and lt not in left_valid:
+                self._err(
+                    f"String concat '..' requires left operand to be string or char, "
+                    f"got '{lt}'",
+                    line, col,
+                )
+            if rt and rt not in stringifiable:
+                self._err(
+                    f"String concat '..' cannot stringify type '{rt}'",
+                    line, col,
+                )
             return "string"
 
         return "unknown"
