@@ -1593,7 +1593,7 @@ class PortiaParser:
         self.match_value("{")
         cases = self.parse_case_list()
         default = self.parse_default_stmt()
-        self.match_value("}", also_expected=PREDICT[214] | PREDICT[215])
+        self.match_value("}")
         return SwitchStmt(expr, cases, default)
 
     # =====================================================================
