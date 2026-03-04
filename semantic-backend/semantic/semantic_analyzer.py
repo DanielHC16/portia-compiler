@@ -38,6 +38,8 @@ _LITERAL_TYPE_MAP: Dict[str, str] = {
 }
 
 ARITHMETIC_OPS: frozenset = frozenset({"+", "-", "*", "/", "%"})
+EQUALITY_OPS:   frozenset = frozenset({"==", "!="})
+COMPARISON_OPS: frozenset = frozenset({">", "<", ">=", "<="})
 RELATIONAL_OPS: frozenset = frozenset({"==", "!=", ">", "<", ">=", "<="})
 LOGICAL_OPS:    frozenset = frozenset({"&&", "||"})
 UPDATE_OPS:     frozenset = frozenset({"+=", "-=", "*=", "/=", "%="})
@@ -1426,14 +1428,31 @@ class SemanticAnalyzer:
             return lt or rt
 
         if op in RELATIONAL_OPS:
-            valid = NUMERIC_TYPES | {"char"}
+            # Equality operators (==, !=) allow: numeric, char, string, bool
+            # Comparison operators (<, >, <=, >=) allow: numeric, char only
+            if op in EQUALITY_OPS:
+                valid = NUMERIC_TYPES | {"char", "string", "bool"}
+                error_msg = "numeric, char, string, or bool"
+            else:
+                valid = NUMERIC_TYPES | {"char"}
+                error_msg = "numeric or char"
             for t in (lt, rt):
                 if t and t not in valid:
                     self._err(
-                        f"Relational operator '{op}' requires numeric or char, "
+                        f"Relational operator '{op}' requires {error_msg}, "
                         f"got '{t}'",
                         line, col,
                     )
+            # For equality, both operands must be the same type category
+            if op in EQUALITY_OPS and lt and rt:
+                # Check type compatibility for equality comparison
+                if lt != rt:
+                    # Allow numeric widening comparisons
+                    if not (lt in NUMERIC_TYPES and rt in NUMERIC_TYPES):
+                        self._err(
+                            f"Cannot compare '{lt}' with '{rt}' using '{op}'",
+                            line, col,
+                        )
             return "bool"
 
         if op in LOGICAL_OPS:
