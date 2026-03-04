@@ -26,7 +26,7 @@ The PORTIA recursive descent parser:
 
 - Accepts a flat list of tokens from the lexer.
 - Skips non-semantic tokens (`NEWLINE`, `WHITESPACE`, `COMMENT`).
-- Matches the revised PORTIA CFG — **247 productions** across **116 non-terminals**.
+- Matches the revised PORTIA CFG — **240 productions** across **115 non-terminals**.
 - Produces a clean, semantic AST (no parse-tree artifacts like intermediate rule names).
 - Rejects programs with lex errors before attempting to parse.
 - Returns detailed `ParseError` objects with exact line and column numbers.
@@ -115,8 +115,8 @@ The parser directly implements the revised CFG document. Statistics:
 
 | Metric | Value |
 |--------|-------|
-| Total productions | 247 |
-| Non-terminals | 116 |
+| Total productions | 240 |
+| Non-terminals | 115 |
 | Data type keywords | 7 (`int`, `long`, `float`, `double`, `char`, `string`, `bool`) |
 | Literal token types | 6 (`INTLIT`, `LONGLIT`, `FLOATLIT`, `DOUBLELIT`, `CHARLIT`, `STRINGLIT`) |
 | Assignment operators | 6 (`=`, `+=`, `-=`, `*=`, `/=`, `%=`) |
@@ -521,7 +521,7 @@ parser-backend/
     ├── __init__.py
     ├── api.py                  # /parse and /parse/source route handlers
     ├── portia_parser.py        # PortiaParser recursive descent, ParseError
-    ├── grammar.py              # Token constants, FIRST/FOLLOW/PREDICT sets (247 productions)
+    ├── grammar.py              # Token constants, FIRST/FOLLOW/PREDICT sets (240 productions)
     ├── ast_nodes.py            # AST node dataclasses (Program, VarDecl, BinaryOp, …)
     ├── portia-cfg.md           # Original CFG documentation
     └── README.md               # Parser-specific notes

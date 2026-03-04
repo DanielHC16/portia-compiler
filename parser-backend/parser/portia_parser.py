@@ -1,7 +1,7 @@
 """
 PORTIA Parser - Recursive Descent Implementation
 =================================================
-Matches the revised CFG (247 productions, 116 non-terminals).
+Matches PORTIA CFG (240 productions, 115 non-terminals).
 All parse functions return semantic AST nodes (from ast_nodes.py).
 """
 
@@ -40,7 +40,7 @@ class PortiaParser:
     """
     Recursive descent parser for PORTIA language.
 
-    Matches the revised CFG (247 productions, 116 non-terminals).
+    Matches the revised CFG (240 productions, 115 non-terminals).
     Lookahead constants imported from grammar.py for modularity.
     Error messages use PREDICT/FIRST/FOLLOW sets exclusively.
 
@@ -847,7 +847,7 @@ class PortiaParser:
             # [92] ( arg )  →  function-call statement
             self.advance()
             args = self.parse_arg()
-            self.match_value(")", also_expected=PREDICT[156] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
+            self.match_value(")", also_expected=PREDICT[149] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
             return FunctionCall(name, args)
         else:
             # [91] assign_mod_opt assign_stmt_op
@@ -987,19 +987,18 @@ class PortiaParser:
             return self.parse_rel_expr()
 
     # =====================================================================
-    # [118-125]  rel_expr  (iterative: collapses rel_expr_cont)
-    #   rel_expr -> arith_expr ( <relop> arith_expr )*
+    # [115]  rel_expr  (non-associative: exactly one relational operator)
+    #   rel_expr -> arith_expr <relop> arith_expr
     # =====================================================================
 
     def parse_rel_expr(self) -> ASTNode:
         node = self.parse_arith_expr()
-        while self.check(*REL_OPS):
-            # [119-124] <relop> arith_expr
+        if self.check(*REL_OPS):
+            # [115] <relop> arith_expr (exactly one)
             op_tok = self.advance()
             op = op_tok.get("value") or op_tok.get("lexeme")
             right = self.parse_arith_expr()
             node = BinaryOp(op, node, right)
-        # [125] e
         return node
 
     # =====================================================================
@@ -1131,7 +1130,7 @@ class PortiaParser:
             # [145] ( arg )
             self.advance()
             args = self.parse_arg()
-            self.match_value(")", also_expected=PREDICT[156] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
+            self.match_value(")", also_expected=PREDICT[149] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
             return FunctionCall(name, args)
         # [146] e
         return Identifier(name)
@@ -1258,7 +1257,7 @@ class PortiaParser:
             raise self.error(FIRST["output_stmt"])
         self.match_value("(")
         args = self.parse_print_args()
-        self.match_value(")", also_expected=PREDICT[168] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
+        self.match_value(")", also_expected=PREDICT[161] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
         self.match_value(";")
         return IOStmt(kind, args=args)
 
@@ -1315,13 +1314,13 @@ class PortiaParser:
         self.match_value("if")
         self.match_value("(")
         condition = self.parse_condition()
-        self.match_value(")", also_expected=PREDICT[176] | PREDICT[179] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
+        self.match_value(")", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
         self.match_value("{")
         body = self.parse_ctrl_body()
         ret = self.parse_ret_ctrl_body()
         if ret is not None:
             body.append(ret)
-        self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
+        self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
         # Collect else-if / else chains
         elif_branches: List[tuple] = []
         else_body: List[ASTNode] = []
@@ -1344,13 +1343,13 @@ class PortiaParser:
             self.match_value("if")
             self.match_value("(")
             cond = self.parse_condition()
-            self.match_value(")", also_expected=PREDICT[176] | PREDICT[179] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
+            self.match_value(")", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
             self.match_value("{")
             branch_body = self.parse_ctrl_body()
             ret = self.parse_ret_ctrl_body()
             if ret is not None:
                 branch_body.append(ret)
-            self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
+            self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
             elif_branches.append((cond, branch_body))
             # Continue chain (another else-if or final else)
             self._parse_else_chain(elif_branches, else_body)
@@ -1361,7 +1360,7 @@ class PortiaParser:
             ret = self.parse_ret_ctrl_body()
             if ret is not None:
                 eb.append(ret)
-            self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
+            self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
             else_body.extend(eb)
         else:
             raise self.error(FIRST["else_stmt"])
@@ -1719,17 +1718,17 @@ class PortiaParser:
         self.match_value("for")
         self.match_value("(")
         init = self.parse_initializer()
-        self.match_value(";", also_expected=PREDICT[233] | PREDICT[234] | PREDICT[235] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||", ","})
+        self.match_value(";", also_expected=PREDICT[226] | PREDICT[227] | PREDICT[228] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||", ","})
         condition = self.parse_condition()
-        self.match_value(";", also_expected=PREDICT[176] | PREDICT[179] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
+        self.match_value(";", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
         update = self.parse_update()
-        self.match_value(")", also_expected=PREDICT[236] | PREDICT[237] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
+        self.match_value(")", also_expected=PREDICT[229] | PREDICT[230] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
         self.match_value("{")
         body = self.parse_ctrl_body()
         ret = self.parse_ret_ctrl_body()
         if ret is not None:
             body.append(ret)
-        self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
+        self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
         return LoopStmt("for", condition=condition, body=body,
                         init=init, update=update)
 
@@ -1785,13 +1784,13 @@ class PortiaParser:
         self.match_value("while")
         self.match_value("(")
         condition = self.parse_condition()
-        self.match_value(")", also_expected=PREDICT[176] | PREDICT[179] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
+        self.match_value(")", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
         self.match_value("{")
         body = self.parse_ctrl_body()
         ret = self.parse_ret_ctrl_body()
         if ret is not None:
             body.append(ret)
-        self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
+        self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
         return LoopStmt("while", condition=condition, body=body)
 
     # =====================================================================
@@ -1806,11 +1805,11 @@ class PortiaParser:
         ret = self.parse_ret_ctrl_body()
         if ret is not None:
             body.append(ret)
-        self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
+        self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
         self.match_value("while")
         self.match_value("(")
         condition = self.parse_condition()
-        self.match_value(")", also_expected=PREDICT[176] | PREDICT[179] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
+        self.match_value(")", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
         self.match_value(";")
         return LoopStmt("do", condition=condition, body=body)
 
@@ -1848,7 +1847,7 @@ class PortiaParser:
         using = self.parse_using_block()
         locals_ = self.parse_local_block()
         stmts = self.parse_statement_list()
-        self.match_value("return", also_expected=PREDICT[247])
+        self.match_value("return", also_expected=PREDICT[240])
         ret_tok = self.match("INTLIT")
         ret_val = Literal(ret_tok.get("value") or ret_tok.get("lexeme"), "INTLIT")
         self.match_value(";")
