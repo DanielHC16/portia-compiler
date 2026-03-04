@@ -20,8 +20,9 @@ class Delimiters:
         # dtype_delim: allows '(' immediately after castable primitive type keywords
         # Patterns: (int)expr -- cast syntax, int func(int arr[5]) -- array params
         # Also allows ')' for cast patterns like (int)x where dtype follows '('
+        # Also allows '[' for array return types like func int[3] myFunc()
         # Excludes 'void' and 'weave' (not valid cast targets)
-        self.dtype_delim = chars.whitespace + [')'] + chars.newline
+        self.dtype_delim = chars.whitespace + [')', '['] + chars.newline
 
         # RESERVED SYMBOLS DELIMITER
         # Arithmetic and logical operator delimiters
@@ -35,7 +36,7 @@ class Delimiters:
         self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<','!', '=', '&', '|', '{', ';', ')', '(',  "'",',','..','"'] + chars.whitespace + chars.newline
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '[',  '>', '<', '!', '=', '&', '|', '..'] + chars.whitespace
         self.open_curly_delim = chars.whitespace + chars.newline + chars.alphanum + ['{', '"', "'", '-', '!','}']
-        self.close_curly_delim = chars.whitespace + chars.newline + [';', ','] + chars.alphabetics + ['}']
+        self.close_curly_delim = chars.whitespace + chars.newline + [';', ',', None] + chars.alphabetics + ['}']
 
         # Punctuation delimiters
         self.semicolon_delim = chars.alphanum + chars.whitespace + chars.newline + [')','}']

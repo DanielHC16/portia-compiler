@@ -683,6 +683,7 @@ class SemanticAnalyzer:
             else:
                 rv_type = self._infer_type(ret_value)
                 if rv_type and rv_type != "unknown":
+                    # Check base type compatibility
                     if not _compatible(ret_type, rv_type):
                         self._err(
                             f"Return type mismatch in '{name}': "
@@ -690,6 +691,39 @@ class SemanticAnalyzer:
                             ret_value.get("line", line),
                             ret_value.get("col", col),
                         )
+                    # Check array dimension compatibility
+                    ret_val_dims = self._get_expr_dims(ret_value)
+                    func_expects_array = len(ret_dims) > 0
+                    value_is_array = len(ret_val_dims) > 0
+                    rv_line = ret_value.get("line", line)
+                    rv_col = ret_value.get("col", col)
+                    
+                    if func_expects_array and not value_is_array:
+                        # Function expects array return but got scalar
+                        dims_str = "x".join(str(d) for d in ret_dims)
+                        self._err(
+                            f"Return type mismatch in '{name}': "
+                            f"expected '{ret_type}[{dims_str}]' but got '{rv_type}'",
+                            rv_line, rv_col,
+                        )
+                    elif not func_expects_array and value_is_array:
+                        # Function expects scalar return but got array
+                        dims_str = "x".join(str(d) for d in ret_val_dims)
+                        self._err(
+                            f"Return type mismatch in '{name}': "
+                            f"expected scalar '{ret_type}' but got array '{rv_type}[{dims_str}]'",
+                            rv_line, rv_col,
+                        )
+                    elif func_expects_array and value_is_array:
+                        # Both are arrays, check dimensions match
+                        if ret_dims != ret_val_dims:
+                            expected_dims = "x".join(str(d) for d in ret_dims)
+                            actual_dims = "x".join(str(d) for d in ret_val_dims)
+                            self._err(
+                                f"Return type mismatch in '{name}': "
+                                f"expected '{ret_type}[{expected_dims}]' but got '{rv_type}[{actual_dims}]'",
+                                rv_line, rv_col,
+                            )
         else:
             if ret_value is not None:
                 self._err(
@@ -1123,12 +1157,90 @@ class SemanticAnalyzer:
             else:
                 rv = self._infer_type(value)
                 if rv and rv != "unknown":
+                    # Check base type compatibility
                     if not _compatible(self._ret_type, rv):
                         self._err(
                             f"Return type mismatch: expected '{self._ret_type}' "
                             f"but got '{rv}'",
                             line, col,
                         )
+                    # Check array dimension compatibility
+                    ret_val_dims = self._get_expr_dims(value)
+                    func_expects_array = len(self._ret_dims) > 0
+                    value_is_array = len(ret_val_dims) > 0
+                    
+                    if func_expects_array and not value_is_array:
+                        # Function expects array return but got scalar
+                        dims_str = "x".join(str(d) for d in self._ret_dims)
+                        self._err(
+                            f"Return type mismatch: expected '{self._ret_type}[{dims_str}]' "
+                            f"but got scalar '{rv}'",
+                            line, col,
+                        )
+                    elif not func_expects_array and value_is_array:
+                        # Function expects scalar return but got array
+                        dims_str = "x".join(str(d) for d in ret_val_dims)
+                        self._err(
+                            f"Return type mismatch: expected scalar '{self._ret_type}' "
+                            f"but got array '{rv}[{dims_str}]'",
+                            line, col,
+                        )
+                    elif func_expects_array and value_is_array:
+                        # Both are arrays, check dimensions match
+                        if self._ret_dims != ret_val_dims:
+                            expected_dims = "x".join(str(d) for d in self._ret_dims)
+                            actual_dims = "x".join(str(d) for d in ret_val_dims)
+                            self._err(
+                                f"Return type mismatch: expected '{self._ret_type}[{expected_dims}]' "
+                                f"but got '{rv}[{actual_dims}]'",
+                                line, col,
+                            )
+
+    def _get_expr_dims(self, expr: Optional[Dict[str, Any]]) -> List[int]:
+        """
+        Get the array dimensions of an expression.
+        Returns empty list for scalar values, or the dimension list for arrays.
+        """
+        if expr is None:
+            return []
+        ntype = expr.get("node")
+
+        if ntype == "Literal":
+            # Scalar literals have no dimensions
+            return []
+
+        if ntype == "Identifier":
+            name = expr.get("name", "")
+            indices = expr.get("indices") or []
+            line = expr.get("line", 0)
+            col = expr.get("col", 0)
+            sym = self._lookup_symbol(name, line, col)
+            if sym is None:
+                return []
+            # If identifier has indices, it's dereferencing the array to a scalar
+            if indices:
+                return []
+            # If it's an array variable without indices, return its dimensions
+            if sym.is_array:
+                return list(sym.dims)
+            return []
+
+        if ntype == "FunctionCall":
+            name = expr.get("name", "")
+            fsym = self._global.lookup(name)
+            if fsym is not None and fsym.is_func:
+                return list(fsym.ret_dims) if fsym.ret_dims else []
+            return []
+
+        if ntype == "Cast":
+            # Casts produce scalar values
+            return []
+
+        if ntype in ("BinaryOp", "UnaryOp"):
+            # Binary and unary operations produce scalar values
+            return []
+
+        return []
 
     def _analyze_break(self, node: Dict[str, Any]) -> None:
         line = node.get("line", 0)
