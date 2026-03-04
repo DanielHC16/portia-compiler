@@ -1344,9 +1344,41 @@ class SemanticAnalyzer:
             return self._infer_unary(expr)
 
         if ntype == "Cast":
-            if expr.get("expr"):
-                self._infer_type(expr["expr"])
-            return _norm(expr.get("dtype", ""))
+            target_type = _norm(expr.get("dtype", ""))
+            inner_expr = expr.get("expr")
+            line = expr.get("line", 0)
+            col = expr.get("col", 0)
+            
+            if inner_expr:
+                source_type = self._infer_type(inner_expr)
+                # Validate cast: only numeric-to-numeric casts are allowed
+                if source_type and source_type != "unknown" and target_type:
+                    if target_type in NUMERIC_TYPES:
+                        if source_type not in NUMERIC_TYPES:
+                            self._err(
+                                f"Cannot cast '{source_type}' to '{target_type}'; "
+                                f"only numeric types can be cast to numeric types",
+                                line, col,
+                            )
+                    elif target_type == "char":
+                        if source_type != "char":
+                            self._err(
+                                f"Cannot cast '{source_type}' to 'char'",
+                                line, col,
+                            )
+                    elif target_type == "bool":
+                        if source_type != "bool":
+                            self._err(
+                                f"Cannot cast '{source_type}' to 'bool'",
+                                line, col,
+                            )
+                    elif target_type == "string":
+                        if source_type != "string":
+                            self._err(
+                                f"Cannot cast '{source_type}' to 'string'",
+                                line, col,
+                            )
+            return target_type
 
         if ntype == "FunctionCall":
             return self._infer_call(expr)
