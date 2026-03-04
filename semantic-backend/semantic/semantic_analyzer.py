@@ -1547,23 +1547,43 @@ class SemanticAnalyzer:
             # Modulo requires integral types only (int, long)
             if op == "%":
                 integral_types = {"int", "long"}
-                for t, side in ((lt, "left"), (rt, "right")):
-                    if t and t not in integral_types:
-                        self._err(
-                            f"Operator '%' requires integral operands (int or long), "
-                            f"got '{t}' on {side}",
-                            line, col,
-                        )
-                        return "unknown"
+                if lt and lt not in integral_types:
+                    l_line = left.get("line", line) if left else line
+                    l_col = left.get("col", col) if left else col
+                    self._err(
+                        f"Operator '%' requires integral operands (int or long), "
+                        f"left operand is '{lt}'",
+                        l_line, l_col,
+                    )
+                    return "unknown"
+                if rt and rt not in integral_types:
+                    r_line = right.get("line", line) if right else line
+                    r_col = right.get("col", col) if right else col
+                    self._err(
+                        f"Operator '%' requires integral operands (int or long), "
+                        f"right operand is '{rt}'",
+                        r_line, r_col,
+                    )
+                    return "unknown"
             else:
-                for t, side in ((lt, "left"), (rt, "right")):
-                    if t and t not in NUMERIC_TYPES:
-                        self._err(
-                            f"Operator '{op}' requires numeric operands, "
-                            f"got '{t}' on {side}",
-                            line, col,
-                        )
-                        return "unknown"
+                if lt and lt not in NUMERIC_TYPES:
+                    l_line = left.get("line", line) if left else line
+                    l_col = left.get("col", col) if left else col
+                    self._err(
+                        f"Operator '{op}' requires numeric operands, "
+                        f"left operand is '{lt}'",
+                        l_line, l_col,
+                    )
+                    return "unknown"
+                if rt and rt not in NUMERIC_TYPES:
+                    r_line = right.get("line", line) if right else line
+                    r_col = right.get("col", col) if right else col
+                    self._err(
+                        f"Operator '{op}' requires numeric operands, "
+                        f"right operand is '{rt}'",
+                        r_line, r_col,
+                    )
+                    return "unknown"
             if lt and rt:
                 w = _wider(lt, rt)
                 if w is None:
@@ -1584,13 +1604,22 @@ class SemanticAnalyzer:
             else:
                 valid = NUMERIC_TYPES
                 error_msg = "numeric"
-            for t in (lt, rt):
-                if t and t not in valid:
-                    self._err(
-                        f"Relational operator '{op}' requires {error_msg}, "
-                        f"got '{t}'",
-                        line, col,
-                    )
+            if lt and lt not in valid:
+                l_line = left.get("line", line) if left else line
+                l_col = left.get("col", col) if left else col
+                self._err(
+                    f"Relational operator '{op}' requires {error_msg}, "
+                    f"left operand is '{lt}'",
+                    l_line, l_col,
+                )
+            if rt and rt not in valid:
+                r_line = right.get("line", line) if right else line
+                r_col = right.get("col", col) if right else col
+                self._err(
+                    f"Relational operator '{op}' requires {error_msg}, "
+                    f"right operand is '{rt}'",
+                    r_line, r_col,
+                )
             # For equality, both operands must be the same type category
             if op in EQUALITY_OPS and lt and rt:
                 # Check type compatibility for equality comparison
@@ -1604,13 +1633,22 @@ class SemanticAnalyzer:
             return "bool"
 
         if op in LOGICAL_OPS:
-            for t in (lt, rt):
-                if t and t != "bool":
-                    self._err(
-                        f"Logical operator '{op}' requires bool operands, "
-                        f"got '{t}'",
-                        line, col,
-                    )
+            if lt and lt != "bool":
+                l_line = left.get("line", line) if left else line
+                l_col = left.get("col", col) if left else col
+                self._err(
+                    f"Logical operator '{op}' requires bool operands, "
+                    f"left operand is '{lt}'",
+                    l_line, l_col,
+                )
+            if rt and rt != "bool":
+                r_line = right.get("line", line) if right else line
+                r_col = right.get("col", col) if right else col
+                self._err(
+                    f"Logical operator '{op}' requires bool operands, "
+                    f"right operand is '{rt}'",
+                    r_line, r_col,
+                )
             return "bool"
 
         if op == "..":
@@ -1621,15 +1659,19 @@ class SemanticAnalyzer:
             left_valid = {"string", "char"}
             
             if lt and lt not in left_valid:
+                l_line = left.get("line", line) if left else line
+                l_col = left.get("col", col) if left else col
                 self._err(
                     f"String concat '..' requires left operand to be string or char, "
                     f"got '{lt}'",
-                    line, col,
+                    l_line, l_col,
                 )
             if rt and rt not in stringifiable:
+                r_line = right.get("line", line) if right else line
+                r_col = right.get("col", col) if right else col
                 self._err(
                     f"String concat '..' cannot stringify type '{rt}'",
-                    line, col,
+                    r_line, r_col,
                 )
             return "string"
 

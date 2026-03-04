@@ -376,9 +376,9 @@ class PortiaParser:
     def parse_literals_num(self) -> ASTNode:
         if self.check("-"):
             # [27] - num_lit
-            self.advance()
+            op_tok = self.advance()
             inner = self.parse_num_lit()
-            return UnaryOp("-", inner)
+            return UnaryOp("-", inner, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         else:
             # [26] literals
             return self.parse_literals()
@@ -958,9 +958,9 @@ class PortiaParser:
         node = self.parse_logical_expr()
         while self.check(".."):
             # [107] .. logical_expr
-            self.advance()
+            op_tok = self.advance()
             right = self.parse_logical_expr()
-            node = BinaryOp("..", node, right)
+            node = BinaryOp("..", node, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         # [108] e
         return node
 
@@ -973,9 +973,9 @@ class PortiaParser:
         node = self.parse_logical_term()
         while self.check("||"):
             # [110] || logical_term
-            self.advance()
+            op_tok = self.advance()
             right = self.parse_logical_term()
-            node = BinaryOp("||", node, right)
+            node = BinaryOp("||", node, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         # [111] e
         return node
 
@@ -988,9 +988,9 @@ class PortiaParser:
         node = self.parse_logical_factor()
         while self.check("&&"):
             # [113] && logical_factor
-            self.advance()
+            op_tok = self.advance()
             right = self.parse_logical_factor()
-            node = BinaryOp("&&", node, right)
+            node = BinaryOp("&&", node, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         # [111] e
         return node
 
@@ -1006,9 +1006,9 @@ class PortiaParser:
     def parse_logical_factor(self) -> ASTNode:
         if self.check("!"):
             # [115] ! logical_factor
-            self.advance()
+            op_tok = self.advance()
             operand = self.parse_logical_factor()
-            return UnaryOp("!", operand)
+            return UnaryOp("!", operand, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         else:
             # [117] rel_expr
             return self.parse_rel_expr()
@@ -1025,7 +1025,7 @@ class PortiaParser:
             op_tok = self.advance()
             op = op_tok.get("value") or op_tok.get("lexeme")
             right = self.parse_arith_expr()
-            node = BinaryOp(op, node, right)
+            node = BinaryOp(op, node, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         return node
 
     # =====================================================================
@@ -1040,7 +1040,7 @@ class PortiaParser:
             op_tok = self.advance()
             op = op_tok.get("value") or op_tok.get("lexeme")
             right = self.parse_term()
-            node = BinaryOp(op, node, right)
+            node = BinaryOp(op, node, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         # [129] e
         return node
 
@@ -1056,7 +1056,7 @@ class PortiaParser:
             op_tok = self.advance()
             op = op_tok.get("value") or op_tok.get("lexeme")
             right = self.parse_primary()
-            node = BinaryOp(op, node, right)
+            node = BinaryOp(op, node, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         # [134] e
         return node
 
@@ -1074,9 +1074,9 @@ class PortiaParser:
             return self.parse_cast_or_val()
         elif self.check("-"):
             # [136] - primary
-            self.advance()
+            op_tok = self.advance()
             operand = self.parse_primary()
-            return UnaryOp("-", operand)
+            return UnaryOp("-", operand, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         else:
             # [135] atom
             return self.parse_atom()
@@ -1405,9 +1405,9 @@ class PortiaParser:
         node = self.parse_and_expr()
         while self.check("||"):
             # [180] || and_expr
-            self.advance()
+            op_tok = self.advance()
             right = self.parse_and_expr()
-            node = BinaryOp("||", node, right)
+            node = BinaryOp("||", node, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         # [181] e
         return node
 
@@ -1420,9 +1420,9 @@ class PortiaParser:
         node = self.parse_logical_op()
         while self.check("&&"):
             # [183] && logical_op
-            self.advance()
+            op_tok = self.advance()
             right = self.parse_logical_op()
-            node = BinaryOp("&&", node, right)
+            node = BinaryOp("&&", node, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         # [184] e
         return node
 
@@ -1433,9 +1433,9 @@ class PortiaParser:
     def parse_logical_op(self) -> ASTNode:
         if self.check("!"):
             # [181] ! logical_op
-            self.advance()
+            op_tok = self.advance()
             operand = self.parse_logical_op()
-            return UnaryOp("!", operand)
+            return UnaryOp("!", operand, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         else:
             # [182] bool_ctrl
             return self.parse_bool_ctrl()
@@ -1489,9 +1489,10 @@ class PortiaParser:
             node = self.parse_cmp_start()
             node = self._parse_mult_cont(node)
             node = self._parse_add_cont(node)
-            op = self.parse_rel_op()
+            op_tok = self.advance()  # consume rel_op token
+            op = op_tok.get("value") or op_tok.get("lexeme")
             right = self.parse_arith_expr()
-            return BinaryOp(op, node, right)
+            return BinaryOp(op, node, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         else:
             raise self.error(FIRST["bool_ctrl"])
 
@@ -1503,7 +1504,7 @@ class PortiaParser:
             op_tok = self.advance()
             op = op_tok.get("value") or op_tok.get("lexeme")
             right = self.parse_primary()
-            left = BinaryOp(op, left, right)
+            left = BinaryOp(op, left, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         return left
 
     def _parse_add_cont(self, left: ASTNode) -> ASTNode:
@@ -1512,7 +1513,7 @@ class PortiaParser:
             op_tok = self.advance()
             op = op_tok.get("value") or op_tok.get("lexeme")
             right = self.parse_term()
-            left = BinaryOp(op, left, right)
+            left = BinaryOp(op, left, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         return left
 
     # =====================================================================
@@ -1524,9 +1525,10 @@ class PortiaParser:
     def parse_bool_ctrl_tail(self, left: ASTNode) -> ASTNode:
         if self.check(*REL_OPS):
             # [188] rel_op arith_expr
-            op = self.parse_rel_op()
+            op_tok = self.advance()
+            op = op_tok.get("value") or op_tok.get("lexeme")
             right = self.parse_arith_expr()
-            return BinaryOp(op, left, right)
+            return BinaryOp(op, left, right, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         # [189] eps -- FOLLOW: {&&, ||, ), ;}
         return left
 
@@ -1539,9 +1541,9 @@ class PortiaParser:
     def parse_cmp_start(self) -> ASTNode:
         if self.check("-"):
             # [190] - primary
-            self.advance()
+            op_tok = self.advance()
             operand = self.parse_primary()
-            return UnaryOp("-", operand)
+            return UnaryOp("-", operand, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         elif self.check_type("INTLIT"):
             t = self.advance()
             return Literal(t.get("value") or t.get("lexeme"), "INTLIT",
@@ -1699,9 +1701,9 @@ class PortiaParser:
                            line=t.get("line", 0), col=t.get("column", 0))
         elif self.check("-"):
             # [220] - whole_lit
-            self.advance()
+            op_tok = self.advance()
             inner = self.parse_whole_lit()
-            return UnaryOp("-", inner)
+            return UnaryOp("-", inner, line=op_tok.get("line", 0), col=op_tok.get("column", 0))
         else:
             raise self.error(FIRST["unique_val"])
 
