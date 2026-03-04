@@ -1429,13 +1429,13 @@ class SemanticAnalyzer:
 
         if op in RELATIONAL_OPS:
             # Equality operators (==, !=) allow: numeric, char, string, bool
-            # Comparison operators (<, >, <=, >=) allow: numeric, char only
+            # Comparison operators (<, >, <=, >=) allow: numeric only
             if op in EQUALITY_OPS:
                 valid = NUMERIC_TYPES | {"char", "string", "bool"}
                 error_msg = "numeric, char, string, or bool"
             else:
-                valid = NUMERIC_TYPES | {"char"}
-                error_msg = "numeric or char"
+                valid = NUMERIC_TYPES
+                error_msg = "numeric"
             for t in (lt, rt):
                 if t and t not in valid:
                     self._err(
