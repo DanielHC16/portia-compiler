@@ -79,14 +79,18 @@ def _compatible(expected: str, actual: str) -> bool:
     """
     True if 'actual' can be used where 'expected' is required.
     - Identical types are always compatible.
-    - Two numeric types are compatible (implicit safe-widening).
+    - Numeric widening is allowed (int→long→float→double).
+    - Numeric narrowing (e.g., float→int) requires explicit cast.
     - Everything else requires an explicit Cast.
     """
     e, a = _norm(expected), _norm(actual)
     if e == a:
         return True
     if e in NUMERIC_TYPES and a in NUMERIC_TYPES:
-        return True
+        # Only allow widening: actual rank must be <= expected rank
+        expected_rank = _NUMERIC_RANK.get(e, -1)
+        actual_rank = _NUMERIC_RANK.get(a, -1)
+        return actual_rank <= expected_rank
     return False
 
 
