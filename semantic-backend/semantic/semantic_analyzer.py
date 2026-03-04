@@ -1408,14 +1408,26 @@ class SemanticAnalyzer:
             return "unknown"
 
         if op in ARITHMETIC_OPS:
-            for t, side in ((lt, "left"), (rt, "right")):
-                if t and t not in NUMERIC_TYPES:
-                    self._err(
-                        f"Operator '{op}' requires numeric operands, "
-                        f"got '{t}' on {side}",
-                        line, col,
-                    )
-                    return "unknown"
+            # Modulo requires integral types only (int, long)
+            if op == "%":
+                integral_types = {"int", "long"}
+                for t, side in ((lt, "left"), (rt, "right")):
+                    if t and t not in integral_types:
+                        self._err(
+                            f"Operator '%' requires integral operands (int or long), "
+                            f"got '{t}' on {side}",
+                            line, col,
+                        )
+                        return "unknown"
+            else:
+                for t, side in ((lt, "left"), (rt, "right")):
+                    if t and t not in NUMERIC_TYPES:
+                        self._err(
+                            f"Operator '{op}' requires numeric operands, "
+                            f"got '{t}' on {side}",
+                            line, col,
+                        )
+                        return "unknown"
             if lt and rt:
                 w = _wider(lt, rt)
                 if w is None:
