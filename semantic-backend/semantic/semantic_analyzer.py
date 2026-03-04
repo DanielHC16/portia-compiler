@@ -1396,6 +1396,25 @@ class SemanticAnalyzer:
                 return "unknown"
             return field.dtype
 
+        # Reject arrays used without indexing in expressions
+        if sym.is_array:
+            self._err(
+                f"Array '{name}' cannot be used as a whole value in expressions; "
+                f"use indexed access (e.g., {name}[0])",
+                line, col,
+            )
+            return "unknown"
+
+        # Reject weave instances used without member access in expressions
+        weave_sym = self._global.lookup(sym.dtype)
+        if weave_sym and weave_sym.is_weave:
+            self._err(
+                f"Weave instance '{name}' cannot be used as a whole value in expressions; "
+                f"access individual fields using the dot operator",
+                line, col,
+            )
+            return "unknown"
+
         return sym.dtype
 
     def _infer_binary(self, expr: Dict[str, Any]) -> Optional[str]:
