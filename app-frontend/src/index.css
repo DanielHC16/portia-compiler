@@ -24,6 +24,12 @@
   --radius: 8px;
 }
 
+/* Disable font ligatures globally for monospace fonts */
+code, pre, .cm-content, [style*="monospace"] {
+  font-variant-ligatures: none !important;
+  font-feature-settings: "liga" 0, "calt" 0 !important;
+}
+
 /* Portia Light Theme */
 :root[data-theme="light"] {
   --bg: #faf8ff;

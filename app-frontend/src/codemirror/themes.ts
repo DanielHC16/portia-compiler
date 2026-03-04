@@ -50,6 +50,7 @@ const portiaDarkTheme = EditorView.theme({
     fontSize: "14px",
     lineHeight: "1.6",
     padding: "12px 0",
+    fontVariantLigatures: "none",
   },
   ".cm-cursor, .cm-dropCursor": {
     borderLeftColor: portiaDarkColors.cursor,
@@ -126,6 +127,7 @@ const portiaLightTheme = EditorView.theme({
     fontSize: "14px",
     lineHeight: "1.6",
     padding: "12px 0",
+    fontVariantLigatures: "none",
   },
   ".cm-cursor, .cm-dropCursor": {
     borderLeftColor: portiaLightColors.cursor,

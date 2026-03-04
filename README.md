@@ -45,7 +45,7 @@ The PORTIA compiler is a classic **pipeline architecture**: each stage consumes 
 |   |  Input : token list                                                  |
 |   |  Output: Abstract Syntax Tree (AST)  +  parse error                  |
 |   |                                                                      |
-|   |  * Recursive descent, 247 CFG productions, 116 non-terminals         |
+|   |  * Recursive descent, 240 CFG productions, 115 non-terminals         |
 |   |  * FIRST/FOLLOW/PREDICT sets in grammar.py                           |
 |   |  * Blocked if lex errors exist (no cascading errors)                 |
 |   |  * AST nodes represent only semantic meaning (no grammar noise)      |
@@ -263,7 +263,7 @@ portia-compiler/
 +-- parser-backend/             <- Stage 2: Recursive Descent Parser
 |   +-- main.py                 # FastAPI app
 |   +-- parser/
-|   |   +-- portia_parser.py    # Parser (247 productions)
+|   |   +-- portia_parser.py    # Parser (240 productions)
 |   |   +-- grammar.py          # FIRST/FOLLOW/PREDICT sets
 |   |   +-- ast_nodes.py        # AST node definitions
 |   |   +-- api.py

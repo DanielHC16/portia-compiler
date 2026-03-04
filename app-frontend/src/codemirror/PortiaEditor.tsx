@@ -6,7 +6,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { bracketMatching, indentOnInput, foldGutter, foldKeymap } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { linter, lintGutter, forceLinting } from "@codemirror/lint";
+import { lintGutter, setDiagnostics } from "@codemirror/lint";
 import type { Diagnostic } from "@codemirror/lint";
 import { portiaLanguage } from "./portiaLanguage";
 import { getCodeMirrorTheme } from "./themes";
@@ -31,7 +31,6 @@ interface PortiaEditorProps {
 
 // Compartments for dynamic reconfiguration (preserves cursor position)
 const themeCompartment = new Compartment();
-const lintCompartment = new Compartment();
 const readOnlyCompartment = new Compartment();
 
 // Create error diagnostics from errors array
@@ -146,17 +145,11 @@ export default function PortiaEditor({
   useEffect(() => {
     if (!containerRef.current) return;
     
-    // Create linter that reads from ref (always current errors)
-    const lintExtension = linter((view) => {
-      return createDiagnostics(errorsRef.current, view.state.doc);
-    }, { delay: 0 });
-    
     const state = EditorState.create({
       doc: value,
       extensions: [
         baseExtensions,
         themeCompartment.of(getCodeMirrorTheme(theme)),
-        lintCompartment.of(lintExtension),
         readOnlyCompartment.of(EditorState.readOnly.of(readOnly)),
       ],
     });
@@ -167,6 +160,12 @@ export default function PortiaEditor({
     });
     
     viewRef.current = view;
+    
+    // Set initial diagnostics if errors exist
+    if (errorsRef.current.length > 0) {
+      const diagnostics = createDiagnostics(errorsRef.current, view.state.doc);
+      view.dispatch(setDiagnostics(view.state, diagnostics));
+    }
     
     return () => {
       view.destroy();
@@ -219,17 +218,10 @@ export default function PortiaEditor({
     const view = viewRef.current;
     if (!view) return;
     
-    // Force lint refresh by reconfiguring with updated errors
-    const newLintExtension = linter((v) => {
-      return createDiagnostics(errorsRef.current, v.state.doc);
-    }, { delay: 0 });
-    
-    view.dispatch({
-      effects: lintCompartment.reconfigure(newLintExtension),
-    });
-    
-    // Force the linter to re-run immediately
-    forceLinting(view);
+    // Directly set diagnostics instead of relying on linter re-run
+    // This is more reliable and immediate
+    const diagnostics = createDiagnostics(errorsRef.current, view.state.doc);
+    view.dispatch(setDiagnostics(view.state, diagnostics));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [errorKey]); // Only update when errors actually change
   
