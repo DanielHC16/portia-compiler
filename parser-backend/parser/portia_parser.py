@@ -1506,6 +1506,9 @@ class PortiaParser:
             node = self.parse_cmp_start()
             node = self._parse_mult_cont(node)
             node = self._parse_add_cont(node)
+            # Production 187 REQUIRES a relational operator - check before consuming
+            if not self.check(*REL_OPS):
+                raise self.error(REL_OPS)
             op_tok = self.advance()  # consume rel_op token
             op = op_tok.get("value") or op_tok.get("lexeme")
             right = self.parse_arith_expr()
