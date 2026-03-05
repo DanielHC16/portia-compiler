@@ -564,15 +564,21 @@ class PortiaParser:
         return WeaveDecl(name, fields)
 
     # =====================================================================
-    # [54-55]  field_list
+    # [54-55]  field_list -> field_dec field_list_tail
+    #          field_list_tail -> field_dec field_list_tail | λ
+    # NOTE: weave must have at least one field (no empty weave bodies)
     # =====================================================================
 
     def parse_field_list(self) -> List[VarDecl]:
         fields: List[VarDecl] = []
+        # Require at least one field declaration
+        if not self.is_dtype():
+            self.error(f"Expected at least one field declaration in weave body, got {self.peek()}")
+        # [54] first field_dec (required)
+        fields.append(self.parse_field_dec())
+        # [55] field_list_tail: additional fields (optional)
         while self.is_dtype():
-            # [54] field_dec
             fields.append(self.parse_field_dec())
-        # [55] e -- FOLLOW: {}}
         return fields
 
     # =====================================================================
