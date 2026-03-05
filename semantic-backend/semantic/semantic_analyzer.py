@@ -304,11 +304,43 @@ class SemanticAnalyzer:
         line: int = 0,
         col: int = 0,
         kind: str = "semantic_error",
+        token_length: int = 0,
     ) -> None:
-        self._errors.append({"message": msg, "line": line, "column": col, "type": kind})
+        err = {"message": msg, "line": line, "column": col, "type": kind}
+        if token_length > 0:
+            err["token_length"] = token_length
+        self._errors.append(err)
 
     def _warn(self, msg: str, line: int = 0, col: int = 0) -> None:
         self._warnings.append({"message": msg, "line": line, "column": col, "type": "warning"})
+
+    def _get_token_length(self, expr: Optional[Dict[str, Any]]) -> int:
+        """
+        Calculate token length for an expression (for error highlighting).
+        Handles literals (string, char, float, double, int, long, bool).
+        Returns 0 if length cannot be determined.
+        """
+        if expr is None:
+            return 0
+        ntype = expr.get("node")
+        if ntype == "Literal":
+            dtype = _norm(expr.get("dtype", ""))
+            value = expr.get("value")
+            if dtype == "stringlit" and isinstance(value, str):
+                # Value already includes quotes (e.g., '"10"'), use its length directly
+                return len(value)
+            elif dtype == "charlit" and isinstance(value, str):
+                # Value already includes quotes (e.g., "'A'"), use its length directly
+                return len(value)
+            elif dtype == "floatlit" or dtype == "doublelit":
+                # Use string representation of the float/double
+                return len(str(value)) if value is not None else 0
+            elif dtype == "intlit" or dtype == "longlit":
+                return len(str(value)) if value is not None else 0
+            elif dtype == "bool":
+                # "true" or "false"
+                return 4 if value else 5
+        return 0
 
     def _extract_loc(self, node: Any) -> Tuple[int, int]:
         """
@@ -1558,38 +1590,42 @@ class SemanticAnalyzer:
                 if lt and lt not in integral_types:
                     l_line = left.get("line", line) if left else line
                     l_col = left.get("col", col) if left else col
+                    l_len = self._get_token_length(left)
                     self._err(
                         f"Operator '%' requires integral operands (int or long), "
                         f"left operand is '{lt}'",
-                        l_line, l_col,
+                        l_line, l_col, token_length=l_len,
                     )
                     return "unknown"
                 if rt and rt not in integral_types:
                     r_line = right.get("line", line) if right else line
                     r_col = right.get("col", col) if right else col
+                    r_len = self._get_token_length(right)
                     self._err(
                         f"Operator '%' requires integral operands (int or long), "
                         f"right operand is '{rt}'",
-                        r_line, r_col,
+                        r_line, r_col, token_length=r_len,
                     )
                     return "unknown"
             else:
                 if lt and lt not in NUMERIC_TYPES:
                     l_line = left.get("line", line) if left else line
                     l_col = left.get("col", col) if left else col
+                    l_len = self._get_token_length(left)
                     self._err(
                         f"Operator '{op}' requires numeric operands, "
                         f"left operand is '{lt}'",
-                        l_line, l_col,
+                        l_line, l_col, token_length=l_len,
                     )
                     return "unknown"
                 if rt and rt not in NUMERIC_TYPES:
                     r_line = right.get("line", line) if right else line
                     r_col = right.get("col", col) if right else col
+                    r_len = self._get_token_length(right)
                     self._err(
                         f"Operator '{op}' requires numeric operands, "
                         f"right operand is '{rt}'",
-                        r_line, r_col,
+                        r_line, r_col, token_length=r_len,
                     )
                     return "unknown"
             if lt and rt:
@@ -1615,18 +1651,20 @@ class SemanticAnalyzer:
             if lt and lt not in valid:
                 l_line = left.get("line", line) if left else line
                 l_col = left.get("col", col) if left else col
+                l_len = self._get_token_length(left)
                 self._err(
                     f"Relational operator '{op}' requires {error_msg}, "
                     f"left operand is '{lt}'",
-                    l_line, l_col,
+                    l_line, l_col, token_length=l_len,
                 )
             if rt and rt not in valid:
                 r_line = right.get("line", line) if right else line
                 r_col = right.get("col", col) if right else col
+                r_len = self._get_token_length(right)
                 self._err(
                     f"Relational operator '{op}' requires {error_msg}, "
                     f"right operand is '{rt}'",
-                    r_line, r_col,
+                    r_line, r_col, token_length=r_len,
                 )
             # For equality, both operands must be the same type category
             if op in EQUALITY_OPS and lt and rt:
@@ -1634,9 +1672,13 @@ class SemanticAnalyzer:
                 if lt != rt:
                     # Allow numeric widening comparisons
                     if not (lt in NUMERIC_TYPES and rt in NUMERIC_TYPES):
+                        # Highlight the right operand (the mismatched one)
+                        r_line = right.get("line", line) if right else line
+                        r_col = right.get("col", col) if right else col
+                        r_len = self._get_token_length(right)
                         self._err(
                             f"Cannot compare '{lt}' with '{rt}' using '{op}'",
-                            line, col,
+                            r_line, r_col, token_length=r_len,
                         )
             return "bool"
 
@@ -1644,18 +1686,20 @@ class SemanticAnalyzer:
             if lt and lt != "bool":
                 l_line = left.get("line", line) if left else line
                 l_col = left.get("col", col) if left else col
+                l_len = self._get_token_length(left)
                 self._err(
                     f"Logical operator '{op}' requires bool operands, "
                     f"left operand is '{lt}'",
-                    l_line, l_col,
+                    l_line, l_col, token_length=l_len,
                 )
             if rt and rt != "bool":
                 r_line = right.get("line", line) if right else line
                 r_col = right.get("col", col) if right else col
+                r_len = self._get_token_length(right)
                 self._err(
                     f"Logical operator '{op}' requires bool operands, "
                     f"right operand is '{rt}'",
-                    r_line, r_col,
+                    r_line, r_col, token_length=r_len,
                 )
             return "bool"
 
@@ -1669,17 +1713,19 @@ class SemanticAnalyzer:
             if lt and lt not in left_valid:
                 l_line = left.get("line", line) if left else line
                 l_col = left.get("col", col) if left else col
+                l_len = self._get_token_length(left)
                 self._err(
                     f"String concat '..' requires left operand to be string or char, "
                     f"got '{lt}'",
-                    l_line, l_col,
+                    l_line, l_col, token_length=l_len,
                 )
             if rt and rt not in stringifiable:
                 r_line = right.get("line", line) if right else line
                 r_col = right.get("col", col) if right else col
+                r_len = self._get_token_length(right)
                 self._err(
                     f"String concat '..' cannot stringify type '{rt}'",
-                    r_line, r_col,
+                    r_line, r_col, token_length=r_len,
                 )
             return "string"
 
@@ -1692,11 +1738,12 @@ class SemanticAnalyzer:
         col     = expr.get("col",  0)
 
         ot = self._infer_type(operand) if operand else None
+        ot_len = self._get_token_length(operand) if operand else 0
 
         if op == "-":
             if ot and ot not in NUMERIC_TYPES and ot != "unknown":
                 self._err(
-                    f"Unary '-' requires numeric type, got '{ot}'", line, col
+                    f"Unary '-' requires numeric type, got '{ot}'", line, col, token_length=ot_len
                 )
                 return "unknown"
             return ot
@@ -1704,7 +1751,7 @@ class SemanticAnalyzer:
         if op == "!":
             if ot and ot != "bool" and ot != "unknown":
                 self._err(
-                    f"Logical '!' requires bool type, got '{ot}'", line, col
+                    f"Logical '!' requires bool type, got '{ot}'", line, col, token_length=ot_len
                 )
                 return "unknown"
             return "bool"

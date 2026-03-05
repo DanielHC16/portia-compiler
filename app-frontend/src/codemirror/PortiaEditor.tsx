@@ -17,6 +17,7 @@ export interface EditorError {
   message: string;
   endLine?: number;
   endColumn?: number;
+  token_length?: number;
   errorType?: "lexer" | "parser" | "semantic";
 }
 
@@ -53,7 +54,10 @@ function createDiagnostics(errors: EditorError[], doc: { lines: number; line: (n
     
     // End position - highlight at least one character or until end column
     let to: number;
-    if (error.endLine && error.endColumn) {
+    if (error.token_length && error.token_length > 0) {
+      // Use explicit token_length when provided
+      to = Math.min(from + error.token_length, lineInfo.to);
+    } else if (error.endLine && error.endColumn) {
       const endLine = Math.max(1, Math.min(error.endLine, doc.lines));
       const endLineInfo = doc.line(endLine);
       const endCol = Math.max(0, Math.min(error.endColumn - 1, endLineInfo.length));

@@ -47,6 +47,7 @@ type SemanticError = {
   line: number;
   column: number;
   type?: string;
+  token_length?: number;
 };
 
 type SemanticPanelProps = {
@@ -78,7 +79,7 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
   const editorErrors: EditorError[] = [
     ...lexErrors.map(err => ({ line: err.line, column: err.column, message: err.message, errorType: "lexer" as const })),
     ...parseErrors.map(err => ({ line: err.line, column: err.column, message: err.message, errorType: "parser" as const })),
-    ...semanticErrors.map(err => ({ line: err.line, column: err.column, message: err.message, errorType: "semantic" as const })),
+    ...semanticErrors.map(err => ({ line: err.line, column: err.column, message: err.message, token_length: err.token_length, errorType: "semantic" as const })),
   ];
 
   // Normalize smart/curly quotes to straight quotes
@@ -144,7 +145,8 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
             message: e.message || String(e),
             line: e.line || 0,
             column: e.column || 0,
-            type: e.type || 'error'
+            type: e.type || 'error',
+            token_length: e.token_length || 0
           }));
           setSemanticErrors(semErrors);
           logSemanticResult(semanticResp.symbol_table, false, semErrors);
