@@ -764,11 +764,13 @@ class SemanticAnalyzer:
                 if rv_type and rv_type != "unknown":
                     # Check base type compatibility
                     if not _compatible(ret_type, rv_type):
+                        rv_len = self._get_token_length(ret_value)
                         self._err(
                             f"Return type mismatch in '{name}': "
                             f"expected '{ret_type}' but got '{rv_type}'",
                             ret_value.get("line", line),
                             ret_value.get("col", col),
+                            token_length=rv_len,
                         )
                     # Check array dimension compatibility
                     ret_val_dims = self._get_expr_dims(ret_value)
@@ -783,28 +785,31 @@ class SemanticAnalyzer:
                         if func_expects_array and not value_is_array:
                             # Function expects array return but got scalar
                             dims_str = "x".join(str(d) for d in ret_dims)
+                            rv_len = self._get_token_length(ret_value)
                             self._err(
                                 f"Return type mismatch in '{name}': "
                                 f"expected '{ret_type}[{dims_str}]' but got '{rv_type}'",
-                                rv_line, rv_col,
+                                rv_line, rv_col, token_length=rv_len,
                             )
                         elif not func_expects_array and value_is_array:
                             # Function expects scalar return but got array
                             dims_str = "x".join(str(d) for d in ret_val_dims)
+                            rv_len = self._get_token_length(ret_value)
                             self._err(
                                 f"Return type mismatch in '{name}': "
                                 f"expected scalar '{ret_type}' but got array '{rv_type}[{dims_str}]'",
-                                rv_line, rv_col,
+                                rv_line, rv_col, token_length=rv_len,
                             )
                         elif func_expects_array and value_is_array:
                             # Both are arrays, check dimensions match
                             if ret_dims != ret_val_dims:
                                 expected_dims = "x".join(str(d) for d in ret_dims)
                                 actual_dims = "x".join(str(d) for d in ret_val_dims)
+                                rv_len = self._get_token_length(ret_value)
                                 self._err(
                                     f"Return type mismatch in '{name}': "
                                     f"expected '{ret_type}[{expected_dims}]' but got '{rv_type}[{actual_dims}]'",
-                                    rv_line, rv_col,
+                                    rv_line, rv_col, token_length=rv_len,
                                 )
         else:
             if ret_value is not None:
@@ -1249,12 +1254,17 @@ class SemanticAnalyzer:
                 allow_whole = len(self._ret_dims) > 0
                 rv = self._infer_type(value, allow_whole_array=allow_whole)
                 if rv and rv != "unknown":
+                    # Get value location for better error highlighting
+                    v_line = value.get("line", line)
+                    v_col = value.get("col", col)
+                    v_len = self._get_token_length(value)
+                    
                     # Check base type compatibility
                     if not _compatible(self._ret_type, rv):
                         self._err(
                             f"Return type mismatch: expected '{self._ret_type}' "
                             f"but got '{rv}'",
-                            line, col,
+                            v_line, v_col, token_length=v_len,
                         )
                     # Check array dimension compatibility
                     ret_val_dims = self._get_expr_dims(value)
@@ -1272,7 +1282,7 @@ class SemanticAnalyzer:
                         self._err(
                             f"Return type mismatch: expected '{self._ret_type}[{dims_str}]' "
                             f"but got scalar '{rv}'",
-                            line, col,
+                            v_line, v_col, token_length=v_len,
                         )
                     elif not func_expects_array and value_is_array:
                         # Function expects scalar return but got array
@@ -1280,7 +1290,7 @@ class SemanticAnalyzer:
                         self._err(
                             f"Return type mismatch: expected scalar '{self._ret_type}' "
                             f"but got array '{rv}[{dims_str}]'",
-                            line, col,
+                            v_line, v_col, token_length=v_len,
                         )
                     elif func_expects_array and value_is_array:
                         # Both are arrays, check dimensions match
@@ -1290,7 +1300,7 @@ class SemanticAnalyzer:
                             self._err(
                                 f"Return type mismatch: expected '{self._ret_type}[{expected_dims}]' "
                                 f"but got '{rv}[{actual_dims}]'",
-                                line, col,
+                                v_line, v_col, token_length=v_len,
                             )
 
     def _get_expr_dims(self, expr: Optional[Dict[str, Any]]) -> Optional[List[int]]:
