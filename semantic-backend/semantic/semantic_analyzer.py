@@ -971,11 +971,12 @@ class SemanticAnalyzer:
             # Use element's line/col if available, otherwise fall back to declaration line/col
             elem_line = elem.get("line", line)
             elem_col = elem.get("col", col)
+            elem_len = self._get_token_length(elem)
             if et and et != "unknown" and not _compatible(field_sym.dtype, et):
                 self._err(
                     f"Weave '{dtype}' field '{field_name}' expects "
                     f"'{field_sym.dtype}' but got '{et}'",
-                    elem_line, elem_col,
+                    elem_line, elem_col, token_length=elem_len,
                 )
 
     # -------------------------------------------------------------------------
@@ -1174,20 +1175,23 @@ class SemanticAnalyzer:
 
             if cval:
                 cval_type = self._infer_type(cval)
+                cval_line = cval.get("line", cline)
+                cval_col = cval.get("col", ccol)
+                cval_len = self._get_token_length(cval)
                 if (expr_type and cval_type
                         and cval_type != "unknown" and expr_type != "unknown"):
                     if not _compatible(expr_type, cval_type):
                         self._err(
                             f"Case value type '{cval_type}' does not match "
                             f"switch expression type '{expr_type}'",
-                            cline, ccol,
+                            cval_line, cval_col, token_length=cval_len,
                         )
                 if cval.get("node") == "Literal":
                     key = str(cval.get("value", ""))
                     if key in seen_vals:
                         self._err(
                             f"Duplicate case value '{key}' in switch statement",
-                            cline, ccol,
+                            cval_line, cval_col, token_length=cval_len,
                         )
                     else:
                         seen_vals.add(key)
@@ -1935,10 +1939,12 @@ class SemanticAnalyzer:
                 at = self._infer_type(arg)
                 if at and at != "unknown":
                     if not _compatible(param.dtype, at):
+                        arg_len = self._get_token_length(arg)
                         self._err(
                             f"Argument {idx + 1} to '{name}': "
                             f"expected '{param.dtype}' but got '{at}'",
                             aline, acol,
+                            token_length=arg_len,
                         )
 
         return _norm(fsym.ret_type or "void")

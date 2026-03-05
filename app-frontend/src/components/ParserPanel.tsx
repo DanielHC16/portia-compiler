@@ -56,7 +56,7 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
   // Convert errors to EditorErrors for CodeMirror
   const editorErrors: EditorError[] = [
     ...lexErrors.map(err => ({ line: err.line, column: err.column, message: err.message, errorType: "lexer" as const })),
-    ...parseErrorObjects.map(err => ({ line: err.line, column: err.column, message: err.message, errorType: "parser" as const })),
+    ...parseErrorObjects.map(err => ({ line: err.line, column: err.column, message: err.message, token_length: err.token_length, errorType: "parser" as const })),
   ];
 
   // Normalize smart/curly quotes to straight quotes

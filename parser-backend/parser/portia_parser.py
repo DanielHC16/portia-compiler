@@ -57,8 +57,18 @@ class PortiaParser:
     def __init__(self, tokens: List[Dict[str, Any]]):
         self.tokens = [t for t in tokens if t.get("type") not in self.SKIP_TOKENS]
         self.pos = 0
+        self._last_token: Dict[str, Any] = {"line": 1, "column": 1, "type": "", "value": ""}
 
     # ── token helpers ──────────────────────────────────────────────────────
+
+    def _make_eof_token(self) -> Dict[str, Any]:
+        """Create an EOF token using the last known token's position."""
+        return {
+            "line": self._last_token.get("line", 1),
+            "column": self._last_token.get("column", 1),
+            "type": "EOF",
+            "value": "EOF"
+        }
 
     def peek(self, offset: int = 0) -> Optional[Dict[str, Any]]:
         """Look at a token without consuming it."""
@@ -86,6 +96,7 @@ class PortiaParser:
         """Consume and return the current token."""
         if not self.at_end():
             token = self.tokens[self.pos]
+            self._last_token = token  # Track last consumed token
             self.pos += 1
             return token
         return None
@@ -102,7 +113,7 @@ class PortiaParser:
                 raise self.error({expected_type.lower()} | set(also_expected))
             raise ParseError(
                 f"Unexpected: end of input\nExpected: {expected_type.lower()}",
-                {"line": 0, "column": 0, "type": "EOF", "value": ""})
+                self._make_eof_token())
         if current.get("type", "").upper() != expected_type.upper():
             if also_expected:
                 raise self.error({expected_type.lower()} | set(also_expected))
@@ -123,7 +134,7 @@ class PortiaParser:
                 raise self.error({expected} | set(also_expected))
             raise ParseError(
                 f"Unexpected: end of input\nExpected: '{expected}'",
-                {"line": 0, "column": 0, "type": "EOF", "value": ""})
+                self._make_eof_token())
         val = current.get("value") or current.get("lexeme")
         if val != expected:
             if also_expected:
@@ -158,7 +169,7 @@ class PortiaParser:
         *expected* may be a str (displayed as-is) or a set/frozenset/list/tuple
         (formatted into a sorted, quoted list).
         """
-        tok = self.peek() or {"line": 0, "column": 0, "type": "EOF", "value": ""}
+        tok = self.peek() or self._make_eof_token()
         actual = tok.get("value") or tok.get("lexeme") or tok.get("type")
         if isinstance(expected, (set, frozenset, list, tuple)):
             exp_str = ", ".join(f"'{t}'" for t in sorted(expected, key=str))

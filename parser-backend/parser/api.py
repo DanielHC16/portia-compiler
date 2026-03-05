@@ -43,6 +43,8 @@ def parse_with_parser(tokens: List[Dict[str, Any]], source: Optional[str] = None
             "token_count": len(tokens)
         }
     except ParseError as e:
+        token_value = e.token.get("value", "") or e.token.get("lexeme", "")
+        token_length = len(token_value) if token_value else 1
         return {
             "success": False,
             "status": "error",
@@ -51,7 +53,8 @@ def parse_with_parser(tokens: List[Dict[str, Any]], source: Optional[str] = None
                 "message": e.message,
                 "line": e.line,
                 "column": e.column,
-                "token": e.token.get("value", ""),
+                "token": token_value,
+                "token_length": token_length,
                 "type": "syntax_error"
             }],
             "token_count": len(tokens)
