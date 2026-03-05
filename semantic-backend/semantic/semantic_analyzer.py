@@ -1425,7 +1425,12 @@ class SemanticAnalyzer:
             
             if inner_expr:
                 source_type = self._infer_type(inner_expr)
-                # Validate cast: only numeric-to-numeric casts are allowed
+                # Validate cast based on supported type conversions:
+                # - numeric <-> numeric (int, long, float, double)
+                # - bool -> string
+                # - string -> bool
+                # - string -> char
+                # - char -> string
                 if source_type and source_type != "unknown" and target_type:
                     if target_type in NUMERIC_TYPES:
                         if source_type not in NUMERIC_TYPES:
@@ -1435,19 +1440,22 @@ class SemanticAnalyzer:
                                 line, col,
                             )
                     elif target_type == "char":
-                        if source_type != "char":
+                        # Only string -> char is allowed
+                        if source_type != "char" and source_type != "string":
                             self._err(
                                 f"Cannot cast '{source_type}' to 'char'",
                                 line, col,
                             )
                     elif target_type == "bool":
-                        if source_type != "bool":
+                        # Only string -> bool is allowed
+                        if source_type != "bool" and source_type != "string":
                             self._err(
                                 f"Cannot cast '{source_type}' to 'bool'",
                                 line, col,
                             )
                     elif target_type == "string":
-                        if source_type != "string":
+                        # bool -> string and char -> string are allowed
+                        if source_type != "string" and source_type not in {"bool", "char"}:
                             self._err(
                                 f"Cannot cast '{source_type}' to 'string'",
                                 line, col,
