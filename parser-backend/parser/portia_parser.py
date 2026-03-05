@@ -207,8 +207,11 @@ class PortiaParser:
             if self.check("global"):
                 # [2] global mutability ;
                 self.advance()
-                decls.extend(self.parse_mutability(is_global=True))
-                self.match_value(";", also_expected=MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||", ","})
+                mut_decls, is_const = self.parse_mutability(is_global=True)
+                decls.extend(mut_decls)
+                # Only suggest expression operators if expressions are valid (var, not const)
+                also_exp = None if is_const else (MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||", ","})
+                self.match_value(";", also_expected=also_exp)
             elif self.check("weave"):
                 # [3] weave_def
                 decls.append(self.parse_weave_def())
@@ -219,17 +222,19 @@ class PortiaParser:
     # [5-6]  mutability
     # =====================================================================
 
-    def parse_mutability(self, is_global: bool = False) -> List[VarDecl]:
+    def parse_mutability(self, is_global: bool = False) -> tuple[list, bool]:
+        """Returns (declarations, is_const) tuple."""
         if self.check("var"):
             # [5] var var_or_weave
             self.advance()
-            return self.parse_var_or_weave(mutable=True, is_global=is_global)
+            return (self.parse_var_or_weave(mutable=True, is_global=is_global), False)
         elif self.check("const"):
             # [6] const const_weave
             self.advance()
-            return self.parse_const_weave(is_global=is_global)
+            return (self.parse_const_weave(is_global=is_global), True)
         else:
             raise self.error(FIRST["mutability"])
+        return ([], False)  # Unreachable, for type checker
 
     # =====================================================================
     # [7-8]  var_or_weave
@@ -818,8 +823,11 @@ class PortiaParser:
         while self.check("local"):
             # [82] local mutability ;
             self.advance()
-            decls.extend(self.parse_mutability(is_global=False))
-            self.match_value(";", also_expected=MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||", ","})
+            mut_decls, is_const = self.parse_mutability(is_global=False)
+            decls.extend(mut_decls)
+            # Only suggest expression operators if expressions are valid (var, not const)
+            also_exp = None if is_const else (MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||", ","})
+            self.match_value(";", also_expected=also_exp)
         # [83] e -- FOLLOW: {id, trap, thread, threadln, if, switch,
         #           for, while, do, return, }
         return decls
