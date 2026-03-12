@@ -43,6 +43,11 @@ class handler(BaseHTTPRequestHandler):
                     "output": [],
                     "return_value": None,
                     "errors": [{"message": "Missing 'ast' field in request body.", "line": 0, "column": 0, "type": "icg_error"}],
+                    "waiting_for_input": False,
+                    "input_var_name": None,
+                    "input_var_type": None,
+                    "input_line": 0,
+                    "input_col": 0,
                 })
                 return
 
@@ -71,6 +76,11 @@ class handler(BaseHTTPRequestHandler):
                 "output": result.output,
                 "return_value": result.return_value,
                 "errors": [e.to_dict() for e in result.errors],
+                "waiting_for_input": result.waiting_for_input,
+                "input_var_name": result.input_var_name,
+                "input_var_type": result.input_var_type,
+                "input_line": result.input_line,
+                "input_col": result.input_col,
             })
         except Exception as exc:
             self._respond(500, {
@@ -81,6 +91,11 @@ class handler(BaseHTTPRequestHandler):
                 "output": [],
                 "return_value": None,
                 "errors": [{"message": str(exc), "line": 0, "column": 0, "type": "icg_error"}],
+                "waiting_for_input": False,
+                "input_var_name": None,
+                "input_var_type": None,
+                "input_line": 0,
+                "input_col": 0,
             })
 
     def _set_cors(self):
