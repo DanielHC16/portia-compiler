@@ -678,6 +678,45 @@ class RuntimeExecutor:
                 value_result = self._eval(arg2, line, col)
                 self._memory[key] = value_result
         
+        elif op == "array_access_2d":
+            # 2D array element access: array_access_2d arr [i, j]
+            array_name = arg1
+            # Resolve array name through alias chain (for pass-by-reference parameters)
+            array_name = self._resolve_array_name(array_name)
+            # arg2 is a list of two indices [i, j]
+            indices = arg2 if isinstance(arg2, list) else [arg2]
+            idx_vals = [int(unwrap_value(self._eval(i, line, col))) for i in indices]
+            if len(idx_vals) >= 2:
+                key = f"{array_name}[{idx_vals[0]}][{idx_vals[1]}]"
+            else:
+                key = f"{array_name}[{idx_vals[0]}]"
+            if key in self._memory:
+                self._results[idx] = self._memory[key]
+            else:
+                # Return default value with inferred type
+                self._results[idx] = RuntimeValue(0, "int")
+        
+        elif op == "array_store_2d":
+            # 2D array element store: array_store_2d arr ([i, j], value)
+            array_name = arg1
+            # Resolve array name through alias chain (for pass-by-reference parameters)
+            array_name = self._resolve_array_name(array_name)
+            # arg2 is a tuple/list of (indices_list, value)
+            if isinstance(arg2, (tuple, list)) and len(arg2) == 2:
+                indices, value = arg2
+                # indices is a list like [i, j]
+                if isinstance(indices, list):
+                    idx_vals = [int(unwrap_value(self._eval(i, line, col))) for i in indices]
+                else:
+                    # Single index wrapped
+                    idx_vals = [int(unwrap_value(self._eval(indices, line, col)))]
+                value_result = self._eval(value, line, col)
+                if len(idx_vals) >= 2:
+                    key = f"{array_name}[{idx_vals[0]}][{idx_vals[1]}]"
+                else:
+                    key = f"{array_name}[{idx_vals[0]}]"
+                self._memory[key] = value_result
+        
         elif op == "param":
             # Push argument value onto param stack for function call
             # Special handling for arrays: pass by reference
