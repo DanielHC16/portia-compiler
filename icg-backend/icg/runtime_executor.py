@@ -605,11 +605,12 @@ class RuntimeExecutor:
         elif op == "array_store":
             # Array element store - handles two formats:
             # Format 1: arg1 = "arr[index]", arg2 = value (direct key)
-            # Format 2: arg1 = "arr", arg2 = (index, value) tuple
-            if isinstance(arg2, tuple) and len(arg2) == 2:
-                # Format 2: tuple format
+            # Format 2: arg1 = "arr", arg2 = (index, value) tuple/list
+            if (isinstance(arg2, (tuple, list)) and len(arg2) == 2):
+                # Format 2: tuple/list format
                 index, value = arg2
-                index_val = unwrap_value(self._eval(index, line, col)) if is_ref(index) else index
+                # Always evaluate the index - it could be a ref, variable name, or literal
+                index_val = unwrap_value(self._eval(index, line, col))
                 value_result = self._eval(value, line, col)
                 key = f"{arg1}[{int(index_val)}]"
                 self._memory[key] = value_result

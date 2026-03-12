@@ -80,11 +80,18 @@ class Triple:
         }
     
     def _serialize_arg(self, arg: Any) -> Any:
-        """Serialize argument for JSON."""
+        """Serialize argument for JSON - recursively handles nested structures."""
         if arg is None:
             return None
+        # Single-element tuple = reference
         if isinstance(arg, tuple) and len(arg) == 1:
             return {"ref": arg[0]}
+        # Tuple (used in array_store) - recursively serialize elements
+        if isinstance(arg, tuple):
+            return [self._serialize_arg(elem) for elem in arg]
+        # List - recursively serialize elements
+        if isinstance(arg, list):
+            return [self._serialize_arg(elem) for elem in arg]
         return arg
     
     @classmethod
@@ -112,11 +119,14 @@ class Triple:
     
     @staticmethod
     def _deserialize_arg(arg: Any) -> Any:
-        """Deserialize argument from JSON."""
+        """Deserialize argument from JSON - recursively handles nested structures."""
         if arg is None:
             return None
         if isinstance(arg, dict) and "ref" in arg:
             return (arg["ref"],)  # Convert back to tuple reference
+        # Recursively deserialize lists (e.g., array_store tuples)
+        if isinstance(arg, list):
+            return [Triple._deserialize_arg(elem) for elem in arg]
         return arg
 
 
