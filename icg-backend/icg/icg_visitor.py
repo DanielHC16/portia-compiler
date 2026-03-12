@@ -223,6 +223,10 @@ class ICGVisitor:
             if isinstance(init, list):
                 # Array initialization - handle each element
                 self._visit_array_init(name, init, line, col)
+            elif isinstance(init, dict) and init.get("node") == "ArrayInit":
+                # ArrayInit node - get values and initialize
+                values = init.get("values", [])
+                self._visit_array_init(name, values, line, col)
             else:
                 # Scalar initialization
                 init_result = self._visit(init)
@@ -317,6 +321,28 @@ class ICGVisitor:
         else:
             # Simple identifier
             return name
+    
+    def _visit_ArrayAccess(self, node: Dict) -> VisitResult:
+        """
+        Visit ArrayAccess node.
+        
+        Handles AST nodes like: {'node': 'ArrayAccess', 'array': 'arr', 'index': {...}}
+        """
+        array_name = node.get("array", "")
+        index = node.get("index")
+        indices = node.get("indices", [])
+        line = node.get("line", 0)
+        col = node.get("col", 0)
+        
+        # Build indices list - handle both single index and indices array
+        if index is not None:
+            indices = [index]
+        
+        if indices:
+            return self._visit_array_access(array_name, indices, line, col)
+        else:
+            # No index - just return array name
+            return array_name
     
     def _visit_array_access(self, name: str, indices: List[Dict], 
                            line: int, col: int) -> VisitResult:

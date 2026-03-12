@@ -49,6 +49,17 @@ class RuntimeValue:
         return f"RuntimeValue({self.value}, {self.dtype})"
 
 
+@dataclass
+class ArrayReference:
+    """
+    Marker for array parameter passed by reference.
+    
+    When an array is passed as a function argument, we pass this marker
+    instead of copying the array values, enabling pass-by-reference semantics.
+    """
+    array_name: str  # Original array variable name
+
+
 def get_type_name(value: Any) -> str:
     """Infer PORTIA type name from Python value."""
     if isinstance(value, RuntimeValue):
@@ -335,6 +346,10 @@ class RuntimeExecutor:
         # Call stack for function calls
         self._call_stack: List[Tuple[int, Dict[str, Any]]] = []  # [(return_ip, saved_memory), ...]
         self._param_stack: List[Any] = []  # Parameters being pushed for a call
+        
+        # Array parameter aliases for pass-by-reference
+        # Maps parameter name -> original array name
+        self._array_aliases: Dict[str, str] = {}
     
     def execute(self) -> ExecutionResult:
         """
@@ -482,7 +497,26 @@ class RuntimeExecutor:
         elif op == "=":
             # Assignment
             value = self._eval(arg2, line, col)
-            self._memory[arg1] = value
+            
+            # Check if value is an array - need to distribute elements
+            if isinstance(value, RuntimeValue) and value.dtype == "array":
+                # Array assignment: copy each element to target[i]
+                array_values = value.value
+                if isinstance(array_values, (list, tuple)):
+                    elem_type = value.element_type or "int"
+                    for i, elem in enumerate(array_values):
+                        elem_key = f"{arg1}[{i}]"
+                        if isinstance(elem, RuntimeValue):
+                            self._memory[elem_key] = elem
+                        else:
+                            self._memory[elem_key] = RuntimeValue(elem, elem_type)
+                    # Also store array metadata for reference
+                    self._memory[arg1] = value
+                else:
+                    # Single value wrapped as array - just store it
+                    self._memory[arg1] = value
+            else:
+                self._memory[arg1] = value
             self._results[idx] = value
         
         elif op == "return":
@@ -494,10 +528,29 @@ class RuntimeExecutor:
                 return_result = result
             # Return to caller if on call stack, else halt
             if self._call_stack:
-                return_addr, saved_memory, saved_results, call_idx = self._call_stack.pop()
+                return_addr, saved_memory, saved_results, call_idx, saved_aliases = self._call_stack.pop()
+                
+                # Preserve array element changes made through aliases
+                # Collect all array elements from arrays that were aliased
+                preserved_elements = {}
+                for alias_name, original_name in self._array_aliases.items():
+                    # Find all elements of the original array in current memory
+                    pattern = re.compile(rf'^{re.escape(original_name)}\[(\d+)\]$')
+                    for key, value in self._memory.items():
+                        if pattern.match(key):
+                            preserved_elements[key] = value
+                
                 # Restore caller's memory and results
                 self._memory = saved_memory
                 self._results = saved_results
+                
+                # Restore preserved array elements (overwrites saved values)
+                for key, value in preserved_elements.items():
+                    self._memory[key] = value
+                
+                # Restore aliases
+                self._array_aliases = saved_aliases
+                
                 # Store return value as result of the call instruction
                 if return_result is not None:
                     self._results[call_idx] = return_result
@@ -593,6 +646,8 @@ class RuntimeExecutor:
         elif op == "array_access":
             # Array element access: array_access arr index
             array_name = arg1
+            # Resolve array name through alias chain (for pass-by-reference parameters)
+            array_name = self._resolve_array_name(array_name)
             index = self._eval(arg2, line, col)
             index_val = unwrap_value(index)
             key = f"{array_name}[{int(index_val)}]"
@@ -608,11 +663,14 @@ class RuntimeExecutor:
             # Format 2: arg1 = "arr", arg2 = (index, value) tuple/list
             if (isinstance(arg2, (tuple, list)) and len(arg2) == 2):
                 # Format 2: tuple/list format
+                array_name = arg1
+                # Resolve array name through alias chain (for pass-by-reference parameters)
+                array_name = self._resolve_array_name(array_name)
                 index, value = arg2
                 # Always evaluate the index - it could be a ref, variable name, or literal
                 index_val = unwrap_value(self._eval(index, line, col))
                 value_result = self._eval(value, line, col)
-                key = f"{arg1}[{int(index_val)}]"
+                key = f"{array_name}[{int(index_val)}]"
                 self._memory[key] = value_result
             else:
                 # Format 1: arg1 already contains the full key like "arr[0]"
@@ -622,16 +680,24 @@ class RuntimeExecutor:
         
         elif op == "param":
             # Push argument value onto param stack for function call
-            value = self._eval(arg1, line, col)
-            self._param_stack.append(value)
+            # Special handling for arrays: pass by reference
+            if isinstance(arg1, str) and self._is_array_variable(arg1):
+                # arg1 is an array variable name - pass reference instead of copying values
+                self._param_stack.append(ArrayReference(array_name=arg1))
+            else:
+                # Normal argument - evaluate and pass value
+                value = self._eval(arg1, line, col)
+                self._param_stack.append(value)
         
         elif op == "call":
             # Function call - save return address and jump to function
             func_name = arg1
             # num_args = arg2  # Number of arguments (for validation)
             if func_name in self._func_labels:
-                # Save: return address, memory snapshot, results snapshot, and call triple index
-                self._call_stack.append((self._ip + 1, dict(self._memory), dict(self._results), idx))
+                # Save current array aliases to preserve on return
+                saved_aliases = dict(self._array_aliases)
+                # Save: return address, memory snapshot, results snapshot, call triple index, aliases
+                self._call_stack.append((self._ip + 1, dict(self._memory), dict(self._results), idx, saved_aliases))
                 # Jump to function entry point
                 self._ip = self._func_labels[func_name]
                 self._ip_modified = True
@@ -641,7 +707,15 @@ class RuntimeExecutor:
             param_name = arg1
             if self._param_stack:
                 value = self._param_stack.pop(0)  # FIFO order
-                self._memory[param_name] = value
+                # Check if this is an array reference (pass-by-reference)
+                if isinstance(value, ArrayReference):
+                    # Create alias: param_name -> original array name
+                    self._array_aliases[param_name] = value.array_name
+                    # Don't store anything in memory for the parameter itself
+                    # Array elements will be accessed via the alias
+                else:
+                    # Normal value - store in memory
+                    self._memory[param_name] = value
         
         else:
             # Unknown operation - ignore
@@ -812,6 +886,29 @@ class RuntimeExecutor:
                     array_values.append(0)
         
         return RuntimeValue(array_values, "array", elem_type)
+    
+    def _is_array_variable(self, var_name: str) -> bool:
+        """
+        Check if a variable name refers to an array.
+        
+        Returns True if memory contains elements like var_name[0], var_name[1], etc.
+        """
+        pattern = re.compile(rf'^{re.escape(var_name)}\[\d+\]$')
+        for key in self._memory.keys():
+            if pattern.match(key):
+                return True
+        return False
+    
+    def _resolve_array_name(self, array_name: str) -> str:
+        """
+        Resolve array name through alias chain.
+        
+        If array_name is an alias to another array, return the original name.
+        Otherwise, return the array_name as-is.
+        """
+        while array_name in self._array_aliases:
+            array_name = self._array_aliases[array_name]
+        return array_name
     
     def _jump_to_label(self, label: str) -> None:
         """
