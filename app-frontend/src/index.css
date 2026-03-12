@@ -173,11 +173,11 @@ html, body, #root {
   position: absolute;
   top: 4px;
   left: 4px;
-  width: calc(33.333% - 4px);
+  width: calc(25% - 4px);
   height: calc(100% - 8px);
   background: var(--accent);
   border-radius: 7px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
   z-index: 0;
 }
@@ -523,4 +523,22 @@ label {
   .panel h3 {
     font-size: 1rem;
   }
+}
+
+/* Terminal blinking cursor */
+.blink-cursor {
+  animation: blink 1s step-end infinite;
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+/* Terminal blinking prompt for input */
+.blink-prompt {
+  animation: blink 1s step-end infinite;
+  font-family: var(--mono);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }

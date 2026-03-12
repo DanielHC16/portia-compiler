@@ -2,6 +2,7 @@
 lexer-backend/.venv-py312
 parser-backend/.venv-py312
 semantic-backend/.venv-py312
+icg-backend/.venv*
 
 # Exclude test scripts
 test-scripts/
@@ -10,3 +11,14 @@ test-scripts/
 **/__pycache__
 **/*.pyc
 **/*.pyo
+
+# Exclude backup and temp files
+**/*.bak
+**/*.tmp
+**/test_*.py
+!api/*.py
+
+# Exclude local development files
+.vscode/
+scripts/
+revised-documents/

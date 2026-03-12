@@ -61,6 +61,19 @@ if (Assert-Venv -ServicePath $semanticPath -ServiceName "Semantic") {
     Start-Sleep -Seconds 1
 }
 
+# ── ICG (port 8003) ──────────────────────────────────────────────────────────
+$icgPath = Join-Path $projectRoot "icg-backend"
+# ICG uses lexer's venv since it has all required packages
+if (Assert-Venv -ServicePath $lexerPath -ServiceName "ICG (using lexer venv)") {
+    Write-Host "Starting ICG Backend...      (port 8003, --reload)" -ForegroundColor DarkYellow
+    $icgCmd = "Set-Location '$icgPath'; " +
+              "Write-Host 'ICG BACKEND - Port 8003 (--reload)' -ForegroundColor DarkYellow; " +
+              "`$env:PYTHONPATH = '$icgPath'; " +
+              "& '$lexerPath\.venv-py312\Scripts\python.exe' -m uvicorn main:app --reload --port 8003"
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", $icgCmd
+    Start-Sleep -Seconds 1
+}
+
 # ── Frontend (port 5173) ─────────────────────────────────────────────────────
 $nodeModules = Join-Path $frontendPath "node_modules"
 if (-not (Test-Path $nodeModules)) {
@@ -82,6 +95,7 @@ Write-Host ""
 Write-Host "  Lexer Backend:    http://localhost:8000" -ForegroundColor Cyan
 Write-Host "  Parser Backend:   http://localhost:8001" -ForegroundColor Cyan
 Write-Host "  Semantic Backend: http://localhost:8002" -ForegroundColor Cyan
+Write-Host "  ICG Backend:      http://localhost:8003" -ForegroundColor Cyan
 Write-Host "  Frontend:         http://localhost:5173" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Hot-reload: Python backends restart on *.py file changes." -ForegroundColor Yellow

@@ -3,10 +3,11 @@ import { useState, useEffect } from "react";
 import LexerPanel from "./LexerPanel";
 import ParserPanel from "./ParserPanel";
 import SemanticPanel from "./SemanticPanel";
+import ICGPanel from "./ICGPanel";
 import type { Token, LexError } from "../api";
 
 export default function ViewSwitcher() {
-  const [view, setView] = useState<"lexical" | "syntax" | "semantics">("lexical");
+  const [view, setView] = useState<"lexical" | "syntax" | "semantics" | "icg">("lexical");
   // Load theme from localStorage or default to dark
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     const saved = localStorage.getItem("portia-theme");
@@ -43,7 +44,7 @@ export default function ViewSwitcher() {
 
         <div className="view-switch" role="tablist" aria-label="View switcher">
           <div className="view-switch-slider" style={{
-            transform: view === "lexical" ? "translateX(0%)" : view === "syntax" ? "translateX(100%)" : "translateX(200%)"
+            left: view === "lexical" ? "4px" : view === "syntax" ? "calc(25% + 2px)" : view === "semantics" ? "calc(50%)" : "calc(75% - 2px)"
           }} />
           <button 
             className={view === "lexical" ? "active" : ""} 
@@ -68,6 +69,14 @@ export default function ViewSwitcher() {
             aria-selected={view === "semantics"}
           >
             Semantics
+          </button>
+          <button 
+            className={view === "icg" ? "active" : ""} 
+            onClick={() => setView("icg")}
+            role="tab"
+            aria-selected={view === "icg"}
+          >
+            ICG
           </button>
         </div>
 
@@ -116,6 +125,15 @@ export default function ViewSwitcher() {
       </div>
       <div style={{ display: view === "semantics" ? "block" : "none", height: "100%" }}>
         <SemanticPanel 
+          sharedCode={sharedCode}
+          setSharedCode={setSharedCode}
+          sharedTokens={sharedTokens}
+          sharedLexErrors={sharedLexErrors}
+          theme={theme}
+        />
+      </div>
+      <div style={{ display: view === "icg" ? "block" : "none", height: "100%" }}>
+        <ICGPanel 
           sharedCode={sharedCode}
           setSharedCode={setSharedCode}
           sharedTokens={sharedTokens}

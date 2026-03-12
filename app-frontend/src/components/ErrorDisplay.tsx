@@ -1,7 +1,7 @@
 // src/components/ErrorDisplay.tsx
 import React from 'react';
 
-export type ErrorType = 'lexical' | 'syntax' | 'semantic';
+export type ErrorType = 'lexical' | 'syntax' | 'semantic' | 'runtime';
 
 export interface CompilerError {
   message: string;
@@ -39,6 +39,13 @@ const errorColors = {
     border: 'rgba(239, 68, 68, 0.3)',
     accent: 'rgb(239, 68, 68)',
     label: 'Semantic Error'
+  },
+  runtime: {
+    primary: 'rgb(168, 85, 247)',
+    bg: 'rgba(168, 85, 247, 0.1)',
+    border: 'rgba(168, 85, 247, 0.3)',
+    accent: 'rgb(168, 85, 247)',
+    label: 'Runtime Error'
   }
 };
 
