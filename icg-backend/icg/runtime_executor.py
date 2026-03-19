@@ -1174,25 +1174,83 @@ class RuntimeExecutor:
         
         # Request input from handler
         raw_input = self._input_handler.request_input(var_name, var_type, line, col)
-        
+
         # Normalize type
         var_type = (var_type or "unknown").lower()
-        
+
         # Type-check and convert input
         try:
             if var_type == "int":
                 if not re.match(r'^-?\d+$', raw_input.strip()):
                     raise ValueError(f"Expected integer, got '{raw_input}'")
+                # Validate digit count (max 10 digits, excluding sign)
+                digit_count = len(re.sub(r'[+-]', '', raw_input.strip()))
+                if digit_count > 10:
+                    raise ValueError(f"Integer literal exceeds maximum of 10 digits (got {digit_count} digits)")
+                if digit_count == 0:
+                    raise ValueError(f"Integer literal must have at least 1 digit")
                 value = RuntimeValue(int(raw_input.strip()), "int")
             elif var_type == "long":
                 if not re.match(r'^-?\d+$', raw_input.strip()):
                     raise ValueError(f"Expected long integer, got '{raw_input}'")
+                # Validate digit count (max 19 digits, excluding sign)
+                digit_count = len(re.sub(r'[+-]', '', raw_input.strip()))
+                if digit_count > 19:
+                    raise ValueError(f"Long literal exceeds maximum of 19 digits (got {digit_count} digits)")
+                if digit_count == 0:
+                    raise ValueError(f"Long literal must have at least 1 digit")
                 value = RuntimeValue(int(raw_input.strip()), "long")
             elif var_type in ("float", "double"):
                 try:
-                    value = RuntimeValue(float(raw_input.strip()), var_type)
-                except ValueError:
-                    raise ValueError(f"Expected {var_type}, got '{raw_input}'")
+                    # Validate format
+                    trimmed = raw_input.strip()
+                    if not re.match(r'^-?\d*\.?\d*$', trimmed):
+                        raise ValueError(f"Expected {var_type}, got '{raw_input}'")
+
+                    # Handle both decimal and integer-style input
+                    if '.' in trimmed:
+                        # Has decimal point - validate fractional digit count
+                        parts = trimmed.lstrip('+-').split('.')
+                        if len(parts) != 2:
+                            raise ValueError(f"Invalid {var_type} format")
+
+                        integer_part, fractional_part = parts
+
+                        # Validate fractional digit count
+                        frac_digit_count = len(fractional_part)
+
+                        if var_type == "float":
+                            # Float: 1-7 fractional digits
+                            if frac_digit_count < 1:
+                                raise ValueError(f"Float literal must have at least 1 fractional digit")
+                            if frac_digit_count > 7:
+                                raise ValueError(f"Float literal exceeds maximum of 7 fractional digits (got {frac_digit_count} digits)")
+                        elif var_type == "double":
+                            # Double: 8-16 fractional digits
+                            if frac_digit_count < 8:
+                                raise ValueError(f"Double literal must have at least 8 fractional digits (got {frac_digit_count} digits)")
+                            if frac_digit_count > 16:
+                                raise ValueError(f"Double literal exceeds maximum of 16 fractional digits (got {frac_digit_count} digits)")
+                    else:
+                        # No decimal point - validate total digit count
+                        digit_count = len(re.sub(r'[+-]', '', trimmed))
+                        if digit_count == 0:
+                            raise ValueError(f"{var_type.capitalize()} literal must have at least 1 digit")
+
+                        if var_type == "float":
+                            # Float: total digits should not exceed 7
+                            if digit_count > 7:
+                                raise ValueError(f"Float literal exceeds maximum of 7 digits (got {digit_count} digits)")
+                        elif var_type == "double":
+                            # Double: total digits should be 8-16
+                            if digit_count < 8:
+                                raise ValueError(f"Double literal must have at least 8 digits (got {digit_count} digits)")
+                            if digit_count > 16:
+                                raise ValueError(f"Double literal exceeds maximum of 16 digits (got {digit_count} digits)")
+
+                    value = RuntimeValue(float(trimmed), var_type)
+                except ValueError as e:
+                    raise ValueError(str(e))
             elif var_type == "char":
                 if len(raw_input) != 1:
                     raise ValueError("Expected single character")
@@ -1229,7 +1287,7 @@ class RuntimeExecutor:
             
         except ValueError as e:
             raise ICGRuntimeError(
-                message=f"Invalid input type. Expected {var_type}.",
+                message=str(e),
                 line=line,
                 col=col,
                 error_type="runtime_error"
