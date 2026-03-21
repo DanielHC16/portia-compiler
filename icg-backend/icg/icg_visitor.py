@@ -221,8 +221,12 @@ class ICGVisitor:
         if init is not None:
             # Has initializer - generate assignment
             if isinstance(init, list):
-                # Array initialization - handle each element
-                self._visit_array_init(name, init, line, col)
+                weave_fields = self._get_weave_fields(dtype)
+                if weave_fields:
+                    self._visit_weave_init(name, weave_fields, init, line, col)
+                else:
+                    # Array initialization - handle each element
+                    self._visit_array_init(name, init, line, col)
             elif isinstance(init, dict) and init.get("node") == "ArrayInit":
                 # ArrayInit node - get values and initialize
                 values = init.get("values", [])
@@ -250,6 +254,20 @@ class ICGVisitor:
                 elem_result = self._visit(elem)
                 self._table.add("array_store", f"{name}[{i}]", 
                                self._to_arg(elem_result), line, col)
+
+    def _get_weave_fields(self, dtype: str) -> List[str]:
+        """Return ordered field names for a weave type, if any."""
+        weave_info = self._symbol_table.get((dtype or "").lower(), {})
+        if weave_info.get("kind") != "weave":
+            return []
+        fields = weave_info.get("fields", {})
+        return list(fields.keys())
+
+    def _visit_weave_init(self, name: str, fields: List[str], init: List, line: int, col: int) -> None:
+        """Handle weave initialization by storing values into named fields."""
+        for field_name, elem in zip(fields, init):
+            elem_result = self._visit(elem)
+            self._table.add("=", f"{name}.{field_name}", self._to_arg(elem_result), line, col)
     
     # =========================================================================
     # Expressions
@@ -298,7 +316,20 @@ class ICGVisitor:
             return f'"{value}"'
         else:
             return value
-    
+
+    def _visit_ArrayLiteral(self, node: Dict) -> Any:
+        """Visit array literal node and preserve its nested structure."""
+        def visit_elements(elements: List[Any]) -> List[Any]:
+            visited = []
+            for elem in elements:
+                if isinstance(elem, list):
+                    visited.append(visit_elements(elem))
+                else:
+                    visited.append(self._to_arg(self._visit(elem)))
+            return visited
+
+        return visit_elements(node.get("elements", []))
+
     def _visit_Identifier(self, node: Dict) -> VisitResult:
         """
         Visit identifier node.

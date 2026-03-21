@@ -84,6 +84,44 @@ def unwrap_value(val: Any) -> Any:
     return val
 
 
+def strip_outer_quotes(value: str, quote: str) -> Optional[str]:
+    """Strip one or more matching outer quote layers from a literal string."""
+    if not (len(value) >= 2 and value.startswith(quote) and value.endswith(quote)):
+        return None
+
+    stripped = value
+    while len(stripped) >= 2 and stripped.startswith(quote) and stripped.endswith(quote):
+        stripped = stripped[1:-1]
+    return stripped
+
+
+def decode_escape_sequences(value: str) -> str:
+    """Decode the supported PORTIA escape sequences inside a literal."""
+    escapes = {
+        "n": "\n",
+        "t": "\t",
+        '"': '"',
+        "'": "'",
+        "\\": "\\",
+    }
+
+    decoded: List[str] = []
+    i = 0
+    while i < len(value):
+        ch = value[i]
+        if ch == "\\" and i + 1 < len(value):
+            nxt = value[i + 1]
+            replacement = escapes.get(nxt)
+            if replacement is not None:
+                decoded.append(replacement)
+                i += 2
+                continue
+        decoded.append(ch)
+        i += 1
+
+    return "".join(decoded)
+
+
 def is_numeric_type(dtype: str) -> bool:
     """Check if type is numeric (int, long, float, double)."""
     return dtype in ("int", "long", "float", "double")
@@ -496,27 +534,84 @@ class RuntimeExecutor:
         
         elif op == "=":
             # Assignment
+            # Resolve array name through aliases if it's an array
+            target_name = arg1
+            if isinstance(arg1, str) and self._is_array_variable(arg1):
+                target_name = self._resolve_array_name(arg1)
+
             value = self._eval(arg2, line, col)
-            
+
+            # DIAGNOSTIC: Print ALL assignments
+            print(f"ASSIGNMENT: {arg1} = {value}, type={type(value)}, is_rv={isinstance(value, RuntimeValue)}")
+            if isinstance(value, RuntimeValue):
+                print(f"  RuntimeValue dtype={value.dtype}, value={value.value}")
+
             # Check if value is an array - need to distribute elements
             if isinstance(value, RuntimeValue) and value.dtype == "array":
+                print(f"  ARRAY ASSIGNMENT DETECTED!")
                 # Array assignment: copy each element to target[i]
                 array_values = value.value
                 if isinstance(array_values, (list, tuple)):
                     elem_type = value.element_type or "int"
+                    print(f"  array_values={array_values}, elem_type={elem_type}")
+
+                    # Detect if this is a 2D array by checking first element
+                    sub_elem_type = elem_type
+                    if len(array_values) > 0:
+                        first_elem = array_values[0]
+                        if isinstance(first_elem, (list, tuple)) or (isinstance(first_elem, RuntimeValue) and isinstance(first_elem.value, (list, tuple))):
+                            # For 2D arrays, the sub-element type is the element type of the nested arrays
+                            # elem_type is "array", so we need to get the actual inner type
+                            if isinstance(first_elem, RuntimeValue) and hasattr(first_elem, 'element_type'):
+                                sub_elem_type = first_elem.element_type or "int"
+                            else:
+                                # Infer from first sub-element
+                                if isinstance(first_elem, (list, tuple)) and len(first_elem) > 0:
+                                    sample = first_elem[0]
+                                    if isinstance(sample, RuntimeValue):
+                                        sub_elem_type = sample.dtype
+                                    elif isinstance(sample, bool):
+                                        sub_elem_type = "bool"
+                                    elif isinstance(sample, float):
+                                        sub_elem_type = "float"
+                                    elif isinstance(sample, int):
+                                        sub_elem_type = "int"
+                                    else:
+                                        sub_elem_type = "int"
+
                     for i, elem in enumerate(array_values):
-                        elem_key = f"{arg1}[{i}]"
-                        if isinstance(elem, RuntimeValue):
-                            self._memory[elem_key] = elem
+                        # Check if this is a 2D array (element is also a list/array)
+                        if isinstance(elem, (list, tuple)):
+                            # 2D array: distribute sub-elements
+                            for j, sub_elem in enumerate(elem):
+                                elem_key = f"{target_name}[{i}][{j}]"
+                                if isinstance(sub_elem, RuntimeValue):
+                                    self._memory[elem_key] = sub_elem
+                                else:
+                                    self._memory[elem_key] = RuntimeValue(sub_elem, sub_elem_type)
+                        elif isinstance(elem, RuntimeValue) and isinstance(elem.value, (list, tuple)):
+                            # Element is a RuntimeValue containing a list (2D array row)
+                            row_elem_type = elem.element_type or sub_elem_type
+                            for j, sub_elem in enumerate(elem.value):
+                                elem_key = f"{target_name}[{i}][{j}]"
+                                if isinstance(sub_elem, RuntimeValue):
+                                    self._memory[elem_key] = sub_elem
+                                else:
+                                    self._memory[elem_key] = RuntimeValue(sub_elem, row_elem_type)
                         else:
-                            self._memory[elem_key] = RuntimeValue(elem, elem_type)
+                            # 1D array element
+                            elem_key = f"{target_name}[{i}]"
+                            if isinstance(elem, RuntimeValue):
+                                self._memory[elem_key] = elem
+                            else:
+                                self._memory[elem_key] = RuntimeValue(elem, elem_type)
                     # Also store array metadata for reference
-                    self._memory[arg1] = value
+                    self._memory[target_name] = value
                 else:
                     # Single value wrapped as array - just store it
-                    self._memory[arg1] = value
+                    self._memory[target_name] = value
             else:
-                self._memory[arg1] = value
+                self._memory[target_name] = value
             self._results[idx] = value
         
         elif op == "return":
@@ -529,28 +624,29 @@ class RuntimeExecutor:
             # Return to caller if on call stack, else halt
             if self._call_stack:
                 return_addr, saved_memory, saved_results, call_idx, saved_aliases = self._call_stack.pop()
-                
+
                 # Preserve array element changes made through aliases
                 # Collect all array elements from arrays that were aliased
                 preserved_elements = {}
                 for alias_name, original_name in self._array_aliases.items():
                     # Find all elements of the original array in current memory
-                    pattern = re.compile(rf'^{re.escape(original_name)}\[(\d+)\]$')
+                    # Support both 1D and 2D arrays
+                    pattern = re.compile(rf'^{re.escape(original_name)}\[\d+\](\[\d+\])?$')
                     for key, value in self._memory.items():
                         if pattern.match(key):
                             preserved_elements[key] = value
-                
+
                 # Restore caller's memory and results
                 self._memory = saved_memory
                 self._results = saved_results
-                
+
                 # Restore preserved array elements (overwrites saved values)
                 for key, value in preserved_elements.items():
                     self._memory[key] = value
-                
+
                 # Restore aliases
                 self._array_aliases = saved_aliases
-                
+
                 # Store return value as result of the call instruction
                 if return_result is not None:
                     self._results[call_idx] = return_result
@@ -824,18 +920,15 @@ class RuntimeExecutor:
                 return RuntimeValue(False, "bool")
             
             # String literal with double quotes - handle nested quotes
-            # Strip all layers of outer quotes until we get to the content
-            stripped = arg
-            while len(stripped) >= 2 and stripped.startswith('"') and stripped.endswith('"'):
-                stripped = stripped[1:-1]
-            if stripped != arg:
+            stripped = strip_outer_quotes(arg, '"')
+            if stripped is not None:
                 # Had quotes - it's a string literal
-                return RuntimeValue(stripped, "string")
+                return RuntimeValue(decode_escape_sequences(stripped), "string")
             
             # Char literal with single quotes
-            if arg.startswith("'") and arg.endswith("'"):
-                inner = arg[1:-1]
-                return RuntimeValue(inner, "char")
+            stripped = strip_outer_quotes(arg, "'")
+            if stripped is not None:
+                return RuntimeValue(decode_escape_sequences(stripped), "char")
             
             # Try to parse as numeric literal
             try:
@@ -888,51 +981,76 @@ class RuntimeExecutor:
         
         Returns RuntimeValue with array type if array exists, None otherwise.
         """
-        # Find all keys matching array_name[index]
-        pattern = re.compile(rf'^{re.escape(array_name)}\[(\d+)\]$')
-        elements = {}
+        # Match both 1D and 2D arrays: array_name[idx1] OR array_name[idx1][idx2]
+        pattern = re.compile(rf'^{re.escape(array_name)}\[(\d+)\](?:\[(\d+)\])?$')
+        
+        elements_1d = {}
+        elements_2d = {}
         elem_type = "int"  # Default element type
+        is_2d = False
         
         for key, value in self._memory.items():
             match = pattern.match(key)
             if match:
-                idx = int(match.group(1))
+                idx1 = int(match.group(1))
                 val = unwrap_value(value)
-                elements[idx] = val
+                
+                # Check if there is a second dimension
+                if match.group(2) is not None:
+                    is_2d = True
+                    idx2 = int(match.group(2))
+                    if idx1 not in elements_2d:
+                        elements_2d[idx1] = {}
+                    elements_2d[idx1][idx2] = val
+                else:
+                    elements_1d[idx1] = val
+                
+                # Update element type
                 if isinstance(value, RuntimeValue):
                     elem_type = value.dtype
                 else:
                     elem_type = get_type_name(val)
         
-        if not elements:
+        if not elements_1d and not elements_2d:
             return None
-        
-        # Build ordered array
-        max_idx = max(elements.keys())
-        array_values = []
-        for i in range(max_idx + 1):
-            if i in elements:
-                array_values.append(elements[i])
-            else:
-                # Default value for missing elements
-                if elem_type == "string":
-                    array_values.append("")
-                elif elem_type == "bool":
-                    array_values.append(False)
-                elif elem_type == "float" or elem_type == "double":
-                    array_values.append(0.0)
-                else:
-                    array_values.append(0)
-        
-        return RuntimeValue(array_values, "array", elem_type)
+            
+        # Helper to get default values for missing indices
+        def get_default(t: str) -> Any:
+            if t == "string": return ""
+            if t == "bool": return False
+            if t in ("float", "double"): return 0.0
+            return 0
+
+        if is_2d:
+            # Build ordered 2D array (list of lists)
+            max_i = max(elements_2d.keys()) if elements_2d else -1
+            array_values = []
+            for i in range(max_i + 1):
+                row_dict = elements_2d.get(i, {})
+                max_j = max(row_dict.keys()) if row_dict else -1
+                row_values = []
+                for j in range(max_j + 1):
+                    row_values.append(row_dict.get(j, get_default(elem_type)))
+                array_values.append(row_values)
+            return RuntimeValue(array_values, "array", elem_type)
+        else:
+            # Build ordered 1D array
+            max_idx = max(elements_1d.keys()) if elements_1d else -1
+            array_values = []
+            for i in range(max_idx + 1):
+                array_values.append(elements_1d.get(i, get_default(elem_type)))
+            return RuntimeValue(array_values, "array", elem_type)
     
     def _is_array_variable(self, var_name: str) -> bool:
         """
         Check if a variable name refers to an array.
-        
-        Returns True if memory contains elements like var_name[0], var_name[1], etc.
+
+        Returns True if memory contains elements like:
+        - 1D arrays: var_name[0], var_name[1], etc.
+        - 2D arrays: var_name[0][0], var_name[0][1], etc.
         """
-        pattern = re.compile(rf'^{re.escape(var_name)}\[\d+\]$')
+        # Match both 1D and 2D array patterns
+        pattern = re.compile(rf'^{re.escape(var_name)}\[\d+\](\[\d+\])?$')
         for key in self._memory.keys():
             if pattern.match(key):
                 return True
@@ -1174,25 +1292,83 @@ class RuntimeExecutor:
         
         # Request input from handler
         raw_input = self._input_handler.request_input(var_name, var_type, line, col)
-        
+
         # Normalize type
         var_type = (var_type or "unknown").lower()
-        
+
         # Type-check and convert input
         try:
             if var_type == "int":
                 if not re.match(r'^-?\d+$', raw_input.strip()):
                     raise ValueError(f"Expected integer, got '{raw_input}'")
+                # Validate digit count (max 10 digits, excluding sign)
+                digit_count = len(re.sub(r'[+-]', '', raw_input.strip()))
+                if digit_count > 10:
+                    raise ValueError(f"Integer literal exceeds maximum of 10 digits (got {digit_count} digits)")
+                if digit_count == 0:
+                    raise ValueError(f"Integer literal must have at least 1 digit")
                 value = RuntimeValue(int(raw_input.strip()), "int")
             elif var_type == "long":
                 if not re.match(r'^-?\d+$', raw_input.strip()):
                     raise ValueError(f"Expected long integer, got '{raw_input}'")
+                # Validate digit count (max 19 digits, excluding sign)
+                digit_count = len(re.sub(r'[+-]', '', raw_input.strip()))
+                if digit_count > 19:
+                    raise ValueError(f"Long literal exceeds maximum of 19 digits (got {digit_count} digits)")
+                if digit_count == 0:
+                    raise ValueError(f"Long literal must have at least 1 digit")
                 value = RuntimeValue(int(raw_input.strip()), "long")
             elif var_type in ("float", "double"):
                 try:
-                    value = RuntimeValue(float(raw_input.strip()), var_type)
-                except ValueError:
-                    raise ValueError(f"Expected {var_type}, got '{raw_input}'")
+                    # Validate format
+                    trimmed = raw_input.strip()
+                    if not re.match(r'^-?\d*\.?\d*$', trimmed):
+                        raise ValueError(f"Expected {var_type}, got '{raw_input}'")
+
+                    # Handle both decimal and integer-style input
+                    if '.' in trimmed:
+                        # Has decimal point - validate fractional digit count
+                        parts = trimmed.lstrip('+-').split('.')
+                        if len(parts) != 2:
+                            raise ValueError(f"Invalid {var_type} format")
+
+                        integer_part, fractional_part = parts
+
+                        # Validate fractional digit count
+                        frac_digit_count = len(fractional_part)
+
+                        if var_type == "float":
+                            # Float: 1-7 fractional digits
+                            if frac_digit_count < 1:
+                                raise ValueError(f"Float literal must have at least 1 fractional digit")
+                            if frac_digit_count > 7:
+                                raise ValueError(f"Float literal exceeds maximum of 7 fractional digits (got {frac_digit_count} digits)")
+                        elif var_type == "double":
+                            # Double: 8-16 fractional digits
+                            if frac_digit_count < 8:
+                                raise ValueError(f"Double literal must have at least 8 fractional digits (got {frac_digit_count} digits)")
+                            if frac_digit_count > 16:
+                                raise ValueError(f"Double literal exceeds maximum of 16 fractional digits (got {frac_digit_count} digits)")
+                    else:
+                        # No decimal point - validate total digit count
+                        digit_count = len(re.sub(r'[+-]', '', trimmed))
+                        if digit_count == 0:
+                            raise ValueError(f"{var_type.capitalize()} literal must have at least 1 digit")
+
+                        if var_type == "float":
+                            # Float: total digits should not exceed 7
+                            if digit_count > 7:
+                                raise ValueError(f"Float literal exceeds maximum of 7 digits (got {digit_count} digits)")
+                        elif var_type == "double":
+                            # Double: total digits should be 8-16
+                            if digit_count < 8:
+                                raise ValueError(f"Double literal must have at least 8 digits (got {digit_count} digits)")
+                            if digit_count > 16:
+                                raise ValueError(f"Double literal exceeds maximum of 16 digits (got {digit_count} digits)")
+
+                    value = RuntimeValue(float(trimmed), var_type)
+                except ValueError as e:
+                    raise ValueError(str(e))
             elif var_type == "char":
                 if len(raw_input) != 1:
                     raise ValueError("Expected single character")
@@ -1229,7 +1405,7 @@ class RuntimeExecutor:
             
         except ValueError as e:
             raise ICGRuntimeError(
-                message=f"Invalid input type. Expected {var_type}.",
+                message=str(e),
                 line=line,
                 col=col,
                 error_type="runtime_error"
