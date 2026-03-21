@@ -84,6 +84,44 @@ def unwrap_value(val: Any) -> Any:
     return val
 
 
+def strip_outer_quotes(value: str, quote: str) -> Optional[str]:
+    """Strip one or more matching outer quote layers from a literal string."""
+    if not (len(value) >= 2 and value.startswith(quote) and value.endswith(quote)):
+        return None
+
+    stripped = value
+    while len(stripped) >= 2 and stripped.startswith(quote) and stripped.endswith(quote):
+        stripped = stripped[1:-1]
+    return stripped
+
+
+def decode_escape_sequences(value: str) -> str:
+    """Decode the supported PORTIA escape sequences inside a literal."""
+    escapes = {
+        "n": "\n",
+        "t": "\t",
+        '"': '"',
+        "'": "'",
+        "\\": "\\",
+    }
+
+    decoded: List[str] = []
+    i = 0
+    while i < len(value):
+        ch = value[i]
+        if ch == "\\" and i + 1 < len(value):
+            nxt = value[i + 1]
+            replacement = escapes.get(nxt)
+            if replacement is not None:
+                decoded.append(replacement)
+                i += 2
+                continue
+        decoded.append(ch)
+        i += 1
+
+    return "".join(decoded)
+
+
 def is_numeric_type(dtype: str) -> bool:
     """Check if type is numeric (int, long, float, double)."""
     return dtype in ("int", "long", "float", "double")
@@ -882,18 +920,15 @@ class RuntimeExecutor:
                 return RuntimeValue(False, "bool")
             
             # String literal with double quotes - handle nested quotes
-            # Strip all layers of outer quotes until we get to the content
-            stripped = arg
-            while len(stripped) >= 2 and stripped.startswith('"') and stripped.endswith('"'):
-                stripped = stripped[1:-1]
-            if stripped != arg:
+            stripped = strip_outer_quotes(arg, '"')
+            if stripped is not None:
                 # Had quotes - it's a string literal
-                return RuntimeValue(stripped, "string")
+                return RuntimeValue(decode_escape_sequences(stripped), "string")
             
             # Char literal with single quotes
-            if arg.startswith("'") and arg.endswith("'"):
-                inner = arg[1:-1]
-                return RuntimeValue(inner, "char")
+            stripped = strip_outer_quotes(arg, "'")
+            if stripped is not None:
+                return RuntimeValue(decode_escape_sequences(stripped), "char")
             
             # Try to parse as numeric literal
             try:
