@@ -496,27 +496,84 @@ class RuntimeExecutor:
         
         elif op == "=":
             # Assignment
+            # Resolve array name through aliases if it's an array
+            target_name = arg1
+            if isinstance(arg1, str) and self._is_array_variable(arg1):
+                target_name = self._resolve_array_name(arg1)
+
             value = self._eval(arg2, line, col)
-            
+
+            # DIAGNOSTIC: Print ALL assignments
+            print(f"ASSIGNMENT: {arg1} = {value}, type={type(value)}, is_rv={isinstance(value, RuntimeValue)}")
+            if isinstance(value, RuntimeValue):
+                print(f"  RuntimeValue dtype={value.dtype}, value={value.value}")
+
             # Check if value is an array - need to distribute elements
             if isinstance(value, RuntimeValue) and value.dtype == "array":
+                print(f"  ARRAY ASSIGNMENT DETECTED!")
                 # Array assignment: copy each element to target[i]
                 array_values = value.value
                 if isinstance(array_values, (list, tuple)):
                     elem_type = value.element_type or "int"
+                    print(f"  array_values={array_values}, elem_type={elem_type}")
+
+                    # Detect if this is a 2D array by checking first element
+                    sub_elem_type = elem_type
+                    if len(array_values) > 0:
+                        first_elem = array_values[0]
+                        if isinstance(first_elem, (list, tuple)) or (isinstance(first_elem, RuntimeValue) and isinstance(first_elem.value, (list, tuple))):
+                            # For 2D arrays, the sub-element type is the element type of the nested arrays
+                            # elem_type is "array", so we need to get the actual inner type
+                            if isinstance(first_elem, RuntimeValue) and hasattr(first_elem, 'element_type'):
+                                sub_elem_type = first_elem.element_type or "int"
+                            else:
+                                # Infer from first sub-element
+                                if isinstance(first_elem, (list, tuple)) and len(first_elem) > 0:
+                                    sample = first_elem[0]
+                                    if isinstance(sample, RuntimeValue):
+                                        sub_elem_type = sample.dtype
+                                    elif isinstance(sample, bool):
+                                        sub_elem_type = "bool"
+                                    elif isinstance(sample, float):
+                                        sub_elem_type = "float"
+                                    elif isinstance(sample, int):
+                                        sub_elem_type = "int"
+                                    else:
+                                        sub_elem_type = "int"
+
                     for i, elem in enumerate(array_values):
-                        elem_key = f"{arg1}[{i}]"
-                        if isinstance(elem, RuntimeValue):
-                            self._memory[elem_key] = elem
+                        # Check if this is a 2D array (element is also a list/array)
+                        if isinstance(elem, (list, tuple)):
+                            # 2D array: distribute sub-elements
+                            for j, sub_elem in enumerate(elem):
+                                elem_key = f"{target_name}[{i}][{j}]"
+                                if isinstance(sub_elem, RuntimeValue):
+                                    self._memory[elem_key] = sub_elem
+                                else:
+                                    self._memory[elem_key] = RuntimeValue(sub_elem, sub_elem_type)
+                        elif isinstance(elem, RuntimeValue) and isinstance(elem.value, (list, tuple)):
+                            # Element is a RuntimeValue containing a list (2D array row)
+                            row_elem_type = elem.element_type or sub_elem_type
+                            for j, sub_elem in enumerate(elem.value):
+                                elem_key = f"{target_name}[{i}][{j}]"
+                                if isinstance(sub_elem, RuntimeValue):
+                                    self._memory[elem_key] = sub_elem
+                                else:
+                                    self._memory[elem_key] = RuntimeValue(sub_elem, row_elem_type)
                         else:
-                            self._memory[elem_key] = RuntimeValue(elem, elem_type)
+                            # 1D array element
+                            elem_key = f"{target_name}[{i}]"
+                            if isinstance(elem, RuntimeValue):
+                                self._memory[elem_key] = elem
+                            else:
+                                self._memory[elem_key] = RuntimeValue(elem, elem_type)
                     # Also store array metadata for reference
-                    self._memory[arg1] = value
+                    self._memory[target_name] = value
                 else:
                     # Single value wrapped as array - just store it
-                    self._memory[arg1] = value
+                    self._memory[target_name] = value
             else:
-                self._memory[arg1] = value
+                self._memory[target_name] = value
             self._results[idx] = value
         
         elif op == "return":
@@ -529,28 +586,29 @@ class RuntimeExecutor:
             # Return to caller if on call stack, else halt
             if self._call_stack:
                 return_addr, saved_memory, saved_results, call_idx, saved_aliases = self._call_stack.pop()
-                
+
                 # Preserve array element changes made through aliases
                 # Collect all array elements from arrays that were aliased
                 preserved_elements = {}
                 for alias_name, original_name in self._array_aliases.items():
                     # Find all elements of the original array in current memory
-                    pattern = re.compile(rf'^{re.escape(original_name)}\[(\d+)\]$')
+                    # Support both 1D and 2D arrays
+                    pattern = re.compile(rf'^{re.escape(original_name)}\[\d+\](\[\d+\])?$')
                     for key, value in self._memory.items():
                         if pattern.match(key):
                             preserved_elements[key] = value
-                
+
                 # Restore caller's memory and results
                 self._memory = saved_memory
                 self._results = saved_results
-                
+
                 # Restore preserved array elements (overwrites saved values)
                 for key, value in preserved_elements.items():
                     self._memory[key] = value
-                
+
                 # Restore aliases
                 self._array_aliases = saved_aliases
-                
+
                 # Store return value as result of the call instruction
                 if return_result is not None:
                     self._results[call_idx] = return_result
@@ -888,51 +946,76 @@ class RuntimeExecutor:
         
         Returns RuntimeValue with array type if array exists, None otherwise.
         """
-        # Find all keys matching array_name[index]
-        pattern = re.compile(rf'^{re.escape(array_name)}\[(\d+)\]$')
-        elements = {}
+        # Match both 1D and 2D arrays: array_name[idx1] OR array_name[idx1][idx2]
+        pattern = re.compile(rf'^{re.escape(array_name)}\[(\d+)\](?:\[(\d+)\])?$')
+        
+        elements_1d = {}
+        elements_2d = {}
         elem_type = "int"  # Default element type
+        is_2d = False
         
         for key, value in self._memory.items():
             match = pattern.match(key)
             if match:
-                idx = int(match.group(1))
+                idx1 = int(match.group(1))
                 val = unwrap_value(value)
-                elements[idx] = val
+                
+                # Check if there is a second dimension
+                if match.group(2) is not None:
+                    is_2d = True
+                    idx2 = int(match.group(2))
+                    if idx1 not in elements_2d:
+                        elements_2d[idx1] = {}
+                    elements_2d[idx1][idx2] = val
+                else:
+                    elements_1d[idx1] = val
+                
+                # Update element type
                 if isinstance(value, RuntimeValue):
                     elem_type = value.dtype
                 else:
                     elem_type = get_type_name(val)
         
-        if not elements:
+        if not elements_1d and not elements_2d:
             return None
-        
-        # Build ordered array
-        max_idx = max(elements.keys())
-        array_values = []
-        for i in range(max_idx + 1):
-            if i in elements:
-                array_values.append(elements[i])
-            else:
-                # Default value for missing elements
-                if elem_type == "string":
-                    array_values.append("")
-                elif elem_type == "bool":
-                    array_values.append(False)
-                elif elem_type == "float" or elem_type == "double":
-                    array_values.append(0.0)
-                else:
-                    array_values.append(0)
-        
-        return RuntimeValue(array_values, "array", elem_type)
+            
+        # Helper to get default values for missing indices
+        def get_default(t: str) -> Any:
+            if t == "string": return ""
+            if t == "bool": return False
+            if t in ("float", "double"): return 0.0
+            return 0
+
+        if is_2d:
+            # Build ordered 2D array (list of lists)
+            max_i = max(elements_2d.keys()) if elements_2d else -1
+            array_values = []
+            for i in range(max_i + 1):
+                row_dict = elements_2d.get(i, {})
+                max_j = max(row_dict.keys()) if row_dict else -1
+                row_values = []
+                for j in range(max_j + 1):
+                    row_values.append(row_dict.get(j, get_default(elem_type)))
+                array_values.append(row_values)
+            return RuntimeValue(array_values, "array", elem_type)
+        else:
+            # Build ordered 1D array
+            max_idx = max(elements_1d.keys()) if elements_1d else -1
+            array_values = []
+            for i in range(max_idx + 1):
+                array_values.append(elements_1d.get(i, get_default(elem_type)))
+            return RuntimeValue(array_values, "array", elem_type)
     
     def _is_array_variable(self, var_name: str) -> bool:
         """
         Check if a variable name refers to an array.
-        
-        Returns True if memory contains elements like var_name[0], var_name[1], etc.
+
+        Returns True if memory contains elements like:
+        - 1D arrays: var_name[0], var_name[1], etc.
+        - 2D arrays: var_name[0][0], var_name[0][1], etc.
         """
-        pattern = re.compile(rf'^{re.escape(var_name)}\[\d+\]$')
+        # Match both 1D and 2D array patterns
+        pattern = re.compile(rf'^{re.escape(var_name)}\[\d+\](\[\d+\])?$')
         for key in self._memory.keys():
             if pattern.match(key):
                 return True

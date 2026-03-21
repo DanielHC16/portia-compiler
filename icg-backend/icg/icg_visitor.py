@@ -298,7 +298,20 @@ class ICGVisitor:
             return f'"{value}"'
         else:
             return value
-    
+
+    def _visit_ArrayLiteral(self, node: Dict) -> Any:
+        """Visit array literal node and preserve its nested structure."""
+        def visit_elements(elements: List[Any]) -> List[Any]:
+            visited = []
+            for elem in elements:
+                if isinstance(elem, list):
+                    visited.append(visit_elements(elem))
+                else:
+                    visited.append(self._to_arg(self._visit(elem)))
+            return visited
+
+        return visit_elements(node.get("elements", []))
+
     def _visit_Identifier(self, node: Dict) -> VisitResult:
         """
         Visit identifier node.
