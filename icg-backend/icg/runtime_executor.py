@@ -18,7 +18,7 @@ Values are tracked with their types using RuntimeValue to enable:
 """
 
 from __future__ import annotations
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from dataclasses import dataclass, field
 import re
 
@@ -382,12 +382,13 @@ class RuntimeExecutor:
         self._return_value: Any = None
         
         # Call stack for function calls
-        self._call_stack: List[Tuple[int, Dict[str, Any]]] = []  # [(return_ip, saved_memory), ...]
+        self._call_stack: List[Tuple[int, Dict[str, Any], Dict[int, Any], int, Dict[str, str], Set[str]]] = []
         self._param_stack: List[Any] = []  # Parameters being pushed for a call
         
         # Array parameter aliases for pass-by-reference
         # Maps parameter name -> original array name
         self._array_aliases: Dict[str, str] = {}
+        self._preserved_arrays: Set[str] = set()
     
     def execute(self) -> ExecutionResult:
         """
@@ -410,6 +411,8 @@ class RuntimeExecutor:
         self._return_value = None
         self._call_stack.clear()
         self._param_stack.clear()
+        self._array_aliases.clear()
+        self._preserved_arrays.clear()
         
         # Build label index map (first pass)
         self._build_label_map()
@@ -519,12 +522,7 @@ class RuntimeExecutor:
         elif op == "func_end":
             # Function exit - return to caller if on call stack, else halt
             if self._call_stack:
-                return_addr, saved_memory, saved_results, _ = self._call_stack.pop()
-                # Restore caller's memory and results
-                self._memory = saved_memory
-                self._results = saved_results
-                self._ip = return_addr
-                self._ip_modified = True
+                self._restore_call_state()
             else:
                 self._halted = True
         
@@ -541,19 +539,12 @@ class RuntimeExecutor:
 
             value = self._eval(arg2, line, col)
 
-            # DIAGNOSTIC: Print ALL assignments
-            print(f"ASSIGNMENT: {arg1} = {value}, type={type(value)}, is_rv={isinstance(value, RuntimeValue)}")
-            if isinstance(value, RuntimeValue):
-                print(f"  RuntimeValue dtype={value.dtype}, value={value.value}")
-
             # Check if value is an array - need to distribute elements
             if isinstance(value, RuntimeValue) and value.dtype == "array":
-                print(f"  ARRAY ASSIGNMENT DETECTED!")
                 # Array assignment: copy each element to target[i]
                 array_values = value.value
                 if isinstance(array_values, (list, tuple)):
                     elem_type = value.element_type or "int"
-                    print(f"  array_values={array_values}, elem_type={elem_type}")
 
                     # Detect if this is a 2D array by checking first element
                     sub_elem_type = elem_type
@@ -623,35 +614,7 @@ class RuntimeExecutor:
                 return_result = result
             # Return to caller if on call stack, else halt
             if self._call_stack:
-                return_addr, saved_memory, saved_results, call_idx, saved_aliases = self._call_stack.pop()
-
-                # Preserve array element changes made through aliases
-                # Collect all array elements from arrays that were aliased
-                preserved_elements = {}
-                for alias_name, original_name in self._array_aliases.items():
-                    # Find all elements of the original array in current memory
-                    # Support both 1D and 2D arrays
-                    pattern = re.compile(rf'^{re.escape(original_name)}\[\d+\](\[\d+\])?$')
-                    for key, value in self._memory.items():
-                        if pattern.match(key):
-                            preserved_elements[key] = value
-
-                # Restore caller's memory and results
-                self._memory = saved_memory
-                self._results = saved_results
-
-                # Restore preserved array elements (overwrites saved values)
-                for key, value in preserved_elements.items():
-                    self._memory[key] = value
-
-                # Restore aliases
-                self._array_aliases = saved_aliases
-
-                # Store return value as result of the call instruction
-                if return_result is not None:
-                    self._results[call_idx] = return_result
-                self._ip = return_addr
-                self._ip_modified = True
+                self._restore_call_state(return_result)
             else:
                 self._halted = True
         
@@ -831,8 +794,16 @@ class RuntimeExecutor:
             if func_name in self._func_labels:
                 # Save current array aliases to preserve on return
                 saved_aliases = dict(self._array_aliases)
+                saved_preserved_arrays = set(self._preserved_arrays)
                 # Save: return address, memory snapshot, results snapshot, call triple index, aliases
-                self._call_stack.append((self._ip + 1, dict(self._memory), dict(self._results), idx, saved_aliases))
+                self._call_stack.append((
+                    self._ip + 1,
+                    dict(self._memory),
+                    dict(self._results),
+                    idx,
+                    saved_aliases,
+                    saved_preserved_arrays,
+                ))
                 # Jump to function entry point
                 self._ip = self._func_labels[func_name]
                 self._ip_modified = True
@@ -845,7 +816,10 @@ class RuntimeExecutor:
                 # Check if this is an array reference (pass-by-reference)
                 if isinstance(value, ArrayReference):
                     # Create alias: param_name -> original array name
-                    self._array_aliases[param_name] = value.array_name
+                    resolved_name = self._resolve_array_name(value.array_name)
+                    self._preserved_arrays.add(resolved_name)
+                    if param_name != resolved_name:
+                        self._array_aliases[param_name] = resolved_name
                     # Don't store anything in memory for the parameter itself
                     # Array elements will be accessed via the alias
                 else:
@@ -1049,6 +1023,10 @@ class RuntimeExecutor:
         - 1D arrays: var_name[0], var_name[1], etc.
         - 2D arrays: var_name[0][0], var_name[0][1], etc.
         """
+        sym = self._symbol_table.get(var_name, {})
+        if sym.get("kind") == "array" or sym.get("dims"):
+            return True
+
         # Match both 1D and 2D array patterns
         pattern = re.compile(rf'^{re.escape(var_name)}\[\d+\](\[\d+\])?$')
         for key in self._memory.keys():
@@ -1063,9 +1041,50 @@ class RuntimeExecutor:
         If array_name is an alias to another array, return the original name.
         Otherwise, return the array_name as-is.
         """
-        while array_name in self._array_aliases:
-            array_name = self._array_aliases[array_name]
+        seen = set()
+        while array_name in self._array_aliases and array_name not in seen:
+            seen.add(array_name)
+            next_name = self._array_aliases[array_name]
+            if next_name == array_name:
+                break
+            array_name = next_name
         return array_name
+
+    def _collect_preserved_array_elements(self) -> Dict[str, Any]:
+        """Capture array elements that must survive a function return."""
+        preserved_elements: Dict[str, Any] = {}
+
+        for array_name in self._preserved_arrays:
+            root_value = self._memory.get(array_name)
+            if isinstance(root_value, RuntimeValue) and root_value.dtype == "array":
+                preserved_elements[array_name] = root_value
+
+            pattern = re.compile(rf'^{re.escape(array_name)}\[\d+\](\[\d+\])?$')
+            for key, value in self._memory.items():
+                if pattern.match(key):
+                    preserved_elements[key] = value
+
+        return preserved_elements
+
+    def _restore_call_state(self, return_result: Optional[RuntimeValue] = None) -> None:
+        """Restore caller state after a function returns or falls through."""
+        return_addr, saved_memory, saved_results, call_idx, saved_aliases, saved_preserved_arrays = self._call_stack.pop()
+        preserved_elements = self._collect_preserved_array_elements()
+
+        self._memory = saved_memory
+        self._results = saved_results
+
+        for key, value in preserved_elements.items():
+            self._memory[key] = value
+
+        self._array_aliases = saved_aliases
+        self._preserved_arrays = saved_preserved_arrays
+
+        if return_result is not None:
+            self._results[call_idx] = return_result
+
+        self._ip = return_addr
+        self._ip_modified = True
     
     def _jump_to_label(self, label: str) -> None:
         """
@@ -1278,17 +1297,14 @@ class RuntimeExecutor:
             Source column for error reporting
         """
         # Parse array element syntax: arr[index]
-        array_match = re.match(r'^(\w+)\[(\d+)\]$', var_name)
+        array_match = re.match(r'^(\w+)\[(.+)\]$', var_name)
         actual_var_name = var_name
-        is_array_element = False
-        array_name = None
-        array_index = None
         
         if array_match:
-            is_array_element = True
-            array_name = array_match.group(1)
-            array_index = int(array_match.group(2))
-            actual_var_name = f"{array_name}[{array_index}]"
+            array_name = self._resolve_array_name(array_match.group(1))
+            index_expr = array_match.group(2).strip()
+            index_value = unwrap_value(self._eval(index_expr, line, col))
+            actual_var_name = f"{array_name}[{int(index_value)}]"
         
         # Request input from handler
         raw_input = self._input_handler.request_input(var_name, var_type, line, col)

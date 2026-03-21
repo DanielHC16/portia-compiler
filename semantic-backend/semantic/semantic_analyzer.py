@@ -1384,11 +1384,60 @@ class SemanticAnalyzer:
         if kind == "trap":
             if target:
                 tname = target.get("name", "")
+                member = target.get("member")
+                indices = target.get("indices") or []
                 sym = self._lookup_symbol(tname, line, col)
-                if sym and sym.is_const:
+                if sym is None:
+                    return
+
+                if sym.is_const:
                     self._err(
                         f"Cannot read input into constant '{tname}'", line, col
                     )
+
+                if indices:
+                    if not sym.is_array:
+                        self._err(f"'{tname}' is not an array", line, col)
+                        return
+                    if len(indices) != len(sym.dims):
+                        self._err(
+                            f"Array '{tname}' has {len(sym.dims)} dimension(s) "
+                            f"but {len(indices)} index/indices provided",
+                            line, col,
+                        )
+                        return
+                    for i, idx in enumerate(indices):
+                        self._check_index(tname, idx, i, sym.dims, line, col)
+                elif member:
+                    weave_sym = self._global.lookup(sym.dtype)
+                    if weave_sym is None or not weave_sym.is_weave:
+                        self._err(
+                            f"'{tname}' of type '{sym.dtype}' does not support member access",
+                            line, col,
+                        )
+                        return
+                    field = weave_sym.fields.get(member)
+                    if field is None:
+                        self._err(
+                            f"Weave type '{sym.dtype}' has no field '{member}'",
+                            line, col,
+                        )
+                else:
+                    if sym.is_array:
+                        self._err(
+                            f"Array '{tname}' cannot be used as a whole trap target; "
+                            f"use indexed access (e.g., {tname}[0])",
+                            line, col,
+                        )
+                        return
+
+                    weave_sym = self._global.lookup(sym.dtype)
+                    if weave_sym and weave_sym.is_weave:
+                        self._err(
+                            f"Weave instance '{tname}' cannot be used as a whole trap target; "
+                            f"access a field using the dot operator",
+                            line, col,
+                        )
         elif kind in ("thread", "threadln"):
             for arg in args:
                 self._infer_type(arg)

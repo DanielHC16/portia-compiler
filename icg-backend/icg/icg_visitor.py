@@ -155,6 +155,13 @@ class ICGVisitor:
         params = node.get("params", [])
         for param in params:
             param_name = param.get("name", "")
+            param_dtype = (param.get("dtype") or param.get("var_type") or "").lower()
+            param_dims = param.get("dims", []) or []
+            self._symbol_table[param_name] = {
+                "dtype": param_dtype,
+                "kind": "array" if param_dims else "variable",
+                "dims": param_dims,
+            }
             # Generate param receive instruction
             self._table.add("receive_param", param_name, None)
         
@@ -210,13 +217,18 @@ class ICGVisitor:
         """Visit variable declaration with optional initialization."""
         name = node.get("name", "")
         dtype = node.get("dtype") or node.get("var_type") or ""
+        dims = node.get("dims", []) or []
         # Support both "init" and "value" keys for initialization
         init = node.get("init") or node.get("value")
         line = node.get("line", 0)
         col = node.get("col", 0)
         
         # Add to symbol table for type lookups (e.g., trap type checking)
-        self._symbol_table[name] = {"dtype": dtype.lower(), "kind": "variable"}
+        self._symbol_table[name] = {
+            "dtype": dtype.lower(),
+            "kind": "array" if dims else "variable",
+            "dims": dims,
+        }
         
         if init is not None:
             # Has initializer - generate assignment
@@ -568,6 +580,27 @@ class ICGVisitor:
                 return f"{name}.{member}"
             return name
         return str(target)
+
+    def _format_target_access(self, target: Any) -> str:
+        """Format a target including member or array indexing for direct-address ops."""
+        if not isinstance(target, dict):
+            return str(target)
+
+        name = target.get("name", "")
+        member = target.get("member")
+        indices = target.get("indices", []) or []
+
+        if member:
+            return f"{name}.{member}"
+
+        if indices:
+            formatted_indices = []
+            for idx in indices:
+                idx_result = self._to_arg(self._visit(idx))
+                formatted_indices.append(str(idx_result))
+            return name + "".join(f"[{idx}]" for idx in formatted_indices)
+
+        return name
     
     def _visit_ExprStmt(self, node: Dict) -> None:
         """
@@ -594,7 +627,7 @@ class ICGVisitor:
         if kind == "trap":
             # Input statement: trap(variable)
             if target:
-                target_name = target if isinstance(target, str) else self._get_target_name(target)
+                target_name = target if isinstance(target, str) else self._format_target_access(target)
                 # Get type from node or symbol table for runtime type checking
                 var_type = node.get("var_type") or self._get_var_type(target_name)
                 self._table.add("trap", target_name, var_type, line, col)
@@ -1014,12 +1047,16 @@ class ICGVisitor:
         """
         # Handle member access
         if "." in name:
-            parts = name.split(".")
-            base_name = parts[0]
-            # Would need weave type lookup - simplified for now
-            return "unknown"
+            base_name, member = name.split(".", 1)
+            base_name = base_name.split("[", 1)[0]
+            base_sym = self._symbol_table.get(base_name, {})
+            base_dtype = base_sym.get("dtype", "")
+            weave_info = self._symbol_table.get(base_dtype, {})
+            field_info = weave_info.get("fields", {}).get(member, {})
+            return field_info.get("dtype", "unknown")
         
-        sym = self._symbol_table.get(name, {})
+        base_name = name.split("[", 1)[0]
+        sym = self._symbol_table.get(base_name, {})
         return sym.get("dtype", "unknown")
     
     def get_table(self) -> IndirectTripleTable:
