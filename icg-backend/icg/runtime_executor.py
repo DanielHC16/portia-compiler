@@ -29,6 +29,8 @@ from .triple import IndirectTripleTable, Triple, is_ref, get_ref_index
 # Runtime Type System
 # =============================================================================
 
+DEFAULT_MAX_EXECUTION_STEPS = 1_000_000
+
 @dataclass
 class RuntimeValue:
     """
@@ -349,6 +351,7 @@ class RuntimeExecutor:
         symbol_table: Dict[str, Any] = None,
         input_handler: InputHandler = None,
         output_handler: OutputHandler = None,
+        max_steps: int = DEFAULT_MAX_EXECUTION_STEPS,
     ) -> None:
         """
         Initialize the runtime executor.
@@ -368,6 +371,7 @@ class RuntimeExecutor:
         self._symbol_table = symbol_table or {}
         self._input_handler = input_handler or InputHandler()
         self._output_handler = output_handler or OutputHandler()
+        self._max_steps = max_steps
         
         # Execution state
         self._memory: Dict[str, Any] = {}
@@ -380,6 +384,9 @@ class RuntimeExecutor:
         self._current_line: str = ""  # For thread without newline
         self._halted: bool = False
         self._return_value: Any = None
+        self._steps_executed: int = 0
+        self._last_source_line: int = 0
+        self._last_source_col: int = 0
         
         # Call stack for function calls
         self._call_stack: List[Tuple[int, Dict[str, Any], Dict[int, Any], int, Dict[str, str], Set[str]]] = []
@@ -409,6 +416,9 @@ class RuntimeExecutor:
         self._current_line = ""
         self._halted = False
         self._return_value = None
+        self._steps_executed = 0
+        self._last_source_line = 0
+        self._last_source_col = 0
         self._call_stack.clear()
         self._param_stack.clear()
         self._array_aliases.clear()
@@ -416,29 +426,30 @@ class RuntimeExecutor:
         
         # Build label index map (first pass)
         self._build_label_map()
-        
-        # Start execution at main function entry point
-        if "main" in self._func_labels:
-            self._ip = self._func_labels["main"]
-        
+
         # Execute instructions
         pointers = self._table.get_pointers()
         triples = self._table.get_triples()
         
         try:
+            # Run top-level global initialization triples before entering main.
+            # Stop when we reach the first top-level function definition.
+            if "main" in self._func_labels:
+                while self._ip < len(pointers) and not self._halted:
+                    triple_idx = pointers[self._ip]
+                    triple = triples[triple_idx]
+
+                    if not self._call_stack and triple.op == "func_begin":
+                        break
+
+                    self._step_instruction(triple_idx, triple)
+
+                self._ip = self._func_labels["main"]
+
             while self._ip < len(pointers) and not self._halted:
                 triple_idx = pointers[self._ip]
                 triple = triples[triple_idx]
-                
-                # Reset IP modified flag before execution
-                self._ip_modified = False
-                
-                # Execute the instruction
-                self._execute_triple(triple_idx, triple)
-                
-                # Move to next instruction only if IP wasn't explicitly modified
-                if not self._ip_modified:
-                    self._ip += 1
+                self._step_instruction(triple_idx, triple)
             
             # Flush any remaining output
             if self._current_line:
@@ -482,6 +493,27 @@ class RuntimeExecutor:
                 errors=[e],
                 memory=dict(self._memory),
             )
+
+    def _step_instruction(self, idx: int, triple: Triple) -> None:
+        """Execute one triple and advance the instruction pointer if needed."""
+        if self._max_steps > 0 and self._steps_executed >= self._max_steps:
+            raise ICGRuntimeError(
+                message="Infinite loop detected.",
+                line=triple.line or self._last_source_line,
+                col=triple.col or self._last_source_col,
+                error_type="runtime_error",
+            )
+
+        self._steps_executed += 1
+        if triple.line > 0:
+            self._last_source_line = triple.line
+        if triple.col > 0:
+            self._last_source_col = triple.col
+
+        self._ip_modified = False
+        self._execute_triple(idx, triple)
+        if not self._ip_modified:
+            self._ip += 1
     
     def _build_label_map(self) -> None:
         """Build mapping from label names to pointer indices, and function names to IPs."""
