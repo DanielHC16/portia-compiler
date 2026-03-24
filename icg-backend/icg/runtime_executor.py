@@ -29,6 +29,8 @@ from .triple import IndirectTripleTable, Triple, is_ref, get_ref_index
 # Runtime Type System
 # =============================================================================
 
+DEFAULT_MAX_EXECUTION_STEPS = 1_000_000
+
 @dataclass
 class RuntimeValue:
     """
@@ -349,6 +351,7 @@ class RuntimeExecutor:
         symbol_table: Dict[str, Any] = None,
         input_handler: InputHandler = None,
         output_handler: OutputHandler = None,
+        max_steps: int = DEFAULT_MAX_EXECUTION_STEPS,
     ) -> None:
         """
         Initialize the runtime executor.
@@ -368,6 +371,7 @@ class RuntimeExecutor:
         self._symbol_table = symbol_table or {}
         self._input_handler = input_handler or InputHandler()
         self._output_handler = output_handler or OutputHandler()
+        self._max_steps = max_steps
         
         # Execution state
         self._memory: Dict[str, Any] = {}
@@ -380,6 +384,9 @@ class RuntimeExecutor:
         self._current_line: str = ""  # For thread without newline
         self._halted: bool = False
         self._return_value: Any = None
+        self._steps_executed: int = 0
+        self._last_source_line: int = 0
+        self._last_source_col: int = 0
         
         # Call stack for function calls
         self._call_stack: List[Tuple[int, Dict[str, Any], Dict[int, Any], int, Dict[str, str], Set[str]]] = []
@@ -409,6 +416,9 @@ class RuntimeExecutor:
         self._current_line = ""
         self._halted = False
         self._return_value = None
+        self._steps_executed = 0
+        self._last_source_line = 0
+        self._last_source_col = 0
         self._call_stack.clear()
         self._param_stack.clear()
         self._array_aliases.clear()
@@ -486,6 +496,20 @@ class RuntimeExecutor:
 
     def _step_instruction(self, idx: int, triple: Triple) -> None:
         """Execute one triple and advance the instruction pointer if needed."""
+        if self._max_steps > 0 and self._steps_executed >= self._max_steps:
+            raise ICGRuntimeError(
+                message="Infinite loop detected.",
+                line=triple.line or self._last_source_line,
+                col=triple.col or self._last_source_col,
+                error_type="runtime_error",
+            )
+
+        self._steps_executed += 1
+        if triple.line > 0:
+            self._last_source_line = triple.line
+        if triple.col > 0:
+            self._last_source_col = triple.col
+
         self._ip_modified = False
         self._execute_triple(idx, triple)
         if not self._ip_modified:
