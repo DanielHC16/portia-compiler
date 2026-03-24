@@ -135,8 +135,6 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
   // Input state
   const [waitingForInput, setWaitingForInput] = useState(false);
   const [expectedInputType, setExpectedInputType] = useState<string | null>(null);
-  const [inputLine, setInputLine] = useState<number>(0);
-  const [inputCol, setInputCol] = useState<number>(0);
   const [pendingInputs, setPendingInputs] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState<string>("");
   
@@ -355,8 +353,6 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
         logICGResult(icgResp.tac, icgResp.tac_text, icgResp.output, true, []);
         setWaitingForInput(true);
         setExpectedInputType(icgResp.input_var_type);
-        setInputLine(icgResp.input_line);
-        setInputCol(icgResp.input_col);
         setLoading(false);
         return;
       } else {
@@ -389,8 +385,6 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
       appendTerminalLine("input", `> ${value}`);
       appendTerminalLine("error", "");
       appendTerminalLine("error", "ERROR: RuntimeError");
-      appendTerminalLine("error", `Line: ${inputLine}`);
-      appendTerminalLine("error", `Column: ${inputCol}`);
       appendTerminalLine("error", `Message: ${validation.error}`);
       appendTerminalLine("error", "");
       
@@ -412,7 +406,7 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     if (currentAst) {
       runICG(newInputs, true);
     }
-  }, [waitingForInput, expectedInputType, inputValue, pendingInputs, currentAst, inputLine, inputCol, appendTerminalLine]);
+  }, [waitingForInput, expectedInputType, inputValue, pendingInputs, currentAst, appendTerminalLine]);
 
   // Handle code changes
   const handleCodeChange = useCallback((value: string | undefined) => {
