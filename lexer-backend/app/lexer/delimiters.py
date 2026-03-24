@@ -26,8 +26,8 @@ class Delimiters:
 
         # RESERVED SYMBOLS DELIMITER
         # Arithmetic and logical operator delimiters
-        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '-']
-        self.logical_op_delim = chars.alphanum + chars.whitespace + ['(', '-']
+        self.marithmetic_delim = chars.alphanum + chars.whitespace + ['(', '-'] 
+        self.logical_op_delim = chars.alphanum + chars.whitespace + ['(', '-'] + chars.newline
         self.exclamation_delim = chars.alphabetics + ['(', '!']
         self.concat_delim = chars.alphanum + chars.whitespace + ['"', '(', '-', "'"]
         
