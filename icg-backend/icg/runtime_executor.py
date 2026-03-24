@@ -416,29 +416,30 @@ class RuntimeExecutor:
         
         # Build label index map (first pass)
         self._build_label_map()
-        
-        # Start execution at main function entry point
-        if "main" in self._func_labels:
-            self._ip = self._func_labels["main"]
-        
+
         # Execute instructions
         pointers = self._table.get_pointers()
         triples = self._table.get_triples()
         
         try:
+            # Run top-level global initialization triples before entering main.
+            # Stop when we reach the first top-level function definition.
+            if "main" in self._func_labels:
+                while self._ip < len(pointers) and not self._halted:
+                    triple_idx = pointers[self._ip]
+                    triple = triples[triple_idx]
+
+                    if not self._call_stack and triple.op == "func_begin":
+                        break
+
+                    self._step_instruction(triple_idx, triple)
+
+                self._ip = self._func_labels["main"]
+
             while self._ip < len(pointers) and not self._halted:
                 triple_idx = pointers[self._ip]
                 triple = triples[triple_idx]
-                
-                # Reset IP modified flag before execution
-                self._ip_modified = False
-                
-                # Execute the instruction
-                self._execute_triple(triple_idx, triple)
-                
-                # Move to next instruction only if IP wasn't explicitly modified
-                if not self._ip_modified:
-                    self._ip += 1
+                self._step_instruction(triple_idx, triple)
             
             # Flush any remaining output
             if self._current_line:
@@ -482,6 +483,13 @@ class RuntimeExecutor:
                 errors=[e],
                 memory=dict(self._memory),
             )
+
+    def _step_instruction(self, idx: int, triple: Triple) -> None:
+        """Execute one triple and advance the instruction pointer if needed."""
+        self._ip_modified = False
+        self._execute_triple(idx, triple)
+        if not self._ip_modified:
+            self._ip += 1
     
     def _build_label_map(self) -> None:
         """Build mapping from label names to pointer indices, and function names to IPs."""

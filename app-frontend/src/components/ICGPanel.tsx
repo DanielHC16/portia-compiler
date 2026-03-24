@@ -121,6 +121,7 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
   const [parseErrors, setParseErrors] = useState<LexError[]>([]);
   const [semanticErrors, setSemanticErrors] = useState<ICGError[]>([]);
   const [icgErrors, setIcgErrors] = useState<ICGError[]>([]);
+  const [inputValidationErrors, setInputValidationErrors] = useState<ICGError[]>([]);
   
   // Execution states
   const [loading, setLoading] = useState(false);
@@ -202,6 +203,7 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     setParseErrors([]);
     setSemanticErrors([]);
     setIcgErrors([]);
+    setInputValidationErrors([]);
     
     // Clear terminal only if not appending (fresh run)
     if (!appendMode) {
@@ -381,12 +383,13 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     const validation = validateInput(value, expectedInputType);
     
     if (!validation.valid) {
-      // Show error in terminal - exact format required
       appendTerminalLine("input", `> ${value}`);
-      appendTerminalLine("error", "");
-      appendTerminalLine("error", "ERROR: RuntimeError");
-      appendTerminalLine("error", `Message: ${validation.error}`);
-      appendTerminalLine("error", "");
+      setInputValidationErrors([{
+        message: validation.error || "Invalid input.",
+        line: 0,
+        column: 0,
+        type: "runtime_error",
+      }]);
       
       // Clear input but keep waiting for valid input
       setInputValue("");
@@ -394,6 +397,7 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     }
     
     // Valid input - append to terminal and resume
+    setInputValidationErrors([]);
     appendTerminalLine("input", `> ${value}`);
     
     const newInputs = [...pendingInputs, value];
@@ -430,6 +434,7 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     previousBackendOutputRef.current = [];
     setSemanticErrors([]);
     setIcgErrors([]);
+    setInputValidationErrors([]);
     setTerminalLines([]);
     setExecutionComplete(false);
     setCurrentAst(null);
@@ -546,6 +551,8 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
                     {line.content}
                   </div>
                 ))}
+
+                <ErrorDisplay errors={inputValidationErrors} errorType="runtime" />
                 
                 {/* Input prompt */}
                 {waitingForInput && (
