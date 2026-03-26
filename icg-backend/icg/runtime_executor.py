@@ -1307,6 +1307,19 @@ class RuntimeExecutor:
                 col=col,
                 error_type="runtime_error"
             )
+
+    def _parse_runtime_decimal_input(self, raw_input: str, target_type: str) -> RuntimeValue:
+        """
+        Parse runtime float/double input.
+
+        Runtime input should be validated as a numeric value for the target type,
+        not reclassified using source-level float/double literal token rules.
+        This allows widening integer-form input such as `30` into `30.0`.
+        """
+        trimmed = raw_input.strip()
+        if not re.match(r'^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$', trimmed):
+            raise ValueError(f"Expected {target_type}, got '{raw_input}'")
+        return RuntimeValue(float(trimmed), target_type)
     
     def _execute_trap(self, var_name: str, var_type: str, 
                      line: int, col: int) -> None:
@@ -1368,53 +1381,7 @@ class RuntimeExecutor:
                 value = RuntimeValue(int(raw_input.strip()), "long")
             elif var_type in ("float", "double"):
                 try:
-                    # Validate format
-                    trimmed = raw_input.strip()
-                    if not re.match(r'^-?\d*\.?\d*$', trimmed):
-                        raise ValueError(f"Expected {var_type}, got '{raw_input}'")
-
-                    # Handle both decimal and integer-style input
-                    if '.' in trimmed:
-                        # Has decimal point - validate fractional digit count
-                        parts = trimmed.lstrip('+-').split('.')
-                        if len(parts) != 2:
-                            raise ValueError(f"Invalid {var_type} format")
-
-                        integer_part, fractional_part = parts
-
-                        # Validate fractional digit count
-                        frac_digit_count = len(fractional_part)
-
-                        if var_type == "float":
-                            # Float: 1-7 fractional digits
-                            if frac_digit_count < 1:
-                                raise ValueError(f"Float literal must have at least 1 fractional digit")
-                            if frac_digit_count > 7:
-                                raise ValueError(f"Float literal exceeds maximum of 7 fractional digits (got {frac_digit_count} digits)")
-                        elif var_type == "double":
-                            # Double: 8-16 fractional digits
-                            if frac_digit_count < 8:
-                                raise ValueError(f"Double literal must have at least 8 fractional digits (got {frac_digit_count} digits)")
-                            if frac_digit_count > 16:
-                                raise ValueError(f"Double literal exceeds maximum of 16 fractional digits (got {frac_digit_count} digits)")
-                    else:
-                        # No decimal point - validate total digit count
-                        digit_count = len(re.sub(r'[+-]', '', trimmed))
-                        if digit_count == 0:
-                            raise ValueError(f"{var_type.capitalize()} literal must have at least 1 digit")
-
-                        if var_type == "float":
-                            # Float: total digits should not exceed 7
-                            if digit_count > 7:
-                                raise ValueError(f"Float literal exceeds maximum of 7 digits (got {digit_count} digits)")
-                        elif var_type == "double":
-                            # Double: total digits should be 8-16
-                            if digit_count < 8:
-                                raise ValueError(f"Double literal must have at least 8 digits (got {digit_count} digits)")
-                            if digit_count > 16:
-                                raise ValueError(f"Double literal exceeds maximum of 16 digits (got {digit_count} digits)")
-
-                    value = RuntimeValue(float(trimmed), var_type)
+                    value = self._parse_runtime_decimal_input(raw_input, var_type)
                 except ValueError as e:
                     raise ValueError(str(e))
             elif var_type == "char":
