@@ -943,12 +943,17 @@ class ICGVisitor:
         TAC Pattern for switch:
         -----------------------
             <evaluate expr>
-            jumpne (expr) case1_val L_case2
+            t1 = expr
+            == t1 case1_val
+            jumpt (cmp1) L_case1
+            == t1 case2_val
+            jumpt (cmp2) L_case2
+            ...
+            jump L_default_or_end
         L_case1:
             <case1 body>
             ; fall through or break jumps to L_end
         L_case2:
-            jumpne (expr) case2_val L_case3
             <case2 body>
         ...
         L_default:
@@ -974,35 +979,22 @@ class ICGVisitor:
         switch_temp = self._temps.next_temp()
         self._table.add("=", switch_temp, expr_arg, line, col)
         
-        # Generate case labels
+        # Generate case labels once. These labels are only used for case bodies.
         case_labels = [self._labels.next_label() for _ in cases]
         default_label = self._labels.next_label() if default else label_end
         
-        # Generate jump table (compare and jump)
+        # Generate the comparison dispatch table.
+        # Use jumpt directly so unmatched values continue checking later cases
+        # instead of jumping into a case body through reused labels.
         for i, case in enumerate(cases):
             case_value = case.get("value")
             case_val_result = self._visit(case_value)
-            
-            # Compare: if switch_temp != case_value, jump to next
             cmp_idx = self._table.add("==", switch_temp, self._to_arg(case_val_result))
-            
-            next_label = case_labels[i + 1] if i + 1 < len(cases) else default_label
-            self._table.add("jumpf", ref(cmp_idx), next_label)
-            
-            # Jump to case body
-            self._table.add("jump", case_labels[i], None)
-            self._table.add("label", next_label, None)
-        
-        # Go back and emit case bodies
-        # Actually, let's use a cleaner approach: test-and-jump table first
-        
-        # Clear and redo with cleaner pattern
-        # For each case, test and potentially jump to its body
-        # This generates slightly different but correct TAC
-        
-        # Re-approach: Generate test-jump sequence, then bodies
-        # Already emitted labels above, so just emit the bodies in order
-        
+            self._table.add("jumpt", ref(cmp_idx), case_labels[i])
+
+        # No case matched: go to default if present, otherwise exit the switch.
+        self._table.add("jump", default_label, None)
+
         # Emit case bodies (after the jump table)
         for i, case in enumerate(cases):
             self._table.add("label", case_labels[i], None)
