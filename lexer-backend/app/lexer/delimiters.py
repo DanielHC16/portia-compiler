@@ -33,13 +33,13 @@ class Delimiters:
         
         # Grouping symbol delimiters
         self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '-', '(', ';', "'", '..'] 
-        self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<','!', '=', '&', '|', '{', ';', ')', '(',  "'",',','..','"'] + chars.whitespace + chars.newline
-        self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '[',  '>', '<', '!', '=', '&', '|', '..'] + chars.whitespace
+        self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<','!', '=', '&', '|', '{', ';', ')', '(',  "'",',','..','"'] + chars.whitespace + chars.newline + [None]
+        self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '[',  '>', '<', '!', '=', '&', '|', '..'] + chars.whitespace + [None]
         self.open_curly_delim = chars.whitespace + chars.newline + chars.alphanum + ['{', '"', "'", '-', '!','}']
         self.close_curly_delim = chars.whitespace + chars.newline + [';', ',', None] + chars.alphabetics + ['}']
 
         # Punctuation delimiters
-        self.semicolon_delim = chars.alphanum + chars.whitespace + chars.newline + [')','}']
+        self.semicolon_delim = chars.alphanum + chars.whitespace + chars.newline + [')','}', None]
         self.comma_delim = chars.alphanum + chars.whitespace + ['-'] + chars.newline + ['(', '{', '"', "'"]
         self.colon_delim = chars.whitespace + chars.newline + chars.alphabetics
         self.equal_delim = chars.alphanum + chars.whitespace + ['(', '{', '-', '"', "'"] + chars.newline
@@ -55,7 +55,7 @@ class Delimiters:
 
         # IDENTIFIER DELIMITER
         # STRICT: whitespace/newline OK, but EOF (None) is NOT valid
-        self.iden_delim = ['=', '+', '-', '*', '/', '%', '>', '<', '!', '.', '&', '|', '(', ')', '[', ']', ';','{','}'] + chars.whitespace + chars.newline + [',']
+        self.iden_delim = ['=', '+', '-', '*', '/', '%', '>', '<', '!', '.', '&', '|', '(', ')', '[', ']', ';','{','}'] + chars.whitespace + chars.newline + [',', None]
 
         # LITERALS DELIMITER
         # String literal delimiters
@@ -65,10 +65,10 @@ class Delimiters:
         self.char_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', ',', ':', '..']
         
         # Boolean literal delimiters (true, false)
-        self.bool_lit_delim = ['=', '!', '&', '|', ',', ')',':', ';', '}'] + chars.whitespace + chars.newline
+        self.bool_lit_delim = ['=', '!', '&', '|', ',', ')',':', ';', '}'] + chars.whitespace + chars.newline + [None]
         
         # Numerical literal delimiters (int, long, float, double)
-        self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', ',', ')', ']', '}', ';', ':', '&', '|'] + chars.whitespace + chars.newline + ['..']
+        self.nbl_delim = ['+', '-', '*', '/', '%', '>', '<', '=', '!', ',', ')', ']', '}', ';', ':', '&', '|'] + chars.whitespace + chars.newline + ['..', None]
 
         # SPACE DELIMITER
         # Keyword delimiter for keywords that only allow whitespace/newline: case, const, func, global, local, using, var, void, weave
@@ -78,6 +78,7 @@ class Delimiters:
         # break: ;
         # default: :
         # main, thread, threadln, trap: (
+        # abs, len, pow, sqrt: (
         # [: alphanum
         # .: alphabetics
         # Single line comment: newline
