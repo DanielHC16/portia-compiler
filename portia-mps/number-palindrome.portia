@@ -1,0 +1,27 @@
+int main() {
+    local var int num = 0;
+    local var int original = 0;
+    local var int reversed = 0;
+    local var int digit = 0;
+    local var int temp = 0;
+
+    thread("Enter a number: ");
+    trap(num);
+
+    original = num;
+    temp = num;
+
+    while (temp > 0) {
+        digit = temp % 10;
+        reversed = (reversed * 10) + digit;
+        temp = temp / 10;
+    }
+
+    if (original == reversed) {
+        threadln("Palindrome");
+    } else {
+        threadln("Not Palindrome");
+    }
+
+    return 0;
+}

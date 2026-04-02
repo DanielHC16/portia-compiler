@@ -1,0 +1,4 @@
+int main() {
+    threadln("Hello, World!");
+    return 0;
+}
