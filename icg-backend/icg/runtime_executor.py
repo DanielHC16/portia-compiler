@@ -741,12 +741,16 @@ class RuntimeExecutor:
             array_name = self._resolve_array_name(array_name)
             index = self._eval(arg2, line, col)
             index_val = unwrap_value(index)
-            key = f"{array_name}[{int(index_val)}]"
-            if key in self._memory:
-                self._results[idx] = self._memory[key]
+            index_int = int(index_val)
+            if self._is_scalar_string_variable(array_name):
+                self._results[idx] = self._read_string_index(array_name, index_int, line, col)
             else:
-                # Return default value with inferred type
-                self._results[idx] = RuntimeValue(0, "int")
+                key = f"{array_name}[{index_int}]"
+                if key in self._memory:
+                    self._results[idx] = self._memory[key]
+                else:
+                    # Return default value with inferred type
+                    self._results[idx] = RuntimeValue(0, "int")
         
         elif op == "array_store":
             # Array element store - handles two formats:
@@ -904,6 +908,8 @@ class RuntimeExecutor:
             if array_match:
                 array_name = array_match.group(1)
                 index = int(array_match.group(2))
+                if self._is_scalar_string_variable(array_name):
+                    return self._read_string_index(array_name, index, line, col)
                 key = f"{array_name}[{index}]"
                 if key in self._memory:
                     val = self._memory[key]
@@ -1081,6 +1087,86 @@ class RuntimeExecutor:
                 break
             array_name = next_name
         return array_name
+
+    def _is_scalar_string_variable(self, var_name: str) -> bool:
+        """Check whether a variable refers to a non-array string value."""
+        sym = self._symbol_table.get(var_name, {})
+        if (
+            sym.get("dtype") == "string"
+            and sym.get("kind") != "array"
+            and not sym.get("dims")
+        ):
+            return True
+
+        value = self._memory.get(var_name)
+        return isinstance(value, RuntimeValue) and value.dtype == "string"
+
+    def _read_string_index(self, var_name: str, index: int, line: int, col: int) -> RuntimeValue:
+        """Read one character from a string variable using array-style indexing."""
+        if index < 0:
+            raise ICGRuntimeError(
+                message=f"String index cannot be negative (got {index})",
+                line=line,
+                col=col,
+                error_type="runtime_error"
+            )
+
+        string_value = self._memory.get(var_name)
+        if isinstance(string_value, RuntimeValue):
+            text = string_value.value if string_value.dtype == "string" else str(string_value.value)
+        else:
+            text = "" if string_value is None else str(string_value)
+
+        if index >= len(text):
+            raise ICGRuntimeError(
+                message=f"String index {index} out of bounds for '{var_name}' (length {len(text)})",
+                line=line,
+                col=col,
+                error_type="runtime_error"
+            )
+
+        return RuntimeValue(text[index], "char")
+
+    def _store_string_index(self, var_name: str, index: int, value: RuntimeValue,
+                            line: int, col: int) -> None:
+        """Store a single character into a string variable for trap(name[index])."""
+        if index < 0:
+            raise ICGRuntimeError(
+                message=f"String index cannot be negative (got {index})",
+                line=line,
+                col=col,
+                error_type="runtime_error"
+            )
+
+        string_value = self._memory.get(var_name)
+        if isinstance(string_value, RuntimeValue):
+            text = string_value.value if string_value.dtype == "string" else str(string_value.value)
+        else:
+            text = "" if string_value is None else str(string_value)
+
+        char_value = unwrap_value(value)
+        if len(char_value) != 1:
+            raise ICGRuntimeError(
+                message="Expected single character",
+                line=line,
+                col=col,
+                error_type="runtime_error"
+            )
+
+        if index > len(text):
+            raise ICGRuntimeError(
+                message=f"String index {index} out of bounds for '{var_name}' (length {len(text)})",
+                line=line,
+                col=col,
+                error_type="runtime_error"
+            )
+
+        if index == len(text):
+            new_text = text + char_value
+        else:
+            new_text = text[:index] + char_value + text[index + 1:]
+
+        self._memory[var_name] = RuntimeValue(new_text, "string")
 
     def _collect_preserved_array_elements(self) -> Dict[str, Any]:
         """Capture array elements that must survive a function return."""
@@ -1344,12 +1430,18 @@ class RuntimeExecutor:
         # Parse array element syntax: arr[index]
         array_match = re.match(r'^(\w+)\[(.+)\]$', var_name)
         actual_var_name = var_name
+        string_target: Optional[Tuple[str, int]] = None
         
         if array_match:
-            array_name = self._resolve_array_name(array_match.group(1))
+            base_name = array_match.group(1)
+            array_name = self._resolve_array_name(base_name)
             index_expr = array_match.group(2).strip()
             index_value = unwrap_value(self._eval(index_expr, line, col))
-            actual_var_name = f"{array_name}[{int(index_value)}]"
+            index_int = int(index_value)
+            if self._is_scalar_string_variable(base_name) or self._is_scalar_string_variable(array_name):
+                string_target = (array_name, index_int)
+            else:
+                actual_var_name = f"{array_name}[{index_int}]"
         
         # Request input from handler
         raw_input = self._input_handler.request_input(var_name, var_type, line, col)
@@ -1416,7 +1508,11 @@ class RuntimeExecutor:
                     value = RuntimeValue(raw_input, "string")
             
             # Store in memory
-            self._memory[actual_var_name] = value
+            if string_target is not None:
+                string_name, string_index = string_target
+                self._store_string_index(string_name, string_index, value, line, col)
+            else:
+                self._memory[actual_var_name] = value
             
         except ValueError as e:
             raise ICGRuntimeError(
