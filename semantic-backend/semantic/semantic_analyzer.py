@@ -1396,18 +1396,28 @@ class SemanticAnalyzer:
                     )
 
                 if indices:
-                    if not sym.is_array:
+                    if sym.is_array:
+                        if len(indices) != len(sym.dims):
+                            self._err(
+                                f"Array '{tname}' has {len(sym.dims)} dimension(s) "
+                                f"but {len(indices)} index/indices provided",
+                                line, col,
+                            )
+                            return
+                        for i, idx in enumerate(indices):
+                            self._check_index(tname, idx, i, sym.dims, line, col)
+                    elif sym.dtype == "string":
+                        if len(indices) != 1:
+                            self._err(
+                                f"String '{tname}' supports exactly 1 index, "
+                                f"but {len(indices)} index/indices provided",
+                                line, col,
+                            )
+                            return
+                        self._check_index(tname, indices[0], 0, [], line, col)
+                    else:
                         self._err(f"'{tname}' is not an array", line, col)
                         return
-                    if len(indices) != len(sym.dims):
-                        self._err(
-                            f"Array '{tname}' has {len(sym.dims)} dimension(s) "
-                            f"but {len(indices)} index/indices provided",
-                            line, col,
-                        )
-                        return
-                    for i, idx in enumerate(indices):
-                        self._check_index(tname, idx, i, sym.dims, line, col)
                 elif member:
                     weave_sym = self._global.lookup(sym.dtype)
                     if weave_sym is None or not weave_sym.is_weave:
@@ -1482,7 +1492,7 @@ class SemanticAnalyzer:
                             f"Array index cannot be negative (got {iv})",
                             line, col,
                         )
-                    elif dim_pos < len(dims) and iv >= dims[dim_pos]:
+                    elif dims and dim_pos < len(dims) and iv >= dims[dim_pos]:
                         self._err(
                             f"Index {iv} out of bounds for '{arr_name}' "
                             f"(declared size {dims[dim_pos]})",
@@ -1577,19 +1587,31 @@ class SemanticAnalyzer:
             return "unknown"
 
         if indices:
-            if not sym.is_array:
-                self._err(f"'{name}' is not an array", line, col)
-                return "unknown"
-            if len(indices) != len(sym.dims):
-                self._err(
-                    f"Array '{name}' has {len(sym.dims)} dimension(s) "
-                    f"but {len(indices)} index/indices provided",
-                    line, col,
-                )
-                return "unknown"
-            for i, idx in enumerate(indices):
-                self._check_index(name, idx, i, sym.dims, line, col)
-            return sym.dtype
+            if sym.is_array:
+                if len(indices) != len(sym.dims):
+                    self._err(
+                        f"Array '{name}' has {len(sym.dims)} dimension(s) "
+                        f"but {len(indices)} index/indices provided",
+                        line, col,
+                    )
+                    return "unknown"
+                for i, idx in enumerate(indices):
+                    self._check_index(name, idx, i, sym.dims, line, col)
+                return sym.dtype
+
+            if sym.dtype == "string":
+                if len(indices) != 1:
+                    self._err(
+                        f"String '{name}' supports exactly 1 index, "
+                        f"but {len(indices)} index/indices provided",
+                        line, col,
+                    )
+                    return "unknown"
+                self._check_index(name, indices[0], 0, [], line, col)
+                return "char"
+
+            self._err(f"'{name}' is not an array", line, col)
+            return "unknown"
 
         if member:
             weave_sym = self._global.lookup(sym.dtype)

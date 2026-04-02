@@ -1049,6 +1049,11 @@ class ICGVisitor:
         
         base_name = name.split("[", 1)[0]
         sym = self._symbol_table.get(base_name, {})
+        if "[" in name:
+            if sym.get("kind") == "array" or sym.get("dims"):
+                return sym.get("dtype", "unknown")
+            if sym.get("dtype") == "string":
+                return "char"
         return sym.get("dtype", "unknown")
     
     def get_table(self) -> IndirectTripleTable:
