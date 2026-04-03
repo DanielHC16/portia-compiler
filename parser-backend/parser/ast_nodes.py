@@ -374,13 +374,25 @@ class Cast(ASTNode):
 
 
 class FunctionCall(ASTNode):
-    """Function call expression: ``id(arg, …)``."""
+    """Function call expression.
 
-    def __init__(self, name: str, args: List[ASTNode] | None = None, line: int = 0, col: int = 0):
+    ``builtin=True`` marks reserved PORTIA built-ins parsed through the
+    dedicated ``<builtin_func>`` grammar productions.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        args: List[ASTNode] | None = None,
+        line: int = 0,
+        col: int = 0,
+        builtin: bool = False,
+    ):
         self.name = name
         self.args: List[ASTNode] = args or []
         self.line = line
         self.col = col
+        self.builtin = builtin
 
     def to_dict(self) -> Dict[str, Any]:
         d = {
@@ -388,6 +400,8 @@ class FunctionCall(ASTNode):
             "name": self.name,
             "args": [a.to_dict() for a in self.args],
         }
+        if self.builtin:
+            d["builtin"] = True
         d.update(self._loc_dict())
         return d
 

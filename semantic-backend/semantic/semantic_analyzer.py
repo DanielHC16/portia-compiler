@@ -43,12 +43,20 @@ COMPARISON_OPS: frozenset = frozenset({">", "<", ">=", "<="})
 RELATIONAL_OPS: frozenset = frozenset({"==", "!=", ">", "<", ">=", "<="})
 LOGICAL_OPS:    frozenset = frozenset({"&&", "||"})
 UPDATE_OPS:     frozenset = frozenset({"+=", "-=", "*=", "/=", "%="})
+BUILTIN_FUNCTIONS: frozenset = frozenset({"abs", "len", "pow", "sqrt"})
+BUILTIN_FIXED_ARITY: Dict[str, int] = {
+    "abs": 1,
+    "len": 1,
+    "pow": 2,
+    "sqrt": 1,
+}
 
 RESERVED_KEYWORDS: frozenset = frozenset({
     "int", "long", "float", "double", "char", "string", "bool", "void",
     "var", "const", "global", "weave", "func", "main", "using",
     "if", "else", "switch", "case", "default", "for", "while", "do",
     "break", "return", "true", "false", "trap", "thread", "threadln",
+    "abs", "len", "pow", "sqrt",
 })
 
 
@@ -1098,8 +1106,8 @@ class SemanticAnalyzer:
                 # a function return of identical type and dimensions.
                 # Array literals and direct array-to-array assignments are NOT allowed.
                 self._err(
-                    f"Cannot reassign array '{tname}' as a whole; "
-                    ,
+                    f"Cannot assign scalar or non-array value to array '{tname}'; "
+                    f"use indexed assignment or a matching array-returning function",
                     line, col,
                 )
                 return
@@ -1907,11 +1915,96 @@ class SemanticAnalyzer:
         
         return elem_type
 
+    def _is_builtin_call(self, expr: Dict[str, Any]) -> bool:
+        name = expr.get("name", "")
+        return bool(expr.get("builtin")) or name in BUILTIN_FUNCTIONS
+
+    def _infer_builtin_call(
+        self,
+        expr: Dict[str, Any],
+        *,
+        global_only: bool = False,
+    ) -> Optional[str]:
+        name = expr.get("name", "")
+        args = expr.get("args") or []
+        line = expr.get("line", 0)
+        col = expr.get("col", 0)
+
+        expected_arity = BUILTIN_FIXED_ARITY.get(name)
+        if expected_arity is None:
+            return "unknown"
+
+        if len(args) != expected_arity:
+            self._err(
+                f"Built-in function '{name}' expects {expected_arity} argument(s) "
+                f"but {len(args)} provided",
+                line, col,
+            )
+            return "unknown"
+
+        infer = self._infer_global if global_only else self._infer_type
+        arg_types = [infer(arg) for arg in args]
+
+        if name == "len":
+            arg = args[0]
+            arg_type = arg_types[0]
+            if arg_type == "unknown":
+                return "unknown"
+            if arg_type not in {"string", "char"}:
+                self._err(
+                    f"Built-in function 'len' expects a string or char expression, got '{arg_type}'",
+                    arg.get("line", line),
+                    arg.get("col", col),
+                    token_length=self._get_token_length(arg),
+                )
+                return "unknown"
+            return "int"
+
+        if name in {"abs", "sqrt"}:
+            arg = args[0]
+            arg_type = arg_types[0]
+            if arg_type == "unknown":
+                return "unknown"
+            if arg_type not in NUMERIC_TYPES:
+                self._err(
+                    f"Built-in function '{name}' expects a numeric expression, got '{arg_type}'",
+                    arg.get("line", line),
+                    arg.get("col", col),
+                    token_length=self._get_token_length(arg),
+                )
+                return "unknown"
+            return arg_type
+
+        if name == "pow":
+            arg1_type, arg2_type = arg_types
+            if arg1_type == "unknown" or arg2_type == "unknown":
+                return "unknown"
+
+            for index, (arg, arg_type) in enumerate(zip(args, arg_types), start=1):
+                if arg_type not in NUMERIC_TYPES:
+                    self._err(
+                        f"Built-in function 'pow' argument {index} expects a numeric expression, got '{arg_type}'",
+                        arg.get("line", line),
+                        arg.get("col", col),
+                        token_length=self._get_token_length(arg),
+                    )
+
+            if arg1_type not in NUMERIC_TYPES or arg2_type not in NUMERIC_TYPES:
+                return "unknown"
+
+            wider = _wider(arg1_type, arg2_type)
+            return wider or "unknown"
+
+        return "unknown"
+
     def _infer_call(self, expr: Dict[str, Any]) -> Optional[str]:
         name = expr.get("name", "")
         args = expr.get("args") or []
         line = expr.get("line", 0)
         col  = expr.get("col",  0)
+
+        if self._is_builtin_call(expr):
+            return self._infer_builtin_call(expr)
 
         fsym = self._global.lookup(name)
         if fsym is None or not fsym.is_func:
@@ -2039,6 +2132,8 @@ class SemanticAnalyzer:
             return self._infer_global(expr.get("operand"))
         if ntype == "Cast":
             return _norm(expr.get("dtype", ""))
+        if ntype == "FunctionCall" and self._is_builtin_call(expr):
+            return self._infer_builtin_call(expr, global_only=True)
         return "unknown"
 
     # -------------------------------------------------------------------------
@@ -2107,16 +2202,6 @@ class SemanticAnalyzer:
                     f"const arrays must be fully initialized",
                     line, col,
                 )
-            
-            # Check for jagged arrays: all rows must have the same length
-            if init:
-                row_lengths = [len(row) if isinstance(row, list) else 0 for row in init]
-                if len(set(row_lengths)) > 1:
-                    self._err(
-                        f"rows have different lengths {row_lengths}",
-                        line, col,
-                    )
-                    return  # Don't continue checking if jagged
             
             for row in init:
                 if not isinstance(row, list):

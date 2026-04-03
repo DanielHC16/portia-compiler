@@ -1,7 +1,7 @@
 """
 PORTIA Parser - Recursive Descent Implementation
 =================================================
-Matches PORTIA CFG (240 productions, 115 non-terminals).
+Matches PORTIA CFG (247 productions, 116 non-terminals).
 All parse functions return semantic AST nodes (from ast_nodes.py).
 """
 
@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from .grammar import (
     DTYPE_KEYWORDS, LITERAL_TYPES, NUM_LIT_TYPES, WHOLE_LIT_TYPES,
     REL_OPS, ASSIGN_OPS, UPDATE_OPS, BOOL_LITERALS,
-    ADDITIVE_OPS, MULT_OPS,
+    ADDITIVE_OPS, MULT_OPS, BUILTIN_FUNCTIONS, BUILTIN_FIXED_ARITY,
     FIRST, FOLLOW, PREDICT,
 )
 
@@ -40,7 +40,7 @@ class PortiaParser:
     """
     Recursive descent parser for PORTIA language.
 
-    Matches the revised CFG (240 productions, 115 non-terminals).
+    Matches the revised CFG (247 productions, 116 non-terminals).
     Lookahead constants imported from grammar.py for modularity.
     Error messages use PREDICT/FIRST/FOLLOW sets exclusively.
 
@@ -162,6 +162,10 @@ class PortiaParser:
     def is_dtype(self, offset: int = 0) -> bool:
         """True if the token at *offset* is a dtype keyword."""
         return self.peek_value(offset) in DTYPE_KEYWORDS
+
+    def is_builtin_func_start(self, offset: int = 0) -> bool:
+        """True if the token at *offset* starts a reserved built-in call."""
+        return self.peek_value(offset) in BUILTIN_FUNCTIONS
 
     def error(self, expected) -> ParseError:
         """Create a ParseError with current-token context.
@@ -837,10 +841,11 @@ class PortiaParser:
     # =====================================================================
 
     def parse_statement_list(self) -> List[ASTNode]:
-        # FIRST(statement) = {id, trap, thread, threadln, if, switch,
-        #                      for, while, do}
+        # FIRST(statement) = {id, abs, len, pow, sqrt, trap, thread,
+        #                     threadln, if, switch, for, while, do}
         stmts: List[ASTNode] = []
         while (self.check_type("ID")
+                or self.is_builtin_func_start()
                 or self.check("trap", "thread", "threadln",
                               "if", "switch", "for", "while", "do")):
             # [84] statement statement_list
@@ -859,8 +864,8 @@ class PortiaParser:
         elif self.check("if", "switch", "for", "while", "do"):
             # [88] ctrl_struct
             return self.parse_ctrl_struct()
-        elif self.check_type("ID"):
-            # [86] expression ;
+        elif self.check_type("ID") or self.is_builtin_func_start():
+            # [84] expression ;
             node = self.parse_expression()
             self.match_value(";", also_expected=MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
             return node
@@ -868,14 +873,18 @@ class PortiaParser:
             raise self.error(FIRST["statement"])
 
     # =====================================================================
-    # [89]  expression -> assign_expr
+    # [87-88]  expression -> assign_expr | builtin_func
     # =====================================================================
 
     def parse_expression(self) -> ASTNode:
-        return self.parse_assign_expr()
+        if self.check_type("ID"):
+            return self.parse_assign_expr()
+        elif self.is_builtin_func_start():
+            return self.parse_builtin_func()
+        raise self.error(FIRST["expression"])
 
     # =====================================================================
-    # [90]  assign_expr -> id mod_or_call
+    # [89]  assign_expr -> id mod_or_call
     # =====================================================================
 
     def parse_assign_expr(self) -> ASTNode:
@@ -886,6 +895,27 @@ class PortiaParser:
         return self.parse_mod_or_call(name, line, col)
 
     # =====================================================================
+    # [149-152]  builtin_func
+    # =====================================================================
+
+    def parse_builtin_func(self) -> FunctionCall:
+        if not self.is_builtin_func_start():
+            raise self.error(FIRST["builtin_func"])
+
+        tok = self.advance()
+        name = tok.get("value") or tok.get("lexeme")
+        line = tok.get("line", 0)
+        col = tok.get("column", 0)
+
+        self.match_value("(")
+        args = [self.parse_value()]
+        if BUILTIN_FIXED_ARITY[name] == 2:
+            self.match_value(",")
+            args.append(self.parse_value())
+        self.match_value(")", also_expected=MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
+        return FunctionCall(name, args, line=line, col=col, builtin=True)
+
+    # =====================================================================
     # [91-92]  mod_or_call
     # =====================================================================
 
@@ -894,7 +924,7 @@ class PortiaParser:
             # [92] ( arg )  →  function-call statement
             self.advance()
             args = self.parse_arg()
-            self.match_value(")", also_expected=PREDICT[149] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
+            self.match_value(")", also_expected=PREDICT[155] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
             return FunctionCall(name, args, line=line, col=col)
         else:
             # [91] assign_mod_opt assign_stmt_op
@@ -1132,15 +1162,18 @@ class PortiaParser:
 
     def parse_atom(self) -> ASTNode:
         if self.check_type("ID"):
-            # [140] id iden_mod
+            # [131] id iden_mod
             tok = self.advance()
             name = tok.get("value") or tok.get("lexeme")
             line = tok.get("line", 0)
             col = tok.get("column", 0)
             return self.parse_iden_mod(name, line, col)
         elif self.check_type(*LITERAL_TYPES) or self.check(*BOOL_LITERALS):
-            # [141] literals
+            # [132] literals
             return self.parse_literals()
+        elif self.is_builtin_func_start():
+            # [133] builtin_func
+            return self.parse_builtin_func()
         else:
             raise self.error(FIRST["atom"])
 
@@ -1183,7 +1216,7 @@ class PortiaParser:
             # [145] ( arg )
             self.advance()
             args = self.parse_arg()
-            self.match_value(")", also_expected=PREDICT[149] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
+            self.match_value(")", also_expected=PREDICT[155] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
             return FunctionCall(name, args, line=line, col=col)
         # [146] e
         return Identifier(name, line=line, col=col)
@@ -1312,7 +1345,7 @@ class PortiaParser:
             raise self.error(FIRST["output_stmt"])
         self.match_value("(")
         args = self.parse_print_args()
-        self.match_value(")", also_expected=PREDICT[161] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
+        self.match_value(")", also_expected=PREDICT[167] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
         self.match_value(";")
         return IOStmt(kind, args=args)
 
@@ -1369,13 +1402,13 @@ class PortiaParser:
         self.match_value("if")
         self.match_value("(")
         condition = self.parse_condition()
-        self.match_value(")", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
+        self.match_value(")", also_expected=PREDICT[175] | PREDICT[178] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
         self.match_value("{")
         body = self.parse_ctrl_body()
         ret = self.parse_ret_ctrl_body()
         if ret is not None:
             body.append(ret)
-        self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
+        self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
         # Collect else-if / else chains
         elif_branches: List[tuple] = []
         else_body: List[ASTNode] = []
@@ -1398,13 +1431,13 @@ class PortiaParser:
             self.match_value("if")
             self.match_value("(")
             cond = self.parse_condition()
-            self.match_value(")", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
+            self.match_value(")", also_expected=PREDICT[175] | PREDICT[178] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
             self.match_value("{")
             branch_body = self.parse_ctrl_body()
             ret = self.parse_ret_ctrl_body()
             if ret is not None:
                 branch_body.append(ret)
-            self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
+            self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
             elif_branches.append((cond, branch_body))
             # Continue chain (another else-if or final else)
             self._parse_else_chain(elif_branches, else_body)
@@ -1415,7 +1448,7 @@ class PortiaParser:
             ret = self.parse_ret_ctrl_body()
             if ret is not None:
                 eb.append(ret)
-            self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
+            self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
             else_body.extend(eb)
         else:
             raise self.error(FIRST["else_stmt"])
@@ -1465,18 +1498,19 @@ class PortiaParser:
             return self.parse_bool_ctrl()
 
     # =====================================================================
-    # [183-187]  bool_ctrl  (5-way split by first token)
+    # [182-187]  bool_ctrl  (6-way split by first token)
     #
-    #  183: id  <iden_mod> <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>
-    #  184: true  <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>
-    #  185: false <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>
-    #  186: (  <cast_or_val> <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>
-    #  187: <cmp_start> <mult_div_modulo_cont> <add_min_cont> <rel_op> <arith_expr>
+    #  182: id  <iden_mod> <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>
+    #  183: true  <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>
+    #  184: false <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>
+    #  185: (  <cast_or_val> <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>
+    #  186: <cmp_start> <mult_div_modulo_cont> <add_min_cont> <rel_op> <arith_expr>
+    #  187: <builtin_func> <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>
     # =====================================================================
 
     def parse_bool_ctrl(self) -> ASTNode:
         if self.check_type("ID"):
-            # [183] id iden_mod mult_div_modulo_cont add_min_cont bool_ctrl_tail
+            # [182] id iden_mod mult_div_modulo_cont add_min_cont bool_ctrl_tail
             tok = self.advance()
             name = tok.get("value") or tok.get("lexeme")
             line = tok.get("line", 0)
@@ -1486,34 +1520,40 @@ class PortiaParser:
             node = self._parse_add_cont(node)
             return self.parse_bool_ctrl_tail(node)
         elif self.check("true"):
-            # [184] true mult_div_modulo_cont add_min_cont bool_ctrl_tail
+            # [183] true mult_div_modulo_cont add_min_cont bool_ctrl_tail
             t = self.advance()
             node: ASTNode = Literal(True, "bool", line=t.get("line", 0), col=t.get("column", 0))
             node = self._parse_mult_cont(node)
             node = self._parse_add_cont(node)
             return self.parse_bool_ctrl_tail(node)
         elif self.check("false"):
-            # [185] false mult_div_modulo_cont add_min_cont bool_ctrl_tail
+            # [184] false mult_div_modulo_cont add_min_cont bool_ctrl_tail
             t = self.advance()
             node = Literal(False, "bool", line=t.get("line", 0), col=t.get("column", 0))
             node = self._parse_mult_cont(node)
             node = self._parse_add_cont(node)
             return self.parse_bool_ctrl_tail(node)
         elif self.check("("):
-            # [186] ( cast_or_val mult_div_modulo_cont add_min_cont bool_ctrl_tail
+            # [185] ( cast_or_val mult_div_modulo_cont add_min_cont bool_ctrl_tail
             self.advance()
             node = self.parse_cast_or_val()
+            node = self._parse_mult_cont(node)
+            node = self._parse_add_cont(node)
+            return self.parse_bool_ctrl_tail(node)
+        elif self.is_builtin_func_start():
+            # [187] builtin_func mult_div_modulo_cont add_min_cont bool_ctrl_tail
+            node = self.parse_builtin_func()
             node = self._parse_mult_cont(node)
             node = self._parse_add_cont(node)
             return self.parse_bool_ctrl_tail(node)
         elif (self.check("-") or
               self.check_type("INTLIT", "LONGLIT", "FLOATLIT",
                               "DOUBLELIT", "CHARLIT", "STRINGLIT")):
-            # [187] cmp_start mult_div_modulo_cont add_min_cont rel_op arith_expr
+            # [186] cmp_start mult_div_modulo_cont add_min_cont rel_op arith_expr
             node = self.parse_cmp_start()
             node = self._parse_mult_cont(node)
             node = self._parse_add_cont(node)
-            # Production 187 REQUIRES a relational operator - check before consuming
+            # Production 186 REQUIRES a relational operator - check before consuming
             if not self.check(*REL_OPS):
                 raise self.error(REL_OPS)
             op_tok = self.advance()  # consume rel_op token
@@ -1789,17 +1829,17 @@ class PortiaParser:
         self.match_value("for")
         self.match_value("(")
         init = self.parse_initializer()
-        self.match_value(";", also_expected=PREDICT[226] | PREDICT[227] | PREDICT[228] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||", ","})
+        self.match_value(";", also_expected=PREDICT[233] | PREDICT[234] | PREDICT[235] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||", ","})
         condition = self.parse_condition()
-        self.match_value(";", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
+        self.match_value(";", also_expected=PREDICT[175] | PREDICT[178] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
         update = self.parse_update()
-        self.match_value(")", also_expected=PREDICT[229] | PREDICT[230] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
+        self.match_value(")", also_expected=PREDICT[236] | PREDICT[237] | MULT_OPS | ADDITIVE_OPS | REL_OPS | {"..", "&&", "||"})
         self.match_value("{")
         body = self.parse_ctrl_body()
         ret = self.parse_ret_ctrl_body()
         if ret is not None:
             body.append(ret)
-        self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
+        self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
         return LoopStmt("for", condition=condition, body=body,
                         init=init, update=update)
 
@@ -1861,13 +1901,13 @@ class PortiaParser:
         self.match_value("while")
         self.match_value("(")
         condition = self.parse_condition()
-        self.match_value(")", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
+        self.match_value(")", also_expected=PREDICT[175] | PREDICT[178] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
         self.match_value("{")
         body = self.parse_ctrl_body()
         ret = self.parse_ret_ctrl_body()
         if ret is not None:
             body.append(ret)
-        self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
+        self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
         return LoopStmt("while", condition=condition, body=body)
 
     # =====================================================================
@@ -1882,11 +1922,11 @@ class PortiaParser:
         ret = self.parse_ret_ctrl_body()
         if ret is not None:
             body.append(ret)
-        self.match_value("}", also_expected=PREDICT[200] | PREDICT[201])
+        self.match_value("}", also_expected=PREDICT[207] | PREDICT[208])
         self.match_value("while")
         self.match_value("(")
         condition = self.parse_condition()
-        self.match_value(")", also_expected=PREDICT[169] | PREDICT[172] | PREDICT[181] | MULT_OPS | ADDITIVE_OPS)
+        self.match_value(")", also_expected=PREDICT[175] | PREDICT[178] | PREDICT[188] | MULT_OPS | ADDITIVE_OPS)
         self.match_value(";")
         return LoopStmt("do", condition=condition, body=body)
 
@@ -1956,7 +1996,7 @@ class PortiaParser:
         using = self.parse_using_block()
         locals_ = self.parse_local_block()
         stmts = self.parse_statement_list()
-        self.match_value("return", also_expected=PREDICT[240])
+        self.match_value("return", also_expected=PREDICT[247])
         ret_tok = self.match("INTLIT")
         ret_val = Literal(ret_tok.get("value") or ret_tok.get("lexeme"), "INTLIT")
         self.match_value(";")

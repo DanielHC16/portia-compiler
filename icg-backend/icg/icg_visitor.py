@@ -21,6 +21,8 @@ from .managers import TempManager, LabelManager
 # Type alias for visit results: variable name, constant, or triple reference
 VisitResult = Union[str, int, float, bool, tuple, None]
 
+BUILTIN_FUNCTIONS = frozenset({"abs", "len", "pow", "sqrt"})
+
 
 class ICGVisitor:
     """
@@ -66,6 +68,11 @@ class ICGVisitor:
         self._temps = TempManager()
         self._labels = LabelManager()
         self._symbol_table = symbol_table or {}
+
+    def _is_builtin_call(self, node: Dict[str, Any]) -> bool:
+        """Treat reserved PORTIA built-ins as dedicated TAC operations."""
+        name = node.get("name", "")
+        return bool(node.get("builtin")) or name in BUILTIN_FUNCTIONS
     
     def generate(self, ast: Dict[str, Any]) -> IndirectTripleTable:
         """
@@ -216,8 +223,16 @@ class ICGVisitor:
     def _visit_VarDecl(self, node: Dict) -> None:
         """Visit variable declaration with optional initialization."""
         name = node.get("name", "")
-        dtype = node.get("dtype") or node.get("var_type") or ""
+        dtype = node.get("dtype") or node.get("data_type") or node.get("var_type") or ""
         dims = node.get("dims", []) or []
+        if not dims and node.get("is_array"):
+            array_size = node.get("array_size")
+            if isinstance(array_size, (list, tuple)):
+                dims = list(array_size)
+            elif array_size is not None:
+                dims = [array_size]
+            elif node.get("rows") is not None and node.get("cols") is not None:
+                dims = [node.get("rows"), node.get("cols")]
         # Support both "init" and "value" keys for initialization
         init = node.get("init") or node.get("value")
         line = node.get("line", 0)
@@ -248,6 +263,10 @@ class ICGVisitor:
                 init_result = self._visit(init)
                 self._table.add("=", name, self._to_arg(init_result), line, col)
         else:
+            # Arrays are materialized through element stores/access, not scalar roots.
+            if dims:
+                return
+
             # No initializer - emit default value assignment
             default_val = self._get_default_value(dtype)
             self._table.add("=", name, default_val, line, col)
@@ -495,12 +514,24 @@ class ICGVisitor:
         args = node.get("args", [])
         line = node.get("line", 0)
         col = node.get("col", 0)
+
+        if self._is_builtin_call(node):
+            visited_args = [self._to_arg(self._visit(arg)) for arg in args]
+            expected_arity = 2 if name == "pow" else 1
+            if len(visited_args) != expected_arity:
+                raise ValueError(
+                    f"Built-in function '{name}' expects {expected_arity} argument(s), "
+                    f"got {len(visited_args)}"
+                )
+            if name == "pow":
+                idx = self._table.add("pow", visited_args[0], visited_args[1], line, col)
+            else:
+                idx = self._table.add(name, visited_args[0], None, line, col)
+            return ref(idx)
         
         # Evaluate and push arguments
-        arg_results = []
         for arg in args:
             arg_result = self._visit(arg)
-            arg_results.append(self._to_arg(arg_result))
             self._table.add("param", self._to_arg(arg_result), None, line, col)
         
         # Generate call triple
@@ -855,6 +886,13 @@ class ICGVisitor:
         # Restore break/continue targets
         self._break_target = prev_break
         self._continue_target = prev_continue
+
+    def _visit_WhileStmt(self, node: Dict) -> None:
+        """Back-compat alias for older ASTs that emitted WhileStmt directly."""
+        loop_node = dict(node)
+        loop_node["node"] = "LoopStmt"
+        loop_node.setdefault("kind", "while")
+        self._visit_LoopStmt(loop_node)
     
     def _visit_while_loop(self, condition, body, label_end, line, col):
         """Generate TAC for while loop."""
