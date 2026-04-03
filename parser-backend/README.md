@@ -62,7 +62,7 @@ Token List (from Lexer)
 | `main.py` | FastAPI app and router registration |
 | `parser/api.py` | `/parse` and `/parse/source` route handlers |
 | `parser/portia_parser.py` | `PortiaParser` recursive descent implementation and `ParseError` |
-| `parser/grammar.py` | Token constants plus CSV-backed FIRST/FOLLOW/PREDICT tables |
+| `parser/grammar.py` | Token constants plus embedded CFG/FIRST/FOLLOW/PREDICT tables |
 | `parser/ast_nodes.py` | AST node classes with `to_dict()` serialization |
 
 ---
@@ -117,13 +117,7 @@ The parser is aligned to the revised grammar spreadsheets.
 
 ## FIRST, FOLLOW, and PREDICT Sets
 
-`parser/grammar.py` now uses the revised grammar spreadsheets as the source of truth. On import it reads:
-
-- `revised-documents/revised-grammar-sets/REVISED-FIRST-SET.csv`
-- `revised-documents/revised-grammar-sets/REVISED-FOLLOW-SET.csv`
-- `revised-documents/revised-grammar-sets/REVISED-PREDICT-SET.csv`
-
-Those files are converted into Python `frozenset` tables and validated before the parser uses them. This removes drift between the checked-in grammar documents and the runtime parser tables.
+`parser/grammar.py` now embeds the revised CFG, FIRST, FOLLOW, and PREDICT data directly as Python tables. The revised grammar spreadsheets remain the reference source for those checked-in tables, and the module validates the embedded data on import before the parser uses it.
 
 ### Exported token and grammar constants
 
@@ -153,12 +147,32 @@ Those files are converted into Python `frozenset` tables and validated before th
 | `builtin_func` | `{"abs","len","pow","sqrt"}` |
 | `condition` | `{"!","id","true","false","(","-","intlit","longlit","floatlit","doublelit","charlit","stringlit","abs","len","pow","sqrt"}` |
 
-### How the parser uses the sets
+### How `PortiaParser` uses `grammar.py`
 
-- FIRST sets drive branch selection for non-terminals
-- FOLLOW sets drive epsilon decisions
-- PREDICT sets are used in targeted error messages where multiple continuations are valid
-- The revised rule numbers in the parser now match the revised PREDICT spreadsheet instead of the old 240-rule layout
+`parser/portia_parser.py` imports token constants plus `FIRST`, `FOLLOW`, and `PREDICT` from `parser/grammar.py`. `CFG` stays in `grammar.py` as the embedded source-of-truth table for the revised rule numbering and for runtime validation/tests, but the recursive-descent parser does not interpret `CFG` generically at runtime. Instead, each `parse_*` method is handwritten to match the same productions.
+
+| Grammar data | Runtime role in `PortiaParser` |
+|-------------|---------------------------------|
+| `CFG` | Reference table for the revised 247-production grammar. It keeps rule numbers aligned with the handwritten parser and is validated/tested directly, but the parser does not loop over `CFG` to parse input. |
+| `FIRST` | Primary branch-selection table for handwritten `parse_*` methods. It is also used in syntax errors such as `raise self.error(FIRST["mutability"])`, `raise self.error(FIRST["expression"])`, and `raise self.error(FIRST["atom"])`. |
+| `FOLLOW` | Nullable-boundary reference table. The current parser keeps it embedded for correctness, documentation, and validation, but uses it mostly indirectly through `PREDICT` rather than through many direct `FOLLOW[...]` lookups. |
+| `PREDICT` | Main lookahead table for nullable continuations and precise error reporting. It appears in calls like `match_value(..., also_expected=PREDICT[74])`, `match_value(..., also_expected=PREDICT[78] | PREDICT[79])`, and similar rule-numbered continuation checks. |
+
+### Concrete parser wiring
+
+- `is_dtype()` checks token values against `DTYPE_KEYWORDS` from `grammar.py`.
+- `is_builtin_func_start()` checks token values against `BUILTIN_FUNCTIONS` from `grammar.py`.
+- `parse_expression()` chooses between `assign_expr` and `builtin_func` using grammar-driven lookahead.
+- `parse_atom()` accepts built-ins because `builtin_func` is part of the revised grammar and its FIRST set is embedded in `grammar.py`.
+- Nullable productions are reflected in the handwritten parser through rule-numbered `PREDICT` lookups instead of a separate parser generator step.
+- `grammar.py` validates table counts and key built-in memberships at import time so broken embedded tables fail early.
+
+### Practical interpretation
+
+- `CFG` tells us what grammar the parser is supposed to implement.
+- `FIRST` tells the handwritten parser which branch to take.
+- `FOLLOW` tells us what can legally come after nullable non-terminals.
+- `PREDICT` packages the actual lookahead used at runtime, especially where epsilon productions and continuation errors matter.
 
 ---
 
@@ -273,7 +287,7 @@ The implementation is intentionally synchronized across all three layers:
 
 - `REVISED-CFG.csv` defines where built-ins are legal
 - `REVISED-FIRST-SET.csv`, `REVISED-FOLLOW-SET.csv`, and `REVISED-PREDICT-SET.csv` define the parser's legal lookahead
-- `grammar.py` loads those sets directly
+- `grammar.py` embeds those checked-in grammar tables directly
 - `portia_parser.py` now uses the revised production numbers in error expectations
 - `parse_builtin_func()` implements exactly the four revised built-in productions and no extra overloads
 
@@ -498,6 +512,22 @@ cd parser-backend
 .venv-py312\Scripts\pip install fastapi uvicorn pydantic watchfiles
 ```
 
+### Targeted grammar regression suites
+
+From the repository root, these suites exercise the embedded grammar tables and the parser logic that depends on them:
+
+```powershell
+py -3.12 test-scripts\parser\test_grammar_tables_runtime.py
+py -3.12 test-scripts\parser\test_parser_grammar_usage.py
+py -3.12 test-scripts\parser\test_parser_revised_cfg_builtins.py
+```
+
+What they cover:
+
+- `test_grammar_tables_runtime.py`: direct checks for `_prod`, `_freeze_*`, `CFG`, `FIRST`, `FOLLOW`, `PREDICT`, and embedded-table validation
+- `test_parser_grammar_usage.py`: direct checks for `is_dtype()`, `is_builtin_func_start()`, `parse_builtin_func()`, and parser errors that rely on FIRST/PREDICT-driven expectations
+- `test_parser_revised_cfg_builtins.py`: end-to-end revised grammar regression coverage for built-in functions through the real lexer and parser
+
 ---
 
 ## File Structure
@@ -513,4 +543,4 @@ parser-backend/
     `-- portia_parser.py
 ```
 
-`grammar.py` now exposes the token constants and loads the revised FIRST/FOLLOW/PREDICT tables from the grammar spreadsheets. `portia_parser.py` consumes those tables while building the semantic AST.
+`grammar.py` now exposes the token constants and embeds the revised CFG/FIRST/FOLLOW/PREDICT tables directly in code. `portia_parser.py` consumes those tables while building the semantic AST.
