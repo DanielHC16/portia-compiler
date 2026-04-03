@@ -5,10 +5,6 @@ PORTIA Language Grammar Definition
 This module exports token-class constants plus the revised CFG, FIRST,
 FOLLOW, and PREDICT tables consumed by the recursive-descent parser.
 
-The parser is self-contained at runtime: the revised grammar tables are
-embedded directly in this module instead of being reconstructed from
-external CSV files during import.
-
 247 productions / 116 non-terminals
 """
 
