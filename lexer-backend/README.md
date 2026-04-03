@@ -9,6 +9,7 @@ The lexical analyzer (lexer) is the **first stage** of the PORTIA compiler pipel
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [How the FSA Works](#how-the-fsa-works)
+- [Transition Diagram Reference](#transition-diagram-reference)
 - [Token Types](#token-types)
 - [Character Classes](#character-classes)
 - [Delimiter Validation](#delimiter-validation)
@@ -21,9 +22,22 @@ The lexical analyzer (lexer) is the **first stage** of the PORTIA compiler pipel
 
 ## Overview
 
-The PORTIA lexer reads source code character-by-character and transitions between states in a hand-coded state machine. Each recognized token falls into one of several categories: **keywords**, **identifiers**, **literals** (int, long, float, double, char, string, bool), **operators**, or **delimiters**.
+The PORTIA lexer reads source code character-by-character and transitions between states in a hand-coded state machine. Each recognized token falls into one of several categories: **keywords** (35 total), **identifiers**, **literals** (int, long, float, double, char, string, bool), **operators**, or **delimiters**.
 
-The lexer also enforces **delimiter rules** — every token must be followed by a valid successor character, which catches subtle errors like `intx` (keyword `int` immediately followed by letter `x` without a space, which would be an identifier issue) and other malformed sequences.
+### Supported Keywords (35)
+
+| Category | Keywords |
+|----------|----------|
+| **Data Types** | `bool`, `char`, `double`, `float`, `int`, `long`, `string`, `void` |
+| **Math Functions** | `abs`, `len`, `pow`, `sqrt` |
+| **Control Flow** | `if`, `else`, `switch`, `case`, `default`, `for`, `while`, `do`, `break`, `return` |
+| **Functions** | `func`, `main` |
+| **Variables** | `var`, `const`, `global`, `local` |
+| **Boolean Literals** | `true`, `false` |
+| **I/O & Threading** | `trap`, `thread`, `threadln` |
+| **Other** | `using`, `weave` |
+
+The lexer enforces **delimiter rules** — every token must be followed by a valid successor character. This catches subtle errors like `intx` (keyword `int` immediately followed by letter `x` without a space) and other malformed sequences.
 
 ---
 
@@ -77,19 +91,86 @@ Every state is named `sN` where `N` is a number. States are split into two group
 
 The key dictionary `INTERMEDIATE_TO_FINAL` maps each intermediate state to its corresponding final state. When the FSA sees a valid delimiter (whitespace, newline, EOF, or an operator/punctuation that naturally ends a token), it automatically advances the intermediate state to the final state and emits the token.
 
-### State Ranges
+### State Ranges (Transition Diagram Compliant)
 
-| Range | Token Category |
-|-------|---------------|
-| `s1` – `s151` | Keywords (`int`, `long`, `if`, `while`, `func`, `weave`, `var`, `const`, `global`, `return`, etc.) |
-| `s152` – `s193` | Operators (`+`, `-`, `*`, `/`, `%`, `=`, `==`, `!=`, `>=`, `<=`, `&&`, `\|\|`, `!`, `+=`, `-=`, etc.) |
-| `s194` – `s215` | Delimiters (`(`, `)`, `[`, `]`, `{`, `}`, `;`, `,`, `:`, `.`) |
-| `s216` – `s265` | Identifiers (user-defined names, up to 25 characters) |
-| `s266` – `s278` | String and character literals (`"hello"`, `'a'`) |
-| `s279` – `s298` | Integer literals (1–10 digits) |
-| `s299` – `s316` | Long integer literals (11–19 digits) |
-| `s317` – `s331` | Float literals (decimal point + 1–7 fractional digits) |
-| `s332` – `s349` | Double literals (decimal point + 8–16 fractional digits) |
+The FSA follows the official Transition Diagram (TD) exactly, with states s0–s364:
+
+| Range | Token Category | Description |
+|-------|---------------|-------------|
+| `s0` | Start state | Entry point; dispatches based on first character |
+| `s1` – `s166` | **Keywords** (35 keywords) | All reserved words including new math functions |
+| `s167` – `s208` | **Operators** | Arithmetic, assignment, relational, logical operators |
+| `s209` – `s230` | **Delimiters** | Parentheses, brackets, braces, punctuation |
+| `s231` – `s280` | **Identifiers** | User-defined names (up to 25 characters) |
+| `s281` – `s286` | **Comments** | Single-line (`//`) and multi-line (`/* */`) |
+| `s287` – `s289` | **String literals** | Double-quoted strings (`"hello"`) |
+| `s290` – `s293` | **Char literals** | Single-quoted characters (`'a'`) |
+| `s294` – `s313` | **Integer literals** | 1–10 digit integers |
+| `s314` – `s331` | **Long literals** | 11–19 digit integers |
+| `s332` – `s346` | **Float literals** | Decimal point + 1–7 fractional digits |
+| `s347` – `s364` | **Double literals** | Decimal point + 8–16 fractional digits |
+
+### Keyword State Mappings
+
+The 35 keywords are organized by first letter, with each letter dispatching to a specific state:
+
+| First Letter | Dispatch State | Keywords |
+|--------------|----------------|----------|
+| `a` | s1 | `abs` (s1→s2→s3→s4*) |
+| `b` | s5 | `bool` (s5→s6→s7→s8→s9*), `break` (s5→s10→s11→s12→s13→s14*) |
+| `c` | s15 | `case`, `char`, `const` |
+| `d` | s29 | `default`, `do`, `double` |
+| `e` | s44 | `else` |
+| `f` | s49 | `false`, `float`, `for`, `func` |
+| `g` | s67 | `global` |
+| `i` | s74 | `if`, `int` |
+| `l` | s80 | `len` (s80→s81→s82→s83*), `local`, `long` |
+| `m` | s92 | `main` |
+| `p` | s97 | `pow` (s97→s98→s99→s100*) |
+| `r` | s101 | `return` |
+| `s` | s108 | `sqrt` (s108→s109→s110→s111→s112*), `string`, `switch` |
+| `t` | s125 | `thread`, `threadln`, `trap`, `true` |
+| `u` | s142 | `using` |
+| `v` | s148 | `var`, `void` |
+| `w` | s156 | `weave`, `while` |
+
+---
+
+## Transition Diagram Reference
+
+The lexer strictly follows the official Transition Diagram (TD) document. The TD defines exactly which states exist and how transitions occur. Key principles:
+
+### New Math Function Keywords
+
+Four built-in math functions were added in the latest revision:
+
+| Keyword | State Path | Delimiter | Description |
+|---------|------------|-----------|-------------|
+| `abs` | s0→s1→s2→s3→s4* | `(` | Absolute value |
+| `len` | s0→s80→s81→s82→s83* | `(` | Length of string/array |
+| `pow` | s0→s97→s98→s99→s100* | `(` | Power (exponentiation) |
+| `sqrt` | s0→s108→s109→s110→s111→s112* | `(` | Square root |
+
+These keywords require `(` as their delimiter because they are function-style calls (e.g., `abs(5)`, `sqrt(16)`).
+
+### How States Work
+
+1. **Start State (s0)**: Entry point for every new token. Based on the first character, the FSA dispatches to the appropriate state:
+   - Letters → keyword or identifier states
+   - Digits → numeric literal states
+   - Operators → operator states
+   - Quotes → string/char literal states
+
+2. **Intermediate States**: The FSA is building a token but hasn't confirmed it yet. For example, after reading `i`, `n`, `t` for keyword `int`, we're in an intermediate state.
+
+3. **Final States**: Marked with `*` in the TD. When a valid delimiter is encountered, the intermediate state promotes to its final state and emits the token.
+
+### Identifier vs Keyword Disambiguation
+
+When reading a potential keyword like `int`, if the next character continues the word (e.g., `intx`), the FSA falls back to identifier states (s231–s280). This ensures:
+- `int x` → keyword `int` + identifier `x`
+- `intx` → identifier `intx`
+- `absolute` → identifier `absolute` (not keyword `abs`)
 
 ### Transition Logic
 
@@ -127,13 +208,14 @@ Each emitted `Token` has four fields:
 | Type | Examples |
 |------|---------|
 | `int`, `long`, `float`, `double`, `char`, `string`, `bool` | Data type keywords |
+| `abs`, `len`, `pow`, `sqrt` | Math function keywords (require `(` delimiter) |
 | `void`, `func`, `main`, `return`, `break` | Function/control keywords |
-| `var`, `const`, `global`, `weave` | Declaration keywords |
+| `var`, `const`, `global`, `local`, `weave` | Declaration keywords |
 | `if`, `else`, `switch`, `case`, `default` | Conditional keywords |
 | `for`, `while`, `do` | Loop keywords |
 | `trap`, `thread`, `threadln` | I/O keywords |
 | `using` | Import keyword |
-| `true`, `false` | Boolean literals |
+| `true`, `false` | Boolean literals (`bool_lit` token type) |
 | `INTLIT` | Integer literal (`42`, `0`, `999`) |
 | `LONGLIT` | Long literal (`12345678901`) |
 | `FLOATLIT` | Float literal (`3.14`, `0.001`) |
@@ -187,7 +269,6 @@ The `Delimiters` class in `app/lexer/delimiters.py` defines named delimiter sets
 | `dtype_delim` | After primitive type keywords (`int`, `float`, etc.) |
 | `iden_delim` | After identifiers |
 | `negative_delim` | After `-` (arithmetic negation) |
-| `unary_delim` | After `++` / `--` |
 | `open_paren_delim` | After `(` |
 | `close_paren_delim` | After `)` |
 | `close_bracket_delim` | After `]` |
@@ -199,6 +280,37 @@ The `Delimiters` class in `app/lexer/delimiters.py` defines named delimiter sets
 | `relational_delim` | After `>`, `<`, `>=`, `<=`, `==`, `!=` |
 | `loop_delim` | After `for`, `while`, `do` |
 | `block_delim` | After block-initiating tokens |
+| `bool_lit_delim` | After `true`/`false` |
+| `nbl_delim` | After numeric literals (int, long, float, double) |
+
+### EOF as Valid Delimiter
+
+**Only the closing curly brace `}` allows EOF as a valid delimiter.** This is because PORTIA programs must be complete functions or blocks that end with `}`:
+
+```portia
+int main(){
+    return 0;
+}
+// EOF after } is valid
+```
+
+**All other tokens require an explicit delimiter** (whitespace, operator, or punctuation). This design ensures:
+- Incomplete expressions like `abs(5)` (ending at EOF) are caught as lexical errors
+- Bare identifiers like `x` at EOF are flagged
+- Only properly closed programs with `}` can end successfully
+
+This strict delimiter policy catches incomplete code early in the compilation pipeline.
+
+### Special Delimiter Rules for Math Functions
+
+The new math keywords require `(` as their only valid delimiter:
+
+| Keyword | Required Delimiter | Example |
+|---------|-------------------|---------|
+| `abs` | `(` | `abs(5)` ✓, `abs 5` ✗ |
+| `len` | `(` | `len(arr)` ✓ |
+| `pow` | `(` | `pow(2,3)` ✓ |
+| `sqrt` | `(` | `sqrt(16)` ✓ |
 
 ---
 
@@ -326,8 +438,33 @@ lexer-backend/
 │   ├── main.py                  # FastAPI app, CORS, /lex endpoint
 │   └── lexer/
 │       ├── __init__.py
-│       ├── portia_lexer.py      # LexicalAnalyzer class, Token dataclass, FSA
+│       ├── portia_lexer.py      # LexicalAnalyzer class, Token dataclass, FSA (~3600 lines)
 │       ├── character_classes.py # CharacterClasses: alphabetics, numbers, etc.
-│       └── delimiters.py        # Delimiters: token boundary sets
-└── .venv-py312/                 # Python 3.12 virtual environment
+│       └── delimiters.py        # Delimiters: token boundary sets (includes EOF rules)
+├── .venv-py312/                 # Python 3.12 virtual environment
+└── README.md                    # This documentation
 ```
+
+### Key Implementation Details
+
+**portia_lexer.py** contains:
+- `INTERMEDIATE_TO_FINAL` dictionary mapping intermediate states to final states
+- `lex_transition()` method implementing the FSA (s0-s364)
+- `check_delimiter()` for validating token boundaries
+- `get_token_type()` for mapping final states to token type strings
+
+**delimiters.py** contains:
+- Delimiter sets for each token category
+- Special delimiter rules (abs/len/pow/sqrt require `(`)
+- EOF handling for valid end-of-file positions
+
+---
+
+## Version History
+
+| Version | Changes |
+|---------|---------|
+| 1.0 | Initial lexer with 31 keywords |
+| 1.1 | Added `abs`, `len`, `pow`, `sqrt` keywords (TD-compliant states s1-s166) |
+| 1.1 | Added EOF as valid delimiter for identifiers, literals, and closing brackets |
+| 1.1 | Updated state ranges to match official TD (s0-s364) |
