@@ -76,15 +76,6 @@ and prevents misleading cascaded failures.
 - `test-scripts/` - test and regression scripts
 - `revised-documents/` - grammar and language reference files
 
-## Language Support
-
-PORTIA currently includes support for:
-
-- lexical analysis
-- parsing into AST form
-- semantic validation
-- ICG and runtime execution
-- built-in functions: `len`, `abs`, `sqrt`, and `pow`
 
 ## Requirements
 
