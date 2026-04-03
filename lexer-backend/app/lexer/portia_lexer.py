@@ -28,15 +28,79 @@ class LexicalAnalyzer:
     # Uses FSA-based state machine for token recognition
 
     # FSA intermediate-to-final state mappings (used for whitespace, newline, EOF, and ANY transitions)
+    # State mappings follow the TD exactly: s0-s364
     INTERMEDIATE_TO_FINAL = {
-        # Keywords (s1-s151)
-        's4': 's5', 's9': 's10', 's14': 's15', 's18': 's19', 's23': 's24',
-        's31': 's32', 's33': 's34', 's38': 's39', 's43': 's44', 's49': 's50',
-        's54': 's55', 's57': 's58', 's61': 's62', 's68': 's69', 's71': 's72',
-        's74': 's75', 's80': 's81', 's83': 's84', 's88': 's89', 's95': 's96',
-        's102': 's103', 's108': 's109', 's115': 's116', 's118': 's119',
-        's122': 's123', 's125': 's126', 's131': 's132', 's135': 's136',
-        's139': 's140', 's145': 's146', 's150': 's151',
+        # Keywords (s1-s166) - TD-compliant state numbers
+        # abs: s1→s2→s3 →(→ s4*
+        's3': 's4',
+        # bool: s5→s6→s7→s8 →space_delim→ s9*
+        's8': 's9',
+        # break: s10→s11→s12→s13 →;→ s14*
+        's13': 's14',
+        # case: s15→s16→s17→s18 →space_delim→ s19*
+        's18': 's19',
+        # char: s20→s21→s22 →dtype_delim→ s23*
+        's22': 's23',
+        # const: s24→s25→s26→s27 →space_delim→ s28*
+        's27': 's28',
+        # default: s29→s30→s31→s32→s33→s34→s35 →:→ s36*
+        's35': 's36',
+        # do: s37 →block_delim→ s38*
+        's37': 's38',
+        # double: s39→s40→s41→s42 →dtype_delim→ s43*
+        's42': 's43',
+        # else: s44→s45→s46→s47 →block_delim→ s48*
+        's47': 's48',
+        # false: s49→s50→s51→s52→s53 →bool_lit_delim→ s54*
+        's53': 's54',
+        # float: s55→s56→s57→s58 →dtype_delim→ s59*
+        's58': 's59',
+        # for: s60→s61 →loop_delim→ s62*
+        's61': 's62',
+        # func: s63→s64→s65 →space_delim→ s66*
+        's65': 's66',
+        # global: s67→s68→s69→s70→s71→s72 →space_delim→ s73*
+        's72': 's73',
+        # if: s74→s75 →loop_delim→ s76*
+        's75': 's76',
+        # int: s77→s78 →dtype_delim→ s79*
+        's78': 's79',
+        # len: s80→s81→s82 →(→ s83*
+        's82': 's83',
+        # local: s84→s85→s86→s87 →space_delim→ s88*
+        's87': 's88',
+        # long: s89→s90 →dtype_delim→ s91*
+        's90': 's91',
+        # main: s92→s93→s94→s95 →(→ s96*
+        's95': 's96',
+        # pow: s97→s98→s99 →(→ s100*
+        's99': 's100',
+        # return: s101→s102→s103→s104→s105→s106 →return_delim→ s107*
+        's106': 's107',
+        # sqrt: s108→s109→s110→s111 →(→ s112*
+        's111': 's112',
+        # string: s113→s114→s115→s116→s117 →dtype_delim→ s118*
+        's117': 's118',
+        # switch: s119→s120→s121→s122→s123 →loop_delim→ s124*
+        's123': 's124',
+        # thread: s125→s126→s127→s128→s129→s130 →(→ s131*
+        's130': 's131',
+        # threadln: s132→s133 →(→ s134*
+        's133': 's134',
+        # trap: s135→s136→s137 →(→ s138*
+        's137': 's138',
+        # true: s139→s140 →bool_lit_delim→ s141*
+        's140': 's141',
+        # using: s142→s143→s144→s145→s146 →space_delim→ s147*
+        's146': 's147',
+        # var: s148→s149→s150 →space_delim→ s151*
+        's150': 's151',
+        # void: s152→s153→s154 →space_delim→ s155*
+        's154': 's155',
+        # weave: s156→s157→s158→s159→s160 →space_delim→ s161*
+        's160': 's161',
+        # while: s162→s163→s164→s165 →loop_delim→ s166*
+        's165': 's166',
         # Operators (s167-s208)
         's167': 's168', 's169': 's170',
         's171': 's172', 's173': 's174',
@@ -57,7 +121,7 @@ class LexicalAnalyzer:
         's263': 's264', 's265': 's266', 's267': 's268', 's269': 's270',
         's271': 's272', 's273': 's274', 's275': 's276', 's277': 's278',
         's279': 's280',
-        # String and character literals - removed s273 and s277, they need explicit delimiter checking
+        # String and character literals - removed s288 and s292, they need explicit delimiter checking
         # Integer literals (s294-s313) - 10 digits
         's294': 's295', 's296': 's297', 's298': 's299', 's300': 's301',
         's302': 's303', 's304': 's305', 's306': 's307', 's308': 's309',
@@ -393,8 +457,9 @@ class LexicalAnalyzer:
                         continue
 
                 # Check if we're in a keyword dispatcher state that can finalize as identifier
-                # Dispatcher states: s1(b), s11(c), s25(d), s40(e), s45(f), s63(g), s70(i), s76(l), s85(m), s90(r), s97(s), s110(t), s127(u), s133(v), s141(w)
-                if currState in ['s1', 's11', 's25', 's40', 's45', 's63', 's70', 's76', 's85', 's90', 's97', 's110', 's127', 's133', 's141']:
+                # TD-compliant dispatcher states from s0:
+                # a→s1, b→s5, c→s15, d→s29, e→s44, f→s49, g→s67, i→s74, l→s80, m→s92, p→s97, r→s101, s→s108, t→s125, u→s142, v→s148, w→s156
+                if currState in ['s1', 's5', 's15', 's29', 's44', 's49', 's67', 's74', 's80', 's92', 's97', 's101', 's108', 's125', 's142', 's148', 's156']:
                     # Try to finalize as single-letter identifier via ANY
                     anyState = self.lex_transition(currState, 'ANY')
                     if anyState != 'UNDEFINED' and self.is_final_state(anyState):
@@ -667,8 +732,9 @@ class LexicalAnalyzer:
 
                 # Special case: keyword dispatcher states (first letter of keywords)
                 # These states can also finalize as single-letter identifiers via 'ANY'
-                # Keyword dispatcher states: s1(b), s11(c), s25(d), s40(e), s45(f), s63(g), s70(i), s76(l), s85(m), s90(r), s97(s), s110(t), s127(u), s133(v), s141(w)
-                if currState in ['s1', 's11', 's25', 's40', 's45', 's63', 's70', 's76', 's85', 's90', 's97', 's110', 's127', 's133', 's141']:
+                # TD-compliant dispatcher states from s0:
+                # a→s1, b→s5, c→s15, d→s29, e→s44, f→s49, g→s67, i→s74, l→s80, m→s92, p→s97, r→s101, s→s108, t→s125, u→s142, v→s148, w→s156
+                if currState in ['s1', 's5', 's15', 's29', 's44', 's49', 's67', 's74', 's80', 's92', 's97', 's101', 's108', 's125', 's142', 's148', 's156']:
                     # Try to finalize with ANY (single letter as identifier)
                     anyState = self.lex_transition(currState, 'ANY')
                     if anyState != 'UNDEFINED' and self.is_final_state(anyState):
@@ -903,14 +969,14 @@ class LexicalAnalyzer:
             # When an intermediate state transitions to a final state via 'ANY',
             # we should NOT add the character to the lexeme - it's the delimiter
             if currState in self.INTERMEDIATE_TO_FINAL and nextState == self.INTERMEDIATE_TO_FINAL[currState]:
-                # Check if we're in a keyword state (s1-s151) and next char is identifier character
+                # Check if we're in a keyword state (s1-s166) and next char is identifier character
                 # Keywords followed by identifier chars should become identifiers (e.g., 'boolx')
                 # But delimiters and operators should finalize regardless of next character
                 state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
-                is_keyword_state = 1 <= state_num <= 151
+                is_keyword_state = 1 <= state_num <= 166
 
                 if is_keyword_state and (ch in self.alphanum or ch == '_'):
-                    # Continue building as identifier - transition to s220
+                    # Continue building as identifier - transition to s231
                     lexeme += ch
                     currState = 's231'
                     i += 1
@@ -1106,17 +1172,78 @@ class LexicalAnalyzer:
     def get_token_type(self, state: str, lexeme: str) -> str:
         # Maps a final FSA state to its corresponding token type
         # Handles special cases like numeric literals and identifiers
-        # Only TD-verified final states
+        # TD-compliant final states (s0-s364)
         keyword_states = {
-            's5': 'bool', 's10': 'break', 's15': 'case', 's19': 'char', 's24': 'const',
-            's32': 'default', 's34': 'do', 's39': 'double', 's44': 'else',
-            's50': 'bool_lit',  # false
-            's55': 'float', 's58': 'for', 's62': 'func', 's69': 'global',
-            's72': 'if', 's75': 'int', 's81': 'local', 's84': 'long', 's89': 'main',
-            's96': 'return', 's103': 'string', 's109': 'switch',
-            's116': 'thread', 's119': 'threadln', 's123': 'trap',
-            's126': 'bool_lit',  # true
-            's132': 'using', 's136': 'var', 's140': 'void', 's146': 'weave', 's151': 'while',
+            # abs: s4* (final after '(')
+            's4': 'abs',
+            # bool: s9* (final after space_delim)
+            's9': 'bool',
+            # break: s14* (final after ';')
+            's14': 'break',
+            # case: s19* (final after space_delim)
+            's19': 'case',
+            # char: s23* (final after dtype_delim)
+            's23': 'char',
+            # const: s28* (final after space_delim)
+            's28': 'const',
+            # default: s36* (final after ':')
+            's36': 'default',
+            # do: s38* (final after block_delim)
+            's38': 'do',
+            # double: s43* (final after dtype_delim)
+            's43': 'double',
+            # else: s48* (final after block_delim)
+            's48': 'else',
+            # false: s54* (final after bool_lit_delim)
+            's54': 'bool_lit',
+            # float: s59* (final after dtype_delim)
+            's59': 'float',
+            # for: s62* (final after loop_delim)
+            's62': 'for',
+            # func: s66* (final after space_delim)
+            's66': 'func',
+            # global: s73* (final after space_delim)
+            's73': 'global',
+            # if: s76* (final after loop_delim)
+            's76': 'if',
+            # int: s79* (final after dtype_delim)
+            's79': 'int',
+            # len: s83* (final after '(')
+            's83': 'len',
+            # local: s88* (final after space_delim)
+            's88': 'local',
+            # long: s91* (final after dtype_delim)
+            's91': 'long',
+            # main: s96* (final after '(')
+            's96': 'main',
+            # pow: s100* (final after '(')
+            's100': 'pow',
+            # return: s107* (final after return_delim)
+            's107': 'return',
+            # sqrt: s112* (final after '(')
+            's112': 'sqrt',
+            # string: s118* (final after dtype_delim)
+            's118': 'string',
+            # switch: s124* (final after loop_delim)
+            's124': 'switch',
+            # thread: s131* (final after '(')
+            's131': 'thread',
+            # threadln: s134* (final after '(')
+            's134': 'threadln',
+            # trap: s138* (final after '(')
+            's138': 'trap',
+            # true: s141* (final after bool_lit_delim)
+            's141': 'bool_lit',
+            # using: s147* (final after space_delim)
+            's147': 'using',
+            # var: s151* (final after space_delim)
+            's151': 'var',
+            # void: s155* (final after space_delim)
+            's155': 'void',
+            # weave: s161* (final after space_delim)
+            's161': 'weave',
+            # while: s166* (final after loop_delim)
+            's166': 'while',
         }
 
         operator_states = {
@@ -1216,7 +1343,7 @@ class LexicalAnalyzer:
 
         STRICTLY follows Transition Diagrams (TD):
         - s0: Initial/start state
-        - s1-s151: Keywords / reserved words (abs/len/pow/sqrt recognized via identifier path)
+        - s1-s166: Keywords / reserved words (35 keywords including abs/len/pow/sqrt)
         - s167-s208: Operators FSA with intermediate→final transitions
         - s209-s230: Delimiters FSA with intermediate→final transitions
         - s231-s280: Identifiers FSA (max 25 characters)
@@ -1276,23 +1403,26 @@ class LexicalAnalyzer:
                     # Numbers - check before identifiers
                     case _ if currChar in self.numbers: return 's294'
 
-                    # Keywords - dispatch by first letter to keyword-specific FSA states
-                    # MUST come before generic identifier pattern
-                    case 'b': return 's1'    # bool, break
-                    case 'c': return 's11'   # case, char, const
-                    case 'd': return 's25'   # default, do, double
-                    case 'e': return 's40'   # else
-                    case 'f': return 's45'   # false, float, for, func
-                    case 'g': return 's63'   # global
-                    case 'i': return 's70'   # if, int
-                    case 'l': return 's76'   # local, long (len scanned as identifier via s231)
-                    case 'm': return 's85'   # main
-                    case 'r': return 's90'   # return
-                    case 's': return 's97'   # string, switch (sqrt scanned as identifier via s231)
-                    case 't': return 's110'  # thread, threadln, trap, true
-                    case 'u': return 's127'  # using
-                    case 'v': return 's133'  # var, void
-                    case 'w': return 's141'  # weave, while
+                    # Keywords - dispatch by first letter to TD-compliant keyword states
+                    # TD-compliant dispatching: a→s1, b→s5, c→s15, d→s29, e→s44, f→s49, g→s67,
+                    # i→s74, l→s80, m→s92, p→s97, r→s101, s→s108, t→s125, u→s142, v→s148, w→s156
+                    case 'a': return 's1'    # abs
+                    case 'b': return 's5'    # bool, break
+                    case 'c': return 's15'   # case, char, const
+                    case 'd': return 's29'   # default, do, double
+                    case 'e': return 's44'   # else
+                    case 'f': return 's49'   # false, float, for, func
+                    case 'g': return 's67'   # global
+                    case 'i': return 's74'   # if, int
+                    case 'l': return 's80'   # len, local, long
+                    case 'm': return 's92'   # main
+                    case 'p': return 's97'   # pow
+                    case 'r': return 's101'  # return
+                    case 's': return 's108'  # sqrt, string, switch
+                    case 't': return 's125'  # thread, threadln, trap, true
+                    case 'u': return 's142'  # using
+                    case 'v': return 's148'  # var, void
+                    case 'w': return 's156'  # weave, while
 
                     # Identifiers - route to generic identifier FSA
                     # MUST be after all specific character matches (including keywords)
@@ -1302,723 +1432,1003 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # KEYWORDS FSA - States s1 to s151 (strictly from TD images)
-            # All final states are the state AFTER consuming the last letter
+            # KEYWORDS FSA - States s1 to s166 (TD-compliant)
+            # From TD images: keywords_s1-s66.jpg, keywords_s67-s141.jpg, keywords_s142-s166.jpg
+            # All final states marked with * in TD (e.g., s4*, s9*, etc.)
             # ============================================================
 
-            # BOOL: s0 →b→ s1 →o→ s2 →o→ s3 →l→ s4 →whitespace→ s5* (final)
-            case 's1':
+            # -----------------------------------------------------------
+            # ABS: s0 →a→ s1 →b→ s2 →s→ s3 →(→ s4* (final)
+            # -----------------------------------------------------------
+            case 's1':  # After 'a' from s0
                 match currChar:
-                    case 'o': return 's2'
-                    case 'r': return 's6'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case 'b': return 's2'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
+                    case 'ANY': return 's232'  # 'a' alone is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's2':  # After 'ab'
+                match currChar:
+                    case 's': return 's3'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'ab' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's3':  # After 'abs' - intermediate, needs '(' delimiter
+                match currChar:
+                    case 'ANY': return 's4'  # Transition to final state
+                    case _: return 's4'
+            case 's4':  # ABS final state (requires '(' delimiter)
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            # -----------------------------------------------------------
+            # BOOL: s0 →b→ s5 →o→ s6 →o→ s7 →l→ s8 →space_delim→ s9* (final)
+            # BREAK: s5 →r→ s10 →e→ s11 →a→ s12 →k→ s13 →;→ s14* (final)
+            # -----------------------------------------------------------
+            case 's5':  # After 'b' from s0
+                match currChar:
+                    case 'o': return 's6'
+                    case 'r': return 's10'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'b' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's2':
+            case 's6':  # After 'bo'
                 match currChar:
-                    case 'o': return 's3'
+                    case 'o': return 's7'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'bo' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's3':
+            case 's7':  # After 'boo'
                 match currChar:
-                    case 'l': return 's4'
+                    case 'l': return 's8'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'boo' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's4':
-                # After 'l' in 'bool' - intermediate state
+            case 's8':  # After 'bool' - intermediate, needs space_delim
                 match currChar:
-                    case 'ANY': return 's5'  # Transition to final state
-                    case _: return 's5'
-            case 's5':
-                # BOOL final state (whitespace delimiter)
+                    case 'ANY': return 's9'  # Transition to final state
+                    case _: return 's9'
+            case 's9':  # BOOL final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            # BREAK: s1 →r→ s6 →e→ s7 →a→ s8 →k→ s9 →whitespace→ s10* (final)
-            case 's6':
+
+            # BREAK path
+            case 's10':  # After 'br'
                 match currChar:
-                    case 'e': return 's7'
+                    case 'e': return 's11'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'br' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's7':
-                match currChar:
-                    case 'a': return 's8'
-                    case _: return 'UNDEFINED'
-            case 's8':
-                match currChar:
-                    case 'k': return 's9'
-                    case _: return 'UNDEFINED'
-            case 's9':
-                # After 'k' in 'break' - intermediate state
-                match currChar:
-                    case 'ANY': return 's10'  # Transition to final state
-                    case _: return 's10'
-            case 's10':
-                # BREAK final state (whitespace delimiter)
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's11':
+            case 's11':  # After 'bre'
                 match currChar:
                     case 'a': return 's12'
-                    case 'h': return 's16'
-                    case 'o': return 's20'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'bre' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's12':  # After 'brea'
+                match currChar:
+                    case 'k': return 's13'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'brea' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's13':  # After 'break' - intermediate, needs ';' delimiter
+                match currChar:
+                    case 'ANY': return 's14'  # Transition to final state
+                    case _: return 's14'
+            case 's14':  # BREAK final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            # -----------------------------------------------------------
+            # CASE: s0 →c→ s15 →a→ s16 →s→ s17 →e→ s18 →space_delim→ s19* (final)
+            # CHAR: s15 →h→ s20 →a→ s21 →r→ s22 →dtype_delim→ s23* (final)
+            # CONST: s15 →o→ s24 →n→ s25 →s→ s26 →t→ s27 →space_delim→ s28* (final)
+            # -----------------------------------------------------------
+            case 's15':  # After 'c' from s0
+                match currChar:
+                    case 'a': return 's16'
+                    case 'h': return 's20'
+                    case 'o': return 's24'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'c' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's12':
+            case 's16':  # After 'ca'
                 match currChar:
-                    case 's': return 's13'
+                    case 's': return 's17'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'ca' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's13':
+            case 's17':  # After 'cas'
                 match currChar:
-                    case 'e': return 's14'
+                    case 'e': return 's18'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'cas' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's14':
-                # case intermediate (after 'e')
+            case 's18':  # After 'case' - intermediate, needs space_delim
                 match currChar:
-                    case 'ANY': return 's15'
-                    case _: return 's15'
-            case 's15':
-                # case FINAL*
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's16':
-                match currChar:
-                    case 'a': return 's17'
-                    case _: return 'UNDEFINED'
-            case 's17':
-                match currChar:
-                    case 'r': return 's18'
-                    case _: return 'UNDEFINED'
-            case 's18':
-                # char intermediate (after 'r')
-                match currChar:
-                    case 'ANY': return 's19'
+                    case 'ANY': return 's19'  # Transition to final state
                     case _: return 's19'
-            case 's19':
-                # char FINAL*
+            case 's19':  # CASE final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's20':
+
+            # CHAR path
+            case 's20':  # After 'ch'
                 match currChar:
-                    case 'n': return 's21'
+                    case 'a': return 's21'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'ch' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's21':
+            case 's21':  # After 'cha'
                 match currChar:
-                    case 's': return 's22'
+                    case 'r': return 's22'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'cha' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's22':
+            case 's22':  # After 'char' - intermediate, needs dtype_delim
                 match currChar:
-                    case 't': return 's23'
-                    case _: return 'UNDEFINED'
-            case 's23':
-                # const intermediate (after 't')
-                match currChar:
-                    case 'ANY': return 's24'
-                    case _: return 's24'
-            case 's24':
-                # const FINAL*
+                    case 'ANY': return 's23'  # Transition to final state
+                    case _: return 's23'
+            case 's23':  # CHAR final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's25':
+
+            # CONST path
+            case 's24':  # After 'co'
                 match currChar:
-                    case 'e': return 's26'
-                    case 'o': return 's33'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case 'n': return 's25'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'co' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's25':  # After 'con'
+                match currChar:
+                    case 's': return 's26'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'con' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's26':  # After 'cons'
+                match currChar:
+                    case 't': return 's27'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'cons' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's27':  # After 'const' - intermediate, needs space_delim
+                match currChar:
+                    case 'ANY': return 's28'  # Transition to final state
+                    case _: return 's28'
+            case 's28':  # CONST final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            # -----------------------------------------------------------
+            # DEFAULT: s0 →d→ s29 →e→ s30 →f→ s31 →a→ s32 →u→ s33 →l→ s34 →t→ s35 →:→ s36* (final)
+            # DO: s29 →o→ s37 →block_delim→ s38* (final)
+            # DOUBLE: s37 →u→ s39 →b→ s40 →l→ s41 →e→ s42 →dtype_delim→ s43* (final)
+            # -----------------------------------------------------------
+            case 's29':  # After 'd' from s0
+                match currChar:
+                    case 'e': return 's30'
+                    case 'o': return 's37'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'd' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's26':
+            case 's30':  # After 'de'
                 match currChar:
-                    case 'f': return 's27'
+                    case 'f': return 's31'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'de' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's27':
+            case 's31':  # After 'def'
                 match currChar:
-                    case 'a': return 's28'
+                    case 'a': return 's32'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'def' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's28':
+            case 's32':  # After 'defa'
                 match currChar:
-                    case 'u': return 's29'
+                    case 'u': return 's33'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'defa' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's29':
+            case 's33':  # After 'defau'
                 match currChar:
-                    case 'l': return 's30'
+                    case 'l': return 's34'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's239'
+                    case 'ANY': return 's240'  # 'defau' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's30':
+            case 's34':  # After 'defaul'
                 match currChar:
-                    case 't': return 's31'
+                    case 't': return 's35'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's241'
+                    case 'ANY': return 's242'  # 'defaul' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's31':
-                # default intermediate (after 't')
+            case 's35':  # After 'default' - intermediate, needs ':' delimiter
                 match currChar:
-                    case 'ANY': return 's32'
-                    case _: return 's32'
-            case 's32':
-                # default FINAL*
+                    case 'ANY': return 's36'  # Transition to final state
+                    case _: return 's36'
+            case 's36':  # DEFAULT final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's33':
+
+            # DO path
+            case 's37':  # After 'do' - intermediate, but can branch to double
                 match currChar:
-                    case 'u': return 's35'
-                    case 'ANY': return 's34'
-                    case _: return 's34'
-            case 's34':
-                # do FINAL*
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's35':
-                match currChar:
-                    case 'b': return 's36'
-                    case _: return 'UNDEFINED'
-            case 's36':
-                match currChar:
-                    case 'l': return 's37'
-                    case _: return 'UNDEFINED'
-            case 's37':
-                match currChar:
-                    case 'e': return 's38'
-                    case _: return 'UNDEFINED'
-            case 's38':
-                # double intermediate (after 'e')
-                match currChar:
-                    case 'ANY': return 's39'
-                    case _: return 's39'
-            case 's39':
-                # double FINAL*
+                    case 'u': return 's39'  # double path
+                    case 'ANY': return 's38'  # Transition to DO final state
+                    case _: return 's38'
+            case 's38':  # DO final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's40':
+
+            # DOUBLE path
+            case 's39':  # After 'dou'
+                match currChar:
+                    case 'b': return 's40'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'dou' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's40':  # After 'doub'
                 match currChar:
                     case 'l': return 's41'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'doub' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's41':  # After 'doubl'
+                match currChar:
+                    case 'e': return 's42'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's239'
+                    case 'ANY': return 's240'  # 'doubl' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's42':  # After 'double' - intermediate, needs dtype_delim
+                match currChar:
+                    case 'ANY': return 's43'  # Transition to final state
+                    case _: return 's43'
+            case 's43':  # DOUBLE final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            # -----------------------------------------------------------
+            # ELSE: s0 →e→ s44 →l→ s45 →s→ s46 →e→ s47 →block_delim→ s48* (final)
+            # -----------------------------------------------------------
+            case 's44':  # After 'e' from s0
+                match currChar:
+                    case 'l': return 's45'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'e' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's41':
+            case 's45':  # After 'el'
                 match currChar:
-                    case 's': return 's42'
+                    case 's': return 's46'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'el' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's42':
+            case 's46':  # After 'els'
                 match currChar:
-                    case 'e': return 's43'
+                    case 'e': return 's47'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'els' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's43':
-                # else intermediate (after 'e')
+            case 's47':  # After 'else' - intermediate, needs block_delim
                 match currChar:
-                    case 'ANY': return 's44'
-                    case _: return 's44'
-            case 's44':
-                # else FINAL*
+                    case 'ANY': return 's48'  # Transition to final state
+                    case _: return 's48'
+            case 's48':  # ELSE final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's45':
+
+            # -----------------------------------------------------------
+            # FALSE: s0 →f→ s49 →a→ s50 →l→ s51 →s→ s52 →e→ s53 →bool_lit_delim→ s54* (final)
+            # FLOAT: s49 →l→ s55 →o→ s56 →a→ s57 →t→ s58 →dtype_delim→ s59* (final)
+            # FOR: s49 →o→ s60 →r→ s61 →loop_delim→ s62* (final)
+            # FUNC: s49 →u→ s63 →n→ s64 →c→ s65 →space_delim→ s66* (final)
+            # -----------------------------------------------------------
+            case 's49':  # After 'f' from s0
                 match currChar:
-                    case 'a': return 's46'
-                    case 'l': return 's51'
-                    case 'o': return 's56'
-                    case 'u': return 's59'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case 'a': return 's50'
+                    case 'l': return 's55'
+                    case 'o': return 's60'
+                    case 'u': return 's63'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'f' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's46':
+            case 's50':  # After 'fa'
                 match currChar:
-                    case 'l': return 's47'
+                    case 'l': return 's51'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'fa' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's47':
+            case 's51':  # After 'fal'
                 match currChar:
-                    case 's': return 's48'
+                    case 's': return 's52'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'fal' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's48':
+            case 's52':  # After 'fals'
                 match currChar:
-                    case 'e': return 's49'
+                    case 'e': return 's53'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'fals' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's49':
-                # false intermediate (after 'e')
+            case 's53':  # After 'false' - intermediate, needs bool_lit_delim
                 match currChar:
-                    case 'ANY': return 's50'
-                    case _: return 's50'
-            case 's50':
-                # false FINAL*
+                    case 'ANY': return 's54'  # Transition to final state
+                    case _: return 's54'
+            case 's54':  # FALSE final state (bool_lit)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's51':
+
+            # FLOAT path
+            case 's55':  # After 'fl'
                 match currChar:
-                    case 'o': return 's52'
+                    case 'o': return 's56'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'fl' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's52':
+            case 's56':  # After 'flo'
                 match currChar:
-                    case 'a': return 's53'
+                    case 'a': return 's57'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'flo' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's53':
+            case 's57':  # After 'floa'
                 match currChar:
-                    case 't': return 's54'
+                    case 't': return 's58'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'floa' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's54':
-                # float intermediate (after 't')
+            case 's58':  # After 'float' - intermediate, needs dtype_delim
                 match currChar:
-                    case 'ANY': return 's55'
-                    case _: return 's55'
-            case 's55':
-                # float FINAL*
+                    case 'ANY': return 's59'  # Transition to final state
+                    case _: return 's59'
+            case 's59':  # FLOAT final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's56':
+
+            # FOR path
+            case 's60':  # After 'fo'
                 match currChar:
-                    case 'r': return 's57'
+                    case 'r': return 's61'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'fo' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's57':
-                # for intermediate (after 'r')
+            case 's61':  # After 'for' - intermediate, needs loop_delim
                 match currChar:
-                    case 'ANY': return 's58'
-                    case _: return 's58'
-            case 's58':
-                # for FINAL*
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's59':
-                match currChar:
-                    case 'n': return 's60'
-                    case _: return 'UNDEFINED'
-            case 's60':
-                match currChar:
-                    case 'c': return 's61'
-                    case _: return 'UNDEFINED'
-            case 's61':
-                # func intermediate (after 'c')
-                match currChar:
-                    case 'ANY': return 's62'
+                    case 'ANY': return 's62'  # Transition to final state
                     case _: return 's62'
-            case 's62':
-                # func FINAL*
+            case 's62':  # FOR final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's63':
+
+            # FUNC path
+            case 's63':  # After 'fu'
                 match currChar:
-                    case 'l': return 's64'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
-                    case 'ANY': return 's232'  # 'g' alone is valid identifier
+                    case 'n': return 's64'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'fu' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's64':
+            case 's64':  # After 'fun'
                 match currChar:
-                    case 'o': return 's65'
+                    case 'c': return 's65'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'fun' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's65':
+            case 's65':  # After 'func' - intermediate, needs space_delim
                 match currChar:
-                    case 'b': return 's66'
-                    case _: return 'UNDEFINED'
-            case 's66':
+                    case 'ANY': return 's66'  # Transition to final state
+                    case _: return 's66'
+            case 's66':  # FUNC final state
                 match currChar:
-                    case 'a': return 's67'
+                    case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's67':
+
+            # -----------------------------------------------------------
+            # GLOBAL: s0 →g→ s67 →l→ s68 →o→ s69 →b→ s70 →a→ s71 →l→ s72 →space_delim→ s73* (final)
+            # -----------------------------------------------------------
+            case 's67':  # After 'g' from s0
                 match currChar:
                     case 'l': return 's68'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
+                    case 'ANY': return 's232'  # 'g' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's68':
-                # global intermediate (after 'l')
+            case 's68':  # After 'gl'
                 match currChar:
-                    case 'ANY': return 's69'
-                    case _: return 's69'
-            case 's69':
-                # global FINAL*
+                    case 'o': return 's69'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'gl' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's69':  # After 'glo'
+                match currChar:
+                    case 'b': return 's70'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'glo' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's70':  # After 'glob'
+                match currChar:
+                    case 'a': return 's71'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'glob' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's71':  # After 'globa'
+                match currChar:
+                    case 'l': return 's72'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's239'
+                    case 'ANY': return 's240'  # 'globa' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's72':  # After 'global' - intermediate, needs space_delim
+                match currChar:
+                    case 'ANY': return 's73'  # Transition to final state
+                    case _: return 's73'
+            case 's73':  # GLOBAL final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's70':
+
+            # -----------------------------------------------------------
+            # IF: s0 →i→ s74 →f→ s75 →loop_delim→ s76* (final)
+            # INT: s74 →n→ s77 →t→ s78 →dtype_delim→ s79* (final)
+            # -----------------------------------------------------------
+            case 's74':  # After 'i' from s0
                 match currChar:
-                    case 'f': return 's71'
-                    case 'n': return 's73'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
-                    case 'ANY': return 's232'  # 'i' alone is valid identifier (1 char)
+                    case 'f': return 's75'
+                    case 'n': return 's77'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
+                    case 'ANY': return 's232'  # 'i' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's71':
-                # if intermediate (after 'f')
+            case 's75':  # After 'if' - intermediate, needs loop_delim
                 match currChar:
-                    case 'ANY': return 's72'
-                    case _: return 's72'
-            case 's72':
-                # if FINAL*
+                    case 'ANY': return 's76'  # Transition to final state
+                    case _: return 's76'
+            case 's76':  # IF final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's73':
+
+            # INT path
+            case 's77':  # After 'in'
                 match currChar:
-                    case 't': return 's74'
+                    case 't': return 's78'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'in' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's74':
-                # int intermediate (after 't')
+            case 's78':  # After 'int' - intermediate, needs dtype_delim
                 match currChar:
-                    case 'ANY': return 's75'
-                    case _: return 's75'
-            case 's75':
-                # int FINAL*
+                    case 'ANY': return 's79'  # Transition to final state
+                    case _: return 's79'
+            case 's79':  # INT final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's76':
+
+            # -----------------------------------------------------------
+            # LEN: s0 →l→ s80 →e→ s81 →n→ s82 →(→ s83* (final)
+            # LOCAL: s80 →o→ s84 →c→ s85 →a→ s86 →l→ s87 →space_delim→ s88* (final)
+            # LONG: s84 →n→ s89 →g→ s90 →dtype_delim→ s91* (final)
+            # -----------------------------------------------------------
+            case 's80':  # After 'l' from s0
                 match currChar:
-                    case 'o': return 's77'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier (len, or other l-words)
+                    case 'e': return 's81'
+                    case 'o': return 's84'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'l' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's77':
+            case 's81':  # After 'le'
                 match currChar:
-                    case 'c': return 's78'
                     case 'n': return 's82'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'le' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's78':
+            case 's82':  # After 'len' - intermediate, needs '(' delimiter
                 match currChar:
-                    case 'a': return 's79'
-                    case _: return 'UNDEFINED'
-            case 's79':
-                match currChar:
-                    case 'l': return 's80'
-                    case _: return 'UNDEFINED'
-            case 's80':
-                # local intermediate (after 'l')
-                match currChar:
-                    case 'ANY': return 's81'
-                    case _: return 's81'
-            case 's81':
-                # local FINAL*
+                    case 'ANY': return 's83'  # Transition to final state
+                    case _: return 's83'
+            case 's83':  # LEN final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's82':
+
+            # LOCAL path
+            case 's84':  # After 'lo'
                 match currChar:
-                    case 'g': return 's83'
+                    case 'c': return 's85'
+                    case 'n': return 's89'  # LONG path
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'lo' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's83':
-                # long intermediate (after 'g')
-                match currChar:
-                    case 'ANY': return 's84'
-                    case _: return 's84'
-            case 's84':
-                # long FINAL*
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's85':
+            case 's85':  # After 'loc'
                 match currChar:
                     case 'a': return 's86'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'loc' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's86':  # After 'loca'
+                match currChar:
+                    case 'l': return 's87'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'loca' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's87':  # After 'local' - intermediate, needs space_delim
+                match currChar:
+                    case 'ANY': return 's88'  # Transition to final state
+                    case _: return 's88'
+            case 's88':  # LOCAL final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            # LONG path
+            case 's89':  # After 'lon'
+                match currChar:
+                    case 'g': return 's90'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'lon' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's90':  # After 'long' - intermediate, needs dtype_delim
+                match currChar:
+                    case 'ANY': return 's91'  # Transition to final state
+                    case _: return 's91'
+            case 's91':  # LONG final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            # -----------------------------------------------------------
+            # MAIN: s0 →m→ s92 →a→ s93 →i→ s94 →n→ s95 →(→ s96* (final)
+            # -----------------------------------------------------------
+            case 's92':  # After 'm' from s0
+                match currChar:
+                    case 'a': return 's93'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'm' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's86':
+            case 's93':  # After 'ma'
                 match currChar:
-                    case 'i': return 's87'
+                    case 'i': return 's94'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'ma' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's87':
-                match currChar:
-                    case 'n': return 's88'
-                    case _: return 'UNDEFINED'
-            case 's88':
-                # main intermediate (after 'n')
-                match currChar:
-                    case 'ANY': return 's89'
-                    case _: return 's89'
-            case 's89':
-                # main FINAL*
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-            case 's90':
-                match currChar:
-                    case 'e': return 's91'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
-                    case 'ANY': return 's232'  # 'r' alone is valid identifier
-                    case _: return 'UNDEFINED'
-            case 's91':
-                match currChar:
-                    case 't': return 's92'
-                    case _: return 'UNDEFINED'
-            case 's92':
-                match currChar:
-                    case 'u': return 's93'
-                    case _: return 'UNDEFINED'
-            case 's93':
-                match currChar:
-                    case 'r': return 's94'
-                    case _: return 'UNDEFINED'
-            case 's94':
+            case 's94':  # After 'mai'
                 match currChar:
                     case 'n': return 's95'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'mai' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's95':
-                # return intermediate (after 'n')
+            case 's95':  # After 'main' - intermediate, needs '(' delimiter
                 match currChar:
-                    case 'ANY': return 's96'
+                    case 'ANY': return 's96'  # Transition to final state
                     case _: return 's96'
-            case 's96':
-                # return FINAL*
+            case 's96':  # MAIN final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's97':
+
+            # -----------------------------------------------------------
+            # POW: s0 →p→ s97 →o→ s98 →w→ s99 →(→ s100* (final)
+            # -----------------------------------------------------------
+            case 's97':  # After 'p' from s0
                 match currChar:
-                    case 't': return 's98'
-                    case 'w': return 's104'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier (sqrt, or other s-words)
+                    case 'o': return 's98'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
+                    case 'ANY': return 's232'  # 'p' alone is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's98':  # After 'po'
+                match currChar:
+                    case 'w': return 's99'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'po' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's99':  # After 'pow' - intermediate, needs '(' delimiter
+                match currChar:
+                    case 'ANY': return 's100'  # Transition to final state
+                    case _: return 's100'
+            case 's100':  # POW final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            # -----------------------------------------------------------
+            # RETURN: s0 →r→ s101 →e→ s102 →t→ s103 →u→ s104 →r→ s105 →n→ s106 →return_delim→ s107* (final)
+            # -----------------------------------------------------------
+            case 's101':  # After 'r' from s0
+                match currChar:
+                    case 'e': return 's102'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
+                    case 'ANY': return 's232'  # 'r' alone is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's102':  # After 're'
+                match currChar:
+                    case 't': return 's103'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 're' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's103':  # After 'ret'
+                match currChar:
+                    case 'u': return 's104'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'ret' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's104':  # After 'retu'
+                match currChar:
+                    case 'r': return 's105'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'retu' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's105':  # After 'retur'
+                match currChar:
+                    case 'n': return 's106'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's239'
+                    case 'ANY': return 's240'  # 'retur' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's106':  # After 'return' - intermediate, needs return_delim
+                match currChar:
+                    case 'ANY': return 's107'  # Transition to final state
+                    case _: return 's107'
+            case 's107':  # RETURN final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            # -----------------------------------------------------------
+            # SQRT: s0 →s→ s108 →q→ s109 →r→ s110 →t→ s111 →(→ s112* (final)
+            # STRING: s108 →t→ s113 →r→ s114 →i→ s115 →n→ s116 →g→ s117 →dtype_delim→ s118* (final)
+            # SWITCH: s108 →w→ s119 →i→ s120 →t→ s121 →c→ s122 →h→ s123 →loop_delim→ s124* (final)
+            # -----------------------------------------------------------
+            case 's108':  # After 's' from s0
+                match currChar:
+                    case 'q': return 's109'
+                    case 't': return 's113'
+                    case 'w': return 's119'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 's' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's98':
+            case 's109':  # After 'sq'
                 match currChar:
-                    case 'r': return 's99'
+                    case 'r': return 's110'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'sq' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's99':
+            case 's110':  # After 'sqr'
                 match currChar:
-                    case 'i': return 's100'
+                    case 't': return 's111'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'sqr' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's100':
+            case 's111':  # After 'sqrt' - intermediate, needs '(' delimiter
                 match currChar:
-                    case 'n': return 's101'
-                    case _: return 'UNDEFINED'
-            case 's101':
-                match currChar:
-                    case 'g': return 's102'
-                    case _: return 'UNDEFINED'
-            case 's102':
-                # string intermediate (after 'g')
-                match currChar:
-                    case 'ANY': return 's103'
-                    case _: return 's103'
-            case 's103':
-                # string FINAL*
+                    case 'ANY': return 's112'  # Transition to final state
+                    case _: return 's112'
+            case 's112':  # SQRT final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's104':
+
+            # STRING path
+            case 's113':  # After 'st'
                 match currChar:
-                    case 'i': return 's105'
+                    case 'r': return 's114'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'st' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's105':
+            case 's114':  # After 'str'
                 match currChar:
-                    case 't': return 's106'
+                    case 'i': return 's115'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'str' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's106':
+            case 's115':  # After 'stri'
                 match currChar:
-                    case 'c': return 's107'
+                    case 'n': return 's116'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'stri' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's107':
+            case 's116':  # After 'strin'
                 match currChar:
-                    case 'h': return 's108'
+                    case 'g': return 's117'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's239'
+                    case 'ANY': return 's240'  # 'strin' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's108':
-                # switch intermediate (after 'h')
+            case 's117':  # After 'string' - intermediate, needs dtype_delim
                 match currChar:
-                    case 'ANY': return 's109'
-                    case _: return 's109'
-            case 's109':
-                # switch FINAL*
+                    case 'ANY': return 's118'  # Transition to final state
+                    case _: return 's118'
+            case 's118':  # STRING final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's110':
+
+            # SWITCH path
+            case 's119':  # After 'sw'
                 match currChar:
-                    case 'h': return 's111'
-                    case 'r': return 's120'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case 'i': return 's120'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'sw' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's120':  # After 'swi'
+                match currChar:
+                    case 't': return 's121'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'swi' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's121':  # After 'swit'
+                match currChar:
+                    case 'c': return 's122'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'swit' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's122':  # After 'switc'
+                match currChar:
+                    case 'h': return 's123'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's239'
+                    case 'ANY': return 's240'  # 'switc' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's123':  # After 'switch' - intermediate, needs loop_delim
+                match currChar:
+                    case 'ANY': return 's124'  # Transition to final state
+                    case _: return 's124'
+            case 's124':  # SWITCH final state
+                match currChar:
+                    case 'ANY': return 'DEFINED'
+                    case _: return 'UNDEFINED'
+
+            # -----------------------------------------------------------
+            # THREAD: s0 →t→ s125 →h→ s126 →r→ s127 →e→ s128 →a→ s129 →d→ s130 →(→ s131* (final)
+            # THREADLN: s130 →l→ s132 →n→ s133 →(→ s134* (final)
+            # TRAP: s125 →r→ s135 →a→ s136 →p→ s137 →(→ s138* (final)
+            # TRUE: s135 →u→ s139 →e→ s140 →bool_lit_delim→ s141* (final)
+            # -----------------------------------------------------------
+            case 's125':  # After 't' from s0
+                match currChar:
+                    case 'h': return 's126'
+                    case 'r': return 's135'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 't' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's111':
+            case 's126':  # After 'th'
                 match currChar:
-                    case 'r': return 's112'
+                    case 'r': return 's127'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'th' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's112':
+            case 's127':  # After 'thr'
                 match currChar:
-                    case 'e': return 's113'
+                    case 'e': return 's128'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'thr' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's113':
+            case 's128':  # After 'thre'
                 match currChar:
-                    case 'a': return 's114'
+                    case 'a': return 's129'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'thre' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's114':
+            case 's129':  # After 'threa'
                 match currChar:
-                    case 'd': return 's115'
+                    case 'd': return 's130'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's239'
+                    case 'ANY': return 's240'  # 'threa' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's115':
-                # thread intermediate (after 'd')
+            case 's130':  # After 'thread' - can branch to threadln or be final
                 match currChar:
-                    case 'l': return 's117'
-                    case 'ANY': return 's116'
-                    case _: return 's116'
-            case 's116':
-                # thread FINAL*
+                    case 'l': return 's132'  # threadln path
+                    case 'ANY': return 's131'  # Transition to THREAD final state
+                    case _: return 's131'
+            case 's131':  # THREAD final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's117':
+
+            # THREADLN path
+            case 's132':  # After 'threadl'
                 match currChar:
-                    case 'n': return 's118'
+                    case 'n': return 's133'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's243'
+                    case 'ANY': return 's244'  # 'threadl' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's118':
-                # threadln intermediate (after 'n')
+            case 's133':  # After 'threadln' - intermediate, needs '(' delimiter
                 match currChar:
-                    case 'ANY': return 's119'
-                    case _: return 's119'
-            case 's119':
-                # threadln FINAL*
+                    case 'ANY': return 's134'  # Transition to final state
+                    case _: return 's134'
+            case 's134':  # THREADLN final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's120':
+
+            # TRAP path
+            case 's135':  # After 'tr'
                 match currChar:
-                    case 'a': return 's121'
-                    case 'u': return 's124'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier (after 'tr')
-                    case _: return 'UNDEFINED'  # Not a valid identifier start after 'tr'
-            case 's121':
-                match currChar:
-                    case 'p': return 's122'
+                    case 'a': return 's136'
+                    case 'u': return 's139'  # TRUE path
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'tr' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's122':
-                # trap intermediate (after 'p')
+            case 's136':  # After 'tra'
                 match currChar:
-                    case 'ANY': return 's123'
-                    case _: return 's123'
-            case 's123':
-                # trap FINAL*
+                    case 'p': return 's137'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'tra' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's137':  # After 'trap' - intermediate, needs '(' delimiter
+                match currChar:
+                    case 'ANY': return 's138'  # Transition to final state
+                    case _: return 's138'
+            case 's138':  # TRAP final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's124':
+
+            # TRUE path
+            case 's139':  # After 'tru'
                 match currChar:
-                    case 'e': return 's125'
+                    case 'e': return 's140'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'tru' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's125':
-                # true intermediate (after 'e')
+            case 's140':  # After 'true' - intermediate, needs bool_lit_delim
                 match currChar:
-                    case 'ANY': return 's126'
-                    case _: return 's126'
-            case 's126':
-                # true FINAL*
+                    case 'ANY': return 's141'  # Transition to final state
+                    case _: return 's141'
+            case 's141':  # TRUE final state (bool_lit)
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's127':
+
+            # -----------------------------------------------------------
+            # USING: s0 →u→ s142 →s→ s143 →i→ s144 →n→ s145 →g→ s146 →space_delim→ s147* (final)
+            # -----------------------------------------------------------
+            case 's142':  # After 'u' from s0
                 match currChar:
-                    case 's': return 's128'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case 's': return 's143'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'u' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's128':
+            case 's143':  # After 'us'
                 match currChar:
-                    case 'i': return 's129'
+                    case 'i': return 's144'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'us' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's129':
+            case 's144':  # After 'usi'
                 match currChar:
-                    case 'n': return 's130'
+                    case 'n': return 's145'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'usi' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's130':
+            case 's145':  # After 'usin'
                 match currChar:
-                    case 'g': return 's131'
+                    case 'g': return 's146'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'usin' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's131':
-                # using intermediate (after 'g')
+            case 's146':  # After 'using' - intermediate, needs space_delim
                 match currChar:
-                    case 'ANY': return 's132'
-                    case _: return 's132'
-            case 's132':
-                # using FINAL*
+                    case 'ANY': return 's147'  # Transition to final state
+                    case _: return 's147'
+            case 's147':  # USING final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's133':
+
+            # -----------------------------------------------------------
+            # VAR: s0 →v→ s148 →a→ s149 →r→ s150 →space_delim→ s151* (final)
+            # VOID: s148 →o→ s152 →i→ s153 →d→ s154 →space_delim→ s155* (final)
+            # -----------------------------------------------------------
+            case 's148':  # After 'v' from s0
                 match currChar:
-                    case 'a': return 's134'
-                    case 'o': return 's137'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case 'a': return 's149'
+                    case 'o': return 's152'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'v' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's134':
+            case 's149':  # After 'va'
                 match currChar:
-                    case 'r': return 's135'
+                    case 'r': return 's150'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'va' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's135':
-                # var intermediate (after 'r')
+            case 's150':  # After 'var' - intermediate, needs space_delim
                 match currChar:
-                    case 'ANY': return 's136'
-                    case _: return 's136'
-            case 's136':
-                # var FINAL*
+                    case 'ANY': return 's151'  # Transition to final state
+                    case _: return 's151'
+            case 's151':  # VAR final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's137':
+
+            # VOID path
+            case 's152':  # After 'vo'
                 match currChar:
-                    case 'i': return 's138'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier (after 'vo')
-                    case _: return 'UNDEFINED'  # Not a valid identifier after 'vo'
-            case 's138':
-                match currChar:
-                    case 'd': return 's139'
+                    case 'i': return 's153'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'vo' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's139':
-                # void intermediate (after 'd')
+            case 's153':  # After 'voi'
                 match currChar:
-                    case 'ANY': return 's140'
-                    case _: return 's140'
-            case 's140':
-                # void FINAL*
+                    case 'd': return 's154'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'voi' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's154':  # After 'void' - intermediate, needs space_delim
+                match currChar:
+                    case 'ANY': return 's155'  # Transition to final state
+                    case _: return 's155'
+            case 's155':  # VOID final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's141':
+
+            # -----------------------------------------------------------
+            # WEAVE: s0 →w→ s156 →e→ s157 →a→ s158 →v→ s159 →e→ s160 →space_delim→ s161* (final)
+            # WHILE: s156 →h→ s162 →i→ s163 →l→ s164 →e→ s165 →loop_delim→ s166* (final)
+            # -----------------------------------------------------------
+            case 's156':  # After 'w' from s0
                 match currChar:
-                    case 'e': return 's142'
-                    case 'h': return 's147'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case 'e': return 's157'
+                    case 'h': return 's162'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'
                     case 'ANY': return 's232'  # 'w' alone is valid identifier
                     case _: return 'UNDEFINED'
-            case 's142':
+            case 's157':  # After 'we'
                 match currChar:
-                    case 'a': return 's143'
+                    case 'a': return 's158'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'we' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's143':
+            case 's158':  # After 'wea'
                 match currChar:
-                    case 'v': return 's144'
+                    case 'v': return 's159'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'wea' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's144':
+            case 's159':  # After 'weav'
                 match currChar:
-                    case 'e': return 's145'
+                    case 'e': return 's160'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'weav' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's145':
-                # weave intermediate (after 'e')
+            case 's160':  # After 'weave' - intermediate, needs space_delim
                 match currChar:
-                    case 'ANY': return 's146'
-                    case _: return 's146'
-            case 's146':
-                # weave FINAL*
+                    case 'ANY': return 's161'  # Transition to final state
+                    case _: return 's161'
+            case 's161':  # WEAVE final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
-            case 's147':
+
+            # WHILE path
+            case 's162':  # After 'wh'
                 match currChar:
-                    case 'i': return 's148'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier (after 'wh')
-                    case _: return 'UNDEFINED'  # Not a valid identifier after 'wh'
-            case 's148':
-                match currChar:
-                    case 'l': return 's149'
+                    case 'i': return 's163'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's233'
+                    case 'ANY': return 's234'  # 'wh' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's149':
+            case 's163':  # After 'whi'
                 match currChar:
-                    case 'e': return 's150'
+                    case 'l': return 's164'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's235'
+                    case 'ANY': return 's236'  # 'whi' is valid identifier
                     case _: return 'UNDEFINED'
-            case 's150':
-                # while intermediate (after 'e')
+            case 's164':  # After 'whil'
                 match currChar:
-                    case 'ANY': return 's151'
-                    case _: return 's151'
-            case 's151':
-                # while FINAL*
+                    case 'e': return 's165'
+                    case _ if currChar in self.alphanum or currChar == '_': return 's237'
+                    case 'ANY': return 's238'  # 'whil' is valid identifier
+                    case _: return 'UNDEFINED'
+            case 's165':  # After 'while' - intermediate, needs loop_delim
+                match currChar:
+                    case 'ANY': return 's166'  # Transition to final state
+                    case _: return 's166'
+            case 's166':  # WHILE final state
                 match currChar:
                     case 'ANY': return 'DEFINED'
                     case _: return 'UNDEFINED'
