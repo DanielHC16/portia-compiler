@@ -1,144 +1,99 @@
 # PORTIA Semantic Backend
 
-The semantic analyzer is the **third and final analysis stage** of the PORTIA compiler pipeline. It receives the AST produced by the parser and performs deep semantic validation: type checking, scoping rules, symbol resolution, enforcement of language-specific constraints, and construction of a complete symbol table. It is implemented as a two-pass AST-walking analyzer.
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Two-Pass Design](#two-pass-design)
-- [Type System](#type-system)
-- [Symbol Table](#symbol-table)
-- [Scoping Rules](#scoping-rules)
-- [Semantic Rules Enforced](#semantic-rules-enforced)
-  - [Variables and Constants](#variables-and-constants)
-  - [Arrays](#arrays)
-  - [Weave Types](#weave-types)
-  - [Functions](#functions)
-  - [Expressions](#expressions)
-  - [Control Flow](#control-flow)
-  - [I/O Statements](#io-statements)
-- [Error Format](#error-format)
-- [API Reference](#api-reference)
-- [Test Suite](#test-suite)
-- [Running the Semantic Backend](#running-the-semantic-backend)
-- [File Structure](#file-structure)
-
----
+The semantic backend is the final static-analysis stage of the PORTIA front end. It consumes the AST produced by the parser and enforces meaning-level rules that the CFG cannot express: type checking, symbol resolution, mutability, array shape checks, weave validation, control-flow constraints, and built-in function rules.
 
 ## Overview
 
-The PORTIA semantic analyzer:
+The semantic analyzer:
 
-- Works **exclusively on the AST** — it does not re-tokenize or re-parse.
-- Performs **two passes**: first to hoist all global declarations, weave definitions, and function signatures; second to analyze all function bodies.
-- Enforces **all PORTIA language rules** for types, mutability, scoping, array shapes, weave structure, and control flow.
-- Returns either a clean `{ "success": true }` response or a structured list of semantic errors with line, column, message, and error type.
-- Is covered by an exhaustive test suite of **209 tests**, all passing.
+- works on AST data only; it does not tokenize or parse source again
+- uses a two-pass walk over the program
+- builds and exports a global symbol table
+- validates function bodies with block-aware local scopes
+- reports structured semantic errors with line and column metadata
 
----
+Core files:
 
-## Architecture
+- `main.py`: FastAPI app entrypoint
+- `semantic/api.py`: `/analyze` and `/analyze/ast` endpoints
+- `semantic/semantic_analyzer.py`: analyzer, scopes, symbol records, and type inference
 
-```
-AST (JSON from Parser)
-        │
-        ▼
-  ┌─────────────────────────────────────┐
-  │          SemanticAnalyzer           │
-  │                                     │
-  │  Pass 1: _first_pass()              │
-  │  ┌────────────────────────────────┐ │
-  │  │ _register_weave()              │ │
-  │  │ _register_global_var()         │ │
-  │  │ _register_function_sig()       │ │
-  │  └────────────────────────────────┘ │
-  │                                     │
-  │  Pass 2: _second_pass()             │
-  │  ┌────────────────────────────────┐ │
-  │  │ _analyze_func_body()           │ │
-  │  │ _analyze_stmt()                │ │
-  │  │ _analyze_expr() / _infer_type()│ │
-  │  └────────────────────────────────┘ │
-  │                                     │
-  │  ┌──────────────────────────────┐   │
-  │  │  GlobalScope (symbol table)  │   │
-  │  │  FuncScope  (per-function)   │   │
-  │  └──────────────────────────────┘   │
-  └─────────────────────────────────────┘
-        │
-        ▼
-  { "success": bool, "errors": [...], "symbol_table": {...} }
+## Pipeline Position
+
+```text
+source -> lexer -> parser -> semantic analyzer
 ```
 
-**Module breakdown:**
+The parser is responsible for syntax only. The semantic analyzer is responsible for:
 
-| File | Responsibility |
-|------|---------------|
-| `main.py` | FastAPI app, CORS, router |
-| `semantic/api.py` | `/analyze` and `/analyze/ast` route handlers |
-| `semantic/semantic_analyzer.py` | `SemanticAnalyzer`, `SymInfo`, `GlobalScope`, `FuncScope` |
-
----
+- whether an identifier is declared and in scope
+- whether assignments and returns have compatible types
+- whether control-flow conditions are boolean
+- whether built-in calls receive arguments of the correct semantic type
 
 ## Two-Pass Design
 
-### Pass 1 — Global Registration
+### Pass 1: global registration
 
-The first pass visits only the top-level nodes:
+The analyzer first registers:
 
-1. **Weave definitions** (`WeaveDecl`) — validates fields, registers the weave type in the global scope.
-2. **Global variables** (`VarDecl` inside `global {}`) — validates declarations, registers globals.
-3. **Function signatures** (`FunctionDecl`) — registers return types and parameter shapes (without analyzing bodies yet).
+- weave declarations
+- global variables and constants
+- function signatures, including parameter types and return types
 
-This ensures that any function can call any other function and any global can reference any weave type, regardless of textual ordering — forward references are fully supported.
+This lets later function bodies refer to functions and weave types regardless of source order.
 
-### Pass 2 — Body Analysis
+### Pass 2: body analysis
 
-The second pass revisits every `FunctionDecl` (including `main`) and walks each statement and expression, performing:
+The analyzer then revisits every function, including `main`, and checks:
 
-- Local variable declarations and scoping
-- Expression type inference and compatibility checking
-- Assignment validation
-- Control flow analysis
-- I/O statement checking
-- Return type verification
-
----
+- local declarations
+- `using` bindings
+- statements and expressions
+- returns
+- control flow
+- function calls and built-in calls
 
 ## Type System
 
-### Primitive Types
+Primitive types:
 
 ```python
-PRIMITIVE_TYPES = {"int", "long", "float", "double", "char", "string", "bool"}
-NUMERIC_TYPES   = {"int", "long", "float", "double"}
-INTEGER_TYPES   = {"int", "long"}
+{"int", "long", "float", "double", "char", "string", "bool"}
 ```
 
-### Numeric Widening Ranks
+Numeric types:
 
-Implicit widening is allowed between numeric types in expressions and assignments:
+```python
+{"int", "long", "float", "double"}
+```
+
+Integer-only types:
+
+```python
+{"int", "long"}
+```
+
+Numeric widening rank:
 
 | Type | Rank |
-|------|------|
-| `int` | 0 (narrowest) |
+| --- | --- |
+| `int` | 0 |
 | `long` | 1 |
 | `float` | 2 |
-| `double` | 3 (widest) |
+| `double` | 3 |
 
-`_compatible(expected, actual)` returns `True` if:
-- Types are identical, **or**
-- Both are numeric (any widening combination is accepted)
+Compatibility rules:
 
-Everything else requires an explicit `Cast`.
+- identical types are compatible
+- numeric widening is allowed
+- numeric narrowing requires an explicit cast
+- non-numeric conversions are only valid when explicitly supported by cast rules
 
-### Literal Type Mapping
+Literal mapping:
 
 | Literal token | Semantic type |
-|--------------|---------------|
+| --- | --- |
 | `INTLIT` | `int` |
 | `LONGLIT` | `long` |
 | `FLOATLIT` | `float` |
@@ -147,341 +102,323 @@ Everything else requires an explicit `Cast`.
 | `STRINGLIT` | `string` |
 | `true` / `false` | `bool` |
 
----
+## Symbol Model
 
-## Symbol Table
+### `SymInfo`
 
-### `SymInfo` — Symbol Record
+Every declared symbol is represented by `SymInfo`, including:
 
-Every declared name (variable, array, function, weave type) is stored as a `SymInfo` instance:
+- scalar variables
+- arrays
+- functions
+- weave types
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | `str` | Symbol name |
-| `dtype` | `str` | Declared type (e.g., `"int"`, `"Point"`) |
-| `is_const` | `bool` | `True` for `const` declarations |
-| `is_array` | `bool` | `True` for array variables |
-| `dims` | `List[int]` | Array dimensions (e.g., `[5]` for 1D, `[3,4]` for 2D) |
-| `is_global` | `bool` | `True` for variables in the `global {}` block |
-| `is_func` | `bool` | `True` for function entries |
-| `params` | `List[SymInfo]` | Function parameter list |
-| `ret_type` | `str\|None` | Function return type |
-| `ret_dims` | `List[int]` | Return array shape (if returning array) |
-| `is_weave` | `bool` | `True` for weave type definitions |
-| `fields` | `Dict[str,SymInfo]` | Weave field map |
-| `line`, `col` | `int` | Declaration location for error reporting |
+Important fields:
+
+- `name`
+- `dtype`
+- `is_const`
+- `is_array`
+- `dims`
+- `is_global`
+- `is_func`
+- `params`
+- `ret_type`
+- `ret_dims`
+- `is_weave`
+- `fields`
+- `line`, `col`
 
 ### `GlobalScope`
 
-A flat namespace shared across all functions:
-- `define(sym)` — registers a symbol; returns the colliding symbol if already declared
-- `lookup(name)` — returns `SymInfo` or `None`
-- `export()` — serializes the full symbol table to JSON (returned in the API response)
+The global scope stores:
+
+- global variables and constants
+- function signatures
+- weave type declarations
+
+Functions and weave types are always globally accessible once registered.
 
 ### `FuncScope`
 
-Per-function layered scope:
-- **Block stack** — `push_block()` / `pop_block()` for `if`/`for`/`switch` nesting
-- Lookup searches from innermost block outward
-- Separate `bound` set tracks which globals are imported via `using`
-- `define_function_level()` registers items at function scope (parameters)
+Each function gets a layered local scope with:
 
----
+- function-level symbols for parameters and head locals
+- nested block scopes for `if`, `for`, `while`, `do`, and `switch`
+- a `bound` set for globals imported through `using`
 
 ## Scoping Rules
 
-| Rule | Behavior |
-|------|---------|
-| Global variables | Accessible only if explicitly imported via `using GlobalName;` |
-| `using` statement | Binds a global name into the current function's scope |
-| Local variables | Visible from declaration to end of their block |
-| Block nesting | `if`, `for`, `while`, `do-while`, `switch` each create a new scope block |
-| Shadowing | A local name may shadow an outer local; re-declaration in the same block is an error |
-| Function names | All functions are globally visible (registered in Pass 1) |
-| Weave type names | All weave types are globally visible (registered in Pass 1) |
+- Global variables are not automatically visible inside functions.
+- A function must explicitly bind a global variable with `using name;`.
+- Functions are always callable without `using`.
+- Weave types are always visible without `using`.
+- Locals follow block scope.
+- Redeclaring a name in the same scope is an error.
+- Built-in function names are reserved and cannot be reused as identifiers.
 
----
+## Built-In Functions
+
+The semantic layer now fully validates the parser-added built-ins:
+
+- `abs`
+- `len`
+- `pow`
+- `sqrt`
+
+The parser still accepts their arguments using the general `<value>` grammar. The semantic analyzer narrows that to the intended type rules.
+
+### Accepted argument types
+
+| Built-in | Required arguments | Accepted semantic type(s) |
+| --- | --- | --- |
+| `len(expr)` | 1 | `string` or `char` |
+| `abs(expr)` | 1 | numeric: `int`, `long`, `float`, `double` |
+| `sqrt(expr)` | 1 | numeric: `int`, `long`, `float`, `double` |
+| `pow(expr1, expr2)` | 2 | both arguments must be numeric |
+
+These checks apply to:
+
+- literals
+- identifiers
+- indexed access
+- weave field access
+- casts
+- nested user-defined calls
+- nested built-in calls
+- larger expressions whose final inferred type matches the rule
+
+Examples:
+
+```portia
+len("portia");          // valid
+len(name[0]);           // valid if name[0] resolves to char
+len(123);               // semantic error
+
+abs(-3);                // valid
+abs(pow(2, 3) - 5);     // valid
+abs("bad");             // semantic error
+
+sqrt(16);               // valid
+sqrt('x');              // semantic error
+
+pow(2, 3);              // valid
+pow(len("ab"), 2);      // valid because len(...) returns int
+pow(2, false);          // semantic error
+```
+
+### Return types
+
+| Built-in | Return type |
+| --- | --- |
+| `len(expr)` | `int` |
+| `abs(expr)` | same numeric type as the argument |
+| `sqrt(expr)` | same numeric type as the argument |
+| `pow(expr1, expr2)` | wider of the two numeric argument types |
+
+Examples:
+
+```portia
+local var int a = len("abc");          // valid
+local var int b = abs(-4);             // valid
+local var double c = sqrt((double) 9); // valid
+local var float d = pow((float) 2, 3); // valid
+```
+
+### Built-ins in conditions
+
+Built-ins can appear in parser-level conditions, but semantic rules still apply:
+
+```portia
+if (sqrt(9) > 2) { ... }   // valid
+if (len(name) == 0) { ... } // valid
+if (pow(2, 3)) { ... }      // semantic error: condition must be bool
+```
+
+That behavior is intentional. The parser accepts the structure; the semantic analyzer enforces boolean control-flow conditions.
 
 ## Semantic Rules Enforced
 
-### Variables and Constants
+### Variables and constants
 
-| Rule | Error if violated |
-|------|------------------|
-| No duplicate declarations in same scope | `"'name' already declared in this scope"` |
-| `const` must have an initializer | `"const 'name' must be initialized"` |
-| `const` cannot be reassigned | `"cannot assign to const 'name'"` |
-| Reserved keywords cannot be used as names | `"'name' is a reserved keyword"` |
-| Identifier length limit (1–25 chars) | Enforced by lexer; relied on by semantic |
-| Weave variable must be initialized at declaration | `"weave variable 'name' must be initialized at declaration"` |
+- `const` declarations must be initialized
+- `const` values cannot be reassigned
+- declarations must use valid, non-reserved names
+- initializers must be type-compatible with the declared type
+- weave-typed variables must be initialized at declaration
 
 ### Arrays
 
-| Rule | Error if violated |
-|------|------------------|
-| `var` 1D/2D array may be partially initialized (missing elements default) | No error |
-| `const` 1D array must be fully initialized | `"const array 'name' must be fully initialized"` |
-| `const` 2D array must have exactly R×C elements | `"const 2D array 'name': expected R×C=N elements, got M"` |
-| Array initializer cannot have more elements than declared size | `"array 'name': too many elements (got N, expected M)"` |
-| Array element type must match declared dtype | `"array 'name' element type mismatch"` |
-| Indexed access must use valid dimensions | `"'name' is not an array"` / `"array 'name' is 1-D, cannot use 2-D index"` |
-| Passing array to function requires same dtype AND same dims | `"argument 'x' must be an unindexed array identifier"` |
+- indexed access must match the declared number of dimensions
+- indices must be integral
+- literal indices are bounds-checked when possible
+- array element types must match the declared element type
+- 1D `var` arrays may be partially initialized
+- 1D `const` arrays must be fully initialized
+- 2D `var` arrays may be partially initialized by rows and by columns, as long as no row exceeds the declared column count
+- 2D `const` arrays must be fully initialized row-by-row
+- whole-array reassignment is rejected unless the right-hand side is a matching array-returning function call
 
-### Weave Types
+### Weave types
 
-| Rule | Error if violated |
-|------|------------------|
-| Weave must have at least one field | `"weave 'Name' must have at least one field"` |
-| Weave fields must use primitive types only | `"weave field 'f' must be a primitive type"` |
-| Weave fields cannot be arrays | `"weave field 'f' cannot be an array"` |
-| Weave fields cannot be `const` | `"weave field 'f' cannot be const"` |
-| Cannot declare a weave variable without initializer `{}` | `"weave variable 'p' must be initialized at declaration"` |
-| Cannot reassign a weave variable with `{}` syntax after declaration | `"weave variable 'p': use dot-operator for field assignment"` |
-| Weave type cannot be used as function parameter type | `"function parameter cannot use weave type"` |
-| Weave type cannot be used as function return type | `"function return type cannot be a weave type"` |
-| Dot-field access must name a real field | `"'f' is not a field of weave 'Name'"` |
+- weave declarations must have at least one field
+- weave fields must be primitive, non-array, mutable fields
+- whole-weave values cannot be used as scalar expressions
+- field access must target a real field on a declared weave type
+- weave variables cannot be bulk-reassigned after declaration
+- weave types cannot be used as function parameter or return types
 
 ### Functions
 
-| Rule | Error if violated |
-|------|------------------|
-| Duplicate function name | `"function 'name' already declared"` |
-| `main` must exist, return `int`, take no params | `"missing 'int main()' function"` |
-| Calling undeclared function | `"call to undeclared function 'name'"` |
-| Wrong number of arguments | `"function 'name': expected N arguments, got M"` |
-| Argument type mismatch | `"argument N: expected T, got T2"` |
-| Non-array argument passed where array expected | `"argument 'x' must be an unindexed array identifier"` |
-| Array wrong size passed to function | `"argument 'x' dims [M] do not match parameter dims [N]"` |
-| `return` value type must match declared return type | `"return type mismatch: expected T, got T2"` |
-| `return` in `void` function must carry no value | `"'void' function must not return a value"` |
-| Non-`void` function must have a `return` | Checked at end of body analysis |
+- function names must be unique
+- `main` must return `int` and take no parameters
+- calls must target declared functions
+- argument count must match
+- scalar arguments must be type-compatible
+- array arguments must match element type and dimensions
+- non-void functions must produce a valid return value
+- `void` functions cannot return a value
 
 ### Expressions
 
-| Rule | Error if violated |
-|------|------------------|
-| Use of undeclared variable | `"undeclared identifier 'name'"` |
-| Arithmetic on non-numeric types | `"operator '+' requires numeric operands"` |
-| Modulo (`%`) on float/double | `"'%' requires integer operands"` |
-| Logical ops (`&&`,`\|\|`) require `bool` operands | `"operator '&&' requires bool operands"` |
-| `!` negation requires `bool` | `"operator '!' requires bool operand"` |
-| Relational operators require compatible types | `"operator '==' applied to incompatible types"` |
-| Concatenation (`..`) requires `string` or `char` | `"'..' requires string/char operands"` |
-| Unary `-` requires numeric | `"unary '-' requires numeric operand"` |
-| Cast target must be a primitive type | `"cannot cast to non-primitive type 'T'"` |
-| Using global without `using` statement | `"global 'name' is not bound in this function — add 'using name;'"` |
+- arithmetic operators require numeric operands
+- `%` requires integral operands
+- logical operators require `bool`
+- unary `-` requires numeric
+- unary `!` requires `bool`
+- equality requires compatible operand categories
+- ordered comparison requires numeric operands
+- string concatenation `..` requires the left operand to be `string` or `char`
+- the right operand of `..` may be any stringifiable scalar type: numeric, `bool`, `char`, or `string`
+- casts are checked against the supported conversion rules
 
-### Control Flow
+### Control flow
 
-| Rule | Error if violated |
-|------|------------------|
-| `break` only valid inside `for`, `while`, `do-while`, or `switch` | `"'break' used outside of a loop or switch"` |
-| `switch` expression must be an integer type | `"switch expression must be integer type"` |
-| `case` values must match switch expression type | `"case value must be integer literal"` |
-| `for` initializer, condition, update types must be valid | Checked individually |
-| `while`/`do-while` condition must be `bool` or numeric | Type-checked |
+- `if`, `else if`, `while`, `do-while`, and `for` conditions must resolve to `bool`
+- `break` is valid only inside loops or `switch`
+- `switch` case values must be type-compatible with the switch expression
+- duplicate literal case values are rejected
 
-### I/O Statements
+### I/O
 
-| Rule | Error if violated |
-|------|------------------|
-| `trap` (input) target must be a declared variable | `"undeclared identifier 'name'"` |
-| `trap` cannot target a `const` | `"cannot assign to const 'name'"` |
-| `thread`/`threadln` arguments are type-checked | Must be valid expressions |
-
----
+- `trap` targets must be assignable l-values
+- `trap` cannot target a `const`
+- `thread` and `threadln` arguments must be semantically valid expressions
 
 ## Error Format
 
-All semantic errors carry:
+Each semantic error is returned as an object like:
 
-| Field | Description |
-|-------|-------------|
-| `message` | Human-readable description |
-| `line` | Line number (1-based) |
-| `column` | Column number (1-based) |
-| `type` | Error category string (e.g., `"type_mismatch"`, `"undeclared_identifier"`) |
+```json
+{
+  "message": "Built-in function 'len' expects a string or char expression, got 'int'",
+  "line": 3,
+  "column": 5,
+  "type": "semantic_error",
+  "token_length": 3
+}
+```
 
-**Example error response:**
+Response shape:
+
 ```json
 {
   "success": false,
-  "errors": [
-    {
-      "message": "undeclared identifier 'score'",
-      "line": 8,
-      "column": 5,
-      "type": "undeclared_identifier"
-    }
-  ],
-  "warnings": [],
-  "symbol_table": { ... }
-}
-```
-
-**Success response:**
-```json
-{
-  "success": true,
   "errors": [],
   "warnings": [],
-  "symbol_table": {
-    "globals": { "MAX": { "kind": "variable", "dtype": "int", ... } },
-    "functions": { "add": { "kind": "function", "ret_type": "int", ... } }
-  }
+  "symbol_table": {}
 }
 ```
 
----
+## API
 
-## API Reference
+Base semantic service URL:
 
-**Base URL:** `http://localhost:8002`
-
-### `GET /`
-Health check.
-```json
-{ "message": "PORTIA Semantic backend (TBA) is running" }
+```text
+http://localhost:8002
 ```
-
----
 
 ### `POST /analyze/ast`
 
-The primary endpoint. Analyzes a parsed AST.
+Primary endpoint. Accepts:
 
-**Request body:**
 ```json
 {
   "ast": {
     "node": "Program",
     "globals": [],
     "functions": [],
-    "main": { ... }
+    "main": {}
   }
 }
 ```
 
-**Response:** See [Error Format](#error-format) above.
+Returns semantic analysis results with:
 
----
+- `success`
+- `errors`
+- `warnings`
+- `symbol_table`
 
 ### `POST /analyze`
 
-Legacy token-based endpoint (kept for compatibility). Returns a message directing callers to use `/analyze/ast`.
+Compatibility endpoint for token payloads. It currently returns a message directing callers to `/analyze/ast`.
 
----
+## Verification and Test Suite
 
-## Test Suite
+Current regression status after built-in semantic support:
 
-The semantic backend is covered by an exhaustive test suite at `test-scripts/semantic/test_semantic_exhaustive.py`.
+- semantic exhaustive suite: `212 / 212` passing
+- focused built-in semantic suite: `18 / 18` passing
+- parser exhaustive suite: `283 / 283` passing
+- parser built-in suite: `14 / 14` passing
+- machine-problem pipeline suite: `4 / 4` passing
 
-| Metric | Value |
-|--------|-------|
-| Total tests | **209** |
-| Currently passing | **209 / 209** |
-| Test sections | 35 |
-| Tests that should pass | ~130 |
-| Tests that should fail (reject) | ~79 |
+Relevant test files:
 
-### Test Sections
+- `test-scripts/semantic/test_semantic_exhaustive.py`
+- `test-scripts/semantic/test_semantic_builtins.py`
+- `test-scripts/parser/test_parser_exhaustive.py`
+- `test-scripts/parser/test_parser_revised_cfg_builtins.py`
+- `test-scripts/test_machine_problems.py`
 
-| # | Section | Tests |
-|---|---------|-------|
-| 1 | Basic valid programs | |
-| 2 | Variable declarations (var/const) | |
-| 3 | Global variables + using | |
-| 4 | Array declarations (1D) | |
-| 5 | Array declarations (2D) | |
-| 6 | Arithmetic expressions | |
-| 7 | Relational expressions | |
-| 8 | Logical expressions | |
-| 9 | Type casting | |
-| 10 | Function declarations + calls | |
-| 11 | Return statements | |
-| 12 | If / else | |
-| 13 | For loops | |
-| 14 | While / do-while loops | |
-| 15 | Switch / case | |
-| 16 | Break statements | |
-| 17 | I/O (trap / thread / threadln) | |
-| 18 | Weave declarations | |
-| 19 | Weave variable usage | |
-| 20 | Weave dot-field access | |
-| 21 | Undeclared identifiers | |
-| 22 | Const reassignment | |
-| 23 | Type mismatches | |
-| 24 | Duplicate declarations | |
-| 25 | Reserved keyword names | |
-| 26 | Array element count errors | |
-| 27 | Array type errors | |
-| 28 | Array out-of-bounds index | |
-| 29 | Function call errors | |
-| 30 | Return type errors | |
-| 31 | Scoping / shadowing | |
-| 32 | Concatenation (..) | |
-| 33 | Compound assignment operators | |
-| 34 | Increment/decrement | |
-| 35 | Edge cases (weave rules, array params, no-init) | |
-
-### Running the tests
+Recommended commands on Windows:
 
 ```powershell
-cd test-scripts\semantic
 $env:PYTHONIOENCODING="utf-8"
-c:/Users/Hardy/OneDrive/Desktop/portia-compiler/lexer-backend/.venv-py312/Scripts/python.exe test_semantic_exhaustive.py
+py -3.12 test-scripts\semantic\test_semantic_exhaustive.py
+py -3.12 test-scripts\semantic\test_semantic_builtins.py
+py -3.12 test-scripts\parser\test_parser_exhaustive.py
+py -3.12 test-scripts\parser\test_parser_revised_cfg_builtins.py
+py -3.12 test-scripts\test_machine_problems.py
 ```
 
-> The test suite requires all three backend services (ports 8000, 8001, 8002) to be running.
-
----
+`PYTHONIOENCODING=utf-8` is recommended for some Windows terminals because several test scripts print Unicode separators and arrows.
 
 ## Running the Semantic Backend
 
-### Standalone (development)
+Development server:
 
 ```powershell
 cd semantic-backend
 .venv-py312\Scripts\python -m uvicorn main:app --reload --port 8002
 ```
 
-### With hot-reload via watchfiles
+Optional watch mode:
 
 ```powershell
 cd semantic-backend
 .venv-py312\Scripts\watchfiles ".venv-py312\Scripts\python -m uvicorn main:app --port 8002" .
 ```
 
-### Via the project-root script
-
-```powershell
-.\scripts\start-semantic.ps1
-```
-
-### Dependencies
-
-| Package | Purpose |
-|---------|---------|
-| `fastapi` | REST API framework |
-| `uvicorn` | ASGI server |
-| `pydantic` | Request/response models |
-| `watchfiles` | Hot-reload file watcher (optional, for dev) |
-
-Install with:
-```powershell
-cd semantic-backend
-.venv-py312\Scripts\pip install fastapi uvicorn pydantic watchfiles
-```
-
----
-
 ## File Structure
 
-```
+```text
 semantic-backend/
-├── main.py                       # FastAPI app, CORS, router
-└── semantic/
-    ├── __init__.py
-    ├── api.py                    # /analyze and /analyze/ast route handlers
-    └── semantic_analyzer.py      # SemanticAnalyzer, SymInfo, GlobalScope, FuncScope
+|-- main.py
+|-- README.md
+`-- semantic/
+    |-- __init__.py
+    |-- api.py
+    `-- semantic_analyzer.py
 ```
