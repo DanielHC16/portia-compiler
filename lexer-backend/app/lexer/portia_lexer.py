@@ -37,8 +37,6 @@ class LexicalAnalyzer:
         's102': 's103', 's108': 's109', 's115': 's116', 's118': 's119',
         's122': 's123', 's125': 's126', 's131': 's132', 's135': 's136',
         's139': 's140', 's145': 's146', 's150': 's151',
-        # Built-in functions (s152-s166)
-        's154': 's155', 's157': 's158', 's161': 's162', 's165': 's166',
         # Operators (s167-s208)
         's167': 's168', 's169': 's170',
         's171': 's172', 's173': 's174',
@@ -396,7 +394,7 @@ class LexicalAnalyzer:
 
                 # Check if we're in a keyword dispatcher state that can finalize as identifier
                 # Dispatcher states: s1(b), s11(c), s25(d), s40(e), s45(f), s63(g), s70(i), s76(l), s85(m), s90(r), s97(s), s110(t), s127(u), s133(v), s141(w)
-                if currState in ['s1', 's11', 's25', 's40', 's45', 's63', 's70', 's76', 's85', 's90', 's97', 's110', 's127', 's133', 's141', 's152', 's159']:
+                if currState in ['s1', 's11', 's25', 's40', 's45', 's63', 's70', 's76', 's85', 's90', 's97', 's110', 's127', 's133', 's141']:
                     # Try to finalize as single-letter identifier via ANY
                     anyState = self.lex_transition(currState, 'ANY')
                     if anyState != 'UNDEFINED' and self.is_final_state(anyState):
@@ -424,7 +422,7 @@ class LexicalAnalyzer:
                 elif currState != 's0':
                     # Check if we're in a keyword state - treat as identifier
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
-                    if 1 <= state_num <= 166:
+                    if 1 <= state_num <= 151:
                         # Keyword state but not final - treat as identifier
                         if check_delimiter('id', ch):
                             add_token(lexeme, 'id', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
@@ -506,7 +504,7 @@ class LexicalAnalyzer:
                 # Check if we're in a non-final keyword state - tokenize as identifier
                 if currState != 's0' and not self.is_final_state(currState):
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
-                    if 1 <= state_num <= 166:
+                    if 1 <= state_num <= 151:
                         # Keyword state but not final - treat as identifier
                         # Newline is a valid delimiter for identifiers
                         if check_delimiter('id', '\n'):
@@ -533,7 +531,7 @@ class LexicalAnalyzer:
                 elif currState != 's0':
                     # Check if we're in a keyword state - treat as identifier
                     state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
-                    if 1 <= state_num <= 166:
+                    if 1 <= state_num <= 151:
                         # Keyword state but not final - treat as identifier
                         add_token(lexeme, 'id', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         currState = 's0'
@@ -670,7 +668,7 @@ class LexicalAnalyzer:
                 # Special case: keyword dispatcher states (first letter of keywords)
                 # These states can also finalize as single-letter identifiers via 'ANY'
                 # Keyword dispatcher states: s1(b), s11(c), s25(d), s40(e), s45(f), s63(g), s70(i), s76(l), s85(m), s90(r), s97(s), s110(t), s127(u), s133(v), s141(w)
-                if currState in ['s1', 's11', 's25', 's40', 's45', 's63', 's70', 's76', 's85', 's90', 's97', 's110', 's127', 's133', 's141', 's152', 's159']:
+                if currState in ['s1', 's11', 's25', 's40', 's45', 's63', 's70', 's76', 's85', 's90', 's97', 's110', 's127', 's133', 's141']:
                     # Try to finalize with ANY (single letter as identifier)
                     anyState = self.lex_transition(currState, 'ANY')
                     if anyState != 'UNDEFINED' and self.is_final_state(anyState):
@@ -795,7 +793,7 @@ class LexicalAnalyzer:
                     
                     # Special case: keyword state followed by identifier character - continue as identifier
                     # This handles cases like 'boolx' (at s1, s2, s3, etc.) or 'breakpoint' (at s9)
-                    if 1 <= state_num <= 166 and (ch in self.alphanum or ch == '_'):
+                    if 1 <= state_num <= 151 and (ch in self.alphanum or ch == '_'):
                         # Continue building as identifier - transition to s220
                         lexeme += ch
                         currState = 's231'
@@ -909,7 +907,7 @@ class LexicalAnalyzer:
                 # Keywords followed by identifier chars should become identifiers (e.g., 'boolx')
                 # But delimiters and operators should finalize regardless of next character
                 state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
-                is_keyword_state = 1 <= state_num <= 166
+                is_keyword_state = 1 <= state_num <= 151
 
                 if is_keyword_state and (ch in self.alphanum or ch == '_'):
                     # Continue building as identifier - transition to s220
@@ -1089,7 +1087,7 @@ class LexicalAnalyzer:
                     else:
                         # Non-final state at EOF - check if it's a keyword state
                         state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
-                        if 1 <= state_num <= 166:
+                        if 1 <= state_num <= 151:
                             # Keyword state but not final - treat as identifier
                             add_token(lexeme, 'id', lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
                         else:
@@ -1119,8 +1117,6 @@ class LexicalAnalyzer:
             's116': 'thread', 's119': 'threadln', 's123': 'trap',
             's126': 'bool_lit',  # true
             's132': 'using', 's136': 'var', 's140': 'void', 's146': 'weave', 's151': 'while',
-            # Built-in functions
-            's155': 'abs', 's158': 'len', 's162': 'pow', 's166': 'sqrt',
         }
 
         operator_states = {
@@ -1220,7 +1216,7 @@ class LexicalAnalyzer:
 
         STRICTLY follows Transition Diagrams (TD):
         - s0: Initial/start state
-        - s1-s166: Keywords / reserved words / built-in functions
+        - s1-s151: Keywords / reserved words (abs/len/pow/sqrt recognized via identifier path)
         - s167-s208: Operators FSA with intermediate→final transitions
         - s209-s230: Delimiters FSA with intermediate→final transitions
         - s231-s280: Identifiers FSA (max 25 characters)
@@ -1282,7 +1278,6 @@ class LexicalAnalyzer:
 
                     # Keywords - dispatch by first letter to keyword-specific FSA states
                     # MUST come before generic identifier pattern
-                    case 'a': return 's152'  # abs
                     case 'b': return 's1'    # bool, break
                     case 'c': return 's11'   # case, char, const
                     case 'd': return 's25'   # default, do, double
@@ -1290,11 +1285,10 @@ class LexicalAnalyzer:
                     case 'f': return 's45'   # false, float, for, func
                     case 'g': return 's63'   # global
                     case 'i': return 's70'   # if, int
-                    case 'l': return 's76'   # local, long, len
+                    case 'l': return 's76'   # local, long (len scanned as identifier via s231)
                     case 'm': return 's85'   # main
-                    case 'p': return 's159'  # pow
                     case 'r': return 's90'   # return
-                    case 's': return 's97'   # string, switch, sqrt
+                    case 's': return 's97'   # string, switch (sqrt scanned as identifier via s231)
                     case 't': return 's110'  # thread, threadln, trap, true
                     case 'u': return 's127'  # using
                     case 'v': return 's133'  # var, void
@@ -1670,9 +1664,8 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
             case 's76':
                 match currChar:
-                    case 'e': return 's156'  # len path
                     case 'o': return 's77'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier (len, or other l-words)
                     case 'ANY': return 's232'  # 'l' alone is valid identifier
                     case _: return 'UNDEFINED'
             case 's77':
@@ -1770,10 +1763,9 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
             case 's97':
                 match currChar:
-                    case 'q': return 's163'  # sqrt path
                     case 't': return 's98'
                     case 'w': return 's104'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
+                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier (sqrt, or other s-words)
                     case 'ANY': return 's232'  # 's' alone is valid identifier
                     case _: return 'UNDEFINED'
             case 's98':
@@ -2032,101 +2024,11 @@ class LexicalAnalyzer:
                     case _: return 'UNDEFINED'
 
             # ============================================================
-            # BUILT-IN FUNCTIONS FSA - States s152 to s166
-            # abs (s152-s155), len (s156-s158), pow (s159-s162), sqrt (s163-s166)
-            # ============================================================
-
-            # ABS: s0 →a→ s152 →b→ s153 →s→ s154 →delim→ s155* (final)
-            case 's152':
-                match currChar:
-                    case 'b': return 's153'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
-                    case 'ANY': return 's232'  # 'a' alone is valid identifier
-                    case _: return 'UNDEFINED'
-            case 's153':
-                match currChar:
-                    case 's': return 's154'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # 'ab' continues as identifier
-                    case _: return 'UNDEFINED'
-            case 's154':
-                # abs intermediate (after 's')
-                match currChar:
-                    case 'ANY': return 's155'
-                    case _: return 's155'
-            case 's155':
-                # abs FINAL*
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-
-            # LEN: s76 →e→ s156 →n→ s157 →delim→ s158* (final)
-            case 's156':
-                match currChar:
-                    case 'n': return 's157'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # 'le' continues as identifier
-                    case _: return 'UNDEFINED'
-            case 's157':
-                # len intermediate (after 'n')
-                match currChar:
-                    case 'ANY': return 's158'
-                    case _: return 's158'
-            case 's158':
-                # len FINAL*
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-
-            # POW: s0 →p→ s159 →o→ s160 →w→ s161 →delim→ s162* (final)
-            case 's159':
-                match currChar:
-                    case 'o': return 's160'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # Continue as identifier
-                    case 'ANY': return 's232'  # 'p' alone is valid identifier
-                    case _: return 'UNDEFINED'
-            case 's160':
-                match currChar:
-                    case 'w': return 's161'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # 'po' continues as identifier
-                    case _: return 'UNDEFINED'
-            case 's161':
-                # pow intermediate (after 'w')
-                match currChar:
-                    case 'ANY': return 's162'
-                    case _: return 's162'
-            case 's162':
-                # pow FINAL*
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-
-            # SQRT: s97 →q→ s163 →r→ s164 →t→ s165 →delim→ s166* (final)
-            case 's163':
-                match currChar:
-                    case 'r': return 's164'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # 'sq' continues as identifier
-                    case _: return 'UNDEFINED'
-            case 's164':
-                match currChar:
-                    case 't': return 's165'
-                    case _ if currChar in self.alphanum or currChar == '_': return 's231'  # 'sqr' continues as identifier
-                    case _: return 'UNDEFINED'
-            case 's165':
-                # sqrt intermediate (after 't')
-                match currChar:
-                    case 'ANY': return 's166'
-                    case _: return 's166'
-            case 's166':
-                # sqrt FINAL*
-                match currChar:
-                    case 'ANY': return 'DEFINED'
-                    case _: return 'UNDEFINED'
-
-            # ============================================================
             # OPERATORS AND RESERVED SYMBOLS FSA - States s167 to s208
             # Note: These are reserved symbols connected with operators
             # ============================================================
 
-            # Minus (-): s0 → '-' → s152
+            # Minus (-): s0 → '-' → s167
             case 's167':  # After '-' (intermediate state)
                 match currChar:
                     case '=': return 's169'  # -= path
