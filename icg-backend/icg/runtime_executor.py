@@ -20,6 +20,7 @@ Values are tracked with their types using RuntimeValue to enable:
 from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from dataclasses import dataclass, field
+import math
 import re
 
 from .triple import IndirectTripleTable, Triple, is_ref, get_ref_index
@@ -30,6 +31,7 @@ from .triple import IndirectTripleTable, Triple, is_ref, get_ref_index
 # =============================================================================
 
 DEFAULT_MAX_EXECUTION_STEPS = 1_000_000
+BUILTIN_FUNCTIONS = frozenset({"abs", "len", "pow", "sqrt"})
 
 @dataclass
 class RuntimeValue:
@@ -150,6 +152,14 @@ def types_compatible_for_comparison(t1: str, t2: str) -> bool:
     if t1 == "bool" and t2 == "bool":
         return True
     return False
+
+
+def wider_numeric_type(t1: str, t2: str) -> str:
+    """Return the wider PORTIA numeric type."""
+    rank = {"int": 0, "long": 1, "float": 2, "double": 3}
+    t1 = (t1 or "").lower()
+    t2 = (t2 or "").lower()
+    return t1 if rank.get(t1, -1) >= rank.get(t2, -1) else t2
 
 
 # =============================================================================
@@ -683,6 +693,11 @@ class RuntimeExecutor:
             self._current_line += self._format_output(value)
             self._output_buffer.append(self._current_line)
             self._current_line = ""
+
+        elif op in BUILTIN_FUNCTIONS:
+            # Dedicated builtin TAC operations emitted by the ICG visitor
+            result = self._execute_builtin_direct(op, arg1, arg2, line, col)
+            self._results[idx] = result
         
         elif op in ("+", "-", "*", "/", "%"):
             # Arithmetic operations
@@ -827,6 +842,9 @@ class RuntimeExecutor:
             # Function call - save return address and jump to function
             func_name = arg1
             # num_args = arg2  # Number of arguments (for validation)
+            if func_name in BUILTIN_FUNCTIONS:
+                self._results[idx] = self._execute_builtin_call_from_params(func_name, line, col)
+                return
             if func_name in self._func_labels:
                 # Save current array aliases to preserve on return
                 saved_aliases = dict(self._array_aliases)
@@ -1217,6 +1235,93 @@ class RuntimeExecutor:
             # Set IP directly to target (no increment happens after IP modification)
             self._ip = self._labels[label]
             self._ip_modified = True
+
+    def _coerce_builtin_numeric_result(self, value: float, dtype: str) -> RuntimeValue:
+        """Convert a Python numeric result back into a PORTIA runtime value."""
+        dtype = (dtype or "int").lower()
+        if dtype in ("int", "long"):
+            return RuntimeValue(int(value), dtype)
+        if dtype in ("float", "double"):
+            return RuntimeValue(float(value), dtype)
+        return RuntimeValue(value, get_type_name(value))
+
+    def _execute_builtin_direct(self, op: str, arg1: Any, arg2: Any,
+                                line: int, col: int) -> RuntimeValue:
+        """Execute a built-in lowered as a dedicated TAC instruction."""
+        if op == "len":
+            operand = self._eval(arg1, line, col)
+            if operand.dtype == "string":
+                return RuntimeValue(len(str(operand.value)), "int")
+            if operand.dtype == "char":
+                return RuntimeValue(1, "int")
+            raise ICGRuntimeError(
+                message=f"Built-in function 'len' expects string or char, got {operand.dtype}.",
+                line=line,
+                col=col,
+                error_type="runtime_error"
+            )
+
+        if op in ("abs", "sqrt"):
+            operand = self._eval(arg1, line, col)
+            if not is_numeric_type(operand.dtype):
+                raise ICGRuntimeError(
+                    message=f"Built-in function '{op}' expects numeric operand, got {operand.dtype}.",
+                    line=line,
+                    col=col,
+                    error_type="runtime_error"
+                )
+
+            operand_val = unwrap_value(operand)
+            if op == "abs":
+                return self._coerce_builtin_numeric_result(abs(operand_val), operand.dtype)
+
+            if operand_val < 0:
+                raise ICGRuntimeError(
+                    message="Built-in function 'sqrt' cannot be applied to a negative value.",
+                    line=line,
+                    col=col,
+                    error_type="runtime_error"
+                )
+            return self._coerce_builtin_numeric_result(math.sqrt(operand_val), operand.dtype)
+
+        if op == "pow":
+            left = self._eval(arg1, line, col)
+            right = self._eval(arg2, line, col)
+            if not is_numeric_type(left.dtype) or not is_numeric_type(right.dtype):
+                bad_type = left.dtype if not is_numeric_type(left.dtype) else right.dtype
+                raise ICGRuntimeError(
+                    message=f"Built-in function 'pow' expects numeric operands, got {bad_type}.",
+                    line=line,
+                    col=col,
+                    error_type="runtime_error"
+                )
+
+            result_dtype = wider_numeric_type(left.dtype, right.dtype)
+            result_value = unwrap_value(left) ** unwrap_value(right)
+            return self._coerce_builtin_numeric_result(result_value, result_dtype)
+
+        raise ICGRuntimeError(
+            message=f"Unknown built-in operation '{op}'.",
+            line=line,
+            col=col,
+            error_type="runtime_error"
+        )
+
+    def _execute_builtin_call_from_params(self, func_name: str, line: int, col: int) -> RuntimeValue:
+        """Compatibility path for TAC that still lowers built-ins as call+param."""
+        expected_arity = 2 if func_name == "pow" else 1
+        if len(self._param_stack) < expected_arity:
+            raise ICGRuntimeError(
+                message=f"Built-in function '{func_name}' expects {expected_arity} argument(s).",
+                line=line,
+                col=col,
+                error_type="runtime_error"
+            )
+
+        args = [self._param_stack.pop(0) for _ in range(expected_arity)]
+        arg1 = args[0]
+        arg2 = args[1] if expected_arity == 2 else None
+        return self._execute_builtin_direct(func_name, arg1, arg2, line, col)
     
     def _execute_arithmetic(self, op: str, arg1: Any, arg2: Any, 
                            line: int, col: int) -> RuntimeValue:
