@@ -156,9 +156,7 @@ portia-compiler/
 |-- lexer-backend/
 |-- parser-backend/
 |-- semantic-backend/
-|-- revised-documents/
 |-- scripts/
-|-- test-scripts/
 `-- README.md
 ```
 

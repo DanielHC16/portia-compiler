@@ -62,11 +62,7 @@ class Delimiters:
         self.str_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', ',', ':', '..']
         
         # Character literal delimiters
-        # Char literals may participate in equality / ordered comparisons and
-        # chained logical conditions such as:
-        #   'A'<='Z'
-        #   ch>='A'&&ch<='Z'
-        self.char_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', ',', ':', '..', '>', '<', '=', '!', '&', '|']
+        self.char_lit_delim = chars.whitespace + chars.newline + [')', ';', '}', ',', ':', '..','>', '<', '=', '!']
         
         # Boolean literal delimiters (true, false)
         self.bool_lit_delim = ['=', '!', '&', '|', ',', ')',':', ';', '}'] + chars.whitespace + chars.newline
