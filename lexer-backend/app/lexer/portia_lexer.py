@@ -511,13 +511,17 @@ class LexicalAnalyzer:
                 continue
 
             # Handle newline characters - they now produce tokens
-            # String/char literal states (s272-s278) need special newline handling
-            if ch == '\n' and currState in ['s287', 's290', 's291']:
-                # Unterminated string or character literal - newline encountered before closing quote
-                if currState == 's287':
-                    add_error(f"Lexical Error: Unterminated string literal", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                else:  # s275 or s276
-                    add_error(f"Lexical Error: Unterminated character literal", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
+            # Multiline strings are allowed, so literal newlines inside s287
+            # become part of the string token instead of terminating it.
+            if ch == '\n' and currState == 's287':
+                lexeme += ch
+                i += 1
+                line += 1
+                col = 1
+                continue
+            elif ch == '\n' and currState in ['s290', 's291']:
+                # Character literals still cannot span lines.
+                add_error(f"Lexical Error: Unterminated character literal", lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
                 currState = 's0'
                 lexeme = ''
                 line += 1
@@ -3107,7 +3111,7 @@ class LexicalAnalyzer:
                 match currChar:
                     case '\\': return 's365'  # Backslash - next char is escape sequence (shifted)
                     case '"': return 's288'  # Closing quote - end string
-                    case '\n': return 'UNDEFINED'  # Literal newline in string is invalid
+                    case '\n': return 's287'  # Multiline strings keep literal newlines
                     case _ if currChar in self.ascii: return 's287'  # Continue consuming ASCII chars
                     case _ if currChar in self.whitespace: return 's287'  # Allow whitespace in strings
                     case 'ANY': return 's287'  # Continue on any other character

@@ -1733,14 +1733,20 @@ class SemanticAnalyzer:
             return lt or rt
 
         if op in RELATIONAL_OPS:
-            # Equality operators (==, !=) allow: numeric, char, string, bool
-            # Comparison operators (<, >, <=, >=) allow: numeric only
+            # Equality operators (==, !=) allow numeric, char, string, bool.
+            # Ordered comparison operators (<, >, <=, >=) allow numeric and
+            # char. Char ordering follows the runtime's ASCII-compatible
+            # single-character ordering.
             if op in EQUALITY_OPS:
                 valid = NUMERIC_TYPES | {"char", "string", "bool"}
                 error_msg = "numeric, char, string, or bool"
             else:
-                valid = NUMERIC_TYPES
-                error_msg = "numeric"
+                valid = NUMERIC_TYPES | {"char"}
+                error_msg = "numeric or char"
+
+            left_valid = not lt or lt in valid
+            right_valid = not rt or rt in valid
+
             if lt and lt not in valid:
                 l_line = left.get("line", line) if left else line
                 l_col = left.get("col", col) if left else col
@@ -1759,20 +1765,24 @@ class SemanticAnalyzer:
                     f"right operand is '{rt}'",
                     r_line, r_col, token_length=r_len,
                 )
-            # For equality, both operands must be the same type category
-            if op in EQUALITY_OPS and lt and rt:
-                # Check type compatibility for equality comparison
-                if lt != rt:
-                    # Allow numeric widening comparisons
-                    if not (lt in NUMERIC_TYPES and rt in NUMERIC_TYPES):
-                        # Highlight the right operand (the mismatched one)
-                        r_line = right.get("line", line) if right else line
-                        r_col = right.get("col", col) if right else col
-                        r_len = self._get_token_length(right)
-                        self._err(
-                            f"Cannot compare '{lt}' with '{rt}' using '{op}'",
-                            r_line, r_col, token_length=r_len,
-                        )
+
+            if lt and rt and left_valid and right_valid:
+                if op in EQUALITY_OPS:
+                    comparable = lt == rt or (lt in NUMERIC_TYPES and rt in NUMERIC_TYPES)
+                else:
+                    comparable = (
+                        (lt in NUMERIC_TYPES and rt in NUMERIC_TYPES)
+                        or (lt == "char" and rt == "char")
+                    )
+
+                if not comparable:
+                    r_line = right.get("line", line) if right else line
+                    r_col = right.get("col", col) if right else col
+                    r_len = self._get_token_length(right)
+                    self._err(
+                        f"Cannot compare '{lt}' with '{rt}' using '{op}'",
+                        r_line, r_col, token_length=r_len,
+                    )
             return "bool"
 
         if op in LOGICAL_OPS:

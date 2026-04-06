@@ -1,0 +1,64 @@
+int main() {
+    local var string word = "";
+    local var int choice = 0;
+
+    local var char letters[5];
+    local var int i = 0;
+    local var int j = 0;
+    local var int best = 0;
+    local var char temp = ' ';
+
+    threadln("Enter any 5-letter word:");
+    trap(word);
+
+    if (len(word) != 5) {
+        threadln("Input must be exactly 5 letters.");
+        return 0;
+    }
+
+    threadln("Choose order: 1 for Ascending, 2 for Descending");
+    trap(choice);
+
+    i = 0;
+    while (i < 5) {
+        letters[i] = word[i];
+        i = i + 1;
+    }
+
+    i = 0;
+    while (i < 4) {
+        best = i;
+        j = i + 1;
+
+        while (j < 5) {
+            if (choice == 1) {
+                if (letters[j] < letters[best]) {
+                    best = j;
+                }
+            } else {
+                if (letters[j] > letters[best]) {
+                    best = j;
+                }
+            }
+            j = j + 1;
+        }
+
+        if (best != i) {
+            temp = letters[i];
+            letters[i] = letters[best];
+            letters[best] = temp;
+        }
+
+        i = i + 1;
+    }
+
+    thread("Sorted word: ");
+    i = 0;
+    while (i < 5) {
+        thread(letters[i]);
+        i = i + 1;
+    }
+    threadln("");
+
+    return 0;
+}

@@ -144,10 +144,11 @@ def types_compatible_for_arithmetic(t1: str, t2: str) -> bool:
 
 def types_compatible_for_comparison(t1: str, t2: str) -> bool:
     """Check if two types can be compared."""
-    # Same type category
     if is_numeric_type(t1) and is_numeric_type(t2):
         return True
-    if is_string_type(t1) and is_string_type(t2):
+    if t1 == "char" and t2 == "char":
+        return True
+    if t1 == "string" and t2 == "string":
         return True
     if t1 == "bool" and t2 == "bool":
         return True
@@ -1424,18 +1425,32 @@ class RuntimeExecutor:
             )
         
         try:
+            if left_type == "char" and right_type == "char":
+                if len(left_val) != 1 or len(right_val) != 1:
+                    raise ICGRuntimeError(
+                        message="Type mismatch: char comparisons require single-character values.",
+                        line=line,
+                        col=col,
+                        error_type="runtime_error"
+                    )
+                left_cmp = ord(left_val)
+                right_cmp = ord(right_val)
+            else:
+                left_cmp = left_val
+                right_cmp = right_val
+
             if op == "==":
                 result = left_val == right_val
             elif op == "!=":
                 result = left_val != right_val
             elif op == "<":
-                result = left_val < right_val
+                result = left_cmp < right_cmp
             elif op == ">":
-                result = left_val > right_val
+                result = left_cmp > right_cmp
             elif op == "<=":
-                result = left_val <= right_val
+                result = left_cmp <= right_cmp
             elif op == ">=":
-                result = left_val >= right_val
+                result = left_cmp >= right_cmp
             else:
                 result = False
             

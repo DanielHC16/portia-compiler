@@ -12,6 +12,19 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
     ? tokens.filter(t => !(t.type === 'single_comment' || t.type === 'multi_comment'))
     : tokens;
 
+  const formatLexeme = (token: Token) => {
+    if (token.type === "stringlit") {
+      return token.lexeme.replace(/\n/g, "\\n");
+    }
+    return token.lexeme;
+  };
+
+  const getLexemeClassName = (token: Token) => {
+    if (token.type === "stringlit") return "token-lexeme token-lexeme-string";
+    if (token.type === "charlit") return "token-lexeme token-lexeme-char";
+    return "token-lexeme";
+  };
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
@@ -65,7 +78,9 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
               <tbody>
                 {slice.map((t, i) => (
                   <tr key={startIndex + i} style={{ height: ROW_HEIGHT }}>
-                    <td className='token-lexeme'>{t.lexeme}</td>
+                    <td className={getLexemeClassName(t)} title={t.lexeme}>
+                      {formatLexeme(t)}
+                    </td>
                     <td className='token-type'>{t.type}</td>
                     <td className='token-pos'>{t.line}</td>
                     <td className='token-pos'>{t.column}</td>

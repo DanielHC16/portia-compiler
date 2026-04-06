@@ -390,6 +390,14 @@ html, body, #root {
   font-family: var(--mono);
 }
 
+.token-lexeme-string {
+  color: var(--success);
+}
+
+.token-lexeme-char {
+  color: var(--success);
+}
+
 .token-pos {
   color: var(--text-muted);
   width: 15%;

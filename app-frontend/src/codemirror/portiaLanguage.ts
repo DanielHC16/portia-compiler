@@ -6,10 +6,28 @@ const portiaMode = StreamLanguage.define({
   name: "portia",
   startState: () => ({
     inString: false,
+    stringQuote: null as string | null,
     inComment: false,
     inBlockComment: false,
   }),
   token: (stream, state) => {
+    // Multiline string continuation. Handle this before the normal
+    // whitespace path so continuation lines stay visually inside the string.
+    if (state.inString && state.stringQuote === '"') {
+      if (stream.eatSpace()) return "string";
+
+      while (!stream.eol()) {
+        const ch = stream.next();
+        if (ch === '"') {
+          state.inString = false;
+          state.stringQuote = null;
+          break;
+        }
+        if (ch === "\\") stream.next();
+      }
+      return "string";
+    }
+
     // Skip whitespace
     if (stream.eatSpace()) return null;
 
@@ -37,9 +55,15 @@ const portiaMode = StreamLanguage.define({
 
     // Strings with double quotes
     if (stream.match('"')) {
+      state.inString = true;
+      state.stringQuote = '"';
       while (!stream.eol()) {
         const ch = stream.next();
-        if (ch === '"') break;
+        if (ch === '"') {
+          state.inString = false;
+          state.stringQuote = null;
+          break;
+        }
         if (ch === '\\') stream.next(); // escape
       }
       return "string";
