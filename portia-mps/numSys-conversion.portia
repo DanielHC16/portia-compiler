@@ -1,0 +1,150 @@
+ int main() {
+    local var int choice = 0;
+    local var long num = 0;
+    local var long temp = 0;
+    local var long digit = 0;
+    local var long decimal = 0;
+    local var long base = 1;
+    local var long result = 0;
+    local var long place = 1;
+    local var int count = 0;
+    local var int i = 0;
+    local var char hexDigits[16];
+
+    threadln("1. Binary to Decimal, Octal, Hexadecimal");
+    threadln("2. Decimal to Binary, Octal, Hexadecimal");
+    thread("Choose conversion: ");
+    trap(choice);
+
+    if (choice == 1) {
+        thread("Enter binary number: ");
+        trap(num);
+
+        // Binary to Decimal
+        temp = num;
+        while (temp > 0) {
+            digit = temp % 10;
+            decimal = decimal + (digit * base);
+            base = base * 2;
+            temp = temp / 10;
+        }
+        threadln("Decimal: " .. decimal);
+
+        // Decimal to Octal
+        result = 0;
+        place = 1;
+        temp = decimal;
+        while (temp > 0) {
+            digit = temp % 8;
+            result = result + (digit * place);
+            place = place * 10;
+            temp = temp / 8;
+        }
+        threadln("Octal: " .. result);
+
+        // Decimal to Hexadecimal
+        count = 0;
+        temp = decimal;
+        if (temp == 0) {
+            threadln("Hexadecimal: 0");
+        }
+        while (temp > 0) {
+            digit = temp % 16;
+            if (digit == 0) { hexDigits[count] = '0'; }
+            if (digit == 1) { hexDigits[count] = '1'; }
+            if (digit == 2) { hexDigits[count] = '2'; }
+            if (digit == 3) { hexDigits[count] = '3'; }
+            if (digit == 4) { hexDigits[count] = '4'; }
+            if (digit == 5) { hexDigits[count] = '5'; }
+            if (digit == 6) { hexDigits[count] = '6'; }
+            if (digit == 7) { hexDigits[count] = '7'; }
+            if (digit == 8) { hexDigits[count] = '8'; }
+            if (digit == 9) { hexDigits[count] = '9'; }
+            if (digit == 10) { hexDigits[count] = 'A'; }
+            if (digit == 11) { hexDigits[count] = 'B'; }
+            if (digit == 12) { hexDigits[count] = 'C'; }
+            if (digit == 13) { hexDigits[count] = 'D'; }
+            if (digit == 14) { hexDigits[count] = 'E'; }
+            if (digit == 15) { hexDigits[count] = 'F'; }
+            count = count + 1;
+            temp = temp / 16;
+        }
+        if (decimal > 0) {
+            thread("Hexadecimal: ");
+            i = count - 1;
+            while (i >= 0) {
+                thread(hexDigits[i]);
+                i = i - 1;
+            }
+            threadln("");
+        }
+    }
+
+    if (choice == 2) {
+        thread("Enter decimal number: ");
+        trap(num);
+
+        // Decimal to Binary
+        result = 0;
+        place = 1;
+        temp = num;
+        while (temp > 0) {
+            digit = temp % 2;
+            result = result + (digit * place);
+            place = place * 10;
+            temp = temp / 2;
+        }
+        threadln("Binary: " .. result);
+
+        // Decimal to Octal
+        result = 0;
+        place = 1;
+        temp = num;
+        while (temp > 0) {
+            digit = temp % 8;
+            result = result + (digit * place);
+            place = place * 10;
+            temp = temp / 8;
+        }
+        threadln("Octal: " .. result);
+
+        // Decimal to Hexadecimal
+        count = 0;
+        temp = num;
+        if (temp == 0) {
+            threadln("Hexadecimal: 0");
+        }
+        while (temp > 0) {
+            digit = temp % 16;
+            if (digit == 0) { hexDigits[count] = '0'; }
+            if (digit == 1) { hexDigits[count] = '1'; }
+            if (digit == 2) { hexDigits[count] = '2'; }
+            if (digit == 3) { hexDigits[count] = '3'; }
+            if (digit == 4) { hexDigits[count] = '4'; }
+            if (digit == 5) { hexDigits[count] = '5'; }
+            if (digit == 6) { hexDigits[count] = '6'; }
+            if (digit == 7) { hexDigits[count] = '7'; }
+            if (digit == 8) { hexDigits[count] = '8'; }
+            if (digit == 9) { hexDigits[count] = '9'; }
+            if (digit == 10) { hexDigits[count] = 'A'; }
+            if (digit == 11) { hexDigits[count] = 'B'; }
+            if (digit == 12) { hexDigits[count] = 'C'; }
+            if (digit == 13) { hexDigits[count] = 'D'; }
+            if (digit == 14) { hexDigits[count] = 'E'; }
+            if (digit == 15) { hexDigits[count] = 'F'; }
+            count = count + 1;
+            temp = temp / 16;
+        }
+        if (num > 0) {
+            thread("Hexadecimal: ");
+            i = count - 1;
+            while (i >= 0) {
+                thread(hexDigits[i]);
+                i = i - 1;
+            }
+            threadln("");
+        }
+    }
+
+    return 0;
+}

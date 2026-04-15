@@ -1,0 +1,28 @@
+int main() {
+    local var long number = 0;
+    local var long temp = 0;
+    local var long digit = 0;
+    local var long sum = 0;
+
+    thread("Enter a number: ");
+    trap(number);
+
+    temp = number;
+
+    // Handle negative numbers
+    if (temp < 0) {
+        temp = temp * -1;
+    }
+
+    sum = 0;
+
+    while (temp > 0) {
+        digit = temp % 10;
+        sum = sum + digit;
+        temp = temp / 10;
+    }
+
+    threadln("Sum of digits: " .. sum);
+
+    return 0;
+}

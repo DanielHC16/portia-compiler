@@ -1,0 +1,90 @@
+int main() {
+    local var string word = "";
+    local var int choice = 0;
+    local var char a[5];
+    local var char temp = ' ';
+    local var int i = 0;
+    local var int j = 0;
+    local var int best = 0;
+    local var int k = 0;
+
+    threadln("Enter any 5-letter word:");
+    trap(word);
+
+    if (len(word) != 5) {
+        threadln("Input must be exactly 5 letters.");
+        return 0;
+    }
+
+    k = 0;
+    while (k < 5) {
+        if (word[k] < 'A') {
+            threadln("Invalid input. Letters only.");
+            return 0;
+        }
+
+        if (word[k] > 'Z') {
+            if (word[k] < 'a') {
+                threadln("Invalid input. Letters only.");
+                return 0;
+            }
+
+            if (word[k] > 'z') {
+                threadln("Invalid input. Letters only.");
+                return 0;
+            }
+        }
+
+        k = k + 1;
+    }
+
+    threadln("1 for Ascending, 2 for Descending:");
+    trap(choice);
+
+    if (choice != 1) {
+        if (choice != 2) {
+            threadln("Invalid choice.");
+            return 0;
+        }
+    }
+
+    i = 0;
+    while (i < 5) {
+        a[i] = word[i];
+        i = i + 1;
+    }
+
+    i = 0;
+    while (i < 4) {
+        best = i;
+        j = i + 1;
+
+        while (j < 5) {
+            if (choice == 1) {
+                if (a[j] < a[best]) {
+                    best = j;
+                }
+            } else {
+                if (a[j] > a[best]) {
+                    best = j;
+                }
+            }
+            j = j + 1;
+        }
+
+        temp = a[i];
+        a[i] = a[best];
+        a[best] = temp;
+
+        i = i + 1;
+    }
+
+    thread("Sorted word: ");
+    i = 0;
+    while (i < 5) {
+        thread(a[i]);
+        i = i + 1;
+    }
+
+    return 0;
+}

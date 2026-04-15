@@ -1,0 +1,30 @@
+func int countDigits(int n) {
+    local var int count = 0;
+    local var int temp = 0;
+    temp = n;
+
+    if (temp < 0) {
+        temp = temp * -1;
+    }
+
+    if (temp == 0) {
+        return 1;
+    }else{
+    while (temp > 0) {
+        temp  = temp / 10;
+        count = count + 1;
+       }
+    }
+    return count;
+}
+
+int main() {
+    local var int num= 0;
+    local var int result = 0;
+
+    thread("Input a number: ");
+    trap(num);
+    result = countDigits(num);
+    threadln("The number of digits in the number is: " .. result);
+    return 0;
+}

@@ -1,0 +1,33 @@
+int main() {
+    local var int n = 0;
+    local var int i = 1;
+    local var int evenSum = 0;
+    local var int oddSum = 0;
+    local var int oddCount = 0;
+    local var float avg = 0.0;
+
+    do {
+        thread("Enter N (must be a positive integer): ");
+        trap(n);
+        if (n <= 0) {
+            threadln("Invalid input. Please enter a positive integer.");
+        }
+    } while (n <= 0);
+
+    while (i <= n) {
+        if ((i % 2) == 0) {
+            evenSum += i;
+        } else {
+            oddSum += i;
+            oddCount += 1;
+        }
+        i += 1;
+    }
+
+    avg = (float)oddSum / (float)oddCount;
+
+    threadln("Sum of even numbers from 1 to " .. n .. ": " .. evenSum);
+    threadln("Average of odd numbers from 1 to " .. n .. ": " .. avg);
+
+    return 0;
+}

@@ -1,0 +1,53 @@
+global var int arr[100];
+global var int n = 0;
+
+func int getLargest(int nums[100], int idx) {
+    local var int current = 0;
+    local var int rest = 0;
+    if (idx == 0) {
+        return nums[0];
+    }
+    current = nums[idx];
+    rest = getLargest(nums, idx - 1);
+    if (current > rest) {
+        return current;
+    }
+    return rest;
+}
+
+int main() {
+    using arr, n;
+    local var int largest = 0;
+    local var int lastIdx = 0;
+    local var int i = 0;
+
+    do {
+        threadln("How many elements do you want to enter? (max 100): ");
+        trap(n);
+        if (n <= 0 || n > 100) {
+            threadln("Invalid input. Please enter a number between 1 and 100.");
+        }
+    } while (n <= 0 || n > 100);
+
+    threadln("Enter " .. n .. " integer values:");
+    i = 0;
+    while (i < n) {
+        threadln("Enter value for index " .. i .. ": ");
+        trap(arr[i]);
+        i += 1;
+    }
+
+    lastIdx = n - 1;
+    largest = getLargest(arr, lastIdx);
+
+    thread("Array elements:");
+    i = 0;
+    while (i < n) {
+        thread(" " .. arr[i]);
+        i += 1;
+    }
+    threadln("");
+    threadln("Largest element: " .. largest);
+
+    return 0;
+}

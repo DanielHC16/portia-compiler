@@ -1,0 +1,21 @@
+
+int main() {
+    local var int num1 = 0;
+    local var int num2 = 0;
+    local var int diff = 0;
+
+    threadln("Enter first number:");
+    trap(num1);
+    threadln("Enter second number:");
+    trap(num2);
+
+    diff = num1 - num2;
+
+    thread("Difference: ");
+    threadln(diff);
+
+    return 0;
+}
+
+
+

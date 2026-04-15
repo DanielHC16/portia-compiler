@@ -1,0 +1,57 @@
+func bool isValidUsername(string uname, int leng) {
+    local var bool hasUpper = false;
+    local var bool hasLower = false;
+    local var bool hasDigit = false;
+    local var bool hasSpec = false;
+    local var bool isAlNum = false;
+    local var int i = 0;
+    local var char c = ' ';
+
+    if (leng < 8) {
+        return false;
+    }
+
+    for (i = 0; i < leng; i += 1) {
+        c = uname[i];
+        if (c >= 'A' && c <= 'Z') {
+            hasUpper = true;
+        }
+        if (c >= 'a' && c <= 'z') {
+            hasLower = true;
+        }
+        if (c >= '0' && c <= '9') {
+            hasDigit = true;
+        }
+        isAlNum = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+        if (isAlNum == false) {
+            hasSpec = true;
+        }
+    }
+
+    return hasUpper && hasLower && hasDigit && hasSpec;
+}
+
+int main() {
+    local var string uname = "";
+    local var int leng = 0;
+    local var bool valid = false;
+
+    do {
+        threadln("Enter username: ");
+        trap(uname);
+        leng = len(uname);
+        valid = isValidUsername(uname, leng);
+        if (valid == false) {
+            threadln("Invalid username! Requirements:");
+            threadln("- At least 8 characters");
+            threadln("- At least 1 uppercase letter");
+            threadln("- At least 1 lowercase letter");
+            threadln("- At least 1 digit");
+            threadln("- At least 1 special character");
+            threadln("Please try again.");
+        }
+    } while (valid == false);
+
+    threadln("Valid username accepted: " .. uname);
+    return 0;
+}

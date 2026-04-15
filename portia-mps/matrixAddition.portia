@@ -1,0 +1,46 @@
+int main() {
+    local var int A[5];
+    local var int B[5];
+    local var int C[5];
+    local var int i = 0;
+
+    threadln("Enter 5 elements for Array A:");
+    i = 0;
+    while (i < 5) {
+        thread("A[");
+        thread(i);
+        thread("]: ");
+        trap(A[i]);
+        i = i + 1;
+    }
+
+    threadln("Enter 5 elements for Array B:");
+    i = 0;
+    while (i < 5) {
+        thread("B[");
+        thread(i);
+        thread("]: ");
+        trap(B[i]);
+        i = i + 1;
+    }
+
+    // Compute sum
+    i = 0;
+    while (i < 5) {
+        C[i] = A[i] + B[i];
+        i = i + 1;
+    }
+
+    // Display result
+    threadln("Resulting Array C (A + B):");
+    i = 0;
+    while (i < 5) {
+        thread("C[");
+        thread(i);
+        thread("] = ");
+        threadln(C[i]);
+        i = i + 1;
+    }
+
+    return 0;
+}

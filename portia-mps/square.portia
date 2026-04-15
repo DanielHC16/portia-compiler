@@ -1,0 +1,22 @@
+int main() {
+    local var int i = 0;
+    local var int j = 0;
+    local var int size = 0;
+    
+    thread("Enter size: ");
+    trap(size);
+    
+    threadln("Square:");
+    i = 0;
+    while (i < size) {
+        j = 0;
+        while (j < size) {
+            thread("*");
+            j = j + 1;
+        }
+        threadln("");
+        i = i + 1;
+    }
+    
+    return 0;
+}
