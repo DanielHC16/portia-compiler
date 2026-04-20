@@ -1,5 +1,11 @@
 // src/components/ViewSwitcher.tsx
-import { useState, useEffect, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  /*
+  useRef,
+  */
+} from "react";
 import LexerPanel from "./LexerPanel";
 import ParserPanel from "./ParserPanel";
 import SemanticPanel from "./SemanticPanel";
@@ -24,8 +30,9 @@ export default function ViewSwitcher() {
   const [sharedTokens, setSharedTokens] = useState<Token[]>([]);
   const [sharedLexErrors, setSharedLexErrors] = useState<LexError[]>([]);
   
-  // File input ref for loading files
+  /* Save/load functionality disabled
   const fileInputRef = useRef<HTMLInputElement>(null);
+  */
 
   useEffect(() => {
     // Apply theme to document root and persist to localStorage
@@ -38,7 +45,7 @@ export default function ViewSwitcher() {
     setTheme(prev => prev === "dark" ? "light" : "dark");
   };
 
-  // Save code to a .portia file
+  /* Save/load functionality disabled
   const handleSave = () => {
     const blob = new Blob([sharedCode], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -53,16 +60,14 @@ export default function ViewSwitcher() {
     URL.revokeObjectURL(url);
   };
 
-  // Trigger file input for loading
   const handleLoadClick = () => {
     fileInputRef.current?.click();
   };
 
-  // Load code from a .portia file
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result;
@@ -79,6 +84,7 @@ export default function ViewSwitcher() {
     // Reset input so same file can be loaded again
     e.target.value = "";
   };
+  */
 
   return (
     <div className="app-shell">
@@ -126,7 +132,10 @@ export default function ViewSwitcher() {
         </div>
 
         <div className="controls">
-          {/* Hidden file input for loading */}
+        
+
+          {/* Save/load functionality disabled */}
+          {/*
           <input
             type="file"
             ref={fileInputRef}
@@ -134,9 +143,8 @@ export default function ViewSwitcher() {
             accept=".portia,.txt"
             style={{ display: "none" }}
           />
-          
-          {/* Save Button */}
-          <button 
+
+          <button
             className="theme-toggle-btn"
             onClick={handleSave}
             aria-label="Save code as .portia file"
@@ -148,9 +156,8 @@ export default function ViewSwitcher() {
               <polyline points="7 3 7 8 15 8" />
             </svg>
           </button>
-          
-          {/* Load Button */}
-          <button 
+
+          <button
             className="theme-toggle-btn"
             onClick={handleLoadClick}
             aria-label="Load .portia file"
@@ -162,6 +169,10 @@ export default function ViewSwitcher() {
               <polyline points="9 14 12 11 15 14" />
             </svg>
           </button>
+
+
+
+          */}
           
           {/* Dark/Light Theme Toggle */}
           <button 
