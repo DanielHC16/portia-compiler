@@ -212,7 +212,7 @@ CFG = {
     158: _prod("I/O_stmt", "output_stmt"),
     159: _prod("input_stmt", "trap", "(", "trap_target", ")", ";"),
     160: _prod("trap_target", "id", "trap_suffix"),
-    161: _prod("trap_suffix", "[", "size", "]"),
+    161: _prod("trap_suffix", "[", "size", "]", "2D_array"),
     162: _prod("trap_suffix", ".", "id"),
     163: _prod("trap_suffix"),
     164: _prod("output_stmt", "thread", "(", "print_args", ")", ";"),

@@ -1314,11 +1314,17 @@ class PortiaParser:
 
     def parse_trap_suffix(self, name: str, line: int = 0, col: int = 0) -> Identifier:
         if self.check("["):
-            # [165] [ size_mod ]
+            # [165] [ size_mod ] 2D_array
             self.advance()
-            idx = self._parse_size_mod()
+            idx1 = self._parse_size_mod()
             self.match_value("]")
-            return Identifier(name, indices=[idx], line=line, col=col)
+            indices = [idx1]
+            if self.check("["):
+                self.advance()
+                idx2 = self._parse_size_mod()
+                self.match_value("]")
+                indices.append(idx2)
+            return Identifier(name, indices=indices, line=line, col=col)
         elif self.check("."):
             # [166] . id
             self.advance()

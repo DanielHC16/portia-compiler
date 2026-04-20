@@ -922,6 +922,13 @@ class RuntimeExecutor:
         
         # Variable name or literal string
         if isinstance(arg, str):
+            # Whole-array identifiers should reflect the current element memory,
+            # not a potentially stale root array value left by an earlier assignment.
+            if "[" not in arg and self._is_array_variable(arg):
+                array_elements = self._collect_array_elements(arg)
+                if array_elements is not None:
+                    return array_elements
+
             # Check for array access pattern: arr[index]
             array_match = re.match(r'^(\w+)\[(\d+)\]$', arg)
             if array_match:
@@ -974,11 +981,6 @@ class RuntimeExecutor:
                     return RuntimeValue(float(arg), "float")
             except (ValueError, IndexError):
                 pass
-            
-            # Check if it's an array name - collect all elements
-            array_elements = self._collect_array_elements(arg)
-            if array_elements is not None:
-                return array_elements
             
             # Uninitialized variable - return 0
             return RuntimeValue(0, "int")
@@ -1535,6 +1537,7 @@ class RuntimeExecutor:
         Supports:
         - Simple variables: trap(x)
         - Array elements: trap(arr[0])
+        - 2D array elements: trap(arr[0][1])
         
         Parameters
         ----------
@@ -1547,21 +1550,24 @@ class RuntimeExecutor:
         col : int
             Source column for error reporting
         """
-        # Parse array element syntax: arr[index]
-        array_match = re.match(r'^(\w+)\[(.+)\]$', var_name)
+        # Parse array element syntax: arr[index] or arr[index1][index2]
+        array_match = re.match(r'^(\w+)((?:\[[^\]]+\])+)$', var_name)
         actual_var_name = var_name
         string_target: Optional[Tuple[str, int]] = None
         
         if array_match:
             base_name = array_match.group(1)
             array_name = self._resolve_array_name(base_name)
-            index_expr = array_match.group(2).strip()
-            index_value = unwrap_value(self._eval(index_expr, line, col))
-            index_int = int(index_value)
+            index_exprs = re.findall(r'\[([^\]]+)\]', array_match.group(2))
+            index_vals = []
+            for index_expr in index_exprs:
+                index_value = unwrap_value(self._eval(index_expr.strip(), line, col))
+                index_vals.append(int(index_value))
             if self._is_scalar_string_variable(base_name) or self._is_scalar_string_variable(array_name):
+                index_int = index_vals[0]
                 string_target = (array_name, index_int)
             else:
-                actual_var_name = f"{array_name}[{index_int}]"
+                actual_var_name = array_name + "".join(f"[{idx}]" for idx in index_vals)
         
         # Request input from handler
         raw_input = self._input_handler.request_input(var_name, var_type, line, col)
