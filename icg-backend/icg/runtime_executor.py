@@ -1361,7 +1361,11 @@ class RuntimeExecutor:
             )
         
         # Determine result type
-        result_type = "float" if (left_type in ("float", "double") or right_type in ("float", "double")) else "int"
+        result_type = (
+            "float"
+            if op == "/" or left_type in ("float", "double") or right_type in ("float", "double")
+            else "int"
+        )
         
         try:
             if op == "+":
@@ -1378,11 +1382,7 @@ class RuntimeExecutor:
                         col=col,
                         error_type="runtime_error"
                     )
-                # Integer division if both operands are integers
-                if result_type == "int":
-                    result = left_val // right_val
-                else:
-                    result = left_val / right_val
+                result = float(left_val) / float(right_val)
             elif op == "%":
                 if right_val == 0:
                     raise ICGRuntimeError(
