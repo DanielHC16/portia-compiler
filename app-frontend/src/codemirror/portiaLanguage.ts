@@ -1,5 +1,149 @@
 // CodeMirror Portia Language Support
-import { StreamLanguage } from "@codemirror/language";
+import { indentService, indentUnit, StreamLanguage } from "@codemirror/language";
+import type { IndentContext } from "@codemirror/language";
+import type { Extension } from "@codemirror/state";
+
+export const PORTIA_INDENT = "    ";
+
+type IndentScanState = {
+  depth: number;
+  inBlockComment: boolean;
+  stringQuote: string | null;
+};
+
+const openingDelimiters = new Set(["{", "[", "("]);
+const closingDelimiters = new Set(["}", "]", ")"]);
+
+function scanIndentLine(line: string, state: IndentScanState): IndentScanState {
+  let { depth, inBlockComment, stringQuote } = state;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    const next = line[i + 1];
+
+    if (inBlockComment) {
+      if (ch === "*" && next === "/") {
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+
+    if (stringQuote) {
+      if (ch === "\\") {
+        i++;
+      } else if (ch === stringQuote) {
+        stringQuote = null;
+      }
+      continue;
+    }
+
+    if (ch === "/" && next === "/") break;
+    if (ch === "/" && next === "*") {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      stringQuote = ch;
+      continue;
+    }
+
+    if (openingDelimiters.has(ch)) {
+      depth++;
+    } else if (closingDelimiters.has(ch)) {
+      depth = Math.max(0, depth - 1);
+    }
+  }
+
+  return { depth, inBlockComment, stringQuote };
+}
+
+function lastCodeCharacter(line: string, state: IndentScanState): string | null {
+  let { inBlockComment, stringQuote } = state;
+  let lastChar: string | null = null;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    const next = line[i + 1];
+
+    if (inBlockComment) {
+      if (ch === "*" && next === "/") {
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+
+    if (stringQuote) {
+      if (ch === "\\") {
+        i++;
+      } else if (ch === stringQuote) {
+        stringQuote = null;
+      }
+      continue;
+    }
+
+    if (ch === "/" && next === "/") break;
+    if (ch === "/" && next === "*") {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      stringQuote = ch;
+      continue;
+    }
+
+    if (!/\s/.test(ch)) {
+      lastChar = ch;
+    }
+  }
+
+  return lastChar;
+}
+
+function scanToLineStart(context: IndentContext, lineNumber: number): IndentScanState {
+  let state: IndentScanState = { depth: 0, inBlockComment: false, stringQuote: null };
+
+  for (let lineNo = 1; lineNo < lineNumber; lineNo++) {
+    state = scanIndentLine(context.state.doc.line(lineNo).text, state);
+  }
+
+  return state;
+}
+
+function portiaIndent(context: IndentContext, pos: number): number | null {
+  const sourceLine = context.state.doc.lineAt(pos);
+  const targetLine = context.lineAt(pos, 1);
+  let scanState = scanToLineStart(context, sourceLine.number);
+  const beforeBreakText = context.lineAt(pos, -1).text;
+  const opensNextLine = openingDelimiters.has(lastCodeCharacter(beforeBreakText, scanState) ?? "");
+  const startsWithClosingDelimiter = /^\s*(?:}|]|\))/.test(targetLine.text);
+
+  if (!opensNextLine && !startsWithClosingDelimiter) {
+    return null;
+  }
+
+  if (
+    context.simulatedBreak !== null &&
+    context.simulatedBreak >= sourceLine.from &&
+    context.simulatedBreak <= sourceLine.to
+  ) {
+    scanState = scanIndentLine(context.lineAt(pos, -1).text, scanState);
+  }
+
+  const depth = Math.max(0, scanState.depth - (startsWithClosingDelimiter ? 1 : 0));
+
+  return depth * context.unit;
+}
+
+export const portiaIndentation: Extension = [
+  indentUnit.of(PORTIA_INDENT),
+  indentService.of(portiaIndent),
+];
 
 // Simple mode definition for Portia language
 const portiaMode = StreamLanguage.define({
@@ -128,6 +272,7 @@ const portiaMode = StreamLanguage.define({
   },
   languageData: {
     commentTokens: { line: "//", block: { open: "/*", close: "*/" } },
+    indentOnInput: /^\s*(?:}|]|\))$/,
   },
 });
 

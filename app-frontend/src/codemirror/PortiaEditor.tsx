@@ -1,14 +1,15 @@
 // Reusable CodeMirror Editor Component with Portia language support and error highlighting
 import { useRef, useEffect, useMemo } from "react";
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorSelection, EditorState, Compartment } from "@codemirror/state";
 import type { Extension } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import type { KeyBinding } from "@codemirror/view";
+import { defaultKeymap, history, historyKeymap, indentLess, indentMore } from "@codemirror/commands";
 import { bracketMatching, indentOnInput, foldGutter, foldKeymap } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { lintGutter, setDiagnostics } from "@codemirror/lint";
 import type { Diagnostic } from "@codemirror/lint";
-import { portiaLanguage } from "./portiaLanguage";
+import { PORTIA_INDENT, portiaIndentation, portiaLanguage } from "./portiaLanguage";
 import { getCodeMirrorTheme } from "./themes";
 
 export interface EditorError {
@@ -33,6 +34,123 @@ interface PortiaEditorProps {
 // Compartments for dynamic reconfiguration (preserves cursor position)
 const themeCompartment = new Compartment();
 const readOnlyCompartment = new Compartment();
+
+function visualColumn(text: string, tabSize: number): number {
+  let column = 0;
+
+  for (const ch of text) {
+    column += ch === "\t" ? tabSize - (column % tabSize) : 1;
+  }
+
+  return column;
+}
+
+function lastCodeCharacter(text: string): string | null {
+  let stringQuote: string | null = null;
+  let lastChar: string | null = null;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+
+    if (stringQuote) {
+      if (ch === "\\") {
+        i++;
+      } else if (ch === stringQuote) {
+        stringQuote = null;
+      }
+      continue;
+    }
+
+    if (ch === "/" && next === "/") break;
+    if (ch === "/" && next === "*") {
+      i++;
+      while (i + 1 < text.length && !(text[i] === "*" && text[i + 1] === "/")) {
+        i++;
+      }
+      i++;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      stringQuote = ch;
+      continue;
+    }
+
+    if (!/\s/.test(ch)) {
+      lastChar = ch;
+    }
+  }
+
+  return lastChar;
+}
+
+function insertSoftTab(view: EditorView): boolean {
+  const { state } = view;
+
+  if (state.readOnly) return false;
+  if (state.selection.ranges.some((range) => !range.empty)) {
+    return indentMore(view);
+  }
+
+  const changes = state.changeByRange((range) => {
+    const line = state.doc.lineAt(range.from);
+    const column = visualColumn(line.text.slice(0, range.from - line.from), state.tabSize);
+    const spaces = PORTIA_INDENT.length - (column % PORTIA_INDENT.length) || PORTIA_INDENT.length;
+    const insert = " ".repeat(spaces);
+
+    return {
+      changes: { from: range.from, insert },
+      range: EditorSelection.cursor(range.from + insert.length),
+    };
+  });
+
+  view.dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input.indent" }));
+  return true;
+}
+
+function insertPortiaNewline(view: EditorView): boolean {
+  const { state } = view;
+
+  if (state.readOnly) return false;
+
+  const changes = state.changeByRange((range) => {
+    const fromLine = state.doc.lineAt(range.from);
+    const toLine = state.doc.lineAt(range.to);
+    const beforeCursor = fromLine.text.slice(0, range.from - fromLine.from);
+    const afterCursor = toLine.text.slice(range.to - toLine.from);
+    const currentIndent = fromLine.text.match(/^\s*/)?.[0] ?? "";
+    const lastChar = lastCodeCharacter(beforeCursor);
+    const opensBlock = lastChar === "{" || lastChar === "[" || lastChar === "(";
+    const closesBlock = /^\s*(?:}|]|\))/.test(afterCursor);
+    const nextIndent = opensBlock ? `${currentIndent}${PORTIA_INDENT}` : currentIndent;
+    const insert = opensBlock && closesBlock
+      ? `\n${nextIndent}\n${currentIndent}`
+      : `\n${nextIndent}`;
+
+    return {
+      changes: { from: range.from, to: range.to, insert },
+      range: EditorSelection.cursor(range.from + 1 + nextIndent.length),
+    };
+  });
+
+  view.dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
+  return true;
+}
+
+const portiaKeymap: KeyBinding[] = [
+  {
+    key: "Tab",
+    run: insertSoftTab,
+    shift: indentLess,
+    preventDefault: true,
+  },
+  {
+    key: "Enter",
+    run: insertPortiaNewline,
+    preventDefault: true,
+  },
+];
 
 // Create error diagnostics from errors array
 function createDiagnostics(errors: EditorError[], doc: { lines: number; line: (n: number) => { from: number; to: number; length: number }; sliceString: (from: number, to: number) => string; length: number }): Diagnostic[] {
@@ -126,12 +244,15 @@ export default function PortiaEditor({
     highlightActiveLineGutter(),
     history(),
     foldGutter(),
+    EditorState.tabSize.of(PORTIA_INDENT.length),
+    portiaIndentation,
     indentOnInput(),
     bracketMatching(),
     closeBrackets(),
     lintGutter(),
     portiaLanguage,
     keymap.of([
+      ...portiaKeymap,
       ...defaultKeymap,
       ...historyKeymap,
       ...foldKeymap,
