@@ -126,6 +126,17 @@ def decode_escape_sequences(value: str) -> str:
     return "".join(decoded)
 
 
+def ascii_code_for_char(value: Any) -> int:
+    """Return the allowed ASCII code point for a single PORTIA char value."""
+    if not isinstance(value, str) or len(value) != 1:
+        raise ValueError("Expected single ASCII character in range 32-127")
+
+    code_point = ord(value)
+    if code_point < 32 or code_point > 127:
+        raise ValueError("Expected ASCII character in range 32-127")
+    return code_point
+
+
 def is_numeric_type(dtype: str) -> bool:
     """Check if type is numeric (int, long, float, double)."""
     return dtype in ("int", "long", "float", "double")
@@ -1488,16 +1499,25 @@ class RuntimeExecutor:
                      line: int, col: int) -> RuntimeValue:
         """Execute type cast with error handling."""
         val = unwrap_value(value) if isinstance(value, RuntimeValue) else value
+        source_type = value.dtype if isinstance(value, RuntimeValue) else get_type_name(val)
         
         try:
             target_type_lower = target_type.lower()
             if target_type_lower == "int":
+                if source_type == "char":
+                    return RuntimeValue(ascii_code_for_char(val), "int")
                 return RuntimeValue(int(val), "int")
             elif target_type_lower == "long":
+                if source_type == "char":
+                    return RuntimeValue(ascii_code_for_char(val), "long")
                 return RuntimeValue(int(val), "long")
             elif target_type_lower == "float":
+                if source_type == "char":
+                    return RuntimeValue(float(ascii_code_for_char(val)), "float")
                 return RuntimeValue(float(val), "float")
             elif target_type_lower == "double":
+                if source_type == "char":
+                    return RuntimeValue(float(ascii_code_for_char(val)), "double")
                 return RuntimeValue(float(val), "double")
             elif target_type_lower == "string":
                 return RuntimeValue(str(val), "string")

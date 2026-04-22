@@ -1542,16 +1542,17 @@ class SemanticAnalyzer:
                 source_type = self._infer_type(inner_expr)
                 # Validate cast based on supported type conversions:
                 # - numeric <-> numeric (int, long, float, double)
+                # - char -> numeric (ASCII code point)
                 # - bool -> string
                 # - string -> bool
                 # - string -> char
                 # - char -> string
                 if source_type and source_type != "unknown" and target_type:
                     if target_type in NUMERIC_TYPES:
-                        if source_type not in NUMERIC_TYPES:
+                        if source_type not in NUMERIC_TYPES and source_type != "char":
                             self._err(
                                 f"Cannot cast '{source_type}' to '{target_type}'; "
-                                f"only numeric types can be cast to numeric types",
+                                f"only numeric types or char can be cast to numeric types",
                                 line, col,
                             )
                     elif target_type == "char":
