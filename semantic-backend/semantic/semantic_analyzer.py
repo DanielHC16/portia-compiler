@@ -1122,8 +1122,6 @@ class SemanticAnalyzer:
             return
 
         val_type = self._infer_type(value)
-        if op == "/=" and expected_type in NUMERIC_TYPES and val_type in NUMERIC_TYPES:
-            val_type = "float"
         if val_type and val_type != "unknown":
             if not _compatible(expected_type, val_type):
                 self._err(
@@ -1725,8 +1723,6 @@ class SemanticAnalyzer:
                     )
                     return "unknown"
             if lt and rt:
-                if op == "/":
-                    return "float"
                 w = _wider(lt, rt)
                 if w is None:
                     self._err(
