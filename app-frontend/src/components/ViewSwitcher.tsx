@@ -2,9 +2,7 @@
 import {
   useState,
   useEffect,
-  /*
   useRef,
-  */
 } from "react";
 import LexerPanel from "./LexerPanel";
 import ParserPanel from "./ParserPanel";
@@ -30,9 +28,9 @@ export default function ViewSwitcher() {
   const [sharedTokens, setSharedTokens] = useState<Token[]>([]);
   const [sharedLexErrors, setSharedLexErrors] = useState<LexError[]>([]);
   
-  /* Save/load functionality disabled
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
-  */
+  
 
   useEffect(() => {
     // Apply theme to document root and persist to localStorage
@@ -45,7 +43,7 @@ export default function ViewSwitcher() {
     setTheme(prev => prev === "dark" ? "light" : "dark");
   };
 
-  /* Save/load functionality disabled
+  
   const handleSave = () => {
     const blob = new Blob([sharedCode], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -84,7 +82,7 @@ export default function ViewSwitcher() {
     // Reset input so same file can be loaded again
     e.target.value = "";
   };
-  */
+  
 
   return (
     <div className="app-shell">
@@ -134,8 +132,8 @@ export default function ViewSwitcher() {
         <div className="controls">
         
 
-          {/* Save/load functionality disabled */}
-          {/*
+         
+          
           <input
             type="file"
             ref={fileInputRef}
@@ -172,7 +170,7 @@ export default function ViewSwitcher() {
 
 
 
-          */}
+          
           
           {/* Dark/Light Theme Toggle */}
           <button 
