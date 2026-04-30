@@ -1,329 +1,106 @@
 # PORTIA Parser Backend
 
-The parser is the second stage of the PORTIA compiler pipeline. It receives the token stream produced by the lexer and builds a semantic Abstract Syntax Tree (AST) that represents the structure of a PORTIA program.
-
-Parsing is implemented as a hand-written recursive descent parser that now matches the revised grammar set with built-in function support for `abs`, `len`, `pow`, and `sqrt`.
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [The Grammar](#the-grammar)
-- [CFG Reference Numbers](#cfg-reference-numbers)
-- [FIRST, FOLLOW, and PREDICT Sets](#first-follow-and-predict-sets)
-- [Built-In Functions](#built-in-functions)
-- [Recursive Descent Strategy](#recursive-descent-strategy)
-- [AST Node Types](#ast-node-types)
-- [Error Handling](#error-handling)
-- [API Reference](#api-reference)
-- [Running the Parser](#running-the-parser)
-- [File Structure](#file-structure)
-
----
-
-## Overview
-
-The PORTIA recursive descent parser:
-
-- Accepts a flat list of tokens from the lexer
-- Skips non-semantic tokens such as `NEWLINE`, `WHITESPACE`, and `COMMENT`
-- Matches the revised PORTIA CFG with **247 productions** across **116 non-terminals**
-- Produces a semantic AST instead of a grammar-artifact parse tree
-- Rejects parse requests when lexer errors already exist
-- Returns `ParseError` objects with line and column information
-
----
-
-## Architecture
+The parser is phase 2 of the PORTIA compiler pipeline. It receives the token
+stream from the lexer, verifies that the tokens follow the revised PORTIA grammar,
+and builds a semantic AST. The semantic analyzer and ICG never consume the
+grammar directly; they consume the AST dictionaries produced by this phase.
 
 ```text
-Token List (from Lexer)
-        |
-        v
-  +----------------------+
-  |     PortiaParser     |
-  |                      |
-  |  - token navigation  |
-  |  - grammar dispatch  |
-  |  - AST construction  |
-  |  - syntax errors     |
-  +----------------------+
-        |
-        v
-      AST JSON
+tokens from lexer
+  -> PortiaParser(tokens).parse()
+  -> Program AST
+  -> semantic analyzer
 ```
 
-### Module breakdown
+## Pipeline Contract
 
-| File | Responsibility |
-|------|----------------|
-| `main.py` | FastAPI app and router registration |
-| `parser/api.py` | `/parse` and `/parse/source` route handlers |
-| `parser/portia_parser.py` | `PortiaParser` recursive descent implementation and `ParseError` |
-| `parser/grammar.py` | Token constants plus embedded CFG/FIRST/FOLLOW/PREDICT tables |
-| `parser/ast_nodes.py` | AST node classes with `to_dict()` serialization |
-
----
-
-## The Grammar
-
-The revised PORTIA grammar covers:
-
-- Global declarations through `global`
-- Weave definitions
-- Typed function declarations
-- Required `int main()`
-- Scalar, 1D, and 2D declarations
-- Assignments and ordinary function calls
-- Arithmetic, relational, logical, cast, and concatenation expressions
-- Built-in function calls: `abs`, `len`, `pow`, `sqrt`
-- Control flow: `if`, `switch`, `for`, `while`, `do-while`
-- I/O statements: `trap`, `thread`, `threadln`
-- `return` and `break`
-
-### Key revised productions
-
-```text
-expression   -> assign_expr | builtin_func
-atom         -> id iden_mod | literals | builtin_func
-builtin_func -> abs ( value )
-             |  len ( value )
-             |  pow ( value , value )
-             |  sqrt ( value )
-bool_ctrl    -> ...
-             |  builtin_func mult_div_modulo_cont add_min_cont bool_ctrl_tail
-```
-
-These productions are the grammar changes that enable built-ins as standalone expression statements, as atoms inside larger expressions, and as condition operands.
-
----
-
-## CFG Reference Numbers
-
-The parser is aligned to the revised grammar spreadsheets.
-
-| Metric | Value |
-|--------|-------|
-| Total productions | 247 |
-| Non-terminals | 116 |
-| Data type keywords | 7 (`int`, `long`, `float`, `double`, `char`, `string`, `bool`) |
-| Literal token types | 6 (`INTLIT`, `LONGLIT`, `FLOATLIT`, `DOUBLELIT`, `CHARLIT`, `STRINGLIT`) |
-| Assignment operators | 6 (`=`, `+=`, `-=`, `*=`, `/=`, `%=`) |
-| Relational operators | 6 (`==`, `!=`, `>`, `<`, `>=`, `<=`) |
-
----
-
-## FIRST, FOLLOW, and PREDICT Sets
-
-`parser/grammar.py` now embeds the revised CFG, FIRST, FOLLOW, and PREDICT data directly as Python tables. The revised grammar spreadsheets remain the reference source for those checked-in tables, and the module validates the embedded data on import before the parser uses it.
-
-### Exported token and grammar constants
-
-| Constant | Contents |
-|----------|----------|
-| `DTYPE_KEYWORDS` | `{"int","long","float","double","char","string","bool"}` |
-| `LITERAL_TYPES` | `{"INTLIT","LONGLIT","FLOATLIT","DOUBLELIT","CHARLIT","STRINGLIT"}` |
-| `NUM_LIT_TYPES` | `{"INTLIT","LONGLIT","FLOATLIT","DOUBLELIT"}` |
-| `WHOLE_LIT_TYPES` | `{"INTLIT","LONGLIT"}` |
-| `REL_OPS` | `{"==","!=",">","<",">=","<="}` |
-| `ASSIGN_OPS` | `{"=","+=","-=","*=","/=","%="}` |
-| `UPDATE_OPS` | `{"+=","-=","*=","/=","%="}` |
-| `BOOL_LITERALS` | `{"true","false"}` |
-| `ADDITIVE_OPS` | `{"+","-"}` |
-| `MULT_OPS` | `{"*","/","%"}` |
-| `BUILTIN_FUNCTIONS` | `{"abs","len","pow","sqrt"}` |
-| `BUILTIN_FIXED_ARITY` | `{"abs": 1, "len": 1, "pow": 2, "sqrt": 1}` |
-
-### Revised FIRST set examples
-
-| Non-terminal | FIRST set |
-|-------------|-----------|
-| `program` | `{"global","weave","func","int"}` |
-| `expression` | `{"id","abs","len","pow","sqrt"}` |
-| `value` | `{"!","id","intlit","longlit","floatlit","doublelit","charlit","stringlit","true","false","abs","len","pow","sqrt","-","("}` |
-| `atom` | `{"id","intlit","longlit","floatlit","doublelit","charlit","stringlit","true","false","abs","len","pow","sqrt"}` |
-| `builtin_func` | `{"abs","len","pow","sqrt"}` |
-| `condition` | `{"!","id","true","false","(","-","intlit","longlit","floatlit","doublelit","charlit","stringlit","abs","len","pow","sqrt"}` |
-
-### How `PortiaParser` uses `grammar.py`
-
-`parser/portia_parser.py` imports token constants plus `FIRST`, `FOLLOW`, and `PREDICT` from `parser/grammar.py`. `CFG` stays in `grammar.py` as the embedded source-of-truth table for the revised rule numbering and for runtime validation/tests, but the recursive-descent parser does not interpret `CFG` generically at runtime. Instead, each `parse_*` method is handwritten to match the same productions.
-
-| Grammar data | Runtime role in `PortiaParser` |
-|-------------|---------------------------------|
-| `CFG` | Reference table for the revised 247-production grammar. It keeps rule numbers aligned with the handwritten parser and is validated/tested directly, but the parser does not loop over `CFG` to parse input. |
-| `FIRST` | Primary branch-selection table for handwritten `parse_*` methods. It is also used in syntax errors such as `raise self.error(FIRST["mutability"])`, `raise self.error(FIRST["expression"])`, and `raise self.error(FIRST["atom"])`. |
-| `FOLLOW` | Nullable-boundary reference table. The current parser keeps it embedded for correctness, documentation, and validation, but uses it mostly indirectly through `PREDICT` rather than through many direct `FOLLOW[...]` lookups. |
-| `PREDICT` | Main lookahead table for nullable continuations and precise error reporting. It appears in calls like `match_value(..., also_expected=PREDICT[74])`, `match_value(..., also_expected=PREDICT[78] | PREDICT[79])`, and similar rule-numbered continuation checks. |
-
-### Concrete parser wiring
-
-- `is_dtype()` checks token values against `DTYPE_KEYWORDS` from `grammar.py`.
-- `is_builtin_func_start()` checks token values against `BUILTIN_FUNCTIONS` from `grammar.py`.
-- `parse_expression()` chooses between `assign_expr` and `builtin_func` using grammar-driven lookahead.
-- `parse_atom()` accepts built-ins because `builtin_func` is part of the revised grammar and its FIRST set is embedded in `grammar.py`.
-- Nullable productions are reflected in the handwritten parser through rule-numbered `PREDICT` lookups instead of a separate parser generator step.
-- `grammar.py` validates table counts and key built-in memberships at import time so broken embedded tables fail early.
-
-### Practical interpretation
-
-- `CFG` tells us what grammar the parser is supposed to implement.
-- `FIRST` tells the handwritten parser which branch to take.
-- `FOLLOW` tells us what can legally come after nullable non-terminals.
-- `PREDICT` packages the actual lookahead used at runtime, especially where epsilon productions and continuation errors matter.
-
----
-
-## Built-In Functions
-
-The revised grammar adds dedicated support for `abs`, `len`, `pow`, and `sqrt`.
-
-### Revised rules implemented
-
-- **Rule 88**: `<expression> -> <builtin_func>`
-- **Rule 133**: `<atom> -> <builtin_func>`
-- **Rules 149-152**: fixed productions for the four built-ins
-- **Rule 187**: `<bool_ctrl> -> <builtin_func> <mult_div_modulo_cont> <add_min_cont> <bool_ctrl_tail>`
-
-### Parser behavior
-
-The parser now handles built-ins in three distinct positions.
-
-1. **Standalone expressions**
-
-   `parse_expression()` accepts either:
-
-   - the legacy identifier-led `assign_expr` branch
-   - a dedicated `parse_builtin_func()` branch
-
-   This is why code such as:
-
-   ```portia
-   sqrt(4);
-   pow(2, 3);
-   ```
-
-   now parses as valid expression statements.
-
-2. **Inside larger expressions**
-
-   `parse_atom()` now recognizes `builtin_func`, so built-ins can appear inside:
-
-   - arithmetic expressions
-   - relational expressions
-   - logical/string expressions through the existing `value` pipeline
-   - function arguments
-   - print arguments
-   - return values
-   - switch expressions
-
-   Example:
-
-   ```portia
-   x = sqrt(4) + abs(-3) * pow(2, 3);
-   ```
-
-   This works because the built-ins enter through `atom`, not because expression statements became arbitrary arithmetic expressions.
-
-3. **Inside conditions**
-
-   `parse_bool_ctrl()` now includes a built-in branch that mirrors Rule 187. This allows both:
-
-   ```portia
-   if (len(name) > 0) { ... }
-   if (pow(2, 3)) { ... }
-   ```
-
-   The first case continues into relational parsing through `bool_ctrl_tail`. The second case succeeds because `bool_ctrl_tail` can be epsilon, so the built-in call itself is a syntactically valid condition operand.
-
-### Fixed arity enforcement
-
-`parse_builtin_func()` enforces the exact grammar forms:
-
-- `abs(value)`
-- `len(value)`
-- `sqrt(value)`
-- `pow(value, value)`
-
-That means:
-
-- `sqrt()` fails because the required `<value>` is missing
-- `len(1, 2)` fails because the unary productions do not allow a comma
-- `pow(2)` fails because the second `<value>` is mandatory
-- `pow(2, 3, 4)` fails because the rule closes after exactly two arguments
-
-### Important distinction
-
-The revised grammar allows bare built-ins as expression statements, but it does **not** make every built-in-led arithmetic expression a standalone statement. For example:
-
-```portia
-sqrt(4) + 1;
-```
-
-still fails as a statement, because the top-level statement grammar accepts `<builtin_func>` directly, not an arbitrary larger arithmetic expression starting with a built-in. The larger form becomes valid only when embedded inside a `value` context such as assignment, return, or another expression.
-
-### AST representation
-
-Built-ins are serialized as `FunctionCall` nodes with an extra marker:
+Input to the parser:
 
 ```json
 {
-  "node": "FunctionCall",
-  "name": "sqrt",
-  "builtin": true,
-  "args": [
-    { "node": "Literal", "dtype": "INTLIT", "value": "4" }
-  ]
+  "tokens": [
+    { "lexeme": "int", "type": "int", "line": 1, "column": 1 },
+    { "lexeme": "main", "type": "main", "line": 1, "column": 5 }
+  ],
+  "source": "int main() { return 0; }",
+  "lexer_errors": []
 }
 ```
 
-Ordinary user-defined calls still serialize as `FunctionCall` without `"builtin": true`.
+Output on success:
 
-### Alignment between grammar, sets, and parser
-
-The implementation is intentionally synchronized across all three layers:
-
-- `REVISED-CFG.csv` defines where built-ins are legal
-- `REVISED-FIRST-SET.csv`, `REVISED-FOLLOW-SET.csv`, and `REVISED-PREDICT-SET.csv` define the parser's legal lookahead
-- `grammar.py` embeds those checked-in grammar tables directly
-- `portia_parser.py` now uses the revised production numbers in error expectations
-- `parse_builtin_func()` implements exactly the four revised built-in productions and no extra overloads
-
-This keeps the parser behavior, the grammar spreadsheets, and the error-reporting expectations aligned.
-
----
-
-## Recursive Descent Strategy
-
-Each non-terminal in the CFG maps to a `parse_*` method in `PortiaParser`.
-
-Typical flow:
-
-```python
-def parse_something(self):
-    if self.check(...):
-        return self.parse_branch_a()
-    elif self.check(...):
-        return self.parse_branch_b()
-    raise self.error(FIRST["something"])
+```json
+{
+  "success": true,
+  "status": "success",
+  "ast": {
+    "node": "Program",
+    "globals": [],
+    "functions": [],
+    "main": {
+      "node": "FunctionDecl",
+      "name": "main",
+      "ret_type": "int",
+      "body": [],
+      "ret_value": { "node": "Literal", "value": "0", "dtype": "INTLIT" }
+    }
+  },
+  "errors": [],
+  "token_count": 9
+}
 ```
 
-### Token helpers
+Output on syntax error:
 
-| Method | Purpose |
-|--------|---------|
-| `peek(offset=0)` | Read a token without consuming it |
-| `peek_type(offset=0)` | Return token type at an offset |
-| `peek_value(offset=0)` | Return lexeme/value at an offset |
-| `advance()` | Consume and return the current token |
-| `match(expected_type)` | Consume a token by type or raise `ParseError` |
-| `match_value(expected)` | Consume a token by lexeme/value or raise `ParseError` |
+```json
+{
+  "success": false,
+  "status": "error",
+  "ast": null,
+  "errors": [
+    {
+      "message": "Unexpected: '}'\nExpected: 'return'",
+      "line": 3,
+      "column": 1,
+      "token": "}",
+      "token_length": 1,
+      "type": "syntax_error"
+    }
+  ],
+  "token_count": 8
+}
+```
 
-### Skip tokens
+If `lexer_errors` is non-empty, `/parse` does not attempt syntax analysis. It
+returns a `lexer_error_block` response so the UI can show the earlier lexical
+problem instead of a noisy parser cascade.
 
-Before parsing starts, the parser removes:
+## Files
+
+| File | Responsibility |
+| --- | --- |
+| `main.py` | FastAPI app setup and router registration. |
+| `parser/api.py` | `/parse` and `/parse/source` endpoints, response formatting, lexer-error blocking. |
+| `parser/portia_parser.py` | Handwritten recursive descent parser and `ParseError`. |
+| `parser/grammar.py` | Token-class constants plus embedded revised CFG, FIRST, FOLLOW, and PREDICT tables. |
+| `parser/ast_nodes.py` | Semantic AST node classes and `to_dict()` serialization. |
+
+## Main Classes and Functions
+
+### `ParseError`
+
+`ParseError` carries:
+
+- `message`
+- offending token dictionary
+- `line`
+- `column`
+
+The API layer converts it into a frontend-friendly error object.
+
+### `PortiaParser.__init__(tokens)`
+
+The constructor filters non-semantic tokens:
 
 ```python
 SKIP_TOKENS = {
@@ -332,64 +109,225 @@ SKIP_TOKENS = {
 }
 ```
 
-### Lexer error blocking
+The frontend already filters `space`, `newline`, `single_comment`, and
+`multi_comment` before calling `/parse`, but the parser keeps this internal
+filter to protect direct API calls.
 
-If the incoming request includes lexer errors, the API returns a blocking parser response instead of attempting syntax analysis. This avoids cascaded parse errors on already-invalid token streams.
+The parser stores:
 
----
+| Attribute | Purpose |
+| --- | --- |
+| `self.tokens` | Filtered token list. |
+| `self.pos` | Current token index. |
+| `self._last_token` | Last consumed token, used to create useful EOF errors. |
 
-## AST Node Types
+### Token Helpers
 
-All AST nodes live in `parser/ast_nodes.py`.
+| Helper | Purpose |
+| --- | --- |
+| `peek(offset=0)` | Look ahead without consuming. |
+| `peek_type(offset=0)` | Get token type at an offset, uppercased. |
+| `peek_value(offset=0)` | Get `value` or `lexeme` at an offset. |
+| `advance()` | Consume the current token. |
+| `match(expected_type)` | Consume by token type or raise `ParseError`. |
+| `match_value(expected)` | Consume by exact lexeme/value or raise `ParseError`. |
+| `check(*values)` | Test current token value/lexeme. |
+| `check_type(*types)` | Test current token type case-insensitively. |
+| `is_dtype()` | Test against `DTYPE_KEYWORDS`. |
+| `is_builtin_func_start()` | Test against `BUILTIN_FUNCTIONS`. |
+| `error(expected)` | Build a consistent `ParseError` message. |
 
-### `Program`
+The lexer emits lowercase token types such as `id` and `intlit`; parser type
+checks uppercase them internally, so `match("ID")` works.
 
-Root node:
+## Grammar Data
+
+`parser/grammar.py` embeds the revised grammar metadata:
+
+| Constant | Contents |
+| --- | --- |
+| `GRAMMAR_RULE_COUNT` | `247` |
+| `NON_TERMINAL_COUNT` | `116` |
+| `CFG` | Rule-numbered production table. |
+| `FIRST` | First-token sets by non-terminal. |
+| `FOLLOW` | Legal follower sets by non-terminal. |
+| `PREDICT` | Rule-numbered lookahead sets. |
+| `DTYPE_KEYWORDS` | `int`, `long`, `float`, `double`, `char`, `string`, `bool` |
+| `LITERAL_TYPES` | `INTLIT`, `LONGLIT`, `FLOATLIT`, `DOUBLELIT`, `CHARLIT`, `STRINGLIT` |
+| `REL_OPS` | `==`, `!=`, `>`, `<`, `>=`, `<=` |
+| `ASSIGN_OPS` | `=`, `+=`, `-=`, `*=`, `/=`, `%=` |
+| `BUILTIN_FUNCTIONS` | `abs`, `len`, `pow`, `sqrt` |
+| `BUILTIN_FIXED_ARITY` | `abs:1`, `len:1`, `pow:2`, `sqrt:1` |
+
+The parser is not a generated parser. It does not loop over `CFG` to parse.
+Instead, each grammar region is implemented by handwritten `parse_*` methods.
+The grammar tables keep the implementation aligned with the revised grammar and
+provide expected-token sets for clearer errors.
+
+## High-Level Parse Flow
+
+`parse()` is the public entry point.
+
+```text
+parse()
+  -> parse_program()
+       -> parse_global_dec()
+       -> parse_function()
+       -> parse_main_func()
+  -> ensure all tokens were consumed
+```
+
+The root rule is:
+
+```text
+program -> global_dec function main_func
+```
+
+The resulting AST root is:
 
 ```json
 {
   "node": "Program",
   "globals": [],
   "functions": [],
-  "main": { "node": "FunctionDecl", "name": "main" }
+  "main": {}
 }
 ```
 
-### `VarDecl`
+## Declarations
 
-Represents scalar or array declarations.
+Global declarations are parsed by:
 
-### `WeaveDecl`
+| Function | Role |
+| --- | --- |
+| `parse_global_dec()` | Consumes repeated `global ... ;` and `weave ...` declarations. |
+| `parse_mutability()` | Chooses `var` or `const`. Returns declarations plus whether the branch was const. |
+| `parse_var_or_weave()` | Parses primitive declarations or weave instance declarations. |
+| `parse_const_weave()` | Parses const primitive declarations or const weave instances. |
+| `parse_dtype()` | Consumes primitive dtype keywords. |
+| `parse_var_or_arr()` | Parses scalar `= value` declarations or array declarations. |
+| `parse_const_or_arr()` | Parses const scalar and const array declarations. |
+| `parse_multi_dec()` | Supports comma-separated declarations with the same dtype/mutability. |
+| `parse_weave_def()` | Builds `WeaveDecl` from fields. |
+| `parse_field_list()` and `parse_field_dec()` | Parse fields inside a weave. |
 
-Represents weave definitions.
+Scalar declarations become `VarDecl` nodes. Array declarations also become
+`VarDecl` nodes, but with `dims` populated.
 
-### `FunctionDecl`
+Weave definitions become `WeaveDecl` nodes. Weave instances are represented as
+`VarDecl` nodes whose `dtype` is the weave type name and whose `init` is a list
+of initializer expressions.
 
-Represents ordinary functions and `main`.
+## Functions and Main
 
-### `Literal`
+Ordinary functions are parsed by:
 
-Represents primitive literal values.
+| Function | Role |
+| --- | --- |
+| `parse_function()` | Repeatedly parses `func` definitions before `main`. |
+| `parse_function_def()` | Consumes `func`, then delegates to `parse_ret_type()`. |
+| `parse_ret_type()` | Parses either a `void` function or a typed function. |
+| `parse_ret_struct()` and `parse_ret_2d()` | Parse array return dimensions. |
+| `parse_param()` | Parses zero or more typed parameters. |
+| `parse_param_struct()` and `parse_param_2d()` | Parse array parameter dimensions. |
+| `parse_function_body()` | Returns `(using, locals, statements)`. |
 
-### `Identifier`
+`main` is parsed separately by `parse_main_func()`:
 
-Represents identifiers, member access, and array indexing.
+```text
+int main ( ) { main_body }
+```
 
-### `BinaryOp`
+`parse_main_body()` requires:
 
-Represents arithmetic, relational, logical, and concatenation operators.
+```text
+using_block local_block statement_list return intlit ;
+```
 
-### `UnaryOp`
+That means `main` returns an integer literal in the parser grammar. Later phases
+receive this as `FunctionDecl(name="main", ret_type="int", ret_value=Literal(...))`.
 
-Represents unary `-` and `!`.
+## Statements
 
-### `Cast`
+`parse_statement_list()` repeatedly accepts statement starts:
 
-Represents `(dtype) expr`.
+- identifiers
+- built-ins used as standalone calls
+- `trap`
+- `thread`
+- `threadln`
+- `if`
+- `switch`
+- `for`
+- `while`
+- `do`
 
-### `FunctionCall`
+`parse_statement()` dispatches to:
 
-Represents both user-defined calls and built-ins:
+| Branch | Parser function |
+| --- | --- |
+| I/O | `parse_io_stmt()` |
+| Control flow | `parse_ctrl_struct()` |
+| Assignment or function-call expression | `parse_expression()` followed by `;` |
+| Standalone built-in call | `parse_expression()` followed by `;` |
+
+## Expressions and Precedence
+
+The parser builds expression AST nodes instead of preserving grammar helper
+nodes. The expression chain is:
+
+```text
+parse_value()
+  -> parse_string_or_logical_expr()
+       -> parse_logical_expr()
+            -> parse_logical_term()
+                 -> parse_logical_factor()
+                      -> parse_rel_expr()
+                           -> parse_arith_expr()
+                                -> parse_term()
+                                     -> parse_primary()
+                                          -> parse_atom()
+```
+
+This gives the effective precedence:
+
+1. Atoms, calls, indexing, member access, casts, parentheses
+2. Unary `-` and `!`
+3. `*`, `/`, `%`
+4. `+`, `-`
+5. Relational operators
+6. `&&`
+7. `||`
+8. String concatenation `..`
+
+The main AST nodes produced in this region are:
+
+- `Literal`
+- `Identifier`
+- `FunctionCall`
+- `UnaryOp`
+- `BinaryOp`
+- `Cast`
+- `Assignment`
+
+## Built-In Functions
+
+The revised grammar supports:
+
+- `abs(value)`
+- `len(value)`
+- `pow(value, value)`
+- `sqrt(value)`
+
+`parse_builtin_func()` enforces fixed arity using `BUILTIN_FIXED_ARITY`.
+
+Built-ins can appear:
+
+- as standalone expression statements, such as `sqrt(4);`
+- as atoms inside larger values, such as `x = sqrt(4) + abs(-3);`
+- inside conditions, such as `if (len(name) > 0) { ... }`
+
+Built-ins are serialized as `FunctionCall` nodes with `builtin: true`:
 
 ```json
 {
@@ -397,64 +335,139 @@ Represents both user-defined calls and built-ins:
   "name": "pow",
   "builtin": true,
   "args": [
-    { "node": "Literal", "dtype": "INTLIT", "value": "2" },
-    { "node": "Literal", "dtype": "INTLIT", "value": "3" }
+    { "node": "Literal", "value": "2", "dtype": "INTLIT" },
+    { "node": "Literal", "value": "3", "dtype": "INTLIT" }
   ]
 }
 ```
 
-### `Assignment`
+The parser checks syntax and arity. It does not check whether `len(123)` is
+meaningful. That is the semantic analyzer's job.
 
-Represents simple and compound assignments.
+## Identifiers, Calls, Arrays, and Members
 
-### `IfStmt`
+Identifier-led expressions start in `parse_assign_expr()`, then continue into:
 
-Represents `if`, `else if`, and `else` chains.
+| Function | Role |
+| --- | --- |
+| `parse_mod_or_call()` | Chooses function-call statement or assignment target. |
+| `parse_assign_mod_opt()` | Parses assignment target suffixes such as indexing and member access. |
+| `parse_assign_stmt_op()` | Parses `=`, `+=`, `-=`, `*=`, `/=`, `%=` plus RHS. |
+| `parse_iden_mod()` | Builds plain identifiers, member access, array access, or calls in value contexts. |
+| `parse_arr_or_func()` | Handles `id[...]`, `id[...][...]`, or `id(...)`. |
+| `parse_arg()` | Parses function-call argument lists. |
 
-### `SwitchStmt`
+AST examples:
 
-Represents `switch` with `case` and `default`.
+```json
+{ "node": "Identifier", "name": "x" }
+```
 
-### `LoopStmt`
+```json
+{ "node": "Identifier", "name": "point", "member": "x" }
+```
 
-Represents `for`, `while`, and `do` loops.
+```json
+{
+  "node": "Identifier",
+  "name": "arr",
+  "indices": [{ "node": "Literal", "value": "0", "dtype": "INTLIT" }]
+}
+```
 
-### `ReturnStmt`
+## I/O
 
-Represents `return value;`.
+I/O parser functions:
 
-### `BreakStmt`
+| Function | Role |
+| --- | --- |
+| `parse_io_stmt()` | Chooses input or output. |
+| `parse_input_stmt()` | Parses `trap(target);`. |
+| `parse_trap_target()` | Starts trap target parsing at an identifier. |
+| `parse_trap_suffix()` | Allows indexed or member trap targets. |
+| `parse_output_stmt()` | Parses `thread(...)` or `threadln(...)`. |
+| `parse_print_args()` | Parses one or more output expressions. |
 
-Represents `break;`.
+The AST node is:
 
-### `IOStmt`
+```json
+{ "node": "IOStmt", "kind": "trap", "target": {} }
+```
 
-Represents `trap`, `thread`, and `threadln`.
+or:
 
----
+```json
+{ "node": "IOStmt", "kind": "threadln", "args": [] }
+```
+
+## Control Flow
+
+Control-flow parser functions:
+
+| Construct | Main functions |
+| --- | --- |
+| `if`, `else if`, `else` | `parse_if_stmt()`, `_parse_else_chain()` |
+| Conditions | `parse_condition()`, `parse_and_expr()`, `parse_logical_op()`, `parse_bool_ctrl()` |
+| `switch` | `parse_switch_stmt()`, `parse_case_list()`, `parse_case_stmt()`, `parse_default_stmt()` |
+| Loops | `parse_loop_stmt()`, `parse_for_stmt()`, `parse_while_stmt()`, `parse_do_stmt()` |
+| Loop initializer/update | `parse_initializer()`, `parse_update()` |
+| Returns and breaks | `parse_ret_stmt()`, `parse_ret_ctrl_body()`, `BreakStmt` construction |
+
+The parser allows control bodies to contain local declarations, statements, and
+optional returns where the grammar permits them. Semantic analysis later checks
+rules such as "condition must be bool" and "break must be inside a loop or
+switch."
+
+## AST Node Types
+
+All nodes live in `parser/ast_nodes.py` and serialize through `to_dict()`.
+
+| Node | Meaning |
+| --- | --- |
+| `Program` | Root containing globals, ordinary functions, and `main`. |
+| `VarDecl` | Scalar, array, or weave instance declaration. |
+| `WeaveDecl` | Weave type definition. |
+| `FunctionDecl` | Ordinary function or `main`. |
+| `Literal` | Primitive literal. |
+| `ArrayLiteral` | Array literal used by return statements. |
+| `Identifier` | Name reference, optional member, optional indices. |
+| `BinaryOp` | Binary expression. |
+| `UnaryOp` | Unary expression. |
+| `Cast` | Type cast expression. |
+| `FunctionCall` | User function call or built-in call. |
+| `Assignment` | Assignment or compound assignment. |
+| `IfStmt` | If/else-if/else. |
+| `SwitchStmt` | Switch/case/default. |
+| `LoopStmt` | For, while, or do loop. |
+| `ReturnStmt` | Return statement. |
+| `BreakStmt` | Break statement. |
+| `IOStmt` | Trap/thread/threadln statement. |
+
+The AST intentionally removes grammar artifacts such as `add_min_cont` and
+`string_expr_tail`. Later phases get semantic structure, not a concrete parse
+tree.
 
 ## Error Handling
 
-The parser raises `ParseError` when it encounters an unexpected token.
+The parser is fail-fast. It reports the first syntax error it encounters with:
 
-Each `ParseError` includes:
+- unexpected token
+- expected token set
+- line and column
+- token length when available
 
-- `message`
-- offending `token`
-- `line`
-- `column`
-
-The API layer converts syntax errors into the standard response payload and catches unexpected internal exceptions separately as `internal_error`.
-
----
+`FIRST` and `PREDICT` sets are used heavily in error messages so the expected
+tokens match the revised grammar.
 
 ## API Reference
 
-Base URL: `http://localhost:8001`
+Local development base URL:
+
+```text
+http://localhost:8001
+```
 
 ### `GET /`
-
-Health check:
 
 ```json
 { "message": "PORTIA Parser backend is running" }
@@ -462,59 +475,67 @@ Health check:
 
 ### `POST /parse`
 
-Parse a pre-tokenized token list.
-
-Request body:
+Parses a token list.
 
 ```json
 {
-  "tokens": [{ "lexeme": "int", "type": "int", "line": 1, "column": 1 }],
-  "source": "int main() { return 0; }",
+  "tokens": [],
+  "source": "optional source string",
   "lexer_errors": []
 }
 ```
 
 ### `POST /parse/source`
 
-Convenience endpoint that calls the lexer first and then parses the resulting tokens.
+Convenience endpoint that calls the lexer service first, then parses the tokens.
 
----
+```json
+{ "source": "int main() { return 0; }" }
+```
 
-## Running the Parser
+In production, `api/parse.py` and `api/parse_source.py` import the parser
+directly and expose the same logical contracts at `/api/parse` and
+`/api/parse_source`.
 
-### Standalone
+## Frontend Integration
+
+`ParserPanel`, `SemanticPanel`, and `ICGPanel` all run this sequence:
+
+```text
+normalize source
+  -> lexCode(source)
+  -> filter space/newline/comment tokens
+  -> parseTokens(tokens, source, lexer_errors)
+```
+
+Only when parsing succeeds does the frontend pass `parseResp.ast` into semantic
+analysis.
+
+## Running
+
+From the repository root:
+
+```powershell
+.\scripts\start-parser.ps1
+```
+
+Or directly:
 
 ```powershell
 cd parser-backend
 .venv-py312\Scripts\python -m uvicorn main:app --reload --port 8001
 ```
 
-### With watchfiles
+Install dependencies if needed:
 
 ```powershell
 cd parser-backend
-.venv-py312\Scripts\watchfiles ".venv-py312\Scripts\python -m uvicorn main:app --port 8001" .
+.venv-py312\Scripts\pip install fastapi uvicorn pydantic watchfiles requests
 ```
 
-### Dependencies
+## Useful Regression Tests
 
-| Package | Purpose |
-|---------|---------|
-| `fastapi` | REST API framework |
-| `uvicorn` | ASGI server |
-| `pydantic` | Request models |
-| `watchfiles` | Optional development hot reload |
-
-Install with:
-
-```powershell
-cd parser-backend
-.venv-py312\Scripts\pip install fastapi uvicorn pydantic watchfiles
-```
-
-### Targeted grammar regression suites
-
-From the repository root, these suites exercise the embedded grammar tables and the parser logic that depends on them:
+From the repository root:
 
 ```powershell
 py -3.12 test-scripts\parser\test_grammar_tables_runtime.py
@@ -522,25 +543,9 @@ py -3.12 test-scripts\parser\test_parser_grammar_usage.py
 py -3.12 test-scripts\parser\test_parser_revised_cfg_builtins.py
 ```
 
-What they cover:
+## What the Parser Does Not Do
 
-- `test_grammar_tables_runtime.py`: direct checks for `_prod`, `_freeze_*`, `CFG`, `FIRST`, `FOLLOW`, `PREDICT`, and embedded-table validation
-- `test_parser_grammar_usage.py`: direct checks for `is_dtype()`, `is_builtin_func_start()`, `parse_builtin_func()`, and parser errors that rely on FIRST/PREDICT-driven expectations
-- `test_parser_revised_cfg_builtins.py`: end-to-end revised grammar regression coverage for built-in functions through the real lexer and parser
-
----
-
-## File Structure
-
-```text
-parser-backend/
-|-- main.py
-`-- parser/
-    |-- __init__.py
-    |-- api.py
-    |-- ast_nodes.py
-    |-- grammar.py
-    `-- portia_parser.py
-```
-
-`grammar.py` now exposes the token constants and embeds the revised CFG/FIRST/FOLLOW/PREDICT tables directly in code. `portia_parser.py` consumes those tables while building the semantic AST.
+The parser does not decide whether identifiers are declared, whether types are
+compatible, whether `using` is valid, or whether a program should execute. It
+only verifies syntactic structure and produces the AST that the semantic
+analyzer will validate.
