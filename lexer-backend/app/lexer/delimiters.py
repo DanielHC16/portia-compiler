@@ -19,11 +19,6 @@ class Delimiters:
         self.chars = chars
 
         # DATA TYPE DELIMITER
-        # dtype_delim: allows '(' immediately after castable primitive type keywords
-        # Patterns: (int)expr -- cast syntax, int func(int arr[5]) -- array params
-        # Also allows ')' for cast patterns like (int)x where dtype follows '('
-        # Also allows '[' for array return types like func int[3] myFunc()
-        # Excludes 'void' and 'weave' (not valid cast targets)
         self.dtype_delim = chars.whitespace + [')', '['] + chars.newline
 
         # RESERVED SYMBOLS DELIMITER
@@ -56,7 +51,6 @@ class Delimiters:
         self.return_delim = [';'] + chars.whitespace
 
         # IDENTIFIER DELIMITER
-        # STRICT: whitespace/newline OK, but EOF (None) is NOT valid
         self.iden_delim = ['=', '+', '-', '*', '/', '%', '>', '<', '!', '.', '&', '|', '(', ')', '[', ']', ';','{','}'] + chars.whitespace + chars.newline + [',']
 
         # LITERALS DELIMITER
