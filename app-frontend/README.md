@@ -1,472 +1,461 @@
 # PORTIA Frontend
 
-The frontend is the **visual interface** of the PORTIA compiler. It is a single-page web application built with React, TypeScript, and Vite, featuring a CodeMirror-based code editor with full PORTIA syntax highlighting. Users can write PORTIA source code and run it through the full compiler pipeline — lexer, parser, and semantic analyzer — directly in the browser, with real-time error highlighting inline in the editor.
+The PORTIA frontend is the browser interface for the PORTIA compiler pipeline.
+It is a React + TypeScript + Vite single-page app with a CodeMirror 6 editor,
+phase-specific compiler panels, inline diagnostics, terminal-style runtime
+output, and shared source state across all views.
 
----
+The current frontend covers four compiler phases:
 
-## Table of Contents
+- Lexical analysis
+- Syntax analysis
+- Semantic analysis
+- Intermediate Code Generation and execution
+
+## Contents
 
 - [Overview](#overview)
 - [Architecture](#architecture)
+- [Main Files](#main-files)
 - [Application Shell](#application-shell)
-- [The Three Panels](#the-three-panels)
-  - [Lexical Panel](#lexical-panel)
-  - [Syntax Panel](#syntax-panel)
-  - [Semantics Panel](#semantics-panel)
-- [The Code Editor (CodeMirror)](#the-code-editor-codemirror)
+- [Compiler Panels](#compiler-panels)
+- [Code Editor](#code-editor)
 - [API Client](#api-client)
-- [Error Display](#error-display)
-- [Token List](#token-list)
-- [Themes](#themes)
+- [Diagnostics](#diagnostics)
 - [Shared State](#shared-state)
-- [Environment Configuration](#environment-configuration)
-- [Running the Frontend](#running-the-frontend)
+- [Environment Variables](#environment-variables)
+- [Running Locally](#running-locally)
 - [File Structure](#file-structure)
-
----
 
 ## Overview
 
-The PORTIA frontend provides:
+The app lets users write PORTIA source code and run it through the compiler
+without leaving the browser. Each panel focuses on one layer of the compiler,
+but all panels share the same editor contents.
 
-- A **CodeMirror 6** powered editor with PORTIA syntax highlighting using a custom language definition.
-- **Three compiler views**: Lexical, Syntax, and Semantics — switchable via a tab bar.
-- **Inline error highlighting** — lex errors, parse errors, and semantic errors are all underlined directly in the editor with color-coded squiggles (red for lexer, orange for parser, blue for semantic).
-- **Error cards** below the editor showing human-readable error messages with monospace chips for identifier names mentioned in messages.
-- A token list panel showing all recognized tokens with their types, lexemes, and line/column positions.
-- **Dark / Light theme toggle** with user preference persistence in `localStorage`.
-- **Shared code state** across all three panels — typing in one panel keeps the code synchronized with the others.
-- Smart quote normalization — Unicode curly quotes are converted to ASCII before sending to the backend.
+Main capabilities:
 
----
+- CodeMirror 6 editor with PORTIA syntax highlighting.
+- Four views: Lexical, Syntax, Semantics, and ICG.
+- Inline error highlighting inside the editor.
+- Error cards for lexer, parser, semantic, and runtime/ICG errors.
+- Token table for lexer/parser/semantic pipeline visibility.
+- ICG terminal output for `thread`, `threadln`, and `trap` input.
+- Dark/light theme toggle persisted in `localStorage`.
+- Save current source as a `.portia` file.
+- Load `.portia` or `.txt` source files into the editor.
+- Smart quote and line-ending normalization before backend calls.
 
 ## Architecture
 
-```
+```text
 Browser
-  │
-  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  App  (main.tsx → ViewSwitcher)                                  │
-│                                                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ LexerPanel   │  │ ParserPanel  │  │ SemanticPanel        │   │
-│  │  (Lexical)   │  │  (Syntax)    │  │  (Semantics)         │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
-│         ▲                  ▲                    ▲                 │
-│         └──────────────────┴────────────────────┘                │
-│                    Shared State                                   │
-│         (sharedCode, sharedTokens, sharedLexErrors)              │
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │  PortiaEditor (CodeMirror 6)                             │     │
-│  │  portiaLanguage + error linting + theme                  │     │
-│  └─────────────────────────────────────────────────────────┘     │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │  api.ts  (fetch wrappers for 3 backends)                 │     │
-│  └─────────────────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────────────────┘
-        │               │               │
-        ▼               ▼               ▼
-  Lexer :8000    Parser :8001   Semantic :8002
+  |
+  v
+React App
+  |
+  +-- ViewSwitcher.tsx
+      |
+      +-- sharedCode
+      +-- sharedTokens
+      +-- sharedLexErrors
+      +-- theme
+      |
+      +-- LexerPanel.tsx
+      |     -> api.lexCode()
+      |     -> lexer backend :8000 /lex
+      |
+      +-- ParserPanel.tsx
+      |     -> api.lexCode()
+      |     -> api.parseTokens()
+      |     -> parser backend :8001 /parse
+      |
+      +-- SemanticPanel.tsx
+      |     -> api.lexCode()
+      |     -> api.parseTokens()
+      |     -> api.analyzeAst()
+      |     -> semantic backend :8002 /analyze/ast
+      |
+      +-- ICGPanel.tsx
+            -> api.lexCode()
+            -> api.parseTokens()
+            -> api.analyzeAst()
+            -> api.runProgram()
+            -> ICG backend :8003 /run
 ```
 
-**Key source files:**
+The frontend does not compile PORTIA by itself. It coordinates requests to the
+backend services and renders their results in a consistent UI.
+
+## Main Files
 
 | File | Responsibility |
-|------|---------------|
-| `src/main.tsx` | React entry point, renders `<ViewSwitcher />` |
-| `src/api.ts` | Typed `fetch` wrappers for all 3 backends |
-| `src/index.css` | Global styles, CSS variables for themes |
-| `src/components/ViewSwitcher.tsx` | App shell: header, tab bar, theme toggle, shared state |
-| `src/components/LexerPanel.tsx` | Lexical analysis view |
-| `src/components/ParserPanel.tsx` | Syntax analysis view |
-| `src/components/SemanticPanel.tsx` | Semantic analysis view |
-| `src/components/ErrorDisplay.tsx` | Error card renderer |
-| `src/components/TokenList.tsx` | Token table renderer |
-| `src/codemirror/PortiaEditor.tsx` | CodeMirror 6 editor component |
-| `src/codemirror/portiaLanguage.ts` | PORTIA syntax highlighting rules |
-| `src/codemirror/themes.ts` | Dark and light editor themes |
-| `src/codemirror/index.ts` | Re-exports from the `codemirror/` folder |
-
----
+| --- | --- |
+| `src/main.tsx` | React entry point. Renders `ViewSwitcher`. |
+| `src/api.ts` | Shared fetch wrappers for lexer, parser, semantic, and ICG backends. |
+| `src/index.css` | Global layout, theme variables, panels, buttons, and editor/error styling. |
+| `src/components/ViewSwitcher.tsx` | App shell, phase switcher, theme toggle, save/load buttons, shared state. |
+| `src/components/LexerPanel.tsx` | Lexical analysis panel. |
+| `src/components/ParserPanel.tsx` | Syntax analysis panel. |
+| `src/components/SemanticPanel.tsx` | Semantic analysis panel. |
+| `src/components/ICGPanel.tsx` | Intermediate code generation and execution panel. |
+| `src/components/ErrorDisplay.tsx` | Shared error-card renderer. |
+| `src/components/TokenList.tsx` | Scrollable token table. |
+| `src/codemirror/PortiaEditor.tsx` | CodeMirror editor wrapper. |
+| `src/codemirror/portiaLanguage.ts` | PORTIA syntax highlighting stream parser. |
+| `src/codemirror/themes.ts` | Dark and light CodeMirror themes. |
 
 ## Application Shell
 
-`ViewSwitcher.tsx` is the root component. It:
+`ViewSwitcher.tsx` is the root UI component for the frontend. It owns:
 
-1. **Holds all shared state** — `sharedCode`, `sharedTokens`, `sharedLexErrors`.
-2. **Renders the header** with the PORTIA brand, tab switcher, and theme toggle.
-3. **Mounts all three panels** simultaneously (`display: none` when not active) so that switching tabs does not reset panel state or re-run analyses.
-4. **Loads/saves the theme** to `localStorage` under the key `portia-theme`.
-5. Applies the `data-theme` attribute to `document.documentElement` so CSS variables respond globally.
+- The active panel: `lexical`, `syntax`, `semantics`, or `icg`.
+- The shared editor source: `sharedCode`.
+- Latest lexer output: `sharedTokens` and `sharedLexErrors`.
+- The current theme: `dark` or `light`.
+- Save/load actions for local source files.
 
-### Header Layout
+All four panels stay mounted and are hidden with CSS when inactive. This means
+switching tabs does not destroy each panel's local result state.
 
+The header contains:
+
+```text
+PORTIA   [ Lexical | Syntax | Semantics | ICG ]   [ Save ] [ Load ] [ Theme ]
 ```
-[ PORTIA ]    [ Lexical | Syntax | Semantics ]    [ 🌙 / ☀️ ]
-```
 
----
+## Compiler Panels
 
-## The Three Panels
-
-All panels share the same **two-column layout**: a CodeMirror editor on the left and an output pane (tokens + errors) on the right. Each panel is fully self-contained; it reads from and writes back to shared state.
+Each compiler panel has the same basic idea: an editor on the left and results
+on the right. Later phases run earlier phases first so the compiler pipeline
+stays honest.
 
 ### Lexical Panel
 
-**File:** `src/components/LexerPanel.tsx`
+File: `src/components/LexerPanel.tsx`
 
-**What it does:**
-- Sends the current code to `POST /lex` on the lexer backend (port 8000).
-- Displays the returned **token list** in a table.
-- Displays **lex errors** as error cards.
-- Highlights errors inline in the editor (red squiggles via CodeMirror linting).
-- Updates `sharedTokens` and `sharedLexErrors` so the other panels can use the tokens.
+The Lexical panel sends the current source to the lexer backend.
 
-**User flow:**
-1. Write PORTIA code in the editor.
-2. Click **Run Lexer**.
-3. See tokens on the right and any errors highlighted inline.
+Flow:
 
-**Special behavior:**
-- Smart quote normalization converts `"`, `"`, `'`, `'` to ASCII `"` and `'` before sending to the backend.
-- Line ending normalization: `\r\n` / `\r` → `\n`.
-- A **"Hide Comments"** toggle is available to filter comment tokens from the display.
-- Tokens and errors remain visible after typing new code until **Run Lexer** is clicked again, so you can reference results while editing.
-- A **Reset** button restores the default example and clears all output.
+```text
+source code -> POST /lex -> tokens + lexer errors
+```
 
----
+It displays:
+
+- Token list returned by the lexer.
+- Lexical errors as red error cards.
+- Red editor squiggles for lexer errors.
+
+Important behavior:
+
+- Updates `sharedTokens` and `sharedLexErrors` after a run.
+- Can hide comment tokens from the displayed token list.
+- Keeps old tokens/errors visible while editing until the next run.
 
 ### Syntax Panel
 
-**File:** `src/components/ParserPanel.tsx`
+File: `src/components/ParserPanel.tsx`
 
-**What it does:**
-- Re-runs the lexer on the current code (does not consume shared tokens), then sends the token list to `POST /parse` on the parser backend (port 8001).
-- If lex errors are present, shows lex errors only and skips parsing.
-- Displays the final **token list** and any **parse errors** as error cards.
-- Displays **both lex errors (red) and parse errors (orange)** as inline squiggles.
-- Logs the full AST to the browser console on success.
+The Syntax panel runs lexing first, then parsing if lexing succeeds.
 
-**User flow:**
-1. Write PORTIA code in the editor.
-2. Click **Run Parser**.
-3. If the code lexes cleanly, see the AST in the browser console and token list on the right.
-4. If there are errors, see them as cards and inline highlights.
+Flow:
 
-**Important detail:** The panel filters out `space`, `newline`, `single_comment`, and `multi_comment` tokens before sending to the parser (the parser backend also skips these, but this reduces payload size).
+```text
+source code
+  -> POST /lex
+  -> filter whitespace/comment tokens
+  -> POST /parse
+  -> AST or parser errors
+```
 
----
+It displays:
+
+- Token list used by the parser.
+- Lexer errors if lexing fails.
+- Parser errors if parsing fails.
+- Red editor squiggles for lexer errors.
+- Orange editor squiggles for parser errors.
+
+On successful parsing, the AST is logged to the browser console for inspection.
 
 ### Semantics Panel
 
-**File:** `src/components/SemanticPanel.tsx`
+File: `src/components/SemanticPanel.tsx`
 
-**What it does:**
-- Runs the **full pipeline**: lexer → parser → semantic analyzer.
-- Each stage gates the next: if lex errors are found, parsing is skipped; if parse errors are found, semantic analysis is skipped.
-- Sends the AST to `POST /analyze/ast` on the semantic backend (port 8002).
-- Displays the token list, lex errors, parse errors, and semantic errors.
-- Shows three colors of squiggles: red (lexer), orange (parser), blue (semantic).
-- Shows a **"Analysis Complete"** badge when no errors are found at any stage.
+The Semantics panel runs the full static-analysis pipeline.
 
-**User flow:**
-1. Write PORTIA code in the editor.
-2. Click **Run Semantics**.
-3. See a full pipeline result: tokens, any errors from any stage, and inline highlights.
+Flow:
 
-**Error pipeline gating:**
-```
-Run Semantics button clicked
-  │
-  ├─ Lex code
-  │    ├─ Lex errors? → Show lex errors, STOP
-  │    └─ No lex errors → continue
-  │
-  ├─ Parse tokens (filter whitespace/comments first)
-  │    ├─ Parse errors? → Show parse errors, STOP
-  │    └─ AST produced → continue
-  │
-  └─ Analyze AST
-       ├─ Semantic errors? → Show semantic errors
-       └─ No errors → "Analysis complete ✓"
+```text
+source code
+  -> POST /lex
+  -> POST /parse
+  -> POST /analyze/ast
+  -> semantic result + symbol table
 ```
 
----
+Each phase gates the next one:
 
-## The Code Editor (CodeMirror)
+- Lexer errors stop parsing.
+- Parser errors stop semantic analysis.
+- Semantic errors are displayed after a valid AST is produced.
 
-**File:** `src/codemirror/PortiaEditor.tsx`
+It displays:
 
-The editor is built on **CodeMirror 6** with the following extensions active:
+- Token list.
+- Lexer, parser, and semantic errors.
+- Color-coded editor squiggles.
+- Success status when all static phases pass.
 
-| Extension | Purpose |
-|-----------|---------|
-| `portiaLanguage` | Custom PORTIA syntax highlighting stream parser |
-| `lineNumbers` | Line number gutter |
-| `highlightActiveLine` | Highlight the current cursor line |
-| `highlightActiveLineGutter` | Highlight the gutter of the current line |
-| `bracketMatching` | Auto-highlight matching `()`, `[]`, `{}` |
-| `closeBrackets` | Auto-close `(`, `[`, `{`, `"`, `'` |
-| `indentOnInput` | Auto-indent on newline |
-| `foldGutter` + `foldKeymap` | Code folding (fold/unfold blocks) |
-| `history` + `historyKeymap` | Undo/redo |
-| `defaultKeymap` | Standard editing shortcuts |
-| `closeBracketsKeymap` | Jump-out shortcut for closing brackets |
-| `linter` | Error diagnostics rendering (squiggles) |
-| `lintGutter` | Error indicator dots in the gutter |
+The semantic response also includes the symbol table used later by ICG/runtime.
 
-### Dynamic Reconfiguration
+### ICG Panel
 
-Three `Compartment` objects allow changing extensions without recreating the editor or losing cursor position:
+File: `src/components/ICGPanel.tsx`
 
-| Compartment | Controls |
-|------------|---------|
-| `themeCompartment` | Editor theme (dark ↔ light) |
-| `lintCompartment` | Error diagnostics (updates on every backend response) |
-| `readOnlyCompartment` | Read-only mode toggle |
+The ICG panel runs the complete compiler path and executes the generated
+intermediate code.
 
-### Error Highlight Types
+Flow:
 
-Errors passed as `EditorError[]` props are converted to CodeMirror `Diagnostic` objects. Each error type gets a distinct CSS class:
+```text
+source code
+  -> POST /lex
+  -> POST /parse
+  -> POST /analyze/ast
+  -> POST /run
+  -> generated TAC + runtime output
+```
 
-| `errorType` | CSS class | Squiggle color |
-|-------------|-----------|---------------|
-| `"lexer"` | `cm-error-lexer` | Red |
-| `"parser"` | `cm-error-parser` | Orange / amber |
-| `"semantic"` | `cm-error-semantic` | Blue/cyan |
+The panel sends the AST and semantic symbol table to the ICG backend. The backend
+generates indirect triples, executes them, and returns terminal output,
+runtime errors, return value information, and input-wait state.
 
-The highlight range is calculated from the 1-based `line` + `column` in the error object. If `token_length` is provided (from parser errors), it highlights exactly that many characters. Otherwise it extends to the end of the current word.
+It displays:
 
----
+- Source editor.
+- A terminal-style output panel.
+- Compiler errors from earlier phases when the pipeline cannot continue.
+- Runtime/ICG errors when execution fails.
+- Interactive input prompts for `trap`.
 
-### PORTIA Syntax Highlighting
+Runtime behavior:
 
-**File:** `src/codemirror/portiaLanguage.ts`
+- `thread` appends output to the current terminal line.
+- `threadln` commits a terminal line.
+- `trap` pauses execution when input is needed.
+- User input is validated in the frontend and then sent back to the backend.
+- The panel reruns with the accumulated input buffer so execution can continue.
 
-Implemented as a **CodeMirror StreamParser** that reads the source character by character. Token categories and their highlight roles:
+Generated TAC is logged in browser developer tools for debugging.
 
-| PORTIA tokens | CodeMirror role |
-|--------------|----------------|
-| `int`, `long`, `float`, `double`, `char`, `string`, `bool`, `void` | `keyword` |
-| `if`, `else`, `switch`, `case`, `default`, `for`, `while`, `do`, `break`, `return` | `keyword` |
-| `var`, `const`, `global`, `func`, `main`, `weave`, `using` | `keyword` |
-| `trap`, `thread`, `threadln` | `keyword` |
-| `true`, `false` | `atom` |
-| `// ...` single-line comments | `lineComment` |
-| `/* ... */` multi-line comments | `blockComment` |
-| `"..."` string literals | `string` |
-| `'.'` character literals | `string` |
-| Integer / long literals | `integer` |
-| Float / double literals | `float` |
-| Identifiers | `variableName` |
-| Operators (`+`, `-`, `*`, `/`, `=`, `==`, etc.) | `operator` |
-| Delimiters / punctuation | `punctuation` |
+## Code Editor
 
----
+File: `src/codemirror/PortiaEditor.tsx`
+
+The editor uses CodeMirror 6. It provides:
+
+- Line numbers.
+- Active-line highlighting.
+- Bracket matching.
+- Auto-closing brackets and quotes.
+- Indentation support.
+- Code folding.
+- Undo/redo history.
+- Diagnostics through CodeMirror lint extensions.
+- Dark/light editor themes.
+
+The editor receives an `errors` prop from each panel. Those errors are converted
+to CodeMirror diagnostics using their line, column, and optional `token_length`.
+
+### Syntax Highlighting
+
+File: `src/codemirror/portiaLanguage.ts`
+
+PORTIA highlighting is implemented with a CodeMirror `StreamParser`.
+
+Highlighted groups include:
+
+| PORTIA source | Highlight role |
+| --- | --- |
+| Data types such as `int`, `double`, `string`, `bool`, `char`, `long` | Keyword |
+| Declarations such as `var`, `const`, `global`, `func`, `main`, `weave`, `using` | Keyword |
+| Control flow such as `if`, `else`, `switch`, `case`, `for`, `while`, `break`, `return` | Keyword |
+| IO words such as `trap`, `thread`, `threadln` | Keyword |
+| `true`, `false` | Atom |
+| String and character literals | String |
+| Numeric literals | Integer/float |
+| Operators and punctuation | Operator/punctuation |
+| Comments | Line/block comment |
 
 ## API Client
 
-**File:** `src/api.ts`
+File: `src/api.ts`
 
-All backend communication is abstracted into typed async functions:
+All backend calls go through this file. The panels should not call `fetch`
+directly.
 
-| Function | Endpoint | Description |
-|----------|----------|-------------|
-| `lexCode(code, opts?)` | `POST /lex` | Tokenize source code |
-| `parseTokens(tokens, source?, lexer_errors?, opts?)` | `POST /parse` | Parse a token list |
-| `parseSource(source, opts?)` | `POST /parse/source` | Lex + parse in one call |
-| `analyzeTokens(tokens, opts?)` | `POST /analyze` | Legacy token analysis |
-| `analyzeAst(ast, opts?)` | `POST /analyze/ast` | Analyze a parsed AST |
+| Function | Dev endpoint | Purpose |
+| --- | --- | --- |
+| `lexCode(code, opts?)` | `POST http://localhost:8000/lex` | Tokenize source. |
+| `parseTokens(tokens, source?, lexerErrors?, opts?)` | `POST http://localhost:8001/parse` | Parse lexer tokens into an AST. |
+| `parseSource(source, opts?)` | `POST http://localhost:8001/parse/source` | Convenience lex+parse endpoint. |
+| `analyzeAst(ast, opts?)` | `POST http://localhost:8002/analyze/ast` | Run semantic analysis. |
+| `generateTAC(ast, symbolTable?, opts?)` | `POST http://localhost:8003/generate` | Generate TAC without executing. |
+| `executeTAC(tac, inputs?, symbolTable?, opts?)` | `POST http://localhost:8003/execute` | Execute serialized TAC. |
+| `runProgram(ast, inputs?, symbolTable?, opts?)` | `POST http://localhost:8003/run` | Generate TAC and execute in one call. |
 
-All functions accept an optional `{ signal: AbortSignal }` option for request cancellation. Running a new analysis while a previous one is in-flight automatically cancels the old request via `AbortController`.
+Every request helper accepts an optional `AbortSignal`. Panels use this to cancel
+older requests when a new run starts.
 
-### Backend URLs
+In production builds, API calls use same-origin serverless routes:
 
-By default the client assumes all backends run on localhost:
-
-| Service | Default URL | Override env var |
-|---------|------------|-----------------|
-| Lexer | `http://localhost:8000` | `VITE_LEXER_BACKEND_URL` |
-| Parser | `http://localhost:8001` | `VITE_PARSER_BACKEND_URL` |
-| Semantic | `http://localhost:8002` | `VITE_SEMANTIC_BACKEND_URL` |
-
----
-
-## Error Display
-
-**File:** `src/components/ErrorDisplay.tsx`
-
-A shared error card renderer used by all three panels. Features:
-
-- Renders each error as a card with a color-coded left border (matching the squiggle color for that error type).
-- Shows the line and column number.
-- **Monospace chips for identifiers**: any quoted identifier in an error message like `'varName'` is rendered as an inline `<code>` chip with a subtle background.
-- Clean, minimal design matching the overall dark/light theme.
-
-**Example rendering:**
-```
-Error at line 5, col 3
-  undeclared identifier 'score'  ← 'score' renders as a code chip
+```text
+/api/lex
+/api/parse
+/api/parse_source
+/api/analyze_ast
+/api/icg_generate
+/api/icg_execute
+/api/icg_run
 ```
 
----
+## Diagnostics
 
-## Token List
+Errors are shown in two places:
 
-**File:** `src/components/TokenList.tsx`
+- Inline editor diagnostics.
+- Error cards in the panel result area.
 
-A scrollable table listing all tokens returned by the lexer:
+`ErrorDisplay.tsx` renders the error cards. It supports four categories:
 
-| Column | Content |
-|--------|---------|
-| # | Token index |
-| Type | Token type (e.g., `int`, `ID`, `INTLIT`) |
-| Lexeme | The actual source text |
-| Line | 1-based line number |
-| Col | 1-based column number |
+| Category | Used for |
+| --- | --- |
+| `lexical` | Lexer errors. |
+| `syntax` | Parser errors. |
+| `semantic` | Semantic analyzer errors. |
+| `runtime` | ICG/runtime execution errors. |
 
-A "Hide Comments" toggle is available in the Lexer panel to filter out `COMMENT` and `NEWLINE` tokens from the list.
-
----
-
-## Themes
-
-**File:** `src/codemirror/themes.ts`
-
-Two hand-crafted CodeMirror themes:
-
-| Theme | Background | Foreground |
-|-------|-----------|-----------|
-| Dark | Dark navy / charcoal | Off-white / cyan accents |
-| Light | White / light gray | Dark text / blue accents |
-
-The `getCodeMirrorTheme(theme: "dark" | "light")` function returns the appropriate extensions to pass into the `themeCompartment`. Themes are also applied via CSS variables on `document.documentElement[data-theme]` for everything outside the editor (buttons, panels, text).
-
----
+The editor currently uses lexer, parser, and semantic diagnostic styles for
+inline squiggles. Runtime errors are shown in the ICG terminal error area.
 
 ## Shared State
 
-All three panels share a single source of truth managed by `ViewSwitcher`:
+`ViewSwitcher` owns the main cross-panel state:
 
-| State | Type | Direction |
-|-------|------|-----------|
-| `sharedCode` | `string` | Written by every panel editor; read by all |
-| `sharedTokens` | `Token[]` | Written by LexerPanel; read by Parser/Semantic |
-| `sharedLexErrors` | `LexError[]` | Written by LexerPanel; read by Parser/Semantic |
+| State | Type | Written by | Read by |
+| --- | --- | --- | --- |
+| `sharedCode` | `string` | All editors, load/reset actions | All panels |
+| `sharedTokens` | `Token[]` | Lexer panel | Parser/Semantic/ICG panels |
+| `sharedLexErrors` | `LexError[]` | Lexer panel | Parser/Semantic/ICG panels |
+| `theme` | `"dark" | "light"` | Theme button | App shell and editor |
 
-Because all panels are always mounted (just hidden with CSS), they receive prop updates instantly when switching tabs. This means:
-- Running the lexer in the Lexical panel and switching to the Syntax panel shows those same tokens already loaded.
-- All panels use the same editor contents, so there is no drift between views.
+The panels also keep their own local result state. For example, ICG keeps
+terminal lines, pending inputs, current AST, and runtime errors locally because
+those are specific to execution.
 
----
+## Environment Variables
 
-## Environment Configuration
+For local development, no `.env` file is required if each backend runs on its
+default port.
 
-Create a `.env` file in `app-frontend/` to override backend URLs (useful when deploying to a server or using different ports):
+Optional overrides:
 
 ```env
-VITE_LEXER_BACKEND_URL=http://your-server:8000
-VITE_PARSER_BACKEND_URL=http://your-server:8001
-VITE_SEMANTIC_BACKEND_URL=http://your-server:8002
+VITE_LEXER_BACKEND_URL=http://localhost:8000
+VITE_PARSER_BACKEND_URL=http://localhost:8001
+VITE_SEMANTIC_BACKEND_URL=http://localhost:8002
+VITE_ICG_BACKEND_URL=http://localhost:8003
 ```
 
-For local development the defaults (`localhost:8000/8001/8002`) require no configuration.
+These values are read by `src/api.ts`.
 
----
+## Running Locally
 
-## Running the Frontend
-
-### Development server (hot module replacement)
+Install frontend dependencies:
 
 ```powershell
 cd app-frontend
-npm install      # first time only
+npm install
+```
+
+Start only the frontend:
+
+```powershell
 npm run dev
 ```
 
-The app will be available at **http://localhost:5173**.
+The Vite dev server runs at:
 
-### Production build
+```text
+http://localhost:5173
+```
+
+Build for production:
 
 ```powershell
-cd app-frontend
 npm run build
 ```
 
-Output is written to `app-frontend/dist/`. Serve it with any static file server.
-
-### Preview production build locally
+Preview the production build:
 
 ```powershell
-cd app-frontend
 npm run preview
 ```
 
-### Via the project-root script
+Start the full PORTIA stack from the project root:
 
 ```powershell
-# From the project root (starts all services including frontend)
 .\scripts\start-portia.ps1
 ```
 
-### Dependencies
+Stop backend/frontend helper processes from the project root:
 
-All managed by npm. Install with `npm install`.
-
-**Runtime:**
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `react` | ^19 | UI framework |
-| `react-dom` | ^19 | DOM rendering |
-| `@codemirror/state` | ^6 | CodeMirror editor state |
-| `@codemirror/view` | ^6 | CodeMirror editor view |
-| `@codemirror/commands` | ^6 | Keyboard shortcuts |
-| `@codemirror/language` | ^6 | Language support base |
-| `@codemirror/lint` | ^6 | Error diagnostics/squiggles |
-| `@codemirror/autocomplete` | ^6 | Bracket closing |
-
-**Dev:**
-
-| Package | Purpose |
-|---------|---------|
-| `vite` + `@vitejs/plugin-react` | Build tool + React fast refresh |
-| `typescript` | Type checking |
-| `eslint` | Linting |
-| `tailwindcss` | Utility CSS (partially used) |
-
----
+```powershell
+.\scripts\stop-all.ps1
+```
 
 ## File Structure
 
-```
+```text
 app-frontend/
-├── index.html                    # Entry HTML (Vite root)
-├── package.json                  # npm manifest + scripts
-├── vite.config.ts                # Vite + React plugin config
-├── tsconfig.json                 # TypeScript project references
-├── tsconfig.app.json             # App-level TypeScript config
-├── tsconfig.node.json            # Node tools TypeScript config
-├── postcss.config.js             # PostCSS (Tailwind)
-├── eslint.config.js              # ESLint flat config
-├── public/
-│   └── assets/                   # Static public assets
-└── src/
-    ├── main.tsx                  # React entry, renders <ViewSwitcher />
-    ├── api.ts                    # Typed fetch wrappers for all 3 backends
-    ├── index.css                 # Global styles + CSS theme variables
-    ├── codemirror/
-    │   ├── index.ts              # Re-exports
-    │   ├── PortiaEditor.tsx      # CodeMirror 6 editor component
-    │   ├── portiaLanguage.ts     # PORTIA StreamParser (syntax highlighting)
-    │   └── themes.ts             # Dark / light editor themes
-    └── components/
-        ├── ViewSwitcher.tsx      # App shell, shared state, tab bar
-        ├── LexerPanel.tsx        # Lexical analysis view
-        ├── ParserPanel.tsx       # Syntax analysis view
-        ├── SemanticPanel.tsx     # Semantic analysis view
-        ├── ErrorDisplay.tsx      # Error card renderer
-        └── TokenList.tsx         # Token table renderer
+|-- index.html
+|-- package.json
+|-- vite.config.ts
+|-- tsconfig.json
+|-- tsconfig.app.json
+|-- tsconfig.node.json
+|-- postcss.config.js
+|-- eslint.config.js
+|-- public/
+|   `-- assets/
+`-- src/
+    |-- main.tsx
+    |-- api.ts
+    |-- index.css
+    |-- codemirror/
+    |   |-- index.ts
+    |   |-- PortiaEditor.tsx
+    |   |-- portiaLanguage.ts
+    |   `-- themes.ts
+    `-- components/
+        |-- ViewSwitcher.tsx
+        |-- LexerPanel.tsx
+        |-- ParserPanel.tsx
+        |-- SemanticPanel.tsx
+        |-- ICGPanel.tsx
+        |-- ErrorDisplay.tsx
+        `-- TokenList.tsx
 ```
+
+## Development Notes
+
+- Keep backend URL changes in `src/api.ts` and `.env` only.
+- Keep compiler panels responsible for phase orchestration, not raw fetch calls.
+- Keep shared editor state in `ViewSwitcher`.
+- Keep display-only components such as `ErrorDisplay` and `TokenList` reusable
+  across panels.
+- When adding a new compiler phase, update the view switcher, API client, and
+  this README together.
