@@ -5,6 +5,9 @@ from semantic.api import router as semantic_router
 
 app = FastAPI(title="PORTIA Semantic Backend (TBA)")
 
+# Only the local frontend/dev servers are allowed to call the semantic API.
+# Keeping the list explicit avoids opening the compiler service broadly during
+# development.
 origins = [
     "http://localhost:5173",
     "http://localhost:8000",
@@ -25,4 +28,5 @@ app.include_router(semantic_router, prefix="")
 
 @app.get("/")
 def root():
+    # Lightweight health endpoint used to confirm that the semantic service is up.
     return {"message": "PORTIA Semantic backend (TBA) is running"}

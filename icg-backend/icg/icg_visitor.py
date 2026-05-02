@@ -64,6 +64,8 @@ class ICGVisitor:
         symbol_table : Dict
             Symbol table from semantic analysis phase
         """
+        # The visitor owns one table plus temp/label generators for the current
+        # AST traversal. Symbol metadata is threaded in for type-sensitive TAC.
         self._table = IndirectTripleTable()
         self._temps = TempManager()
         self._labels = LabelManager()
@@ -71,6 +73,8 @@ class ICGVisitor:
 
     def _is_builtin_call(self, node: Dict[str, Any]) -> bool:
         """Treat reserved PORTIA built-ins as dedicated TAC operations."""
+        # Built-ins are emitted as direct operations so runtime execution does not
+        # need to jump through user-defined function call machinery.
         name = node.get("name", "")
         return bool(node.get("builtin")) or name in BUILTIN_FUNCTIONS
     
@@ -89,11 +93,13 @@ class ICGVisitor:
             The generated triple table
         """
         # Reset state for fresh generation
+        # This lets the same visitor instance compile multiple ASTs safely.
         self._table.clear()
         self._temps.reset()
         self._labels.reset()
         
         # Visit the AST
+        # Visiting the root recursively emits all triples into _table.
         self._visit(ast)
         
         return self._table
@@ -116,6 +122,7 @@ class ICGVisitor:
             return None
         
         # Handle primitive values (shouldn't happen in normal AST)
+        # Primitive fallthrough keeps visitor calls safe for older AST shapes.
         if not isinstance(node, dict):
             return node
         
@@ -128,6 +135,7 @@ class ICGVisitor:
         visitor_method = getattr(self, f"_visit_{node_type}", None)
         if visitor_method is None:
             # Unknown node type - skip with warning
+            # Semantic validation should catch unsupported constructs earlier.
             return None
         
         return visitor_method(node)
@@ -139,10 +147,14 @@ class ICGVisitor:
     def _visit_Program(self, node: Dict) -> None:
         """Visit Program node - entry point."""
         # Visit global declarations (for initialization)
+        # Global declaration triples appear before function blocks so runtime can
+        # initialize globals before jumping into main.
         for g in node.get("globals", []):
             self._visit(g)
         
         # Visit function declarations
+        # Functions are emitted as labeled regions that the runtime can jump into
+        # on call instructions.
         for func in node.get("functions", []):
             self._visit(func)
         
@@ -153,12 +165,16 @@ class ICGVisitor:
     
     def _visit_FunctionDecl(self, node: Dict) -> None:
         """Visit function declaration."""
+        # A function is represented by begin/end markers and executable triples
+        # for parameters, locals, body statements, and any trailing return value.
         func_name = node.get("name", "")
         
         # Add function entry label
         self._table.add("func_begin", func_name, None)
         
         # Process parameters - they should pop from param stack into local variables
+        # Parameter metadata is added locally so later trap/array lookups inside
+        # this generated function know the declared type and shape.
         params = node.get("params", [])
         for param in params:
             param_name = param.get("name", "")
@@ -173,6 +189,8 @@ class ICGVisitor:
             self._table.add("receive_param", param_name, None)
         
         # Visit local variable declarations
+        # Header locals are lowered before body statements so memory defaults or
+        # initializers exist when the body executes.
         for local in node.get("locals", []):
             self._visit(local)
         
@@ -193,6 +211,8 @@ class ICGVisitor:
             self._visit(body)
         
         # Handle return value if present
+        # Parser-level trailing return values become a normal return triple at the
+        # end of the function block.
         ret_value = node.get("ret_value")
         if ret_value:
             result = self._visit(ret_value)
@@ -207,6 +227,8 @@ class ICGVisitor:
     
     def _get_default_value(self, dtype: str) -> Any:
         """Get default value for a type."""
+        # Runtime default assignments make uninitialized scalar variables concrete
+        # before any later reads.
         dtype = (dtype or "").lower()
         if dtype in ("int", "long"):
             return 0
@@ -222,10 +244,14 @@ class ICGVisitor:
     
     def _visit_VarDecl(self, node: Dict) -> None:
         """Visit variable declaration with optional initialization."""
+        # VarDecl lowering records symbol metadata, then emits default, scalar,
+        # array, or weave-field initialization instructions as needed.
         name = node.get("name", "")
         dtype = node.get("dtype") or node.get("data_type") or node.get("var_type") or ""
         dims = node.get("dims", []) or []
         if not dims and node.get("is_array"):
+            # Older ASTs may describe array shape through alternate fields, so
+            # normalize them into the shared dims list for the rest of ICG.
             array_size = node.get("array_size")
             if isinstance(array_size, (list, tuple)):
                 dims = list(array_size)
@@ -274,6 +300,8 @@ class ICGVisitor:
     def _visit_array_init(self, name: str, init: List, line: int, col: int) -> None:
         """Handle array initialization."""
         # For now, emit individual element assignments
+        # Arrays are stored as element keys in runtime memory, so each literal
+        # element becomes an array_store triple.
         for i, elem in enumerate(init):
             if isinstance(elem, list):
                 # 2D array row
@@ -288,6 +316,8 @@ class ICGVisitor:
 
     def _get_weave_fields(self, dtype: str) -> List[str]:
         """Return ordered field names for a weave type, if any."""
+        # Semantic analysis exports weave fields in declaration order; that order
+        # is used to map positional initializer values to named fields.
         weave_info = self._symbol_table.get((dtype or "").lower(), {})
         if weave_info.get("kind") != "weave":
             return []
@@ -296,6 +326,7 @@ class ICGVisitor:
 
     def _visit_weave_init(self, name: str, fields: List[str], init: List, line: int, col: int) -> None:
         """Handle weave initialization by storing values into named fields."""
+        # Weaves are lowered as individual field assignments like person.age = 10.
         for field_name, elem in zip(fields, init):
             elem_result = self._visit(elem)
             self._table.add("=", f"{name}.{field_name}", self._to_arg(elem_result), line, col)
@@ -312,6 +343,8 @@ class ICGVisitor:
         String literals are wrapped in quotes so runtime can distinguish
         them from variable names.
         """
+        # Literal visits return immediate values; no TAC instruction is needed
+        # until a parent expression/assignment consumes the value.
         value = node.get("value")
         # Support both "dtype" and "type" keys
         dtype = (node.get("dtype") or node.get("type") or "").lower()
@@ -350,6 +383,8 @@ class ICGVisitor:
 
     def _visit_ArrayLiteral(self, node: Dict) -> Any:
         """Visit array literal node and preserve its nested structure."""
+        # Array literals stay as nested Python lists so assignment/function-return
+        # handling can distribute their elements at runtime.
         def visit_elements(elements: List[Any]) -> List[Any]:
             visited = []
             for elem in elements:
@@ -367,6 +402,8 @@ class ICGVisitor:
         
         Returns the variable name, or generates array access triple.
         """
+        # Plain identifiers lower to names; indexed identifiers lower to load
+        # triples; member identifiers lower to dotted field keys.
         name = node.get("name", "")
         member = node.get("member")
         indices = node.get("indices", [])
@@ -410,6 +447,8 @@ class ICGVisitor:
                            line: int, col: int) -> VisitResult:
         """Generate triple for array element access."""
         # Evaluate each index expression
+        # Index expressions may themselves be expressions, so visit them before
+        # emitting the array access operation.
         idx_results = []
         for idx in indices:
             idx_result = self._visit(idx)
@@ -433,6 +472,8 @@ class ICGVisitor:
         Generates triples for left and right operands, then the operation.
         Returns reference to the result triple.
         """
+        # Binary expression lowering is postorder: children first, then the
+        # operator triple that references child results.
         # Support both naming conventions: op/operator
         op = node.get("op") or node.get("operator", "")
         left = node.get("left")
@@ -464,6 +505,8 @@ class ICGVisitor:
         
         Generates triple for operand, then the unary operation.
         """
+        # Unary operators use dedicated TAC operation names where the runtime
+        # needs to distinguish them from binary operations.
         # Support both naming conventions: op/operator
         op = node.get("op") or node.get("operator", "")
         operand = node.get("operand")
@@ -494,6 +537,8 @@ class ICGVisitor:
     
     def _visit_Cast(self, node: Dict) -> VisitResult:
         """Visit type cast expression."""
+        # Casts lower to one TAC instruction carrying the source value and target
+        # type name; runtime performs the actual conversion.
         dtype = node.get("dtype", "")
         expr = node.get("expr")
         line = node.get("line", 0)
@@ -510,12 +555,16 @@ class ICGVisitor:
     
     def _visit_FunctionCall(self, node: Dict) -> VisitResult:
         """Visit function call expression."""
+        # Built-ins become direct expression triples; user functions push params
+        # first, then emit one call triple with the argument count.
         name = node.get("name", "")
         args = node.get("args", [])
         line = node.get("line", 0)
         col = node.get("col", 0)
 
         if self._is_builtin_call(node):
+            # Direct built-in operations keep builtin results compatible with
+            # normal expression references.
             visited_args = [self._to_arg(self._visit(arg)) for arg in args]
             expected_arity = 2 if name == "pow" else 1
             if len(visited_args) != expected_arity:
@@ -530,6 +579,8 @@ class ICGVisitor:
             return ref(idx)
         
         # Evaluate and push arguments
+        # Parameters are pushed in source order; the runtime receives them in FIFO
+        # order when the callee starts.
         for arg in args:
             arg_result = self._visit(arg)
             self._table.add("param", self._to_arg(arg_result), None, line, col)
@@ -549,6 +600,8 @@ class ICGVisitor:
         
         Handles simple assignment (=) and compound assignments (+=, -=, etc.)
         """
+        # Assignments lower to either scalar stores or element stores. Compound
+        # assignments expand into load, operator, and store triples.
         target = node.get("target")
         op = node.get("op", "=")
         value = node.get("value")
@@ -604,6 +657,7 @@ class ICGVisitor:
     
     def _get_target_name(self, target: Dict) -> str:
         """Extract variable name from assignment target."""
+        # Assignment targets may be simple identifiers or weave members.
         if isinstance(target, dict):
             name = target.get("name", "")
             member = target.get("member")
@@ -614,6 +668,7 @@ class ICGVisitor:
 
     def _format_target_access(self, target: Any) -> str:
         """Format a target including member or array indexing for direct-address ops."""
+        # trap() needs a concrete runtime address such as x, person.age, or arr[0].
         if not isinstance(target, dict):
             return str(target)
 
@@ -638,6 +693,8 @@ class ICGVisitor:
         Visit expression statement (standalone expression like function call).
         The result is discarded - we just need side effects.
         """
+        # Function calls used as statements still emit param/call triples even
+        # though their returned reference is ignored.
         expr = node.get("expr") or node.get("expression")
         if expr:
             self._visit(expr)
@@ -646,6 +703,8 @@ class ICGVisitor:
         """
         Visit I/O statement: trap (input), thread/threadln (output).
         """
+        # I/O statements become runtime operations instead of normal function
+        # calls because they interact with the terminal/input buffer.
         # Support both naming conventions: kind/io_type
         kind = node.get("kind") or node.get("io_type", "")
         # Support both: target/variable for trap, args/value for thread
@@ -676,6 +735,8 @@ class ICGVisitor:
     
     def _visit_ReturnStmt(self, node: Dict) -> None:
         """Visit return statement."""
+        # Return triples either carry an evaluated result reference or None for
+        # void returns.
         value = node.get("value")
         line = node.get("line", 0)
         col = node.get("col", 0)
@@ -693,6 +754,7 @@ class ICGVisitor:
         Generates unconditional jump to the current loop/switch exit label.
         The actual label is stored in _break_target during loop/switch processing.
         """
+        # The current break label is installed by enclosing loop/switch visitors.
         line = node.get("line", 0)
         col = node.get("col", 0)
         
@@ -712,6 +774,8 @@ class ICGVisitor:
         - Block node with 'statements' or 'body' list
         - Single statement dict
         """
+        # The parser has had a few block shapes over time, so this helper keeps
+        # control-flow visitors independent of that AST variation.
         if block is None:
             return
         
@@ -762,6 +826,8 @@ class ICGVisitor:
             ... (more elif or else)
         L_end:
         """
+        # If statements are lowered as conditional jumps between generated labels.
+        # Each branch jumps to the shared end label after it runs.
         condition = node.get("condition")
         # Support both naming conventions: body/then_block/then_branch, else/else_block/else_branch
         body = node.get("body") or node.get("then_block") or node.get("then_branch") or []
@@ -859,6 +925,8 @@ class ICGVisitor:
             jump L_start
         L_end:
         """
+        # Loop lowering installs break/continue labels while the loop body is
+        # visited, then restores the enclosing targets afterward.
         # Support both naming conventions: kind/loop_type
         kind = node.get("kind") or node.get("loop_type", "while")
         condition = node.get("condition")
@@ -889,6 +957,7 @@ class ICGVisitor:
 
     def _visit_WhileStmt(self, node: Dict) -> None:
         """Back-compat alias for older ASTs that emitted WhileStmt directly."""
+        # Normalize legacy WhileStmt nodes into the current LoopStmt shape.
         loop_node = dict(node)
         loop_node["node"] = "LoopStmt"
         loop_node.setdefault("kind", "while")
@@ -896,6 +965,7 @@ class ICGVisitor:
     
     def _visit_while_loop(self, condition, body, label_end, line, col):
         """Generate TAC for while loop."""
+        # while checks the condition before executing the body.
         label_start = self._labels.next_label()
         self._continue_target = label_start
         
@@ -918,6 +988,8 @@ class ICGVisitor:
     
     def _visit_do_while_loop(self, condition, body, label_end, line, col):
         """Generate TAC for do-while loop."""
+        # do-while emits the body before the condition so the body runs at least
+        # once.
         label_start = self._labels.next_label()
         label_cond = self._labels.next_label()
         self._continue_target = label_cond
@@ -943,6 +1015,7 @@ class ICGVisitor:
     def _visit_for_loop(self, init, condition, update, body, label_end, line, col):
         """Generate TAC for for loop."""
         # Process initialization
+        # The initializer runs once before entering the loop condition label.
         if init:
             self._visit(init)
         
@@ -998,6 +1071,8 @@ class ICGVisitor:
             <default body>
         L_end:
         """
+        # Switch lowering evaluates the switch expression once, stores it in a
+        # temporary, then emits a jump table to case labels.
         expr = node.get("expr")
         cases = node.get("cases", [])
         default = node.get("default", [])
@@ -1067,6 +1142,8 @@ class ICGVisitor:
         - Primitive (int/float/bool): return as-is
         - None: return None
         """
+        # Visit results are already in TAC operand format, so this is the single
+        # normalization hook for future operand transformations.
         return result
     
     def _get_var_type(self, name: str) -> str:
@@ -1076,6 +1153,8 @@ class ICGVisitor:
         Returns 'unknown' if not found.
         """
         # Handle member access
+        # Dotted weave fields require a second lookup through the weave type
+        # definition to find the field dtype.
         if "." in name:
             base_name, member = name.split(".", 1)
             base_name = base_name.split("[", 1)[0]

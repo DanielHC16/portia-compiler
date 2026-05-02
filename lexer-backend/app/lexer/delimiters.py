@@ -10,10 +10,12 @@ from .character_classes import CharacterClasses
 
 class Delimiters:
     # Container for delimiter category lists.
-    # Lists reused by the lexer; no mutations
+    # Lists reused by the lexer; no mutations.
 
     def __init__(self, chars: CharacterClasses):
-        # Build all delimiter sets using provided character classes.
+        # Build all delimiter sets using provided character classes. These sets
+        # are checked after a token is recognized, so invalid token boundaries
+        # fail early in the lexer instead of cascading into parser errors.
         self.chars = chars
 
         # DATA TYPE DELIMITER

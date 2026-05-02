@@ -55,12 +55,15 @@ class Triple:
     col: int = 0
     
     def __repr__(self) -> str:
+        # Keep debug output compact while preserving the operation and operands.
         arg1_str = self._format_arg(self.arg1)
         arg2_str = self._format_arg(self.arg2)
         return f"Triple({self.op!r}, {arg1_str}, {arg2_str})"
     
     def _format_arg(self, arg: Any) -> str:
         """Format argument for display."""
+        # Triple references are stored as one-element tuples and displayed like
+        # classic indirect triple references: (0), (1), ...
         if arg is None:
             return "-"
         if isinstance(arg, tuple) and len(arg) == 1:
@@ -71,6 +74,7 @@ class Triple:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
+        # Arguments need custom serialization because JSON has no tuple type.
         return {
             "op": self.op,
             "arg1": self._serialize_arg(self.arg1),
@@ -81,6 +85,8 @@ class Triple:
     
     def _serialize_arg(self, arg: Any) -> Any:
         """Serialize argument for JSON - recursively handles nested structures."""
+        # Single-element tuples are semantic references, while larger tuples/lists
+        # are operand structures such as array-store payloads.
         if arg is None:
             return None
         # Single-element tuple = reference
@@ -120,6 +126,7 @@ class Triple:
     @staticmethod
     def _deserialize_arg(arg: Any) -> Any:
         """Deserialize argument from JSON - recursively handles nested structures."""
+        # Rebuild reference markers created by _serialize_arg.
         if arg is None:
             return None
         if isinstance(arg, dict) and "ref" in arg:
@@ -165,6 +172,7 @@ class IndirectTripleTable:
     
     def __init__(self) -> None:
         """Initialize empty indirect triple table."""
+        # _triples stores instructions; _pointers stores the execution order.
         self._triples: List[Triple] = []
         self._pointers: List[int] = []
     
@@ -197,6 +205,8 @@ class IndirectTripleTable:
         int
             Index of the newly added triple (for reference in expressions)
         """
+        # New triples are appended and immediately referenced in the pointer table
+        # so generated code executes in insertion order by default.
         index = len(self._triples)
         triple = Triple(op=op, arg1=arg1, arg2=arg2, line=line, col=col)
         self._triples.append(triple)
@@ -227,6 +237,8 @@ class IndirectTripleTable:
     
     def __iter__(self):
         """Iterate over triples in pointer order."""
+        # Consumers iterate through pointers so future optimization can reorder
+        # execution without moving the underlying triple records.
         for ptr in self._pointers:
             yield self._triples[ptr]
     
@@ -244,6 +256,8 @@ class IndirectTripleTable:
         ValueError
             If new order doesn't contain valid indices
         """
+        # Pointer reordering is validated before mutating the table to keep the
+        # instruction stream internally consistent.
         if len(new_pointer_order) != len(self._pointers):
             raise ValueError(
                 f"New pointer order length ({len(new_pointer_order)}) "
@@ -282,6 +296,7 @@ class IndirectTripleTable:
         
         Pointer Order: [0, 1, 2]
         """
+        # The plain-text table is used by the UI terminal and debugging output.
         if not self._triples:
             return "Empty Triple Table"
         
@@ -369,6 +384,8 @@ class IndirectTripleTable:
         str
             HTML string with TAC table and pointer table
         """
+        # The HTML version is used by the frontend to inspect TAC in a grid-like
+        # view without reconstructing the table client-side.
         if not self._triples:
             return "<p>Empty Triple Table</p>"
         
@@ -419,6 +436,8 @@ class IndirectTripleTable:
     
     def clear(self) -> None:
         """Clear all triples and pointers."""
+        # Generation reuses the table instance, so clearing both lists returns it
+        # to a truly empty state.
         self._triples.clear()
         self._pointers.clear()
 
@@ -447,6 +466,8 @@ def ref(index: int) -> tuple:
     (0,)
     >>> table.add('+', 'b', ref(0))  # b + result_of_triple_0
     """
+    # A one-element tuple is an internal marker that distinguishes triple-result
+    # references from normal integer constants.
     return (index,)
 
 
@@ -464,6 +485,7 @@ def is_ref(value: Any) -> bool:
     bool
         True if value is a reference tuple
     """
+    # Runtime and serialization code use this check before dereferencing results.
     return isinstance(value, tuple) and len(value) == 1 and isinstance(value[0], int)
 
 
@@ -481,6 +503,7 @@ def get_ref_index(value: Any) -> Optional[int]:
     int or None
         The referenced index, or None if not a reference
     """
+    # Normalize reference access so callers do not unpack tuple markers directly.
     if is_ref(value):
         return value[0]
     return None

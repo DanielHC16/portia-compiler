@@ -28,6 +28,7 @@ class ASTNode:
     col: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
+        # Subclasses serialize themselves into the JSON AST contract.
         raise NotImplementedError
     
     def _loc_dict(self) -> Dict[str, Any]:
@@ -61,6 +62,7 @@ class Program(ASTNode):
         self.main: FunctionDecl | None = main
 
     def to_dict(self) -> Dict[str, Any]:
+        # Program is the AST root consumed by semantic analysis.
         d: Dict[str, Any] = {
             "node": "Program",
             "globals": [g.to_dict() for g in self.globals],
@@ -111,6 +113,8 @@ class VarDecl(ASTNode):
         self.col = col
 
     def to_dict(self) -> Dict[str, Any]:
+        # Include optional dimensions and initializer only when present to keep
+        # serialized AST nodes compact and easy for semantic analysis to inspect.
         d: Dict[str, Any] = {
             "node": "VarDecl",
             "name": self.name,
@@ -146,6 +150,8 @@ class WeaveDecl(ASTNode):
         self.fields: List[VarDecl] = fields or []
 
     def to_dict(self) -> Dict[str, Any]:
+        # Weave fields are serialized in declaration order so initializer values
+        # can later be matched against fields consistently.
         return {
             "node": "WeaveDecl",
             "name": self.name,
@@ -189,6 +195,8 @@ class FunctionDecl(ASTNode):
         self.ret_value: ASTNode | None = ret_value
 
     def to_dict(self) -> Dict[str, Any]:
+        # FunctionDecl carries the parser's complete function shape: signature,
+        # using bindings, declarations, executable body, and final return value.
         d: Dict[str, Any] = {
             "node": "FunctionDecl",
             "name": self.name,

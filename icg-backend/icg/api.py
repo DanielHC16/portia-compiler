@@ -31,6 +31,8 @@ router = APIRouter()
 
 class AstPayload(BaseModel):
     """Payload for TAC generation from AST."""
+    # The semantic symbol table is optional, but improves type-aware ICG/runtime
+    # behavior for trap targets, arrays, and weave fields.
     ast: Dict[str, Any]
     symbol_table: Optional[Dict[str, Any]] = None
     source: Optional[str] = None
@@ -38,6 +40,8 @@ class AstPayload(BaseModel):
 
 class ExecutePayload(BaseModel):
     """Payload for TAC execution."""
+    # Execution accepts serialized TAC so the frontend can generate once, inspect
+    # the table, and then run it with different input buffers.
     tac: Dict[str, Any]  # Serialized IndirectTripleTable
     inputs: List[str] = []  # Pre-defined inputs for trap()
     symbol_table: Optional[Dict[str, Any]] = None
@@ -45,6 +49,8 @@ class ExecutePayload(BaseModel):
 
 class RunPayload(BaseModel):
     """Payload for combined generation + execution."""
+    # /run is the frontend's convenience path: one request compiles AST to TAC and
+    # immediately interprets that TAC.
     ast: Dict[str, Any]
     inputs: List[str] = []  # Pre-defined inputs for trap()
     symbol_table: Optional[Dict[str, Any]] = None
@@ -121,6 +127,8 @@ def generate_tac(payload: AstPayload) -> GenerateResponse:
         - errors: Any generation errors
     """
     try:
+        # ICGVisitor walks the AST and produces an indirect triple table plus
+        # display formats for the UI.
         visitor = ICGVisitor(symbol_table=payload.symbol_table)
         table = visitor.generate(payload.ast)
         
@@ -170,12 +178,15 @@ def execute_tac(payload: ExecutePayload) -> ExecuteResponse:
     
     try:
         # Deserialize the TAC
+        # JSON turns tuple references into dictionaries, so the table rebuilds
+        # those references before interpretation.
         table = IndirectTripleTable.from_dict(payload.tac)
         
         # Create input handler with pre-defined inputs
         input_handler = BufferedInputHandler(payload.inputs)
         
         # Execute
+        # RuntimeExecutor owns memory, labels, function calls, and IO buffering.
         executor = RuntimeExecutor(
             table,
             symbol_table=payload.symbol_table,
@@ -226,6 +237,8 @@ def run_program(payload: RunPayload) -> RunResponse:
     """
     try:
         # Generate TAC
+        # Generate first so the response can still show TAC even when runtime
+        # execution later reports an error.
         visitor = ICGVisitor(symbol_table=payload.symbol_table)
         table = visitor.generate(payload.ast)
         
@@ -234,6 +247,8 @@ def run_program(payload: RunPayload) -> RunResponse:
         tac_html = table.to_html_table()
         
         # Execute
+        # A buffered input handler makes trap() deterministic for UI tests and
+        # repeated runs.
         input_handler = BufferedInputHandler(payload.inputs)
         executor = RuntimeExecutor(
             table,
@@ -279,4 +294,5 @@ def run_program(payload: RunPayload) -> RunResponse:
 @router.get("/health")
 def health_check():
     """Health check endpoint."""
+    # Small readiness response used by frontend/backends during local startup.
     return {"status": "healthy", "service": "icg"}

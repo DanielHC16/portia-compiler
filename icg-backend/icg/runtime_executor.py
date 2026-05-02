@@ -48,6 +48,7 @@ class RuntimeValue:
     element_type: Optional[str] = None  # For arrays: type of elements
     
     def __repr__(self) -> str:
+        # Include element type for arrays so debug memory snapshots are readable.
         if self.dtype == "array":
             return f"RuntimeValue({self.value}, {self.dtype}<{self.element_type}>)"
         return f"RuntimeValue({self.value}, {self.dtype})"
@@ -66,6 +67,8 @@ class ArrayReference:
 
 def get_type_name(value: Any) -> str:
     """Infer PORTIA type name from Python value."""
+    # RuntimeValue carries an explicit PORTIA type; raw Python values are only
+    # classified when they come from literals or internal helper results.
     if isinstance(value, RuntimeValue):
         return value.dtype
     if isinstance(value, bool):
@@ -83,6 +86,8 @@ def get_type_name(value: Any) -> str:
 
 def unwrap_value(val: Any) -> Any:
     """Extract raw value from RuntimeValue if needed."""
+    # Arithmetic/comparison helpers operate on Python values after preserving the
+    # dtype alongside them in RuntimeValue.
     if isinstance(val, RuntimeValue):
         return val.value
     return val
@@ -90,6 +95,8 @@ def unwrap_value(val: Any) -> Any:
 
 def strip_outer_quotes(value: str, quote: str) -> Optional[str]:
     """Strip one or more matching outer quote layers from a literal string."""
+    # The ICG may wrap literals more than once while preserving distinction
+    # between variable names and literal strings/chars.
     if not (len(value) >= 2 and value.startswith(quote) and value.endswith(quote)):
         return None
 
@@ -101,6 +108,7 @@ def strip_outer_quotes(value: str, quote: str) -> Optional[str]:
 
 def decode_escape_sequences(value: str) -> str:
     """Decode the supported PORTIA escape sequences inside a literal."""
+    # Keep decoding limited to the language's supported escape set.
     escapes = {
         "n": "\n",
         "t": "\t",
@@ -128,6 +136,8 @@ def decode_escape_sequences(value: str) -> str:
 
 def ascii_code_for_char(value: Any) -> int:
     """Return the allowed ASCII code point for a single PORTIA char value."""
+    # Char-to-numeric casts are intentionally ASCII-bound to match PORTIA's char
+    # rules.
     if not isinstance(value, str) or len(value) != 1:
         raise ValueError("Expected single ASCII character in range 32-127")
 
@@ -139,22 +149,28 @@ def ascii_code_for_char(value: Any) -> int:
 
 def is_numeric_type(dtype: str) -> bool:
     """Check if type is numeric (int, long, float, double)."""
+    # Shared predicate for runtime arithmetic, casts, and built-ins.
     return dtype in ("int", "long", "float", "double")
 
 
 def is_string_type(dtype: str) -> bool:
     """Check if type is string or char."""
+    # Strings and chars both participate in string-oriented output/concat paths.
     return dtype in ("string", "char")
 
 
 def types_compatible_for_arithmetic(t1: str, t2: str) -> bool:
     """Check if two types can be used together in arithmetic operations."""
     # Both must be numeric
+    # Semantic analysis should catch this earlier, but runtime keeps the same
+    # guard for manually executed TAC and defensive execution.
     return is_numeric_type(t1) and is_numeric_type(t2)
 
 
 def types_compatible_for_comparison(t1: str, t2: str) -> bool:
     """Check if two types can be compared."""
+    # Comparisons are deliberately narrower than assignment compatibility because
+    # not every value pair has a meaningful ordering/equality rule.
     if is_numeric_type(t1) and is_numeric_type(t2):
         return True
     if t1 == "char" and t2 == "char":
@@ -168,6 +184,7 @@ def types_compatible_for_comparison(t1: str, t2: str) -> bool:
 
 def wider_numeric_type(t1: str, t2: str) -> str:
     """Return the wider PORTIA numeric type."""
+    # Built-ins like pow use the same widening rank as semantic type inference.
     rank = {"int": 0, "long": 1, "float": 2, "double": 3}
     t1 = (t1 or "").lower()
     t2 = (t2 or "").lower()
@@ -194,6 +211,8 @@ class ICGRuntimeError(Exception):
         error_type: str = "runtime_error",
         token_length: int = 0
     ):
+        # Store source coordinates with the runtime message so the frontend can
+        # point to the statement that triggered the failure.
         super().__init__(message)
         self.message = message
         self.line = line
@@ -203,6 +222,7 @@ class ICGRuntimeError(Exception):
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary matching compiler error format."""
+        # Match lexer/parser/semantic error keys for one shared ErrorDisplay UI.
         return {
             "type": self.error_type,
             "message": self.message,
@@ -253,6 +273,8 @@ class ExecutionResult:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dictionary."""
+        # RuntimeValue objects are kept in memory only; public responses expose
+        # output, return value, errors, and input-wait state.
         return {
             "success": self.success,
             "output": self.output,
@@ -299,6 +321,7 @@ class InputHandler:
             Raw input string from user
         """
         # Default implementation uses Python's input()
+        # API executions normally inject BufferedInputHandler instead.
         return input(f"trap({var_name}): ")
 
 
@@ -321,6 +344,8 @@ class OutputHandler:
         newline : bool
             Whether to add newline after value
         """
+        # Console output is the fallback for local/manual execution; the API path
+        # usually reads from RuntimeExecutor's buffered output.
         if newline:
             print(value)
         else:
@@ -389,6 +414,8 @@ class RuntimeExecutor:
         output_handler : OutputHandler
             Custom output handler (defaults to console)
         """
+        # The executor is a small interpreter: it owns TAC, runtime memory,
+        # computed triple results, labels, function-call state, and IO adapters.
         self._table = table
         self._symbol_table = symbol_table or {}
         self._input_handler = input_handler or InputHandler()
@@ -396,6 +423,8 @@ class RuntimeExecutor:
         self._max_steps = max_steps
         
         # Execution state
+        # _memory stores named variables; _results stores results by triple index
+        # for tuple references like (4).
         self._memory: Dict[str, Any] = {}
         self._results: Dict[int, Any] = {}
         self._labels: Dict[str, int] = {}
@@ -411,11 +440,14 @@ class RuntimeExecutor:
         self._last_source_col: int = 0
         
         # Call stack for function calls
+        # Each call frame preserves caller IP, memory/results, the call result
+        # slot, and array alias state for pass-by-reference array parameters.
         self._call_stack: List[Tuple[int, Dict[str, Any], Dict[int, Any], int, Dict[str, str], Set[str]]] = []
         self._param_stack: List[Any] = []  # Parameters being pushed for a call
         
         # Array parameter aliases for pass-by-reference
         # Maps parameter name -> original array name
+        # Aliases let callee array operations update the caller's array elements.
         self._array_aliases: Dict[str, str] = {}
         self._preserved_arrays: Set[str] = set()
     
@@ -429,6 +461,8 @@ class RuntimeExecutor:
             Execution result with output, errors, etc.
         """
         # Reset execution state
+        # ExecutionResult should describe only this run, even if the executor
+        # instance is reused.
         self._memory.clear()
         self._results.clear()
         self._labels.clear()
@@ -447,9 +481,12 @@ class RuntimeExecutor:
         self._preserved_arrays.clear()
         
         # Build label index map (first pass)
+        # Labels/functions are resolved before stepping so jumps and calls are O(1).
         self._build_label_map()
 
         # Execute instructions
+        # The pointer table controls execution order while triples store the
+        # actual operation records.
         pointers = self._table.get_pointers()
         triples = self._table.get_triples()
         
@@ -518,6 +555,7 @@ class RuntimeExecutor:
 
     def _step_instruction(self, idx: int, triple: Triple) -> None:
         """Execute one triple and advance the instruction pointer if needed."""
+        # A step cap protects the UI from accidental infinite loops.
         if self._max_steps > 0 and self._steps_executed >= self._max_steps:
             raise ICGRuntimeError(
                 message="Infinite loop detected.",
@@ -534,11 +572,14 @@ class RuntimeExecutor:
 
         self._ip_modified = False
         self._execute_triple(idx, triple)
+        # Jump/call/return handlers set _ip_modified after writing _ip directly.
         if not self._ip_modified:
             self._ip += 1
     
     def _build_label_map(self) -> None:
         """Build mapping from label names to pointer indices, and function names to IPs."""
+        # This scan turns symbolic labels and function names into instruction
+        # pointer targets before interpretation begins.
         pointers = self._table.get_pointers()
         triples = self._table.get_triples()
         
@@ -562,6 +603,8 @@ class RuntimeExecutor:
         triple : Triple
             The instruction to execute
         """
+        # This dispatcher is the runtime's instruction set: every TAC op emitted
+        # by ICG is interpreted here.
         op = triple.op
         arg1 = triple.arg1
         arg2 = triple.arg2
@@ -571,6 +614,8 @@ class RuntimeExecutor:
         # Dispatch based on operation
         if op == "func_begin":
             # Function entry - no action needed
+            # Function labels are consumed by calls; executing the marker itself
+            # simply continues into the function body.
             pass
         
         elif op == "func_end":
@@ -587,6 +632,8 @@ class RuntimeExecutor:
         elif op == "=":
             # Assignment
             # Resolve array name through aliases if it's an array
+            # Array aliases support pass-by-reference parameters by redirecting
+            # writes back to the caller's original array name.
             target_name = arg1
             if isinstance(arg1, str) and self._is_array_variable(arg1):
                 target_name = self._resolve_array_name(arg1)
@@ -596,6 +643,8 @@ class RuntimeExecutor:
             # Check if value is an array - need to distribute elements
             if isinstance(value, RuntimeValue) and value.dtype == "array":
                 # Array assignment: copy each element to target[i]
+                # Arrays are represented in memory both as optional root metadata
+                # and as individual keys such as arr[0] or arr[0][1].
                 array_values = value.value
                 if isinstance(array_values, (list, tuple)):
                     elem_type = value.element_type or "int"
@@ -661,6 +710,8 @@ class RuntimeExecutor:
         
         elif op == "return":
             # Return statement
+            # Return either stores the function result in the caller's call triple
+            # or halts execution if main/top-level returns.
             return_result = None
             if arg1 is not None:
                 result = self._eval(arg1, line, col)
@@ -692,6 +743,7 @@ class RuntimeExecutor:
         
         elif op == "trap":
             # Input operation
+            # Runtime input conversion and target storage live in _execute_trap.
             self._execute_trap(arg1, arg2, line, col)
         
         elif op == "thread":
@@ -765,6 +817,8 @@ class RuntimeExecutor:
             # Array element access: array_access arr index
             array_name = arg1
             # Resolve array name through alias chain (for pass-by-reference parameters)
+            # String indexing shares array syntax but returns a char from a scalar
+            # string variable instead of an array element.
             array_name = self._resolve_array_name(array_name)
             index = self._eval(arg2, line, col)
             index_val = unwrap_value(index)
@@ -783,6 +837,8 @@ class RuntimeExecutor:
             # Array element store - handles two formats:
             # Format 1: arg1 = "arr[index]", arg2 = value (direct key)
             # Format 2: arg1 = "arr", arg2 = (index, value) tuple/list
+            # ICG emits both formats depending on whether the index was already
+            # formatted into the target string.
             if (isinstance(arg2, (tuple, list)) and len(arg2) == 2):
                 # Format 2: tuple/list format
                 array_name = arg1
@@ -842,6 +898,7 @@ class RuntimeExecutor:
         elif op == "param":
             # Push argument value onto param stack for function call
             # Special handling for arrays: pass by reference
+            # Function calls consume this queue with receive_param instructions.
             if isinstance(arg1, str) and self._is_array_variable(arg1):
                 # arg1 is an array variable name - pass reference instead of copying values
                 self._param_stack.append(ArrayReference(array_name=arg1))
@@ -852,6 +909,8 @@ class RuntimeExecutor:
         
         elif op == "call":
             # Function call - save return address and jump to function
+            # Calls snapshot caller state, jump to the function entry, then later
+            # restore the snapshot with the return value inserted.
             func_name = arg1
             # num_args = arg2  # Number of arguments (for validation)
             if func_name in BUILTIN_FUNCTIONS:
@@ -876,6 +935,8 @@ class RuntimeExecutor:
         
         elif op == "receive_param":
             # Pop parameter from param stack into local variable
+            # Callee function prologue consumes queued argument values in source
+            # order and installs them as local parameters.
             param_name = arg1
             if self._param_stack:
                 value = self._param_stack.pop(0)  # FIFO order
@@ -914,6 +975,8 @@ class RuntimeExecutor:
         RuntimeValue
             The evaluated value with type information
         """
+        # _eval is the bridge from TAC operands to typed runtime values. It
+        # resolves references, variables, literals, arrays, and immediate values.
         if arg is None:
             return RuntimeValue(None, "void")
         
@@ -923,6 +986,8 @@ class RuntimeExecutor:
         
         # Triple reference
         if is_ref(arg):
+            # A triple reference reads the previously computed result for that
+            # instruction index.
             ref_idx = get_ref_index(arg)
             result = self._results.get(ref_idx)
             if result is None:
@@ -935,12 +1000,16 @@ class RuntimeExecutor:
         if isinstance(arg, str):
             # Whole-array identifiers should reflect the current element memory,
             # not a potentially stale root array value left by an earlier assignment.
+            # This keeps function-returned arrays and pass-by-reference updates
+            # consistent when an array is later read as a whole value.
             if "[" not in arg and self._is_array_variable(arg):
                 array_elements = self._collect_array_elements(arg)
                 if array_elements is not None:
                     return array_elements
 
             # Check for array access pattern: arr[index]
+            # Formatted direct accesses are read from memory without needing a
+            # separate array_access triple.
             array_match = re.match(r'^(\w+)\[(\d+)\]$', arg)
             if array_match:
                 array_name = array_match.group(1)
@@ -994,6 +1063,8 @@ class RuntimeExecutor:
                 pass
             
             # Uninitialized variable - return 0
+            # Semantic analysis should prevent this in valid programs; defaulting
+            # keeps execution resilient for partially generated/manual TAC.
             return RuntimeValue(0, "int")
         
         # Boolean constants
@@ -1008,6 +1079,8 @@ class RuntimeExecutor:
             return RuntimeValue(arg, "float")
         
         # List (array literal)
+        # Nested lists are preserved as array RuntimeValues for assignment and
+        # function-return distribution.
         if isinstance(arg, list):
             elem_type = "int"  # Default
             if len(arg) > 0:
@@ -1025,6 +1098,8 @@ class RuntimeExecutor:
         
         Returns RuntimeValue with array type if array exists, None otherwise.
         """
+        # Arrays are stored element-by-element in memory, so whole-array reads
+        # reconstruct an ordered list from keys that match the array name.
         # Match both 1D and 2D arrays: array_name[idx1] OR array_name[idx1][idx2]
         pattern = re.compile(rf'^{re.escape(array_name)}\[(\d+)\](?:\[(\d+)\])?$')
         
@@ -1093,6 +1168,8 @@ class RuntimeExecutor:
         - 1D arrays: var_name[0], var_name[1], etc.
         - 2D arrays: var_name[0][0], var_name[0][1], etc.
         """
+        # Prefer semantic symbol-table shape, then fall back to runtime memory
+        # keys in case TAC was loaded without symbol metadata.
         sym = self._symbol_table.get(var_name, {})
         if sym.get("kind") == "array" or sym.get("dims"):
             return True
@@ -1111,6 +1188,7 @@ class RuntimeExecutor:
         If array_name is an alias to another array, return the original name.
         Otherwise, return the array_name as-is.
         """
+        # Follow alias chains created by array parameters, guarding against cycles.
         seen = set()
         while array_name in self._array_aliases and array_name not in seen:
             seen.add(array_name)
@@ -1122,6 +1200,8 @@ class RuntimeExecutor:
 
     def _is_scalar_string_variable(self, var_name: str) -> bool:
         """Check whether a variable refers to a non-array string value."""
+        # String variables support index syntax but should not be mistaken for
+        # actual array storage.
         sym = self._symbol_table.get(var_name, {})
         if (
             sym.get("dtype") == "string"
@@ -1135,6 +1215,7 @@ class RuntimeExecutor:
 
     def _read_string_index(self, var_name: str, index: int, line: int, col: int) -> RuntimeValue:
         """Read one character from a string variable using array-style indexing."""
+        # PORTIA treats string indexing as a char-producing operation.
         if index < 0:
             raise ICGRuntimeError(
                 message=f"String index cannot be negative (got {index})",
@@ -1162,6 +1243,7 @@ class RuntimeExecutor:
     def _store_string_index(self, var_name: str, index: int, value: RuntimeValue,
                             line: int, col: int) -> None:
         """Store a single character into a string variable for trap(name[index])."""
+        # trap(string[index]) updates or appends exactly one character.
         if index < 0:
             raise ICGRuntimeError(
                 message=f"String index cannot be negative (got {index})",
@@ -1202,6 +1284,8 @@ class RuntimeExecutor:
 
     def _collect_preserved_array_elements(self) -> Dict[str, Any]:
         """Capture array elements that must survive a function return."""
+        # Caller memory is restored after a function call, so array elements
+        # changed through aliases must be copied out before the restore.
         preserved_elements: Dict[str, Any] = {}
 
         for array_name in self._preserved_arrays:
@@ -1218,6 +1302,8 @@ class RuntimeExecutor:
 
     def _restore_call_state(self, return_result: Optional[RuntimeValue] = None) -> None:
         """Restore caller state after a function returns or falls through."""
+        # Restore caller memory/results, merge preserved array-reference changes,
+        # and place the function result into the original call triple slot.
         return_addr, saved_memory, saved_results, call_idx, saved_aliases, saved_preserved_arrays = self._call_stack.pop()
         preserved_elements = self._collect_preserved_array_elements()
 
@@ -1245,6 +1331,8 @@ class RuntimeExecutor:
         label : str
             Label name to jump to
         """
+        # Jumps write the instruction pointer and mark it modified so _step does
+        # not also increment to the next sequential triple.
         if label in self._labels:
             # Set IP directly to target (no increment happens after IP modification)
             self._ip = self._labels[label]
@@ -1252,6 +1340,8 @@ class RuntimeExecutor:
 
     def _coerce_builtin_numeric_result(self, value: float, dtype: str) -> RuntimeValue:
         """Convert a Python numeric result back into a PORTIA runtime value."""
+        # Built-ins compute with Python numbers, then return the PORTIA dtype the
+        # source program expects.
         dtype = (dtype or "int").lower()
         if dtype in ("int", "long"):
             return RuntimeValue(int(value), dtype)
@@ -1262,6 +1352,8 @@ class RuntimeExecutor:
     def _execute_builtin_direct(self, op: str, arg1: Any, arg2: Any,
                                 line: int, col: int) -> RuntimeValue:
         """Execute a built-in lowered as a dedicated TAC instruction."""
+        # Dedicated built-in TAC skips the normal call stack and validates args
+        # directly at the instruction site.
         if op == "len":
             operand = self._eval(arg1, line, col)
             if operand.dtype == "string":
@@ -1323,6 +1415,8 @@ class RuntimeExecutor:
 
     def _execute_builtin_call_from_params(self, func_name: str, line: int, col: int) -> RuntimeValue:
         """Compatibility path for TAC that still lowers built-ins as call+param."""
+        # Older TAC may push built-in arguments through param/call; consume that
+        # stack shape and delegate to the direct built-in implementation.
         expected_arity = 2 if func_name == "pow" else 1
         if len(self._param_stack) < expected_arity:
             raise ICGRuntimeError(
@@ -1340,6 +1434,8 @@ class RuntimeExecutor:
     def _execute_arithmetic(self, op: str, arg1: Any, arg2: Any, 
                            line: int, col: int) -> RuntimeValue:
         """Execute arithmetic operation with type checking."""
+        # Arithmetic evaluates both operands, checks runtime types, and stores a
+        # typed RuntimeValue for later triple references.
         left = self._eval(arg1, line, col)
         right = self._eval(arg2, line, col)
         
@@ -1419,6 +1515,8 @@ class RuntimeExecutor:
     def _execute_relational(self, op: str, arg1: Any, arg2: Any, 
                            line: int = 0, col: int = 0) -> RuntimeValue:
         """Execute relational operation with type checking."""
+        # Relational operations always produce bool, with char ordering based on
+        # code point comparison.
         left = self._eval(arg1, line, col)
         right = self._eval(arg2, line, col)
         
@@ -1480,6 +1578,8 @@ class RuntimeExecutor:
     def _execute_logical(self, op: str, arg1: Any, arg2: Any,
                         line: int = 0, col: int = 0) -> RuntimeValue:
         """Execute logical operation with type checking."""
+        # Logical operations coerce runtime truthiness after semantic analysis has
+        # already enforced boolean operands.
         left = self._eval(arg1, line, col)
         right = self._eval(arg2, line, col)
         
@@ -1498,6 +1598,8 @@ class RuntimeExecutor:
     def _execute_cast(self, value: Any, target_type: str, 
                      line: int, col: int) -> RuntimeValue:
         """Execute type cast with error handling."""
+        # Casts are runtime conversions from one typed value to the requested
+        # PORTIA dtype.
         val = unwrap_value(value) if isinstance(value, RuntimeValue) else value
         source_type = value.dtype if isinstance(value, RuntimeValue) else get_type_name(val)
         
@@ -1544,6 +1646,8 @@ class RuntimeExecutor:
         not reclassified using source-level float/double literal token rules.
         This allows widening integer-form input such as `30` into `30.0`.
         """
+        # Runtime input accepts decimal numeric text without requiring source
+        # literal suffixes or lexer token classifications.
         trimmed = raw_input.strip()
         if not re.match(r'^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$', trimmed):
             raise ValueError(f"Expected {target_type}, got '{raw_input}'")
@@ -1570,6 +1674,8 @@ class RuntimeExecutor:
         col : int
             Source column for error reporting
         """
+        # trap() reads raw text, validates it against the target type, converts it
+        # to RuntimeValue, then stores it in scalar, array, or string-index memory.
         # Parse array element syntax: arr[index] or arr[index1][index2]
         array_match = re.match(r'^(\w+)((?:\[[^\]]+\])+)$', var_name)
         actual_var_name = var_name
@@ -1679,6 +1785,8 @@ class RuntimeExecutor:
         - Strings: output as-is (no quotes)
         - Numbers: converted to string
         """
+        # thread/threadln output is normalized to user-facing PORTIA text, not raw
+        # Python repr values.
         if value is None:
             return ""
         
@@ -1739,10 +1847,12 @@ class RuntimeExecutor:
     
     def get_memory(self) -> Dict[str, Any]:
         """Return current memory state."""
+        # Return a shallow copy so external callers cannot mutate executor state.
         return dict(self._memory)
     
     def get_output(self) -> List[str]:
         """Return accumulated output."""
+        # Return a copy for the same reason as get_memory.
         return list(self._output_buffer)
 
 
@@ -1767,9 +1877,11 @@ class CallbackInputHandler(InputHandler):
         callback : Callable[[str, str, int, int], str]
             Function that takes (var_name, var_type, line, col) and returns input string
         """
+        # The callback lets an embedding UI decide how to gather input.
         self._callback = callback
     
     def request_input(self, var_name: str, var_type: str, line: int = 0, col: int = 0) -> str:
+        # Delegate every trap request to the injected callback.
         return self._callback(var_name, var_type, line, col)
 
 
@@ -1789,10 +1901,12 @@ class BufferedInputHandler(InputHandler):
         inputs : List[str]
             Pre-defined inputs to use in order
         """
+        # Copy the list so callers can reuse their original input collection.
         self._inputs = list(inputs)
         self._index = 0
     
     def request_input(self, var_name: str, var_type: str, line: int = 0, col: int = 0) -> str:
+        # Consume inputs in FIFO order to match repeated trap() calls.
         if self._index < len(self._inputs):
             value = self._inputs[self._index]
             self._index += 1
@@ -1810,6 +1924,8 @@ class InputRequiredError(Exception):
     """
     
     def __init__(self, var_name: str, var_type: str, line: int = 0, col: int = 0):
+        # Store the paused trap target so the API can ask the frontend for the
+        # correct next input value.
         super().__init__(f"Input required for {var_type} {var_name}")
         self.var_name = var_name
         self.var_type = var_type
@@ -1825,16 +1941,19 @@ class BufferedOutputHandler(OutputHandler):
     """
     
     def __init__(self) -> None:
+        # Maintain both completed lines and the currently open line.
         self._buffer: List[str] = []
         self._current_line: str = ""
     
     def write(self, value: str, newline: bool = False) -> None:
+        # thread appends to the open line; threadln commits the line to the buffer.
         self._current_line += value
         if newline:
             self._buffer.append(self._current_line)
             self._current_line = ""
     
     def get_output(self) -> List[str]:
+        # Include an unterminated current line in snapshots without mutating it.
         if self._current_line:
             return self._buffer + [self._current_line]
         return list(self._buffer)

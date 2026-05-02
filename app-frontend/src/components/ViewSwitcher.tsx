@@ -11,6 +11,7 @@ import ICGPanel from "./ICGPanel";
 import type { Token, LexError } from "../api";
 
 export default function ViewSwitcher() {
+  // Top-level shell state decides which compiler phase panel is visible.
   const [view, setView] = useState<"lexical" | "syntax" | "semantics" | "icg">("lexical");
   // Load theme from localStorage or default to dark
   const [theme, setTheme] = useState<"dark" | "light">(() => {
@@ -21,7 +22,8 @@ export default function ViewSwitcher() {
     return "dark";
   });
   
-  // Shared state across all panels
+  // Shared state across all panels keeps the same source text, latest tokens,
+  // and lexer errors available as the user moves through the compiler phases.
   const [sharedCode, setSharedCode] = useState<string>(`int main() {
     return 0;
 }`);
@@ -39,11 +41,13 @@ export default function ViewSwitcher() {
   }, [theme]);
 
   // Toggle between dark and light
+  // Flip between persisted light/dark CodeMirror and app themes.
   const toggleTheme = () => {
     setTheme(prev => prev === "dark" ? "light" : "dark");
   };
 
   
+  // Download the current editor contents as a timestamped PORTIA source file.
   const handleSave = () => {
     const blob = new Blob([sharedCode], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -58,10 +62,13 @@ export default function ViewSwitcher() {
     URL.revokeObjectURL(url);
   };
 
+  // Forward the toolbar button to the hidden file input.
   const handleLoadClick = () => {
     fileInputRef.current?.click();
   };
 
+  // Read a local .portia/.txt file into the shared editor and clear stale phase
+  // outputs because tokens/errors from the previous source no longer apply.
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;

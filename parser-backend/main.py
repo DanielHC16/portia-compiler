@@ -23,8 +23,10 @@ app.add_middleware(
 
 @app.get("/")
 def root():
+    # Health check endpoint for confirming the syntax service is running.
     return {"message": "PORTIA Parser backend is running"}
 
-# Import router after app is created to avoid circular imports
+# Import router after app is created to avoid circular imports with FastAPI app
+# setup and endpoint registration.
 from parser.api import router as parser_router
 app.include_router(parser_router, prefix="")

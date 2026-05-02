@@ -8,14 +8,15 @@ from .delimiters import Delimiters
 
 @dataclass
 class Token:
-    # Token represents a single recognized unit from source code
+    # Token represents one recognized source unit. It stays small because every
+    # compiler phase after lexing only needs lexeme, token type, and position.
     tokenName: str      # The actual text (lexeme)
     tokenType: str      # Type of token (keyword, identifier, operator, etc.)
     tokenLine: int      # Line number where token starts
     tokenCol: int       # Column number where token starts
 
     def to_dict(self):
-        # Convert token to dictionary format for JSON serialization
+        # Convert the internal dataclass shape into the API/frontend contract.
         return {
             "lexeme": self.tokenName,
             "type": self.tokenType,
@@ -139,7 +140,9 @@ class LexicalAnalyzer:
     }
 
     def __init__(self):
-        # Initialize character classes and delimiters from modular files
+        # Initialize character classes and delimiter tables from modular files.
+        # They are copied onto self so the large transition table can reference
+        # concise names like self.numbers and self.dtype_delim.
         self.chars = CharacterClasses()
         self.delims = Delimiters(self.chars)
 
@@ -156,6 +159,8 @@ class LexicalAnalyzer:
         # Main entry point for lexical analysis
         # Processes source code character-by-character using FSA state machine
         # Returns dictionary with tokens and errors
+        # The loop maintains one active lexeme and asks lex_transition for the
+        # next state until a delimiter, final state, or lexical error is found.
         code = code.replace('\r\n', '\n').replace('\r', '\n')
 
         tokens: List[Token] = []
@@ -175,7 +180,8 @@ class LexicalAnalyzer:
         prev_token_type = None  # Track previous token type
 
         def add_token(lexeme: str, token_type: str, tok_line: int, tok_col: int, start_idx: int, end_idx: int):
-            # Creates a token object and adds it to the tokens list
+            # Create and store a token while preserving the original source
+            # spelling and starting location for later UI highlighting.
             nonlocal prev_token_type
             
             # NEVER tokenize identifier_too_long - this should always be an error only
@@ -188,7 +194,8 @@ class LexicalAnalyzer:
             prev_token_type = token_type  # Update previous token type
 
         def add_error(message: str, start_idx: int, end_idx: int, err_line: int, err_col: int):
-            # Creates an error object with position information and adds it to errors list
+            # Store one lexical error with source span information. The parser
+            # will be blocked when this list is non-empty.
             errors.append({
                 'message': message,
                 'line': err_line,
@@ -208,7 +215,8 @@ class LexicalAnalyzer:
             # Handles both single-character and multi-character delimiters
             
             def char_in_delimiters(ch, delim_list):
-                """Check if character matches any delimiter in list (including multi-char delimiters)"""
+                # Check whether the next source character is allowed after the
+                # token. Multi-character delimiters such as ".." need lookahead.
                 if ch is None:
                     return None in delim_list
                 # Check for exact match (single char delimiters)
@@ -1169,13 +1177,14 @@ class LexicalAnalyzer:
         }
 
     def is_final_state(self, state: str) -> bool:
-        # Checks if a given state is a final (accepting) state
-        # Uses special 'ANY' character to test if state returns 'DEFINED'
+        # Check if a given FSA state is accepting. The transition diagram uses
+        # the synthetic ANY input to mark final states as DEFINED.
         return self.lex_transition(state, 'ANY') == 'DEFINED'
 
     def get_token_type(self, state: str, lexeme: str) -> str:
-        # Maps a final FSA state to its corresponding token type
-        # Handles special cases like numeric literals and identifiers
+        # Map a final FSA state to the token type consumed by parser/frontend.
+        # Identifiers are keyword-checked here as a fallback for keyword-like
+        # lexemes that traveled through identifier states.
         # TD-compliant final states (s0-s364)
         keyword_states = {
             # abs: s4* (final after '(')
@@ -1362,6 +1371,8 @@ class LexicalAnalyzer:
 
         Returns: next state string, 'DEFINED' (final state), or 'UNDEFINED' (error)
         """
+        # This is intentionally explicit instead of table-generated so it can
+        # mirror the transition diagram state-by-state for debugging and review.
 
         match currState:
             # ============================================================

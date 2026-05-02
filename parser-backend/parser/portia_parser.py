@@ -49,12 +49,23 @@ class PortiaParser:
         tree = parser.parse()
     """
 
+    # Parser structure guide for future maintainers:
+    # - parse_* methods mirror grammar regions, not raw parse-tree nodes.
+    # - Declaration methods build VarDecl/WeaveDecl nodes.
+    # - Function/main methods build FunctionDecl nodes with locals/body/return.
+    # - Statement methods dispatch assignment, I/O, control-flow, and returns.
+    # - Expression methods implement precedence from concat/logical down to atom.
+    # - Helper methods consume tokens and produce frontend-friendly ParseError
+    #   messages when the current lookahead is not allowed.
+
     SKIP_TOKENS = {
         "newline", "NEWLINE", "whitespace", "WHITESPACE",
         "comment", "COMMENT", "space", "SPACE",
     }
 
     def __init__(self, tokens: List[Dict[str, Any]]):
+        # Remove layout/comment tokens before syntax analysis. The frontend also
+        # filters these, but keeping this here protects direct API/test callers.
         self.tokens = [t for t in tokens if t.get("type") not in self.SKIP_TOKENS]
         self.pos = 0
         self._last_token: Dict[str, Any] = {"line": 1, "column": 1, "type": "", "value": ""}
@@ -185,6 +196,8 @@ class PortiaParser:
 
     def parse(self) -> Program:
         """Parse the token stream.  Returns a Program AST node."""
+        # Parse the required top-level shape, then ensure there are no trailing
+        # tokens after main.
         program = self.parse_program()
         if not self.at_end():
             tok = self.peek()
@@ -196,6 +209,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_program(self) -> Program:
+        # Root grammar: optional globals/weaves, optional functions, then the
+        # required int main() entry point.
         globals_ = self.parse_global_dec()
         functions = self.parse_function()
         main = self.parse_main_func()
@@ -206,6 +221,7 @@ class PortiaParser:
     # =====================================================================
 
     def parse_global_dec(self) -> List[ASTNode]:
+        # Collect all global declarations before function/main parsing starts.
         decls: List[ASTNode] = []
         while self.check("global", "weave"):
             if self.check("global"):
@@ -245,6 +261,7 @@ class PortiaParser:
     # =====================================================================
 
     def parse_var_or_weave(self, mutable: bool = True, is_global: bool = False) -> List[VarDecl]:
+        # A var declaration can be primitive-typed or a weave instance.
         if self.is_dtype():
             # [7] dtype id var_or_arr
             dtype = self.parse_dtype()
@@ -275,6 +292,7 @@ class PortiaParser:
     # =====================================================================
 
     def parse_const_weave(self, is_global: bool = False) -> List[VarDecl]:
+        # A const declaration follows the stricter const initializer grammar.
         if self.is_dtype():
             # [9] dtype id const_or_arr
             dtype = self.parse_dtype()
@@ -360,6 +378,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_value(self) -> ASTNode:
+        # Parse a general expression value; precedence is handled by the
+        # downstream expression-chain methods.
         return self.parse_string_or_logical_expr()
 
     # =====================================================================
@@ -629,6 +649,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_function_def(self) -> FunctionDecl:
+        # Ordinary function definitions begin with func, then branch by return
+        # type in parse_ret_type.
         self.match_value("func")
         return self.parse_ret_type()
 
@@ -823,6 +845,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_local_block(self) -> List[VarDecl]:
+        # Parse local declarations before executable statements in a function,
+        # main body, or nested control-flow body.
         decls: List[VarDecl] = []
         while self.check("local"):
             # [82] local mutability ;
@@ -877,6 +901,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_expression(self) -> ASTNode:
+        # Statement-level expressions are either identifier-led assignment/call
+        # forms or standalone built-in calls.
         if self.check_type("ID"):
             return self.parse_assign_expr()
         elif self.is_builtin_func_start():
@@ -1276,6 +1302,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_io_stmt(self) -> IOStmt:
+        # I/O statements are reserved forms: trap reads input, thread/threadln
+        # send evaluated expressions to runtime output.
         if self.check("trap"):
             # [161] input_stmt
             return self.parse_input_stmt()
@@ -1405,6 +1433,7 @@ class PortiaParser:
     # =====================================================================
 
     def parse_if_stmt(self) -> IfStmt:
+        # Parse if, else-if chains, and optional else body into one IfStmt node.
         self.match_value("if")
         self.match_value("(")
         condition = self.parse_condition()
@@ -1814,6 +1843,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_loop_stmt(self) -> LoopStmt:
+        # Dispatch to the concrete loop parser while preserving loop kind for
+        # semantic analysis and ICG.
         if self.check("for"):
             # [225] for_stmt
             return self.parse_for_stmt()
@@ -1942,6 +1973,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_ret_stmt(self) -> ReturnStmt:
+        # Parse return statements for ordinary functions and control bodies.
+        # Array returns use a special literal path before the general value path.
         ret_tok = self.match_value("return", also_expected=PREDICT[74] | {"{"})
         line = ret_tok.get("line", 0)
         col = ret_tok.get("column", 0)
@@ -1960,6 +1993,8 @@ class PortiaParser:
 
     def parse_array_literal(self) -> ArrayLiteral:
         """Parse { elem, ... } or { { elem, ... }, { elem, ... }, ... }"""
+        # Return statements can return array literals, so this builds an
+        # ArrayLiteral node with dimensions inferred from nested elements.
         open_brace = self.match_value("{")
         line = open_brace.get("line", 0)
         col = open_brace.get("column", 0)
@@ -1983,6 +2018,8 @@ class PortiaParser:
     # =====================================================================
 
     def parse_main_func(self) -> FunctionDecl:
+        # main is parsed separately because PORTIA requires exactly int main()
+        # with the parser-enforced main_body return shape.
         self.match_value("int", also_expected={"func"})
         self.match_value("main")
         self.match_value("(")

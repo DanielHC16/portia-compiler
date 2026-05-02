@@ -20,6 +20,8 @@ type LexerPanelProps = {
 };
 
 export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens, setSharedLexErrors, theme }: LexerPanelProps) {
+  // Local state mirrors the latest manual lexer run. Shared state is updated
+  // after a successful request so parser/semantic/ICG panels can reuse tokens.
   const [tokens, setTokens] = useState<SimpleToken[]>([]);
   const [errors, setErrors] = useState<LexError[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,14 +37,17 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     errorType: "lexer" as const,
   }));
 
-  // Normalize smart/curly quotes to straight quotes for lexer compatibility
+  // Normalize smart/curly quotes to straight quotes for lexer compatibility.
+  // This prevents copy-pasted code from rich text editors from producing
+  // misleading lexical errors around strings and chars.
   const normalizeQuotes = (text: string): string => {
     return text
       .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')  // " " „ ‟ ″ ‶ → "
       .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'"); // ' ' ‚ ‛ ′ ‵ → '
   };
 
-  // Run lexer - only updates when manually triggered
+  // Run only the lexical phase. Any in-flight run is cancelled first so older
+  // responses cannot overwrite the latest editor contents.
   async function runLex() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
@@ -74,7 +79,8 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     }
   }
 
-  // Handle code changes - just update the code, keep tokens/errors visible
+  // Update shared source text while leaving the previous token/error result
+  // visible until the user explicitly runs the lexer again.
   const handleCodeChange = useCallback((value: string | undefined) => {
     if (value === undefined) return;
     // Normalize line endings to match what the backend will use
@@ -83,7 +89,7 @@ export default function LexerPanel({ sharedCode, setSharedCode, setSharedTokens,
     // Tokens and errors stay visible for reference until user runs lexer again or clicks reset
   }, [setSharedCode]);
 
-  // Reset function - clears everything
+  // Restore the default sample and clear this panel's lexer output.
   const handleReset = useCallback(() => {
     setSharedCode(EXAMPLE);
     setTokens([]);

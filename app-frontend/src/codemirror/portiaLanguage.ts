@@ -13,6 +13,8 @@ type IndentScanState = {
 
 const openingDelimiters = new Set(["{", "[", "("]);
 const closingDelimiters = new Set(["}", "]", ")"]);
+// PORTIA-specific highlighting sets. These mirror the lexer/parser keywords so
+// the editor does not color unrelated JavaScript/C/C++ words as PORTIA syntax.
 const portiaKeywords = new Set([
   "bool",
   "break",
@@ -48,6 +50,8 @@ const portiaBooleans = new Set(["true", "false"]);
 const portiaBuiltins = new Set(["abs", "len", "pow", "sqrt"]);
 
 function scanIndentLine(line: string, state: IndentScanState): IndentScanState {
+  // Walk one line and update delimiter depth while respecting comments and
+  // quoted strings. This gives indentation a lightweight parser-like context.
   let { depth, inBlockComment, stringQuote } = state;
 
   for (let i = 0; i < line.length; i++) {
@@ -94,6 +98,8 @@ function scanIndentLine(line: string, state: IndentScanState): IndentScanState {
 }
 
 function lastCodeCharacter(line: string, state: IndentScanState): string | null {
+  // Return the last real code character on a line, ignoring text inside comments
+  // and strings so indentation does not react to braces in non-code regions.
   let { inBlockComment, stringQuote } = state;
   let lastChar: string | null = null;
 
@@ -139,6 +145,8 @@ function lastCodeCharacter(line: string, state: IndentScanState): string | null 
 }
 
 function scanToLineStart(context: IndentContext, lineNumber: number): IndentScanState {
+  // Reconstruct indentation state from the top of the document to the requested
+  // line. CodeMirror calls this on demand instead of storing custom parser state.
   let state: IndentScanState = { depth: 0, inBlockComment: false, stringQuote: null };
 
   for (let lineNo = 1; lineNo < lineNumber; lineNo++) {
@@ -149,6 +157,8 @@ function scanToLineStart(context: IndentContext, lineNumber: number): IndentScan
 }
 
 function portiaIndent(context: IndentContext, pos: number): number | null {
+  // Compute indentation only when the previous line opens a delimiter or the
+  // target line starts with a closing delimiter. Otherwise CodeMirror defaults.
   const sourceLine = context.state.doc.lineAt(pos);
   const targetLine = context.lineAt(pos, 1);
   let scanState = scanToLineStart(context, sourceLine.number);

@@ -36,6 +36,8 @@ const themeCompartment = new Compartment();
 const readOnlyCompartment = new Compartment();
 
 function visualColumn(text: string, tabSize: number): number {
+  // Convert text before the cursor into a visual column count, expanding tabs
+  // the same way CodeMirror does for indentation math.
   let column = 0;
 
   for (const ch of text) {
@@ -46,6 +48,8 @@ function visualColumn(text: string, tabSize: number): number {
 }
 
 function lastCodeCharacter(text: string): string | null {
+  // Find the last meaningful code character before the cursor while ignoring
+  // comments and quoted text, so Enter can decide whether to indent a new line.
   let stringQuote: string | null = null;
   let lastChar: string | null = null;
 
@@ -86,6 +90,8 @@ function lastCodeCharacter(text: string): string | null {
 }
 
 function insertSoftTab(view: EditorView): boolean {
+  // Insert spaces up to the next PORTIA indent stop. Multi-selection indentation
+  // delegates to CodeMirror's built-in indentMore behavior.
   const { state } = view;
 
   if (state.readOnly) return false;
@@ -110,6 +116,8 @@ function insertSoftTab(view: EditorView): boolean {
 }
 
 function insertPortiaNewline(view: EditorView): boolean {
+  // Insert a newline with PORTIA indentation. When typing between matching
+  // delimiters, create an empty indented line plus the closing delimiter line.
   const { state } = view;
 
   if (state.readOnly) return false;
@@ -152,7 +160,8 @@ const portiaKeymap: KeyBinding[] = [
   },
 ];
 
-// Create error diagnostics from errors array
+// Create CodeMirror diagnostics from compiler errors. Backend line/column
+// locations are 1-based, while CodeMirror document offsets are 0-based.
 function createDiagnostics(errors: EditorError[], doc: { lines: number; line: (n: number) => { from: number; to: number; length: number }; sliceString: (from: number, to: number) => string; length: number }): Diagnostic[] {
   if (!errors || errors.length === 0) return [];
   
@@ -226,6 +235,8 @@ export default function PortiaEditor({
   readOnly = false,
   className = "",
 }: PortiaEditorProps) {
+  // The EditorView is imperative, so React state is bridged through refs and
+  // compartments to update theme/readOnly/diagnostics without remounting.
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isUpdatingFromProps = useRef(false);

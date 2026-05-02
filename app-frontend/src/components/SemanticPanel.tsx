@@ -5,7 +5,8 @@ import TokenList from "./TokenList";
 import ErrorDisplay from "./ErrorDisplay";
 import { PortiaEditor, type EditorError } from "../codemirror";
 
-// Console logging helper for semantic analysis
+// Console logging helper for semantic analysis. The UI shows compact errors,
+// while this prints the exported symbol table for debugging scope/type rules.
 function logSemanticResult(symbolTable: any, success: boolean, errors: any[]) {
   if (success) {
     console.log(
@@ -59,6 +60,8 @@ type SemanticPanelProps = {
 };
 
 export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens, sharedLexErrors, theme }: SemanticPanelProps) {
+  // Keep lexical, syntax, and semantic failures separate so users can see which
+  // compiler phase stopped the pipeline.
   const [tokens, setTokens] = useState<SimpleToken[]>(sharedTokens as SimpleToken[] || []);
   const [lexErrors, setLexErrors] = useState<LexError[]>(sharedLexErrors || []);
   const [parseErrors, setParseErrors] = useState<LexError[]>([]);
@@ -82,14 +85,16 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
     ...semanticErrors.map(err => ({ line: err.line, column: err.column, message: err.message, token_length: err.token_length, errorType: "semantic" as const })),
   ];
 
-  // Normalize smart/curly quotes to straight quotes
+  // Normalize smart/curly quotes before lexing so semantic feedback is based on
+  // the intended PORTIA source text.
   const normalizeQuotes = (text: string): string => {
     return text
       .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
       .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
   };
 
-  // Run full pipeline: lexer -> parser -> semantic
+  // Run through semantic analysis. Each phase short-circuits on errors because
+  // later phases depend on valid output from earlier phases.
   async function runSemanticAnalysis() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
@@ -170,14 +175,14 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
     }
   }
 
-  // Handle code changes
+  // Update the shared editor text and defer re-analysis until the next run.
   const handleCodeChange = useCallback((value: string | undefined) => {
     if (value === undefined) return;
     const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     setSharedCode(normalized);
   }, [setSharedCode]);
 
-  // Reset function
+  // Restore the default program and clear all phase-specific outputs.
   const handleReset = useCallback(() => {
     setSharedCode(EXAMPLE);
     setTokens([]);
@@ -187,10 +192,11 @@ export default function SemanticPanel({ sharedCode, setSharedCode, sharedTokens,
     setAnalysisComplete(false);
   }, [setSharedCode]);
 
-  // Get total error count
+  // Combine all phase errors for terminal status and success messaging.
   const totalErrors = lexErrors.length + parseErrors.length + semanticErrors.length;
 
-  // Convert semantic errors to CompilerError format for ErrorDisplay (preserving type)
+  // Convert semantic errors to the shared ErrorDisplay shape while preserving
+  // the backend error type for labels and styling.
   const semanticErrorsForDisplay = semanticErrors.map(e => ({
     message: e.message,
     line: e.line,

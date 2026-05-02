@@ -16,8 +16,8 @@ interface ErrorDisplayProps {
   errorType: ErrorType;
 }
 
-// Color schemes for different error types
-// Lexer = Yellow, Parser = Orange, Semantic = Red
+// Color schemes keep phase errors visually distinct in every panel.
+// Lexer = Yellow, Parser = Orange, Semantic = Red, Runtime = Purple.
 const errorColors = {
   lexical: {
     primary: 'rgb(234, 179, 8)',
@@ -49,7 +49,9 @@ const errorColors = {
   }
 };
 
-// Parse and format error message - clean up duplicates and format nicely
+// Parse and format backend error messages into readable UI fragments. Parser
+// errors often contain "Unexpected" and "Expected" sections, while semantic
+// errors often include quoted identifiers that are easier to scan as code.
 function formatErrorMessage(msg: string): React.ReactNode {
   // Remove duplicate token formats like "'token' (token)" -> "'token'"
   let cleanMsg = msg.replace(/'([^']+)'\s*\(\1\)/g, "'$1'");
@@ -103,6 +105,8 @@ function formatErrorMessage(msg: string): React.ReactNode {
 }
 
 export default function ErrorDisplay({ errors, errorType }: ErrorDisplayProps) {
+  // Each phase passes its own error list; empty lists render nothing so panels
+  // can compose several ErrorDisplay instances without extra conditionals.
   const colors = errorColors[errorType];
 
   if (errors.length === 0) return null;

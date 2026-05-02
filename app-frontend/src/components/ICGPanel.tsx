@@ -4,7 +4,8 @@ import { lexCode, parseTokens, analyzeAst, runProgram, type Token, type LexError
 import ErrorDisplay from "./ErrorDisplay";
 import { PortiaEditor, type EditorError } from "../codemirror";
 
-// Console logging helper for ICG results
+// Console logging helper for ICG results. It prints the indirect triples and
+// runtime output in a readable table for developers using browser devtools.
 function logICGResult(tac: any, tacText: string | null, output: string[], success: boolean, errors: any[]) {
   if (success) {
     console.log(
@@ -43,7 +44,8 @@ function logICGResult(tac: any, tacText: string | null, output: string[], succes
   }
 }
 
-// Format TAC argument for display
+// Format TAC argument for display, including serialized triple references such
+// as { ref: 3 } as the conventional "(3)" notation.
 function formatArg(arg: any): string {
   if (arg === null || arg === undefined) return '-';
   if (typeof arg === 'object' && 'ref' in arg) return `(${arg.ref})`;
@@ -76,7 +78,8 @@ type TerminalLine = {
   content: string;
 };
 
-// Input validation functions
+// Validate terminal input before sending it back through the runtime. The
+// backend still validates input, but this gives users immediate feedback.
 function validateInput(value: string, expectedType: string): { valid: boolean; error?: string } {
   const trimmed = value.trim();
   const type = (expectedType || "string").toLowerCase();
@@ -172,19 +175,20 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     ...icgErrors.map(err => ({ line: err.line, column: err.column, message: err.message, token_length: err.token_length, errorType: "semantic" as const })),
   ];
 
-  // Normalize smart/curly quotes
+  // Normalize smart/curly quotes before the full compiler run starts.
   const normalizeQuotes = (text: string): string => {
     return text
       .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
       .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
   };
 
-  // Add line to terminal
+  // Add a single logical terminal line while preserving whether it came from
+  // program output, user input, or an error stream.
   const appendTerminalLine = useCallback((type: TerminalLine["type"], content: string) => {
     setTerminalLines(prev => [...prev, { type, content }]);
   }, []);
 
-  // Add multiple output lines
+  // Append runtime output lines as terminal output entries.
   const appendOutputLines = useCallback((lines: string[]) => {
     setTerminalLines(prev => [
       ...prev,
@@ -192,7 +196,8 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     ]);
   }, []);
 
-  // Run full pipeline: lexer -> parser -> semantic -> ICG
+  // Run the complete compiler pipeline. appendMode is used after trap input so
+  // the terminal history stays visible while the backend reruns with more input.
   async function runICG(inputs: string[] = [], appendMode: boolean = false) {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
@@ -371,7 +376,8 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     }
   }
 
-  // Handle input submission
+  // Validate a trap response, append it to the terminal, then rerun with all
+  // accumulated inputs so execution can continue from the user's perspective.
   const handleInputSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
@@ -412,7 +418,7 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     }
   }, [waitingForInput, expectedInputType, inputValue, pendingInputs, currentAst, appendTerminalLine]);
 
-  // Handle code changes
+  // Editing code invalidates prior runtime output and pending input sessions.
   const handleCodeChange = useCallback((value: string | undefined) => {
     if (value === undefined) return;
     const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -425,7 +431,7 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     setWaitingForInput(false);
   }, [setSharedCode]);
 
-  // Reset function
+  // Restore the default program and clear compiler, runtime, and terminal state.
   const handleReset = useCallback(() => {
     setSharedCode(EXAMPLE);
     setLexErrors([]);
@@ -445,10 +451,10 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     setInputValue("");
   }, [setSharedCode]);
 
-  // Get total error count (compiler errors only, not runtime validation errors)
+  // Get total compiler/runtime errors that should block a success status.
   const compilerErrors = lexErrors.length + parseErrors.length + semanticErrors.length + icgErrors.length;
 
-  // Get status message
+  // Convert current phase state into the compact terminal status label.
   const getStatusMessage = () => {
     if (lexErrors.length > 0) return `Lexical Errors: ${lexErrors.length}`;
     if (parseErrors.length > 0) return `Syntax Errors: ${parseErrors.length}`;

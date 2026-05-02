@@ -11,10 +11,11 @@ class CharacterClasses:
     # Alphabetic characters (A–Z a–z)
     alphabetics = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
-    # Decimal digits
+    # Decimal digits used by numeric literal states and identifier continuations.
     numbers = list('0123456789')
 
-    # Alphanumeric = letters + digits
+    # Alphanumeric = letters + digits; identifiers add underscore handling in
+    # the transition diagram itself.
     alphanum = alphabetics + numbers
 
     # Horizontal whitespace considered generic separators
@@ -22,9 +23,10 @@ class CharacterClasses:
     whitespace = [' ', '\t', '\xa0']
     newline = ['\n']
 
-    # Printable ASCII subset (used for escape / comment permissive matching)
+    # Printable ASCII subset used for permissive string/comment scanning and
+    # escape-sequence handling.
     ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
 
-    # Logical operator leading characters (for lookahead)
+    # Logical operator leading characters used when deciding operator states.
     logical_op = ['!', '&', '|']
 

@@ -37,14 +37,18 @@ NON_TERMINAL_COUNT = 116
 # Direct grammar table helpers
 # =========================================================================
 def _prod(lhs: str, *rhs: str) -> Tuple[str, Tuple[str, ...]]:
+    # Store one CFG production as a simple (lhs, rhs tuple) pair.
     return lhs, rhs
 
 
 def _freeze_named_table(table: Dict[str, Iterable[str]]) -> Dict[str, FrozenSet[str]]:
+    # Convert FIRST/FOLLOW entries to frozensets so grammar metadata stays
+    # immutable after module import.
     return {key: frozenset(values) for key, values in table.items()}
 
 
 def _freeze_predict_table(table: Dict[int, Iterable[str]]) -> Dict[int, FrozenSet[str]]:
+    # Convert PREDICT entries to frozensets keyed by production number.
     return {key: frozenset(values) for key, values in table.items()}
 
 

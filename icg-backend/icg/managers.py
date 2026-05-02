@@ -48,6 +48,8 @@ class TempManager:
     
     def __init__(self) -> None:
         """Initialize the temporary manager with counter at 0."""
+        # Temporaries are local to one TAC generation pass and are reset before
+        # each new AST is visited.
         self._counter: int = 0
         self._allocated: Set[str] = set()
     
@@ -60,6 +62,7 @@ class TempManager:
         str
             Unique temporary name (e.g., 't1', 't2', ...)
         """
+        # Increment before formatting so generated names begin at t1.
         self._counter += 1
         name = f"t{self._counter}"
         self._allocated.add(name)
@@ -72,6 +75,8 @@ class TempManager:
         Call this when starting a new function or compilation unit
         to restart temporary numbering.
         """
+        # Clearing the allocation set keeps debugging/introspection aligned with
+        # the current generation only.
         self._counter = 0
         self._allocated.clear()
     
@@ -100,6 +105,8 @@ class TempManager:
         bool
             True if name matches temporary pattern (t followed by digits)
         """
+        # This is a naming check only; it does not require the temp to have been
+        # allocated by this manager instance.
         if not name or not name.startswith('t'):
             return False
         return name[1:].isdigit() if len(name) > 1 else False
@@ -171,6 +178,7 @@ class LabelManager:
     
     def __init__(self) -> None:
         """Initialize the label manager with counter at 0."""
+        # Labels are created as control-flow structures are lowered.
         self._counter: int = 0
         self._defined: Set[str] = set()
     
@@ -183,6 +191,7 @@ class LabelManager:
         str
             Unique label name (e.g., 'L1', 'L2', ...)
         """
+        # Increment before formatting so labels begin at L1.
         self._counter += 1
         name = f"L{self._counter}"
         self._defined.add(name)
@@ -195,6 +204,7 @@ class LabelManager:
         Call this when starting a new function or compilation unit
         to restart label numbering.
         """
+        # Labels are valid only inside the table currently being generated.
         self._counter = 0
         self._defined.clear()
     
@@ -223,6 +233,8 @@ class LabelManager:
         bool
             True if name matches label pattern (L followed by digits)
         """
+        # This checks the PORTIA TAC label shape, not whether a label currently
+        # exists in the generated table.
         if not name or not name.startswith('L'):
             return False
         return name[1:].isdigit() if len(name) > 1 else False
@@ -265,11 +277,14 @@ class ICGManagers:
     
     def __init__(self) -> None:
         """Initialize both managers."""
+        # Group the two generators so visitors can carry one coordination object
+        # if future generation code needs it.
         self.temps = TempManager()
         self.labels = LabelManager()
     
     def reset_all(self) -> None:
         """Reset both temporary and label counters."""
+        # Starting a new compilation should restart both namespaces together.
         self.temps.reset()
         self.labels.reset()
     

@@ -8,10 +8,13 @@ type Props = {
 };
 
 export default function TokenList({ tokens, hideComments = false }: Props) {
+  // Optional filtering hides comment tokens in the table without mutating the
+  // original token stream shared with other panels.
   const filtered = hideComments
     ? tokens.filter(t => !(t.type === 'single_comment' || t.type === 'multi_comment'))
     : tokens;
 
+  // Escape newlines inside string literals so each table row remains one line.
   const formatLexeme = (token: Token) => {
     if (token.type === "stringlit") {
       return token.lexeme.replace(/\n/g, "\\n");
@@ -19,6 +22,8 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
     return token.lexeme;
   };
 
+  // Apply specialized classes for literal lexemes so strings/chars can receive
+  // clearer table styling.
   const getLexemeClassName = (token: Token) => {
     if (token.type === "stringlit") return "token-lexeme token-lexeme-string";
     if (token.type === "charlit") return "token-lexeme token-lexeme-char";
@@ -31,6 +36,8 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
   const ROW_HEIGHT = 21; // keep in sync with styling
 
   useEffect(() => {
+    // ResizeObserver keeps virtualization accurate when the token panel changes
+    // height due to responsive layout or panel resizing.
     const el = containerRef.current;
     if (!el) return;
     const onResize = () => setViewportHeight(el.clientHeight);
@@ -40,12 +47,14 @@ export default function TokenList({ tokens, hideComments = false }: Props) {
     return () => observer.disconnect();
   }, []);
 
+  // Track scroll position so only visible token rows are rendered.
   const onScroll = () => {
     const el = containerRef.current;
     if (!el) return;
     setScrollTop(el.scrollTop);
   };
 
+  // Lightweight row virtualization for large token streams.
   const total = filtered.length;
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 5); // buffer above
   const visibleCount = viewportHeight > 0 ? Math.ceil(viewportHeight / ROW_HEIGHT) + 10 : 50; // buffer below

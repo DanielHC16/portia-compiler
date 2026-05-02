@@ -9,12 +9,16 @@ router = APIRouter()
 
 
 class TokensPayload(BaseModel):
+    # Parser input contract: already-tokenized source plus optional original
+    # source/errors so the parser can block cleanly on lexer failures.
     tokens: List[Dict[str, Any]]
     source: Optional[str] = None
     lexer_errors: Optional[List[Dict[str, Any]]] = None
 
 
 class SourcePayload(BaseModel):
+    # Convenience parse-source endpoint receives raw source and asks the lexer
+    # service for tokens before invoking the parser.
     source: str
 
 
@@ -23,6 +27,7 @@ def parse_with_parser(tokens: List[Dict[str, Any]], source: Optional[str] = None
     Parse tokens using PortiaParser recursive descent parser.
     Returns API response dict compatible with frontend.
     """
+    # Empty token lists are treated as an empty parse result for API stability.
     if not tokens:
         return {
             "success": True,
@@ -33,6 +38,7 @@ def parse_with_parser(tokens: List[Dict[str, Any]], source: Optional[str] = None
         }
     
     try:
+        # PortiaParser consumes the token stream and returns semantic AST nodes.
         parser = PortiaParser(tokens)
         tree = parser.parse()
         return {
@@ -43,6 +49,8 @@ def parse_with_parser(tokens: List[Dict[str, Any]], source: Optional[str] = None
             "token_count": len(tokens)
         }
     except ParseError as e:
+        # Convert parser exceptions into the same structured error shape the
+        # frontend uses for highlighting.
         token_value = e.token.get("value", "") or e.token.get("lexeme", "")
         token_length = len(token_value) if token_value else 1
         return {
@@ -81,7 +89,8 @@ def parse_tokens(payload: TokensPayload):
     POST /parse
     Body: { tokens: [...], source?: "...", lexer_errors?: [...] }
     """
-    # Block parsing if lexer errors exist
+    # Block parsing if lexer errors exist; syntax analysis depends on a valid
+    # token stream, so continuing would create noisy follow-up errors.
     if payload.lexer_errors and len(payload.lexer_errors) > 0:
         return {
             "success": False,
@@ -109,6 +118,8 @@ def parse_source(payload: SourcePayload):
     """
     import requests
     try:
+        # Ask the lexer service for tokens, then feed those tokens through the
+        # same parser path used by /parse.
         response = requests.post("http://localhost:8000/lex", json={"code": payload.source})
         if response.status_code != 200:
             return {

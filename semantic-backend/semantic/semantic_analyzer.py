@@ -66,16 +66,21 @@ RESERVED_KEYWORDS: frozenset = frozenset({
 
 def _norm(t: str) -> str:
     """Normalize a type string to lowercase."""
+    # AST nodes may carry parser spelling; the semantic layer compares canonical
+    # lowercase names everywhere to keep type checks consistent.
     return t.lower() if t else ""
 
 
 def _lit_type(dtype: str) -> str:
     """Convert Literal.dtype tag to semantic type ('INTLIT' -> 'int')."""
+    # Literal nodes store token-style dtype tags, so this maps them to the
+    # language-level type names used by declarations and symbol entries.
     return _LITERAL_TYPE_MAP.get(_norm(dtype), _norm(dtype))
 
 
 def _wider(t1: str, t2: str) -> Optional[str]:
     """Return the wider numeric type, or None if either is non-numeric."""
+    # Numeric expressions promote to the operand with the highest rank.
     t1, t2 = _norm(t1), _norm(t2)
     r1, r2 = _NUMERIC_RANK.get(t1), _NUMERIC_RANK.get(t2)
     if r1 is None or r2 is None:
@@ -91,6 +96,9 @@ def _compatible(expected: str, actual: str) -> bool:
     - Numeric narrowing (e.g., float→int) requires explicit cast.
     - Everything else requires an explicit Cast.
     """
+    # This is the central assignment/argument/return compatibility rule. Casts
+    # are handled by expression inference; implicit compatibility is intentionally
+    # limited to same-type values and numeric widening.
     e, a = _norm(expected), _norm(actual)
     if e == a:
         return True
@@ -134,6 +142,8 @@ class SymInfo:
         is_weave: bool = False,
         fields: Optional[Dict[str, "SymInfo"]] = None,
     ):
+        # Store every name with normalized type metadata so later checks can
+        # compare declarations, parameters, fields, and returns uniformly.
         self.name      = name
         self.dtype     = _norm(dtype)
         self.is_const  = is_const
@@ -150,6 +160,7 @@ class SymInfo:
         self.fields    = fields or {}
 
     def __repr__(self) -> str:
+        # Compact debug representation used while inspecting symbol-table state.
         tag = "func" if self.is_func else "weave" if self.is_weave else "var"
         return f"SymInfo({self.name!r}, {tag}, {self.dtype!r})"
 
@@ -165,19 +176,25 @@ class GlobalScope:
     """
 
     def __init__(self) -> None:
+        # PORTIA keeps globals, weave type names, and function signatures in one
+        # flat top-level namespace so duplicate names are easy to reject.
         self._symbols: Dict[str, SymInfo] = {}
 
     def define(self, sym: SymInfo) -> Optional[SymInfo]:
         """Returns the existing symbol if name already taken, else None."""
+        # Returning the existing symbol lets callers include the original line in
+        # duplicate-declaration diagnostics.
         if sym.name in self._symbols:
             return self._symbols[sym.name]
         self._symbols[sym.name] = sym
         return None
 
     def lookup(self, name: str) -> Optional[SymInfo]:
+        # Global lookups are direct because the top level has no nested scopes.
         return self._symbols.get(name)
 
     def export(self) -> Dict[str, Any]:
+        # Convert the internal symbol objects into JSON-friendly data for the UI.
         result: Dict[str, Any] = {}
         for name, sym in self._symbols.items():
             entry: Dict[str, Any] = {
@@ -232,9 +249,12 @@ class FuncScope:
     # -- block management --------------------------------------------------
 
     def push_block(self) -> None:
+        # Enter a nested statement block such as if, loop, switch, or an inline
+        # local block; declarations inside it should shadow only within the block.
         self._blocks.append({})
 
     def pop_block(self) -> None:
+        # Leave the current nested block while preserving the function-level frame.
         if len(self._blocks) > 1:
             self._blocks.pop()
 
@@ -242,6 +262,7 @@ class FuncScope:
 
     def define(self, sym: SymInfo) -> Optional[SymInfo]:
         """Define in innermost block. Returns colliding sym if duplicate."""
+        # Block-level declarations only conflict with names in the same block.
         block = self._blocks[-1]
         if sym.name in block:
             return block[sym.name]
@@ -250,6 +271,8 @@ class FuncScope:
 
     def define_function_level(self, sym: SymInfo) -> Optional[SymInfo]:
         """Define at function level (block index 0)."""
+        # Parameters and header locals live in the function frame so every nested
+        # block in the function can see them.
         block = self._blocks[0]
         if sym.name in block:
             return block[sym.name]
@@ -260,15 +283,19 @@ class FuncScope:
 
     def lookup(self, name: str) -> Optional[SymInfo]:
         """Search from innermost block outward (function scope only)."""
+        # Shadowing works by finding the nearest declaration first.
         for block in reversed(self._blocks):
             if name in block:
                 return block[name]
         return None
 
     def lookup_current_block(self, name: str) -> Optional[SymInfo]:
+        # Used when a new declaration must only be compared against the current
+        # block, allowing intentional shadowing of outer local names.
         return self._blocks[-1].get(name)
 
     def lookup_function_level(self, name: str) -> Optional[SymInfo]:
+        # Used for parameters/header locals, which all share the function frame.
         return self._blocks[0].get(name)
 
 
@@ -291,6 +318,8 @@ class SemanticAnalyzer:
     """
 
     def __init__(self) -> None:
+        # Analyzer instances are reusable, but analyze() resets these fields for
+        # each request so stale diagnostics or symbols never carry forward.
         self._errors:   List[Dict[str, Any]] = []
         self._warnings: List[Dict[str, Any]] = []
         self._global:   GlobalScope = GlobalScope()
@@ -314,12 +343,15 @@ class SemanticAnalyzer:
         kind: str = "semantic_error",
         token_length: int = 0,
     ) -> None:
+        # Errors are collected rather than raised so the frontend can show all
+        # semantic issues found in one compiler pass.
         err = {"message": msg, "line": line, "column": col, "type": kind}
         if token_length > 0:
             err["token_length"] = token_length
         self._errors.append(err)
 
     def _warn(self, msg: str, line: int = 0, col: int = 0) -> None:
+        # Warnings follow the same shape as errors for a simpler UI pipeline.
         self._warnings.append({"message": msg, "line": line, "column": col, "type": "warning"})
 
     def _get_token_length(self, expr: Optional[Dict[str, Any]]) -> int:
@@ -328,6 +360,8 @@ class SemanticAnalyzer:
         Handles literals (string, char, float, double, int, long, bool).
         Returns 0 if length cannot be determined.
         """
+        # Token length is optional metadata for precise squiggles/highlights in
+        # the editor; semantic correctness does not depend on it.
         if expr is None:
             return 0
         ntype = expr.get("node")
@@ -356,6 +390,8 @@ class SemanticAnalyzer:
         For composite nodes like BinaryOp/UnaryOp, drill into operands.
         Returns (0, 0) if no location found.
         """
+        # Complex expressions often store the useful source location on a child,
+        # so diagnostics walk inward until they find a concrete token position.
         if node is None:
             return (0, 0)
         if isinstance(node, dict):
@@ -405,6 +441,7 @@ class SemanticAnalyzer:
               "symbol_table": {...}  # global scope dump
             }
         """
+        # Reset all mutable analysis state before walking a new AST.
         self._errors   = []
         self._warnings = []
         self._global   = GlobalScope()
@@ -415,12 +452,15 @@ class SemanticAnalyzer:
         self._in_switch = 0
 
         if not ast or ast.get("node") != "Program":
+            # The semantic pass only understands parser-produced Program roots.
             self._err(
                 "Expected Program node at root of AST", kind="internal_error"
             )
             return self._result()
 
         try:
+            # Run the two-pass semantic walk; unexpected exceptions are converted
+            # into compiler diagnostics rather than crashing the API request.
             self._analyze_program(ast)
         except Exception as exc:  # pragma: no cover
             self._err(f"Internal analyzer error: {exc}", kind="internal_error")
@@ -428,6 +468,8 @@ class SemanticAnalyzer:
         return self._result()
 
     def _result(self) -> Dict[str, Any]:
+        # Package diagnostics and the global table in the response shape expected
+        # by the frontend panels.
         return {
             "success":      len(self._errors) == 0,
             "errors":       self._errors,
@@ -440,14 +482,20 @@ class SemanticAnalyzer:
     # -------------------------------------------------------------------------
 
     def _analyze_program(self, prog: Dict[str, Any]) -> None:
+        # Programs are analyzed in two passes so functions can call functions
+        # declared later and globals/types are known before body checking starts.
         globals_  = prog.get("globals",   []) or []
         functions = prog.get("functions", []) or []
         main      = prog.get("main")
 
         # ── Pass 1: register declarations ────────────────────────────────────
+        # First collect global variables and weave definitions without analyzing
+        # executable statements.
         for g in globals_:
             self._register_global(g)
 
+        # Function signatures are registered before bodies so call order does not
+        # matter inside the source program.
         for func in functions:
             self._register_func_sig(func)
 
@@ -455,6 +503,8 @@ class SemanticAnalyzer:
             self._register_func_sig(main)
 
         # ── Pass 2: analyze bodies ────────────────────────────────────────────
+        # Body checks now have the full global table available for calls, type
+        # references, and explicit using bindings.
         for func in functions:
             self._analyze_func_body(func)
 
@@ -468,6 +518,8 @@ class SemanticAnalyzer:
     # -------------------------------------------------------------------------
 
     def _register_global(self, node: Dict[str, Any]) -> None:
+        # Route each top-level AST declaration to the registration routine that
+        # knows how to build the matching symbol-table entry.
         ntype = node.get("node")
         if ntype == "VarDecl":
             self._register_global_var(node)
@@ -475,6 +527,8 @@ class SemanticAnalyzer:
             self._register_weave(node)
 
     def _register_global_var(self, node: Dict[str, Any]) -> None:
+        # Register a global var/const before function bodies are analyzed, then
+        # validate any initializer that can be checked without local scope.
         name    = node.get("name", "")
         dtype   = _norm(node.get("dtype", ""))
         mutable = node.get("mutable", True)
@@ -487,6 +541,8 @@ class SemanticAnalyzer:
             return
 
         if name in RESERVED_KEYWORDS:
+            # Keywords are blocked as identifiers even if the parser allowed the
+            # token shape through to the AST.
             self._err(
                 f"'{name}' is a reserved keyword and cannot be used as an identifier",
                 line, col,
@@ -494,12 +550,16 @@ class SemanticAnalyzer:
             return
 
         sym = SymInfo(
+            # A global constant is represented as a non-mutable symbol; arrays
+            # store their declared dimensions for later index and return checks.
             name=name, dtype=dtype, is_const=not mutable,
             is_array=bool(dims), dims=list(dims), is_global=True,
             line=line, col=col,
         )
         existing = self._global.define(sym)
         if existing:
+            # Global namespace collisions include variables, functions, and weave
+            # type names because all are stored in one top-level table.
             self._err(
                 f"Duplicate global declaration: '{name}' already declared "
                 f"at line {existing.line}",
@@ -508,6 +568,8 @@ class SemanticAnalyzer:
             return
 
         if not mutable and init is None:
+            # Constants must have a value immediately so runtime execution never
+            # has to invent a default for immutable storage.
             self._err(f"Constant '{name}' must be initialized at declaration", line, col)
         elif init is None and not dims:
             # Weave-typed variables (var or const) must always be initialized
@@ -520,6 +582,8 @@ class SemanticAnalyzer:
                 )
 
         if init is not None:
+            # Array initializers and scalar initializers have different shape
+            # rules, so validate them through separate paths.
             if dims:
                 self._validate_array_init_impl(
                     init, dtype, list(dims), line, col,
@@ -540,6 +604,8 @@ class SemanticAnalyzer:
                         )
 
     def _register_weave(self, node: Dict[str, Any]) -> None:
+        # Weave declarations create type symbols whose fields are later used for
+        # dot-access validation and struct-literal initialization checks.
         name       = _norm(node.get("name", ""))   # normalize for type-name lookup
         fields_raw = node.get("fields", []) or []
         line       = node.get("line", 0)
@@ -556,6 +622,8 @@ class SemanticAnalyzer:
         field_map: Dict[str, SymInfo] = {}
         seen: Set[str] = set()
 
+        # Each field becomes a symbol entry inside the weave type, not a global
+        # name. Field duplicates are checked within the weave only.
         for f in fields_raw:
             fname   = f.get("name", "")
             fdtype  = _norm(f.get("dtype", ""))
@@ -566,6 +634,8 @@ class SemanticAnalyzer:
             if not fname:
                 continue
             if fname in seen:
+                # Field names must be unique so member access resolves to exactly
+                # one declared type.
                 self._err(
                     f"Duplicate field '{fname}' in weave '{name}'", fline, fcol
                 )
@@ -599,6 +669,8 @@ class SemanticAnalyzer:
             )
 
         sym = SymInfo(
+            # A weave symbol's dtype is its own name; the field map carries the
+            # actual structure definition.
             name=name, dtype=name, is_weave=True,
             fields=field_map, line=line, col=col,
         )
@@ -611,6 +683,8 @@ class SemanticAnalyzer:
             )
 
     def _register_func_sig(self, node: Dict[str, Any]) -> None:
+        # Function signatures are collected before bodies so semantic checks can
+        # resolve calls to functions declared later in the file.
         name       = node.get("name", "")
         ret_type   = _norm(node.get("ret_type", "void"))
         ret_dims   = node.get("ret_dims", []) or []
@@ -622,6 +696,8 @@ class SemanticAnalyzer:
             return
 
         if name == "main":
+            # PORTIA's required program entry point is fixed: int main() with no
+            # parameters.
             if ret_type != "int":
                 self._err("'main' must have return type 'int'", line, col)
             if params_raw:
@@ -629,6 +705,8 @@ class SemanticAnalyzer:
 
         params: List[SymInfo] = []
         seen_params: Set[str] = set()
+        # Parameters are stored as symbols on the function signature so call-site
+        # checks can compare argument count, type, and array dimensions.
         for p in params_raw:
             pname  = p.get("name", "")
             pdtype = _norm(p.get("dtype", ""))
@@ -649,6 +727,7 @@ class SemanticAnalyzer:
             ))
 
         sym = SymInfo(
+            # Function symbols carry return metadata plus a parameter symbol list.
             name=name, dtype=ret_type, is_func=True,
             params=params, ret_type=ret_type, ret_dims=list(ret_dims),
             line=line, col=col,
@@ -666,6 +745,8 @@ class SemanticAnalyzer:
     # -------------------------------------------------------------------------
 
     def _analyze_func_body(self, node: Dict[str, Any]) -> None:
+        # Analyze one function with a fresh local scope and function-specific
+        # return/loop/switch context.
         name       = node.get("name", "")
         ret_type   = _norm(node.get("ret_type", "void"))
         ret_dims   = node.get("ret_dims", []) or []
@@ -678,12 +759,16 @@ class SemanticAnalyzer:
         col        = node.get("col", 0)
 
         self._scope     = FuncScope(name)
+        # Store return expectations so return statements can be checked anywhere
+        # in the function body.
         self._ret_type  = ret_type
         self._ret_dims  = list(ret_dims)
         self._in_loop   = 0
         self._in_switch = 0
 
         # 0. Check for illegal weave return type / weave parameters
+        # Weave values are intentionally local aggregate objects: they can be
+        # declared and field-accessed, but not returned or passed as parameters.
         if ret_type not in PRIMITIVE_TYPES and ret_type != "void":
             ret_sym = self._global.lookup(ret_type)
             if ret_sym and ret_sym.is_weave:
@@ -708,10 +793,14 @@ class SemanticAnalyzer:
                     )
 
         # 1. Process 'using' bindings
+        # using declarations opt specific globals into this function's local
+        # lookup model.
         for uname in using_list:
             self._bind_using(uname, line, col)
 
         # 2. Register parameters at function level
+        # Parameters are visible throughout the function and conflict with bound
+        # globals because both would resolve from the same name in this scope.
         for p in params_raw:
             pname  = p.get("name", "")
             pdtype = _norm(p.get("dtype", ""))
@@ -742,10 +831,14 @@ class SemanticAnalyzer:
                 )
 
         # 3. Register locals declared at function head
+        # Header locals share the same frame as parameters, so nested blocks can
+        # see them and duplicate declarations at function level are caught.
         for loc in locals_raw:
             self._analyze_local_decl(loc, function_level=True)
 
         # 4. Analyze body statements
+        # Return statements terminate the remaining body for semantic purposes;
+        # any following statement is reported as unreachable.
         has_early_return = False
         for stmt in body:
             if has_early_return:
@@ -759,6 +852,8 @@ class SemanticAnalyzer:
                 has_early_return = True
 
         # 5. Validate mandatory bottom-of-function return
+        # PORTIA functions carry a parser-provided trailing return value, and this
+        # check verifies that it matches the declared return type/dimensions.
         if ret_type != "void":
             if ret_value is None:
                 self._err(
@@ -829,9 +924,13 @@ class SemanticAnalyzer:
         self._scope = None
 
     def _bind_using(self, name: str, line: int, col: int) -> None:
+        # Record an explicit global binding for the current function. Actual
+        # symbol lookup later checks this set before exposing global variables.
         if self._scope is None:
             return
         if name in self._scope.bound:
+            # Duplicate using declarations are semantic errors rather than no-ops
+            # so the programmer sees ambiguous intent.
             self._err(
                 f"'{name}' is already bound in this scope (duplicate 'using')",
                 line, col,
@@ -853,6 +952,8 @@ class SemanticAnalyzer:
     def _analyze_local_decl(
         self, node: Dict[str, Any], *, function_level: bool = False
     ) -> None:
+        # Validate a local var/const declaration and insert it into either the
+        # function frame or the current nested block.
         if node.get("node") != "VarDecl":
             return
 
@@ -885,6 +986,8 @@ class SemanticAnalyzer:
             return
 
         existing = (
+            # Function-level declarations collide with parameters/header locals;
+            # nested declarations collide only within their own block.
             self._scope.lookup_function_level(name)
             if function_level
             else self._scope.lookup_current_block(name)
@@ -902,6 +1005,8 @@ class SemanticAnalyzer:
             return
 
         if not mutable and init is None:
+            # Local constants follow the same immediate-initialization rule as
+            # global constants.
             self._err(
                 f"Constant '{name}' must be initialized at declaration", line, col
             )
@@ -916,6 +1021,8 @@ class SemanticAnalyzer:
                 )
 
         if init is not None:
+            # Initializers are checked before the symbol is defined so self-use in
+            # an initializer does not accidentally resolve to the new variable.
             if dims:
                 self._validate_array_init_impl(
                     init, resolved, list(dims), line, col,
@@ -935,6 +1042,8 @@ class SemanticAnalyzer:
                         )
 
         sym = SymInfo(
+            # The resulting local symbol records mutability and dimensions for
+            # later assignment/index/whole-array checks.
             name=name, dtype=resolved, is_const=not mutable,
             is_array=bool(dims), dims=list(dims),
             line=line, col=col,
@@ -945,6 +1054,8 @@ class SemanticAnalyzer:
             self._scope.define(sym)
 
     def _resolve_dtype(self, dtype: str, line: int, col: int) -> Optional[str]:
+        # Valid declaration types are primitives or previously registered weave
+        # names. Unknown type names stop further declaration checks.
         if dtype in PRIMITIVE_TYPES:
             return dtype
         gsym = self._global.lookup(dtype)
@@ -957,6 +1068,8 @@ class SemanticAnalyzer:
         self, dtype: str, init: list, line: int, col: int
     ) -> None:
         """Validate a weave struct literal initializer against field types."""
+        # Struct literals are positional: each provided value is checked against
+        # the corresponding field in declaration order.
         wsym = self._global.lookup(dtype)
         if wsym is None or not wsym.is_weave:
             # dtype validity is checked separately via _resolve_dtype
@@ -992,6 +1105,8 @@ class SemanticAnalyzer:
     # -------------------------------------------------------------------------
 
     def _analyze_stmt(self, stmt: Dict[str, Any]) -> None:
+        # Central statement dispatcher. Each branch validates its own structure
+        # and recursively analyzes child expressions/statements as needed.
         if stmt is None:
             return
         ntype = stmt.get("node")
@@ -1010,6 +1125,8 @@ class SemanticAnalyzer:
     # -------------------------------------------------------------------------
 
     def _analyze_assignment(self, node: Dict[str, Any]) -> None:
+        # Assignment validation first resolves the target, then decides which type
+        # the right-hand side must produce based on member/index/whole-value usage.
         target   = node.get("target")  or {}
         op       = node.get("op", "=")
         value    = node.get("value")   or {}
@@ -1030,6 +1147,8 @@ class SemanticAnalyzer:
 
         # Determine the expected RHS type
         if tmember:
+            # Field assignment requires the base variable to be a weave instance
+            # and the selected field to exist on that weave type.
             weave_sym = self._global.lookup(sym.dtype)
             if weave_sym is None or not weave_sym.is_weave:
                 self._err(
@@ -1047,6 +1166,8 @@ class SemanticAnalyzer:
             expected_type = field.dtype
 
         elif tindices:
+            # Indexed assignment targets one element, so every index expression
+            # must match the array's declared dimensionality and integer rules.
             if not sym.is_array:
                 self._err(
                     f"'{tname}' is not an array and cannot be indexed",
@@ -1114,6 +1235,8 @@ class SemanticAnalyzer:
             expected_type = sym.dtype
 
         if op in UPDATE_OPS and expected_type not in NUMERIC_TYPES:
+            # Compound assignment reads and writes the target, so PORTIA limits
+            # these operators to numeric storage.
             self._err(
                 f"Compound assignment '{op}' requires numeric type, "
                 f"but '{tname}' is '{expected_type}'",
@@ -1123,6 +1246,7 @@ class SemanticAnalyzer:
 
         val_type = self._infer_type(value)
         if val_type and val_type != "unknown":
+            # Regular assignment compatibility follows the shared widening rules.
             if not _compatible(expected_type, val_type):
                 self._err(
                     f"Type mismatch in assignment to '{tname}': "
@@ -1131,6 +1255,8 @@ class SemanticAnalyzer:
                 )
 
     def _analyze_if(self, node: Dict[str, Any]) -> None:
+        # Conditions must infer to bool, while each branch gets its own block
+        # scope for local declarations.
         condition     = node.get("condition")
         body          = node.get("body")       or []
         elif_branches = node.get("elif")       or []
@@ -1165,6 +1291,8 @@ class SemanticAnalyzer:
             self._analyze_block(else_body)
 
     def _analyze_switch(self, node: Dict[str, Any]) -> None:
+        # Switch validation compares each case literal/expression to the switch
+        # expression type and tracks duplicate literal case values.
         expr    = node.get("expr")
         cases   = node.get("cases")   or []
         default = node.get("default") or []
@@ -1173,6 +1301,7 @@ class SemanticAnalyzer:
 
         expr_type = self._infer_type(expr) if expr else None
         self._in_switch += 1
+        # _in_switch allows break statements inside cases to be accepted.
 
         seen_vals: Set[str] = set()
         for case in cases:
@@ -1212,6 +1341,8 @@ class SemanticAnalyzer:
         self._in_switch -= 1
 
     def _analyze_loop(self, node: Dict[str, Any]) -> None:
+        # Loops create a nested block for initializer variables and allow break
+        # statements while their body is being checked.
         kind      = node.get("kind",      "while")
         condition = node.get("condition")
         body      = node.get("body")       or []
@@ -1248,6 +1379,8 @@ class SemanticAnalyzer:
         self._in_loop -= 1
 
     def _analyze_return_stmt(self, node: Dict[str, Any]) -> None:
+        # Inline return statements are checked against the active function's
+        # return type and array-dimension expectations.
         value = node.get("value")
         line  = node.get("line", 0)
         col   = node.get("col",  0)
@@ -1321,6 +1454,8 @@ class SemanticAnalyzer:
         Returns empty list for scalar values, dimension list for arrays,
         or None if dimensions are invalid (e.g., jagged array).
         """
+        # This helper mirrors type inference but returns array shape information
+        # for return values, array arguments, and whole-array assignment checks.
         if expr is None:
             return []
         ntype = expr.get("node")
@@ -1377,12 +1512,15 @@ class SemanticAnalyzer:
         return []
 
     def _analyze_break(self, node: Dict[str, Any]) -> None:
+        # A break is legal only while the analyzer is inside a loop or switch.
         line = node.get("line", 0)
         col  = node.get("col",  0)
         if self._in_loop == 0 and self._in_switch == 0:
             self._err("'break' used outside of loop or switch", line, col)
 
     def _analyze_io(self, node: Dict[str, Any]) -> None:
+        # IO statements either read into a valid mutable target (trap) or infer
+        # printed expression types (thread/threadln).
         kind   = node.get("kind", "")
         target = node.get("target")
         args   = node.get("args") or []
@@ -1465,6 +1603,8 @@ class SemanticAnalyzer:
     # -------------------------------------------------------------------------
 
     def _analyze_block(self, stmts: List[Dict[str, Any]]) -> None:
+        # Blocks create a temporary local scope frame and discard declarations
+        # when the block finishes.
         if self._scope:
             self._scope.push_block()
         for stmt in stmts:
@@ -1485,6 +1625,8 @@ class SemanticAnalyzer:
         line: int,
         col: int,
     ) -> None:
+        # Index expressions must be integral, and literal indexes can be checked
+        # against declared bounds immediately.
         idx_type = self._infer_type(idx_expr)
         if idx_type and idx_type not in INTEGER_TYPES and idx_type != "unknown":
             self._err(
@@ -1514,6 +1656,8 @@ class SemanticAnalyzer:
     # -------------------------------------------------------------------------
 
     def _infer_type(self, expr: Optional[Dict[str, Any]], allow_whole_array: bool = False) -> Optional[str]:
+        # Expression inference returns the semantic type name and emits errors for
+        # invalid operations discovered while walking the expression tree.
         if expr is None:
             return None
         ntype = expr.get("node")
@@ -1531,6 +1675,8 @@ class SemanticAnalyzer:
             return self._infer_unary(expr)
 
         if ntype == "Cast":
+            # A cast changes the resulting type, but the analyzer still validates
+            # whether PORTIA allows that conversion category.
             target_type = _norm(expr.get("dtype", ""))
             inner_expr = expr.get("expr")
             line = expr.get("line", 0)
@@ -1585,6 +1731,8 @@ class SemanticAnalyzer:
         return "unknown"
 
     def _infer_identifier(self, expr: Dict[str, Any], allow_whole_array: bool = False) -> Optional[str]:
+        # Identifiers can refer to scalars, array elements, string characters, or
+        # weave fields; each form has different legality and resulting type.
         name    = expr.get("name", "")
         member  = expr.get("member")
         indices = expr.get("indices") or []
@@ -1665,6 +1813,8 @@ class SemanticAnalyzer:
         return sym.dtype
 
     def _infer_binary(self, expr: Dict[str, Any]) -> Optional[str]:
+        # Binary operators drive most expression type rules: arithmetic promotes
+        # numeric operands, comparisons return bool, and concat returns string.
         op    = expr.get("op", "")
         left  = expr.get("left")
         right = expr.get("right")
@@ -1836,6 +1986,8 @@ class SemanticAnalyzer:
         return "unknown"
 
     def _infer_unary(self, expr: Dict[str, Any]) -> Optional[str]:
+        # Unary operators preserve numeric type for negation and produce bool for
+        # logical negation.
         op      = expr.get("op", "")
         operand = expr.get("operand")
         line    = expr.get("line", 0)
@@ -1868,6 +2020,8 @@ class SemanticAnalyzer:
         For array literals like { 1, 2, 3 } or { { 1, 2 }, { 3, 4 } },
         infer the element type from the first element.
         """
+        # Array literals infer their base type from the first element, then every
+        # remaining element must be compatible with that base type.
         elements = expr.get("elements", [])
         dims = expr.get("dims", [])
         line = expr.get("line", 0)
@@ -1927,6 +2081,7 @@ class SemanticAnalyzer:
         return elem_type
 
     def _is_builtin_call(self, expr: Dict[str, Any]) -> bool:
+        # Built-ins may be flagged by the parser or recognized by reserved name.
         name = expr.get("name", "")
         return bool(expr.get("builtin")) or name in BUILTIN_FUNCTIONS
 
@@ -1936,6 +2091,8 @@ class SemanticAnalyzer:
         *,
         global_only: bool = False,
     ) -> Optional[str]:
+        # Built-ins have fixed arity and specialized argument/return type rules
+        # instead of relying on user-defined function symbols.
         name = expr.get("name", "")
         args = expr.get("args") or []
         line = expr.get("line", 0)
@@ -2009,6 +2166,8 @@ class SemanticAnalyzer:
         return "unknown"
 
     def _infer_call(self, expr: Dict[str, Any]) -> Optional[str]:
+        # User-defined function calls are checked against the signature captured
+        # during pass 1, including array parameter dimensions.
         name = expr.get("name", "")
         args = expr.get("args") or []
         line = expr.get("line", 0)
@@ -2134,6 +2293,8 @@ class SemanticAnalyzer:
         Only literals and trivial expressions are evaluated; no identifier
         lookups because globals may not yet be fully registered.
         """
+        # Global initializers are checked during pass 1, so this intentionally
+        # avoids resolving identifiers that might not be registered yet.
         if expr is None:
             return None
         ntype = expr.get("node")
@@ -2162,6 +2323,9 @@ class SemanticAnalyzer:
         is_global: bool,
         is_const: bool = False,
     ) -> None:
+        # Shared array-initializer validator used by both global and local
+        # declarations. The caller supplies the inference mode because globals
+        # cannot use local symbol lookup.
         if not isinstance(init, list):
             self._err(
                 "Array must be initialized with a list literal, not a scalar",
@@ -2172,6 +2336,8 @@ class SemanticAnalyzer:
         infer = self._infer_global if is_global else self._infer_type
 
         if len(dims) == 1:
+            # One-dimensional arrays check total element count and each element's
+            # compatibility with the declared base type.
             # const arrays must be fully initialized; var arrays allow partial init
             # (missing elements get default values). Either way, too many elements
             # is always an error.
@@ -2200,6 +2366,8 @@ class SemanticAnalyzer:
                     )
 
         elif len(dims) == 2:
+            # Two-dimensional arrays check row count, row width, and every nested
+            # element's compatibility with the declared base type.
             if len(init) > dims[0]:
                 self._err(
                     f"2D array initializer has {len(init)} row(s) "
@@ -2257,10 +2425,12 @@ class SemanticAnalyzer:
           5. If not found -> undefined identifier error.
         """
         if not name or name in RESERVED_KEYWORDS:
+            # Reserved words are not valid symbol references.
             return None
 
         # 1. Local scope
         if self._scope:
+            # Locals and parameters always take precedence over globals.
             local = self._scope.lookup(name)
             if local is not None:
                 return local
@@ -2268,6 +2438,8 @@ class SemanticAnalyzer:
         # 2. Global scope
         gsym = self._global.lookup(name)
         if gsym is None:
+            # Missing names become semantic diagnostics instead of parser errors
+            # because the syntax can still be structurally valid.
             self._err(f"Undefined identifier '{name}'", line, col)
             return None
 

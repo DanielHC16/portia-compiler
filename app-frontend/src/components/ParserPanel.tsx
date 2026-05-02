@@ -5,7 +5,8 @@ import TokenList from "./TokenList";
 import ErrorDisplay from "./ErrorDisplay";
 import { PortiaEditor, type EditorError } from "../codemirror";
 
-// Console logging helper for AST tree
+// Console logging helper for AST tree. This keeps the UI clean while still
+// giving developers a full AST inspection path in browser devtools.
 function logAST(ast: any, success: boolean) {
   if (success && ast) {
     console.log(
@@ -37,6 +38,8 @@ type ParserPanelProps = {
 };
 
 export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, sharedLexErrors, theme }: ParserPanelProps) {
+  // Parser state is split by phase so lexical errors and syntax errors can be
+  // displayed separately and highlighted with different editor styling.
   const [tokens, setTokens] = useState<SimpleToken[]>(sharedTokens as SimpleToken[] || []);
   const [lexErrors, setLexErrors] = useState<LexError[]>(sharedLexErrors || []);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
@@ -59,14 +62,16 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
     ...parseErrorObjects.map(err => ({ line: err.line, column: err.column, message: err.message, token_length: err.token_length, errorType: "parser" as const })),
   ];
 
-  // Normalize smart/curly quotes to straight quotes
+  // Normalize smart/curly quotes before lexing so parser errors reflect PORTIA
+  // syntax issues instead of accidental Unicode punctuation.
   const normalizeQuotes = (text: string): string => {
     return text
       .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
       .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
   };
 
-  // Run lexer and parser
+  // Run lexer first, then parser only if lexing succeeds. This mirrors the real
+  // compiler pipeline and avoids parser cascades from invalid token streams.
   async function runParser() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
@@ -139,14 +144,15 @@ export default function ParserPanel({ sharedCode, setSharedCode, sharedTokens, s
     }
   }
 
-  // Handle code changes
+  // Keep source text normalized while preserving old parser output until the
+  // next explicit run.
   const handleCodeChange = useCallback((value: string | undefined) => {
     if (value === undefined) return;
     const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     setSharedCode(normalized);
   }, [setSharedCode]);
 
-  // Reset function
+  // Restore the starter program and clear all parser-phase state.
   const handleReset = useCallback(() => {
     setSharedCode(EXAMPLE);
     setTokens([]);

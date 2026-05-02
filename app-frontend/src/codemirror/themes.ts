@@ -159,7 +159,7 @@ const portiaLightTheme = EditorView.theme({
 
 export const portiaLight: Extension = [portiaLightTheme, syntaxHighlighting(portiaLightHighlight)];
 
-// Helper to get theme by name (simplified to just dark/light)
+// Return the CodeMirror extension bundle for the active app theme.
 export function getCodeMirrorTheme(theme: "light" | "dark"): Extension {
   return theme === "light" ? portiaLight : portiaDark;
 }

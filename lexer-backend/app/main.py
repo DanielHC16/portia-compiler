@@ -22,18 +22,20 @@ app.add_middleware(
 )
 
 class CodeRequest(BaseModel):
-    # Request model for code submission
+    # Request model for code submission. The lexer only needs the raw source
+    # string; tokenization metadata is produced inside LexicalAnalyzer.
     code: str
 
 @app.get("/")
 def root():
-    # Health check endpoint
+    # Health check endpoint used by scripts and the frontend to confirm the
+    # lexer service is reachable.
     return {"message": "PORTIA Lexer backend is running"}
 
 @app.post("/lex")
 def lex_code(req: CodeRequest):
-    # Main lexical analysis endpoint
-    # Takes source code and returns tokens and errors
+    # Main lexical analysis endpoint. A fresh lexer instance is created per
+    # request so scanner state never leaks between runs.
     lexer = LexicalAnalyzer()
     return lexer.transition(req.code)
 

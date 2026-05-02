@@ -21,6 +21,8 @@ app = FastAPI(
 )
 
 # CORS configuration - allow frontend and other backends
+# The ICG service is usually called by the Vite frontend after parser/semantic
+# work, so these local origins cover the full compiler pipeline in development.
 origins = [
     "http://localhost:5173",   # Vite dev server
     "http://localhost:8000",   # Lexer backend
@@ -49,6 +51,7 @@ app.include_router(icg_router, prefix="")
 @app.get("/")
 def root():
     """Root endpoint - service info."""
+    # Expose a quick endpoint map for manual checks in the browser.
     return {
         "service": "PORTIA ICG Backend",
         "version": "1.0.0",
@@ -63,4 +66,5 @@ def root():
 
 if __name__ == "__main__":
     import uvicorn
+    # Direct script execution starts the ICG service on its dedicated dev port.
     uvicorn.run(app, host="0.0.0.0", port=8003)
