@@ -13,6 +13,39 @@ type IndentScanState = {
 
 const openingDelimiters = new Set(["{", "[", "("]);
 const closingDelimiters = new Set(["}", "]", ")"]);
+const portiaKeywords = new Set([
+  "bool",
+  "break",
+  "case",
+  "char",
+  "const",
+  "default",
+  "do",
+  "double",
+  "else",
+  "float",
+  "for",
+  "func",
+  "global",
+  "if",
+  "int",
+  "local",
+  "long",
+  "main",
+  "return",
+  "string",
+  "switch",
+  "thread",
+  "threadln",
+  "trap",
+  "using",
+  "var",
+  "void",
+  "weave",
+  "while",
+]);
+const portiaBooleans = new Set(["true", "false"]);
+const portiaBuiltins = new Set(["abs", "len", "pow", "sqrt"]);
 
 function scanIndentLine(line: string, state: IndentScanState): IndentScanState {
   let { depth, inBlockComment, stringQuote } = state;
@@ -231,27 +264,10 @@ const portiaMode = StreamLanguage.define({
     // Keywords and identifiers
     if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*/)) {
       const word = stream.current();
-      
-      // Portia keywords
-      const keywords = [
-        "int", "float", "double", "char", "string", "bool", "void",
-        "if", "else", "while", "for", "do", "return", "break", "continue",
-        "switch", "case", "default", "struct", "enum", "const", "static",
-        "public", "private", "class", "new", "delete", "nullptr", "null",
-        "try", "catch", "throw", "finally", "import", "export", "module",
-        "function", "fn", "let", "var", "const", "type", "interface",
-        "async", "await", "yield", "from",
-      ];
-      
-      // Boolean literals
-      const booleans = ["true", "false", "TRUE", "FALSE"];
-      
-      // Built-in functions
-      const builtins = ["print", "println", "read", "readln", "sizeof", "typeof"];
-      
-      if (keywords.includes(word)) return "keyword";
-      if (booleans.includes(word)) return "atom";
-      if (builtins.includes(word)) return "builtin";
+
+      if (portiaKeywords.has(word)) return "keyword";
+      if (portiaBooleans.has(word)) return "atom";
+      if (portiaBuiltins.has(word)) return "builtin";
       
       return "variable";
     }
