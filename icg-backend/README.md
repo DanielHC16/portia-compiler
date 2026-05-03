@@ -65,6 +65,294 @@ by zero, bad input, invalid built-in operands, and exhausted input buffers.
 | `icg/runtime_executor.py` | TAC interpreter, runtime memory, control flow, functions, arrays, I/O, built-ins. |
 | `icg/managers.py` | `TempManager` and `LabelManager`. |
 
+## ICG Dataflow
+
+Put simply, data passes through the `icg` folder in this order:
+
+```text
+AST + symbol table
+  -> api.py
+  -> icg_visitor.py
+  -> triple.py
+  -> runtime_executor.py
+  -> output / memory / errors
+```
+
+The ICG phase does not start from raw source code. By the time data reaches this
+folder, the lexer, parser, and semantic analyzer have already done their work.
+The ICG receives a semantically validated AST plus the semantic symbol table and
+uses those two structures to generate and optionally execute TAC.
+
+### 1. `api.py` receives the request
+
+`api.py` is the entry point into the ICG backend. It receives JSON from the
+frontend or another caller and decides which ICG operation to run.
+
+For `/run`, the payload contains:
+
+```json
+{
+  "ast": { "node": "Program" },
+  "inputs": [],
+  "symbol_table": {}
+}
+```
+
+The AST describes program structure. The symbol table describes what semantic
+analysis already knows about declared variables, functions, parameter types,
+return types, arrays, and other symbols.
+
+The main endpoint choices are:
+
+| Endpoint | What it does |
+| --- | --- |
+| `/generate` | Takes AST plus symbol table and only generates TAC. |
+| `/execute` | Takes an already-generated TAC table and executes it. |
+| `/run` | Takes AST plus symbol table, generates TAC, then executes that TAC. |
+
+The normal frontend ICG flow uses `/run`, because the UI usually wants both the
+generated TAC and the program output in one request.
+
+Inside `/run`, the flow is roughly:
+
+```python
+visitor = ICGVisitor(symbol_table=payload.symbol_table)
+table = visitor.generate(payload.ast)
+
+executor = RuntimeExecutor(
+    table,
+    symbol_table=payload.symbol_table,
+    input_handler=input_handler,
+)
+
+result = executor.execute()
+```
+
+So `api.py` does not do the lowering itself. It coordinates the handoff between
+the AST visitor, the TAC table, and the runtime executor.
+
+### 2. `icg_visitor.py` turns AST nodes into TAC
+
+`icg_visitor.py` is where the AST is lowered into intermediate code. It works on
+AST JSON dictionaries, not Python AST node classes.
+
+Generation starts with:
+
+```python
+visitor = ICGVisitor(symbol_table=semantic_symbol_table)
+table = visitor.generate(ast)
+```
+
+`generate(ast)` resets the current TAC table, temporary manager, and label
+manager. Then it walks the AST:
+
+```python
+def generate(self, ast):
+    self._table.clear()
+    self._temps.reset()
+    self._labels.reset()
+    self._visit(ast)
+    return self._table
+```
+
+The visitor decides what method to call by reading each AST node's `node` field:
+
+```python
+node_type = node.get("node")
+method = getattr(self, f"_visit_{node_type}", None)
+```
+
+That means:
+
+| AST node | Visitor method |
+| --- | --- |
+| `Program` | `_visit_Program` |
+| `FunctionDecl` | `_visit_FunctionDecl` |
+| `VarDecl` | `_visit_VarDecl` |
+| `Assignment` | `_visit_Assignment` |
+| `BinaryOp` | `_visit_BinaryOp` |
+| `IOStmt` | `_visit_IOStmt` |
+
+Each visitor method reads the AST node data and emits one or more TAC
+instructions into the current `IndirectTripleTable`.
+
+For example, this source:
+
+```portia
+local var float x = 25;
+threadln(x);
+```
+
+has an AST containing a variable declaration and an output statement. The visitor
+turns those nodes into TAC shaped roughly like:
+
+```text
+func_begin main
+=          x        25
+threadln   x        -
+return     0        -
+func_end   main     -
+```
+
+At this point, the program is no longer being represented mainly as a tree. It
+is represented as a linear set of intermediate instructions.
+
+### 3. `managers.py` supplies generated names
+
+`managers.py` supports the visitor while TAC is being generated.
+
+`TempManager` creates temporary names such as:
+
+```text
+t1, t2, t3
+```
+
+These are useful when the ICG needs a generated storage name for intermediate
+work.
+
+`LabelManager` creates labels such as:
+
+```text
+L1, L2, L3
+```
+
+Labels are used for control flow. For example, an `if`, `while`, `for`, or
+`switch` needs generated jump targets so the runtime knows where to continue.
+
+The managers are reset at the start of each `generate(ast)` call so each program
+gets a fresh set of temporary names and labels.
+
+### 4. `triple.py` stores the generated TAC
+
+`triple.py` defines how TAC is represented after the visitor emits it. The ICG
+does not just store plain strings. It stores each instruction as a `Triple`:
+
+```python
+Triple(op, arg1, arg2)
+```
+
+Examples:
+
+```python
+Triple("=", "x", 25)
+Triple("threadln", "x", None)
+Triple("+", "a", "b")
+```
+
+These triples are stored inside an `IndirectTripleTable`.
+
+The table manages two related pieces of data:
+
+| Data | Meaning |
+| --- | --- |
+| `triples` | The actual list of generated TAC instructions. |
+| `pointers` | The order in which those instructions should be executed or displayed. |
+
+Expression results can refer to earlier triples. For example:
+
+```portia
+x = a + b * 2;
+```
+
+may become:
+
+```text
+(0) *       b        2
+(1) +       a        (0)
+(2) =       x        (1)
+```
+
+Here `(0)` means "use the result produced by triple 0", and `(1)` means "use the
+result produced by triple 1".
+
+Internally, references like that are stored as one-item tuples:
+
+```python
+ref(0) -> (0,)
+```
+
+When TAC is sent over JSON, tuple references are serialized as:
+
+```json
+{ "ref": 0 }
+```
+
+That allows the TAC table to move between the backend, frontend, and runtime
+without losing the link between instructions.
+
+### 5. `runtime_executor.py` executes the TAC
+
+`runtime_executor.py` receives:
+
+```text
+TAC table + symbol table + inputs
+```
+
+It then steps through the TAC instructions and produces the final runtime result.
+
+The runtime keeps its own execution state:
+
+| Runtime data | What it stores |
+| --- | --- |
+| `_memory` | Variables, arrays, and their current values. |
+| `_results` | Results produced by earlier triples. |
+| `_labels` | Label names mapped to instruction positions. |
+| `_func_labels` | Function names mapped to their `func_begin` positions. |
+| `_param_stack` | Arguments waiting to be received by a function. |
+| `_call_stack` | Saved caller state during function calls. |
+| `_output_buffer` | Completed output lines. |
+| `_current_line` | Current output text before a newline is printed. |
+
+The symbol table is still important during execution. It tells the runtime the
+declared type of variables and function returns. For example, if semantic
+analysis accepted:
+
+```portia
+local var float x = 25;
+```
+
+then the TAC may still contain the literal `25`, but the runtime knows from the
+symbol table that `x` is a `float`. So it stores the value as `25.0`.
+
+That is why generated TAC and the symbol table travel together. TAC says what to
+do. The symbol table helps the runtime know what the values are supposed to be.
+
+### 6. `api.py` returns the result
+
+After generation and execution, `api.py` packages the result back into JSON.
+
+For `/run`, the response contains data such as:
+
+```json
+{
+  "success": true,
+  "tac": {},
+  "tac_text": "...",
+  "tac_html": "...",
+  "output": ["25.0"],
+  "return_value": 0,
+  "errors": []
+}
+```
+
+So the full data movement is:
+
+```text
+validated AST
+  + semantic symbol table
+  + optional runtime inputs
+    -> api.py receives the request
+    -> icg_visitor.py walks the AST
+    -> managers.py supplies temps and labels when needed
+    -> triple.py stores the generated TAC
+    -> runtime_executor.py executes the TAC using the symbol table
+    -> api.py returns TAC, output, memory, return value, and errors
+```
+
+In short: the AST gives the ICG structure, the symbol table gives it meaning,
+the visitor turns that structure into TAC, the triple table stores the TAC, and
+the runtime executor turns the TAC into actual program behavior.
+
 ## Core Data Structures
 
 ### `Triple`
