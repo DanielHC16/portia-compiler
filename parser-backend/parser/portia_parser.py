@@ -49,7 +49,7 @@ class PortiaParser:
         tree = parser.parse()
     """
 
-    # Parser structure guide for future maintainers:
+    # Parser structure guide
     # - parse_* methods mirror grammar regions, not raw parse-tree nodes.
     # - Declaration methods build VarDecl/WeaveDecl nodes.
     # - Function/main methods build FunctionDecl nodes with locals/body/return.
