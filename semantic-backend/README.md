@@ -63,7 +63,7 @@ information, array metadata, function signatures, and weave field lookup.
 | File | Responsibility |
 | --- | --- |
 | `main.py` | FastAPI app, CORS, router registration, health endpoint. |
-| `semantic/api.py` | `/analyze` compatibility route and primary `/analyze/ast` route. |
+| `semantic/api.py` | `/analyze/ast` route and response formatting. |
 | `semantic/semantic_analyzer.py` | Type system constants, symbol records, scopes, analyzer passes, statement checks, expression inference. |
 
 ## Main Classes and Functions
@@ -565,11 +565,6 @@ Response:
   "symbol_table": {}
 }
 ```
-
-### `POST /analyze`
-
-Compatibility endpoint for token-based requests. It does not perform real
-semantic analysis and returns a message directing callers to `/analyze/ast`.
 
 In production, `api/analyze_ast.py` imports `SemanticAnalyzer` directly and
 exposes the same logical contract at `/api/analyze_ast`.

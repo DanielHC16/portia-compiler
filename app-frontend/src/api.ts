@@ -111,13 +111,6 @@ export async function parseTokens(tokens: Token[], source?: string, lexer_errors
   return postJSON(PARSE_URL, { tokens, source, lexer_errors }, opts);
 }
 
-// Legacy semantic endpoint kept for compatibility with older token-only flows.
-export async function analyzeTokens(tokens: Token[], opts?: { signal?: AbortSignal }) {
-  // No standalone token-only analysis endpoint in Vercel; not used by the UI.
-  const _semanticBase_ = import.meta.env.VITE_SEMANTIC_BACKEND_URL ?? "http://localhost:8002";
-  return postJSON(`${_semanticBase_}/analyze`, { tokens }, opts);
-}
-
 // Phase 3: send the parser AST to semantic analysis and receive errors plus
 // the exported symbol table used by the ICG/runtime phase.
 export async function analyzeAst(ast: any, opts?: { signal?: AbortSignal }) {
