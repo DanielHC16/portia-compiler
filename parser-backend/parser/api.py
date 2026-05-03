@@ -27,6 +27,8 @@ def parse_with_parser(tokens: List[Dict[str, Any]], source: Optional[str] = None
     Parse tokens using PortiaParser recursive descent parser.
     Returns API response dict compatible with frontend.
     """
+    # Shared parsing core used by both routes below. It assumes the caller has
+    # already decided that this token stream is ready for syntax analysis.
     # Empty token lists are treated as an empty parse result for API stability.
     if not tokens:
         return {
@@ -89,6 +91,8 @@ def parse_tokens(payload: TokensPayload):
     POST /parse
     Body: { tokens: [...], source?: "...", lexer_errors?: [...] }
     """
+    # Route wrapper for clients that already have lexer output; it only handles
+    # request-level checks before handing the tokens to parse_with_parser().
     # Block parsing if lexer errors exist; syntax analysis depends on a valid
     # token stream, so continuing would create noisy follow-up errors.
     if payload.lexer_errors and len(payload.lexer_errors) > 0:
@@ -116,6 +120,8 @@ def parse_source(payload: SourcePayload):
     Body: { source: "..." }
     Calls lexer first, then parses tokens.
     """
+    # Convenience route for raw source input. Unlike /parse, this endpoint must
+    # ask the lexer service for tokens before it can use the shared parser core.
     import requests
     try:
         # Ask the lexer service for tokens, then feed those tokens through the
