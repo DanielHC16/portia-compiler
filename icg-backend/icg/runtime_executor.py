@@ -15,6 +15,7 @@ Values are tracked with their types using RuntimeValue to enable:
 - Type mismatch detection during operations
 - Proper formatting for output
 - Array element type validation during trap()
+- Implicit numeric widening when values enter declared storage
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from .triple import IndirectTripleTable, Triple, is_ref, get_ref_index
 
 DEFAULT_MAX_EXECUTION_STEPS = 1_000_000
 BUILTIN_FUNCTIONS = frozenset({"abs", "len", "pow", "sqrt"})
+NUMERIC_RANK = {"int": 0, "long": 1, "float": 2, "double": 3}
 
 @dataclass
 class RuntimeValue:
@@ -185,10 +187,9 @@ def types_compatible_for_comparison(t1: str, t2: str) -> bool:
 def wider_numeric_type(t1: str, t2: str) -> str:
     """Return the wider PORTIA numeric type."""
     # Built-ins like pow use the same widening rank as semantic type inference.
-    rank = {"int": 0, "long": 1, "float": 2, "double": 3}
     t1 = (t1 or "").lower()
     t2 = (t2 or "").lower()
-    return t1 if rank.get(t1, -1) >= rank.get(t2, -1) else t2
+    return t1 if NUMERIC_RANK.get(t1, -1) >= NUMERIC_RANK.get(t2, -1) else t2
 
 
 # =============================================================================
@@ -639,15 +640,17 @@ class RuntimeExecutor:
                 target_name = self._resolve_array_name(arg1)
 
             value = self._eval(arg2, line, col)
+            target_type = self._declared_type_for_target(target_name)
 
             # Check if value is an array - need to distribute elements
             if isinstance(value, RuntimeValue) and value.dtype == "array":
+                value = self._coerce_array_value_to_type(value, target_type)
                 # Array assignment: copy each element to target[i]
                 # Arrays are represented in memory both as optional root metadata
                 # and as individual keys such as arr[0] or arr[0][1].
                 array_values = value.value
                 if isinstance(array_values, (list, tuple)):
-                    elem_type = value.element_type or "int"
+                    elem_type = value.element_type or target_type or "int"
 
                     # Detect if this is a 2D array by checking first element
                     sub_elem_type = elem_type
@@ -705,6 +708,9 @@ class RuntimeExecutor:
                     # Single value wrapped as array - just store it
                     self._memory[target_name] = value
             else:
+                # Semantic analysis permits numeric widening; storage preserves
+                # the declared runtime dtype so output and later operations agree.
+                value = self._coerce_value_to_type(value, target_type)
                 self._memory[target_name] = value
             self._results[idx] = value
         
@@ -849,11 +855,19 @@ class RuntimeExecutor:
                 index_val = unwrap_value(self._eval(index, line, col))
                 value_result = self._eval(value, line, col)
                 key = f"{array_name}[{int(index_val)}]"
+                value_result = self._coerce_value_to_type(
+                    value_result,
+                    self._declared_type_for_target(key),
+                )
                 self._memory[key] = value_result
             else:
                 # Format 1: arg1 already contains the full key like "arr[0]"
                 key = arg1
                 value_result = self._eval(arg2, line, col)
+                value_result = self._coerce_value_to_type(
+                    value_result,
+                    self._declared_type_for_target(key),
+                )
                 self._memory[key] = value_result
         
         elif op == "array_access_2d":
@@ -893,6 +907,10 @@ class RuntimeExecutor:
                     key = f"{array_name}[{idx_vals[0]}][{idx_vals[1]}]"
                 else:
                     key = f"{array_name}[{idx_vals[0]}]"
+                value_result = self._coerce_value_to_type(
+                    value_result,
+                    self._declared_type_for_target(key),
+                )
                 self._memory[key] = value_result
         
         elif op == "param":
@@ -936,7 +954,8 @@ class RuntimeExecutor:
         elif op == "receive_param":
             # Pop parameter from param stack into local variable
             # Callee function prologue consumes queued argument values in source
-            # order and installs them as local parameters.
+            # order and installs them as local parameters. arg2 carries the
+            # declared parameter dtype for implicit numeric widening.
             param_name = arg1
             if self._param_stack:
                 value = self._param_stack.pop(0)  # FIFO order
@@ -951,6 +970,8 @@ class RuntimeExecutor:
                     # Array elements will be accessed via the alias
                 else:
                     # Normal value - store in memory
+                    param_type = arg2 or self._declared_type_for_target(param_name)
+                    value = self._coerce_value_to_type(value, param_type)
                     self._memory[param_name] = value
         
         else:
@@ -1213,6 +1234,77 @@ class RuntimeExecutor:
         value = self._memory.get(var_name)
         return isinstance(value, RuntimeValue) and value.dtype == "string"
 
+    def _declared_type_for_target(self, target_name: Any) -> str:
+        """Return the declared storage type for a variable, field, or element."""
+        if not isinstance(target_name, str) or not target_name:
+            return ""
+
+        base = target_name.split("[", 1)[0]
+        if "." in base:
+            owner_name, field_name = base.split(".", 1)
+            owner_sym = self._symbol_table.get(owner_name, {})
+            weave_info = self._symbol_table.get(owner_sym.get("dtype", ""), {})
+            field_info = (weave_info.get("fields") or {}).get(field_name, {})
+            return (field_info.get("dtype") or "").lower()
+
+        sym = self._symbol_table.get(base, {})
+        dtype = (sym.get("dtype") or "").lower()
+        if "[" in target_name and dtype == "string":
+            return "char"
+        return dtype
+
+    def _coerce_value_to_type(self, value: Any, target_type: str) -> RuntimeValue:
+        """Apply semantic-approved numeric widening before storing a value."""
+        rv = value if isinstance(value, RuntimeValue) else RuntimeValue(value, get_type_name(value))
+        target = (target_type or "").lower()
+
+        if rv.dtype == "array":
+            return self._coerce_array_value_to_type(rv, target)
+
+        source = (rv.dtype or "").lower()
+        if target not in NUMERIC_RANK or source not in NUMERIC_RANK:
+            return rv
+        if NUMERIC_RANK[source] > NUMERIC_RANK[target]:
+            return rv
+
+        raw = unwrap_value(rv)
+        if target in ("int", "long"):
+            return RuntimeValue(int(raw), target)
+        return RuntimeValue(float(raw), target)
+
+    def _coerce_array_value_to_type(self, value: RuntimeValue, target_type: str) -> RuntimeValue:
+        """Coerce numeric array elements to the declared element type."""
+        target = (target_type or "").lower()
+        if target not in NUMERIC_RANK or value.dtype != "array":
+            return value
+
+        def coerce_elem(elem: Any) -> Any:
+            if isinstance(elem, (list, tuple)):
+                return [coerce_elem(child) for child in elem]
+            elem_rv = elem if isinstance(elem, RuntimeValue) else RuntimeValue(elem, get_type_name(elem))
+            coerced = self._coerce_value_to_type(elem_rv, target)
+            return coerced if isinstance(elem, RuntimeValue) else unwrap_value(coerced)
+
+        if not isinstance(value.value, (list, tuple)):
+            return value
+
+        return RuntimeValue(
+            [coerce_elem(elem) for elem in value.value],
+            "array",
+            target,
+        )
+
+    def _function_return_type_for_call(self, call_idx: int) -> str:
+        """Look up the declared return type for a call triple."""
+        triples = self._table.get_triples()
+        if call_idx < 0 or call_idx >= len(triples):
+            return ""
+        call_triple = triples[call_idx]
+        if call_triple.op != "call":
+            return ""
+        func_info = self._symbol_table.get(call_triple.arg1, {})
+        return (func_info.get("ret_type") or func_info.get("dtype") or "").lower()
+
     def _read_string_index(self, var_name: str, index: int, line: int, col: int) -> RuntimeValue:
         """Read one character from a string variable using array-style indexing."""
         # PORTIA treats string indexing as a char-producing operation.
@@ -1317,6 +1409,8 @@ class RuntimeExecutor:
         self._preserved_arrays = saved_preserved_arrays
 
         if return_result is not None:
+            return_type = self._function_return_type_for_call(call_idx)
+            return_result = self._coerce_value_to_type(return_result, return_type)
             self._results[call_idx] = return_result
 
         self._ip = return_addr

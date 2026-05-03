@@ -185,8 +185,9 @@ class ICGVisitor:
                 "kind": "array" if param_dims else "variable",
                 "dims": param_dims,
             }
-            # Generate param receive instruction
-            self._table.add("receive_param", param_name, None)
+            # Carry the declared dtype so runtime parameter storage can apply the
+            # same implicit numeric widening that semantic analysis allowed.
+            self._table.add("receive_param", param_name, param_dtype)
         
         # Visit local variable declarations
         # Header locals are lowered before body statements so memory defaults or

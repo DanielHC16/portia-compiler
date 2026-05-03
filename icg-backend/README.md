@@ -175,7 +175,7 @@ Each expression visitor returns a `VisitResult`:
 
 ```text
 func_begin function_name
-receive_param param_name
+receive_param param_name param_type
 ... local declarations ...
 ... body statements ...
 return ret_value
@@ -205,6 +205,9 @@ Default scalar values:
 | `bool` | `false` |
 | `char` | `''` |
 | `string` | `""` |
+
+When semantic analysis accepts implicit numeric widening, runtime storage keeps
+the declared type. For example, assigning `25` into a `float` stores `25.0`.
 
 ### Expressions
 
@@ -426,7 +429,7 @@ RuntimeValue([1, 2, 3], "array", "int")
 
 | TAC op | Runtime behavior |
 | --- | --- |
-| `=` | Evaluates RHS and stores in memory. |
+| `=` | Evaluates RHS, applies implicit numeric widening for declared storage, and stores in memory. |
 | `+`, `-`, `*`, `/`, `%` | Numeric arithmetic with type/error checks. |
 | `==`, `!=`, `<`, `>`, `<=`, `>=` | Relational checks and bool result. |
 | `&&`, `||`, `not` | Logical operations. |
@@ -437,7 +440,7 @@ RuntimeValue([1, 2, 3], "array", "int")
 | `array_store`, `array_store_2d` | Stores array or string element values. |
 | `label` | Marker, no runtime action. |
 | `jump`, `jumpf`, `jumpt` | Instruction pointer changes. |
-| `param`, `receive_param`, `call`, `return` | Function call machinery. |
+| `param`, `receive_param`, `call`, `return` | Function call machinery, including declared parameter/return widening. |
 | `trap` | Reads input through the input handler and stores a typed value. |
 | `thread`, `threadln` | Appends formatted output. |
 | `len`, `abs`, `sqrt`, `pow` | Dedicated built-in runtime operations. |
