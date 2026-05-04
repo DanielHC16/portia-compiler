@@ -8,8 +8,10 @@ class CharacterClasses:
     # The lexer copies these onto its own instance for direct attribute access.
     # No mutation should occur at runtime.
 
-    # Alphabetic characters (A–Z a–z)
-    alphabetics = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    # Alphabetic characters (A-Z a-z)
+    alpha_sm = list('abcdefghijklmnopqrstuvwxyz')
+    alpha_cpt = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    alphabetics = alpha_sm + alpha_cpt
 
     # Decimal digits used by numeric literal states and identifier continuations.
     numbers = list('0123456789')
