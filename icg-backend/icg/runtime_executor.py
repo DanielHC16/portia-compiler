@@ -141,12 +141,20 @@ def ascii_code_for_char(value: Any) -> int:
     # Char-to-numeric casts are intentionally ASCII-bound to match PORTIA's char
     # rules.
     if not isinstance(value, str) or len(value) != 1:
-        raise ValueError("Expected single ASCII character in range 32-127")
+        raise ValueError("Expected single ASCII character in range 32-126")
 
     code_point = ord(value)
-    if code_point < 32 or code_point > 127:
-        raise ValueError("Expected ASCII character in range 32-127")
+    if code_point < 32 or code_point > 126:
+        raise ValueError("Expected ASCII character in range 32-126")
     return code_point
+
+
+def char_from_ascii_code(value: Any) -> str:
+    """Return the printable ASCII char for a numeric PORTIA char cast."""
+    code_point = int(value)
+    if code_point < 32 or code_point > 126:
+        raise ValueError("Expected ASCII code point in range 32-126")
+    return chr(code_point)
 
 
 def is_numeric_type(dtype: str) -> bool:
@@ -1718,6 +1726,8 @@ class RuntimeExecutor:
             elif target_type_lower == "string":
                 return RuntimeValue(str(val), "string")
             elif target_type_lower == "char":
+                if is_numeric_type(source_type):
+                    return RuntimeValue(char_from_ascii_code(val), "char")
                 s = str(val)
                 return RuntimeValue(s[0] if s else '', "char")
             elif target_type_lower == "bool":
