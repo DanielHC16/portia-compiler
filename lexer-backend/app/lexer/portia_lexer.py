@@ -3176,11 +3176,7 @@ class LexicalAnalyzer:
 
             case 's365':  # After \ in string - only valid escape sequences allowed
                 match currChar:
-                    case "'": return 's287'  # \' is valid
-                    case '"': return 's287'  # \" is valid
-                    case 't': return 's287'  # \t is valid
-                    case 'n': return 's287'  # \n is valid
-                    case '\\': return 's287'  # \\ is valid
+                    case _ if currChar in self.escape_delim: return 's287'
                     case _: return 'UNDEFINED'  # Invalid escape sequence
 
             # ============================================================
@@ -3190,11 +3186,7 @@ class LexicalAnalyzer:
 
             case 's366':  # After \ in char - only valid escape sequences allowed
                 match currChar:
-                    case "'": return 's291'  # \' is valid, go to content state
-                    case '"': return 's291'  # \" is valid
-                    case 't': return 's291'  # \t is valid
-                    case 'n': return 's291'  # \n is valid
-                    case '\\': return 's291'  # \\ is valid
+                    case _ if currChar in self.escape_delim: return 's291'
                     case _: return 'UNDEFINED'  # Invalid escape sequence
 
             # ============================================================

@@ -80,7 +80,7 @@ class Delimiters:
         # Single line comment: newline
         
         # Escape sequence & comment delimiters
-        self.escape_delim = chars.ascii + ['"'] + ['\\', "\'", '\"', '\t', '\n']
+        self.escape_delim = chars.escape_seq
         # Comment delimiter - what can follow after a comment ends
         self.comment_delim = chars.alphanum + chars.whitespace + chars.newline + ['/', '{', '}', '(', ')', '[', ']', ';', ',', '+', '-', '*', '%', '=', '!', '&', '|', '<', '>', ':', '.', '"', "'"]
 

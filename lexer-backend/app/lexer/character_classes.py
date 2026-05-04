@@ -29,6 +29,10 @@ class CharacterClasses:
     # escape-sequence handling.
     ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
 
+    # Valid characters after a backslash in PORTIA string and char literals:
+    # \', \", \t, \n, and \\.
+    escape_seq = ["'", '"', 't', 'n', '\\']
+
     # Logical operator leading characters used when deciding operator states.
     logical_op = ['!', '&', '|']
 
