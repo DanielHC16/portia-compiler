@@ -31,6 +31,7 @@ class Delimiters:
         # Grouping symbol delimiters
         self.open_paren_delim = chars.alphanum + chars.whitespace + ['"', '!', ')', '-', '(', ';', "'", '..'] 
         self.close_paren_delim = chars.alphanum + ['+', '-', '*', '/', '%', '>', '<','!', '=', '&', '|', '{', ';', ')', '(',  "'",',','..','"'] + chars.whitespace + chars.newline
+        self.open_bracket_delim = chars.alphanum + chars.whitespace
         self.close_bracket_delim = ['+', '-', '*', '/', '%', '=', ')', ';', ',', '[',  '>', '<', '!', '=', '&', '|', '..'] + chars.whitespace
         self.open_curly_delim = chars.whitespace + chars.newline + chars.alphanum + ['{', '"', "'", '-', '!','}']
         self.close_curly_delim = chars.whitespace + chars.newline + [';', ',', None] + chars.alphabetics + ['}']
@@ -39,6 +40,7 @@ class Delimiters:
         self.semicolon_delim = chars.alphanum + chars.whitespace + chars.newline + [')','}']
         self.comma_delim = chars.alphanum + chars.whitespace + ['-'] + chars.newline + ['(', '{', '"', "'"]
         self.colon_delim = chars.whitespace + chars.newline + chars.alphabetics
+        self.dot_delim = chars.alphabetics + chars.whitespace + chars.newline
         self.equal_delim = chars.alphanum + chars.whitespace + ['(', '{', '-', '"', "'"] + chars.newline
         self.multi_delim = chars.alphabetics + chars.newline
 
@@ -75,36 +77,11 @@ class Delimiters:
         # default: :
         # main, thread, threadln, trap: (
         # abs, len, pow, sqrt: (
-        # [: alphanum
-        # .: alphabetics
         # Single line comment: newline
         
         # Escape sequence & comment delimiters
         self.escape_delim = chars.escape_seq
         # Comment delimiter - what can follow after a comment ends
         self.comment_delim = chars.alphanum + chars.whitespace + chars.newline + ['/', '{', '}', '(', ')', '[', ']', ';', ',', '+', '-', '*', '%', '=', '!', '&', '|', '<', '>', ':', '.', '"', "'"]
-
-        # ===== COMPATIBILITY MAPPINGS =====
-        # Legacy delimiter names mapped to new definitions for backward compatibility with portia_lexer.py
-        
-        # sign_delim: used for 'add', 'equal', 'not_equal', and assignment operators
-        # Maps to equal_delim which handles assignment and equality operators
-        self.sign_delim = self.equal_delim
-        
-        # asign_delim: used for relational operators (<, >, <=, >=)
-        # Maps to relational_delim
-        self.asign_delim = self.relational_delim
-        
-        # slash_delim: used for 'divide' operator
-        # Division has same context as multiplication
-        self.slash_delim = self.marithmetic_delim
-        
-        # dot_delim: used for 'dot' delimiter (singular delimiter for '.')
-        # Dot can be followed by alphabetics (for member access like object.method)
-        self.dot_delim = chars.alphabetics + chars.whitespace + chars.newline
-        
-        # open_bracket_delim: used for '[' delimiter (array indexing)
-        # Can be followed by alphanum (identifiers/literals) and whitespace
-        self.open_bracket_delim = chars.alphanum + chars.whitespace
 
 
