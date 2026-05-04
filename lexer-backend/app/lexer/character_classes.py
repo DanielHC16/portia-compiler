@@ -8,8 +8,10 @@ class CharacterClasses:
     # The lexer copies these onto its own instance for direct attribute access.
     # No mutation should occur at runtime.
 
-    # Alphabetic characters (A–Z a–z)
-    alphabetics = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    # Alphabetic characters (A-Z a-z)
+    alpha_sm = list('abcdefghijklmnopqrstuvwxyz')
+    alpha_cpt = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    alphabetics = alpha_sm + alpha_cpt
 
     # Decimal digits used by numeric literal states and identifier continuations.
     numbers = list('0123456789')
@@ -26,6 +28,10 @@ class CharacterClasses:
     # Printable ASCII subset used for permissive string/comment scanning and
     # escape-sequence handling.
     ascii = list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~\t')
+
+    # Valid characters after a backslash in PORTIA string and char literals:
+    # \', \", \t, \n, and \\.
+    escape_seq = ["'", '"', 't', 'n', '\\']
 
     # Logical operator leading characters used when deciding operator states.
     logical_op = ['!', '&', '|']
