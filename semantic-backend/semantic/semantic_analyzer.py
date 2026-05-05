@@ -944,6 +944,13 @@ class SemanticAnalyzer:
                 line, col,
             )
             return
+        if gsym.is_func or gsym.is_weave or not gsym.is_global:
+            self._err(
+                f"'using' may only bind global variables or constants; "
+                f"'{name}' is not a global variable or constant",
+                line, col,
+            )
+            return
         self._scope.bound.add(name)
 
     # -------------------------------------------------------------------------
@@ -2323,8 +2330,8 @@ class SemanticAnalyzer:
         ntype = expr.get("node")
         if ntype == "Literal":
             return _lit_type(expr.get("dtype", ""))
-        if ntype == "UnaryOp" and expr.get("op") == "-":
-            return self._infer_global(expr.get("operand"))
+        if ntype in {"Identifier", "BinaryOp", "UnaryOp", "ArrayLiteral"}:
+            return self._infer_type(expr)
         if ntype == "Cast":
             target_type = _norm(expr.get("dtype", ""))
             inner_expr = expr.get("expr")

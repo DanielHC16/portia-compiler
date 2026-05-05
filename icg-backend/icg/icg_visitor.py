@@ -171,6 +171,10 @@ class ICGVisitor:
         
         # Add function entry label
         self._table.add("func_begin", func_name, None)
+
+        # Preserve explicit global bindings for runtime call-frame handling.
+        for bound_name in node.get("using", []) or []:
+            self._table.add("using", bound_name, None)
         
         # Process parameters - they should pop from param stack into local variables
         # Parameter metadata is added locally so later trap/array lookups inside

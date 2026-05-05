@@ -460,7 +460,7 @@ class RuntimeExecutor:
         # Call stack for function calls
         # Each call frame preserves caller IP, memory/results, the call result
         # slot, and array alias state for pass-by-reference array parameters.
-        self._call_stack: List[Tuple[int, Dict[str, Any], Dict[int, Any], int, Dict[str, str], Set[str]]] = []
+        self._call_stack: List[Tuple[int, Dict[str, Any], Dict[int, Any], int, Dict[str, str], Set[str], Set[str]]] = []
         self._param_stack: List[Any] = []  # Parameters being pushed for a call
         
         # Array parameter aliases for pass-by-reference
@@ -468,6 +468,7 @@ class RuntimeExecutor:
         # Aliases let callee array operations update the caller's array elements.
         self._array_aliases: Dict[str, str] = {}
         self._preserved_arrays: Set[str] = set()
+        self._active_bound_globals: Set[str] = set()
     
     def execute(self) -> ExecutionResult:
         """
@@ -497,6 +498,7 @@ class RuntimeExecutor:
         self._param_stack.clear()
         self._array_aliases.clear()
         self._preserved_arrays.clear()
+        self._active_bound_globals.clear()
         
         # Build label index map (first pass)
         # Labels/functions are resolved before stepping so jumps and calls are O(1).
@@ -642,6 +644,11 @@ class RuntimeExecutor:
                 self._restore_call_state()
             else:
                 self._halted = True
+
+        elif op == "using":
+            # Runtime marker for globals explicitly bound in this function.
+            if isinstance(arg1, str) and arg1:
+                self._active_bound_globals.add(arg1)
         
         elif op == "label":
             # Label marker - no action needed
@@ -963,7 +970,9 @@ class RuntimeExecutor:
                     idx,
                     saved_aliases,
                     saved_preserved_arrays,
+                    set(self._active_bound_globals),
                 ))
+                self._active_bound_globals = set()
                 # Jump to function entry point
                 self._ip = self._func_labels[func_name]
                 self._ip_modified = True
@@ -1411,21 +1420,56 @@ class RuntimeExecutor:
 
         return preserved_elements
 
+    def _collect_bound_global_values(self) -> Dict[str, Any]:
+        """Capture explicitly bound globals modified inside the active call."""
+        # A function call restores caller memory on return. Values named by
+        # `using` are intentional global writes, so those keys are copied out
+        # before the restore and merged back into the caller frame.
+        preserved_globals: Dict[str, Any] = {}
+
+        for name in self._active_bound_globals:
+            if name in self._memory:
+                preserved_globals[name] = self._memory[name]
+
+            field_prefix = f"{name}."
+            element_pattern = re.compile(
+                rf'^{re.escape(name)}\[\d+\](\[\d+\])?$'
+            )
+            for key, value in self._memory.items():
+                if key.startswith(field_prefix) or element_pattern.match(key):
+                    preserved_globals[key] = value
+
+        return preserved_globals
+
     def _restore_call_state(self, return_result: Optional[RuntimeValue] = None) -> None:
         """Restore caller state after a function returns or falls through."""
-        # Restore caller memory/results, merge preserved array-reference changes,
-        # and place the function result into the original call triple slot.
-        return_addr, saved_memory, saved_results, call_idx, saved_aliases, saved_preserved_arrays = self._call_stack.pop()
+        # Restore caller memory/results, merge intentional global writes and
+        # array-reference changes, then place the function result into the
+        # original call triple slot.
+        (
+            return_addr,
+            saved_memory,
+            saved_results,
+            call_idx,
+            saved_aliases,
+            saved_preserved_arrays,
+            saved_bound_globals,
+        ) = self._call_stack.pop()
+        preserved_globals = self._collect_bound_global_values()
         preserved_elements = self._collect_preserved_array_elements()
 
         self._memory = saved_memory
         self._results = saved_results
+
+        for key, value in preserved_globals.items():
+            self._memory[key] = value
 
         for key, value in preserved_elements.items():
             self._memory[key] = value
 
         self._array_aliases = saved_aliases
         self._preserved_arrays = saved_preserved_arrays
+        self._active_bound_globals = saved_bound_globals
 
         if return_result is not None:
             return_type = self._function_return_type_for_call(call_idx)
