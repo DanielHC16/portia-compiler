@@ -711,9 +711,31 @@ class LexicalAnalyzer:
                         col += 1
                         continue
 
+                # Identifier max length must be reported before the generic
+                # "finalize via ANY" path, otherwise the 26th identifier
+                # character is mistaken for an invalid delimiter.
+                state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
+                if state_num == 279 and (ch in self.alphanum or ch == '_'):
+                    # Identifier exceeds maximum length - consume all remaining identifier chars
+                    lexeme += ch
+                    i += 1
+                    col += 1
+                    while i < len(code) and (code[i] in self.alphanum or code[i] == '_'):
+                        lexeme += code[i]
+                        i += 1
+                        col += 1
+
+                    add_error(
+                        f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters",
+                        lexeme_start_i, i, lexeme_start_line, lexeme_start_col
+                    )
+
+                    currState = 's0'
+                    lexeme = ''
+                    continue
+
                 # Next, check if we're in an intermediate identifier state that can finalize via ANY
                 # Identifier states: s220, s222, s224, ... (even numbers from 220-268)
-                state_num = int(currState[1:]) if currState.startswith('s') and currState[1:].isdigit() else -1
                 if 231 <= state_num <= 279 and state_num % 2 == 1:
                     # We're in an identifier building state - try to finalize with ANY
                     anyState = self.lex_transition(currState, 'ANY')
@@ -853,23 +875,6 @@ class LexicalAnalyzer:
                         currState = 's0'
                         lexeme = ''
                         continue
-                    elif state_num == 279 and (ch in self.alphanum or ch == '_'):
-                        # Identifier exceeds maximum length - consume all remaining identifier chars
-                        lexeme += ch
-                        i += 1
-                        col += 1
-                        while i < len(code) and (code[i] in self.alphanum or code[i] == '_'):
-                            lexeme += code[i]
-                            i += 1
-                            col += 1
-                        
-                        add_error(f"Lexical Error: Identifier '{lexeme}' exceeds maximum length of 25 characters", 
-                                lexeme_start_i, i, lexeme_start_line, lexeme_start_col)
-                        
-                        currState = 's0'
-                        lexeme = ''
-                        continue
-                    
                     # Special case: keyword state followed by identifier character - continue as identifier
                     # This handles cases like 'boolx' (at s1, s2, s3, etc.) or 'breakpoint' (at s9)
                     if 1 <= state_num <= 151 and (ch in self.alphanum or ch == '_'):
