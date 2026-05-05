@@ -1655,6 +1655,41 @@ class SemanticAnalyzer:
     # Type inference
     # -------------------------------------------------------------------------
 
+    def _validate_cast(self, source_type: str, target_type: str, line: int, col: int) -> None:
+        # Keep local and global cast validation aligned. The parser recognizes
+        # cast syntax; this semantic check decides whether the type pair is
+        # allowed by PORTIA.
+        if not source_type or source_type == "unknown" or not target_type:
+            return
+
+        if target_type in NUMERIC_TYPES:
+            if source_type not in NUMERIC_TYPES and source_type != "char":
+                self._err(
+                    f"Cannot cast '{source_type}' to '{target_type}'; "
+                    f"only numeric types or char can be cast to numeric types",
+                    line, col,
+                )
+        elif target_type == "char":
+            if source_type != "char" and source_type not in NUMERIC_TYPES:
+                self._err(
+                    f"Cannot cast '{source_type}' to 'char'",
+                    line, col,
+                )
+        elif target_type == "bool":
+            # Only string -> bool is allowed beyond identity casts.
+            if source_type != "bool" and source_type != "string":
+                self._err(
+                    f"Cannot cast '{source_type}' to 'bool'",
+                    line, col,
+                )
+        elif target_type == "string":
+            # Only bool -> string is allowed beyond identity casts.
+            if source_type != "string" and source_type != "bool":
+                self._err(
+                    f"Cannot cast '{source_type}' to 'string'",
+                    line, col,
+                )
+
     def _infer_type(self, expr: Optional[Dict[str, Any]], allow_whole_array: bool = False) -> Optional[str]:
         # Expression inference returns the semantic type name and emits errors for
         # invalid operations discovered while walking the expression tree.
@@ -1684,46 +1719,7 @@ class SemanticAnalyzer:
             
             if inner_expr:
                 source_type = self._infer_type(inner_expr)
-                # Validate cast based on supported type conversions:
-                # - numeric <-> numeric (int, long, float, double)
-                # - char -> numeric (ASCII code point)
-                # - numeric -> char (ASCII code point)
-                # - bool -> string
-                # - string -> bool
-                # - string -> char
-                # - char -> string
-                if source_type and source_type != "unknown" and target_type:
-                    if target_type in NUMERIC_TYPES:
-                        if source_type not in NUMERIC_TYPES and source_type != "char":
-                            self._err(
-                                f"Cannot cast '{source_type}' to '{target_type}'; "
-                                f"only numeric types or char can be cast to numeric types",
-                                line, col,
-                            )
-                    elif target_type == "char":
-                        if (
-                            source_type != "char"
-                            and source_type != "string"
-                            and source_type not in NUMERIC_TYPES
-                        ):
-                            self._err(
-                                f"Cannot cast '{source_type}' to 'char'",
-                                line, col,
-                            )
-                    elif target_type == "bool":
-                        # Only string -> bool is allowed
-                        if source_type != "bool" and source_type != "string":
-                            self._err(
-                                f"Cannot cast '{source_type}' to 'bool'",
-                                line, col,
-                            )
-                    elif target_type == "string":
-                        # bool -> string and char -> string are allowed
-                        if source_type != "string" and source_type not in {"bool", "char"}:
-                            self._err(
-                                f"Cannot cast '{source_type}' to 'string'",
-                                line, col,
-                            )
+                self._validate_cast(source_type, target_type, line, col)
             return target_type
 
         if ntype == "FunctionCall":
@@ -2307,7 +2303,17 @@ class SemanticAnalyzer:
         if ntype == "UnaryOp" and expr.get("op") == "-":
             return self._infer_global(expr.get("operand"))
         if ntype == "Cast":
-            return _norm(expr.get("dtype", ""))
+            target_type = _norm(expr.get("dtype", ""))
+            inner_expr = expr.get("expr")
+            if inner_expr:
+                source_type = self._infer_global(inner_expr)
+                self._validate_cast(
+                    source_type,
+                    target_type,
+                    expr.get("line", 0),
+                    expr.get("col", 0),
+                )
+            return target_type
         if ntype == "FunctionCall" and self._is_builtin_call(expr):
             return self._infer_builtin_call(expr, global_only=True)
         return "unknown"
