@@ -1724,10 +1724,14 @@ class RuntimeExecutor:
                     return RuntimeValue(float(ascii_code_for_char(val)), "double")
                 return RuntimeValue(float(val), "double")
             elif target_type_lower == "string":
+                if source_type == "char":
+                    raise ValueError("Cannot cast char to string")
                 return RuntimeValue(str(val), "string")
             elif target_type_lower == "char":
                 if is_numeric_type(source_type):
                     return RuntimeValue(char_from_ascii_code(val), "char")
+                if source_type == "string":
+                    raise ValueError("Cannot cast string to char")
                 s = str(val)
                 return RuntimeValue(s[0] if s else '', "char")
             elif target_type_lower == "bool":

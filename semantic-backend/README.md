@@ -439,8 +439,7 @@ Supported cast groups:
 
 - numeric to numeric
 - char to numeric
-- string to char
-- char to string
+- numeric to char
 - string to bool
 - bool to string
 
