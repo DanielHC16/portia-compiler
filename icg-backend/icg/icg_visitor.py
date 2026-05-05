@@ -189,6 +189,8 @@ class ICGVisitor:
                 "kind": "array" if param_dims else "variable",
                 "dims": param_dims,
             }
+            if param_dims:
+                self._table.add("array_decl", param_name, [param_dtype, list(param_dims)])
             # Carry the declared dtype so runtime parameter storage can apply the
             # same implicit numeric widening that semantic analysis allowed.
             self._table.add("receive_param", param_name, param_dtype)
@@ -275,6 +277,8 @@ class ICGVisitor:
             "kind": "array" if dims else "variable",
             "dims": dims,
         }
+        if dims:
+            self._table.add("array_decl", name, [dtype.lower(), list(dims)], line, col)
         
         if init is not None:
             # Has initializer - generate assignment

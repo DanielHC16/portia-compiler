@@ -98,7 +98,7 @@ class VarDecl(ASTNode):
         dtype: str,
         mutable: bool = True,
         is_global: bool = False,
-        dims: List[int] | None = None,
+        dims: List[int | str] | None = None,
         init: ASTNode | List[ASTNode] | None = None,
         line: int = 0,
         col: int = 0,
@@ -107,7 +107,7 @@ class VarDecl(ASTNode):
         self.dtype = dtype
         self.mutable = mutable
         self.is_global = is_global
-        self.dims: List[int] = dims or []
+        self.dims: List[int | str] = dims or []
         self.init = init
         self.line = line
         self.col = col
@@ -178,7 +178,7 @@ class FunctionDecl(ASTNode):
         self,
         name: str,
         ret_type: str = "void",
-        ret_dims: List[int] | None = None,
+        ret_dims: List[int | str] | None = None,
         params: List[VarDecl] | None = None,
         using: List[str] | None = None,
         locals: List[VarDecl] | None = None,
@@ -187,7 +187,7 @@ class FunctionDecl(ASTNode):
     ):
         self.name = name
         self.ret_type = ret_type
-        self.ret_dims: List[int] = ret_dims or []
+        self.ret_dims: List[int | str] = ret_dims or []
         self.params: List[VarDecl] = params or []
         self.using: List[str] = using or []
         self.locals: List[VarDecl] = locals or []

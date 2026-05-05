@@ -122,7 +122,7 @@ class SymInfo:
         "name", "dtype", "is_const", "is_array", "dims",
         "is_global", "line", "col",
         "is_func", "params", "ret_type", "ret_dims",
-        "is_weave", "fields",
+        "is_weave", "fields", "const_value",
     )
 
     def __init__(
@@ -142,6 +142,7 @@ class SymInfo:
         ret_dims: Optional[List[int]] = None,
         is_weave: bool = False,
         fields: Optional[Dict[str, "SymInfo"]] = None,
+        const_value: Optional[Any] = None,
     ):
         # Store every name with normalized type metadata so later checks can
         # compare declarations, parameters, fields, and returns uniformly.
@@ -159,6 +160,7 @@ class SymInfo:
         self.ret_dims  = ret_dims or []
         self.is_weave  = is_weave
         self.fields    = fields or {}
+        self.const_value = const_value
 
     def __repr__(self) -> str:
         # Compact debug representation used while inspecting symbol-table state.
@@ -527,13 +529,100 @@ class SemanticAnalyzer:
         elif ntype == "WeaveDecl":
             self._register_weave(node)
 
+    def _literal_int_value(self, value: Any) -> Optional[int]:
+        try:
+            if isinstance(value, str):
+                value = value.rstrip("lL")
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _const_int_value_from_init(self, init: Any) -> Optional[int]:
+        if not isinstance(init, dict):
+            return None
+        ntype = init.get("node")
+        if ntype == "Literal":
+            dtype = _lit_type(init.get("dtype", ""))
+            if dtype in INTEGER_TYPES:
+                return self._literal_int_value(init.get("value"))
+            return None
+        if ntype == "UnaryOp" and init.get("op") == "-":
+            value = self._const_int_value_from_init(init.get("operand"))
+            return -value if value is not None else None
+        return None
+
+    def _lookup_size_const(self, name: str) -> Optional[SymInfo]:
+        if self._scope is not None:
+            local = self._scope.lookup(name)
+            if local is not None:
+                return local
+        return self._global.lookup(name)
+
+    def _resolve_array_dims(
+        self, raw_dims: List[Any], line: int, col: int
+    ) -> Tuple[List[int], bool]:
+        dims: List[int] = []
+        valid = True
+        for dim in raw_dims:
+            resolved: Optional[int] = None
+            if isinstance(dim, bool):
+                resolved = None
+            elif isinstance(dim, int):
+                resolved = dim
+            elif isinstance(dim, str):
+                text = dim.strip()
+                if text.isdigit():
+                    resolved = int(text)
+                else:
+                    sym = self._lookup_size_const(text)
+                    if sym is None:
+                        self._err(
+                            f"Array size constant '{text}' is not defined",
+                            line, col,
+                        )
+                    elif not sym.is_const or sym.is_array:
+                        self._err(
+                            f"Array size '{text}' must be an integer literal "
+                            f"or compile-time integer constant",
+                            line, col,
+                        )
+                    elif sym.dtype not in INTEGER_TYPES:
+                        self._err(
+                            f"Array size constant '{text}' must have integer type, "
+                            f"got '{sym.dtype}'",
+                            line, col,
+                        )
+                    elif sym.const_value is None:
+                        self._err(
+                            f"Array size constant '{text}' must be initialized "
+                            f"with an integer literal",
+                            line, col,
+                        )
+                    else:
+                        resolved = int(sym.const_value)
+            if resolved is None:
+                valid = False
+                dims.append(0)
+                continue
+            if resolved <= 0:
+                self._err(
+                    f"Array size must be a positive integer, got {resolved}",
+                    line, col,
+                )
+                valid = False
+            dims.append(resolved)
+        return dims, valid
+
     def _register_global_var(self, node: Dict[str, Any]) -> None:
         # Register a global var/const before function bodies are analyzed, then
         # validate any initializer that can be checked without local scope.
         name    = node.get("name", "")
         dtype   = _norm(node.get("dtype", ""))
         mutable = node.get("mutable", True)
-        dims    = node.get("dims", []) or []
+        raw_dims = node.get("dims", []) or []
+        dims, dims_valid = self._resolve_array_dims(
+            list(raw_dims), node.get("line", 0), node.get("col", 0)
+        )
         init    = node.get("init")
         line    = node.get("line", 0)
         col     = node.get("col", 0)
@@ -554,8 +643,12 @@ class SemanticAnalyzer:
             # A global constant is represented as a non-mutable symbol; arrays
             # store their declared dimensions for later index and return checks.
             name=name, dtype=dtype, is_const=not mutable,
-            is_array=bool(dims), dims=list(dims), is_global=True,
+            is_array=bool(raw_dims), dims=list(dims), is_global=True,
             line=line, col=col,
+            const_value=(
+                self._const_int_value_from_init(init)
+                if not mutable and not raw_dims else None
+            ),
         )
         existing = self._global.define(sym)
         if existing:
@@ -572,7 +665,7 @@ class SemanticAnalyzer:
             # Constants must have a value immediately so runtime execution never
             # has to invent a default for immutable storage.
             self._err(f"Constant '{name}' must be initialized at declaration", line, col)
-        elif init is None and not dims:
+        elif init is None and not raw_dims:
             # Weave-typed variables (var or const) must always be initialized
             wsym = self._global.lookup(dtype)
             if wsym and wsym.is_weave:
@@ -585,11 +678,12 @@ class SemanticAnalyzer:
         if init is not None:
             # Array initializers and scalar initializers have different shape
             # rules, so validate them through separate paths.
-            if dims:
-                self._validate_array_init_impl(
-                    init, dtype, list(dims), line, col,
-                    is_global=True, is_const=not mutable,
-                )
+            if raw_dims:
+                if dims_valid:
+                    self._validate_array_init_impl(
+                        init, dtype, list(dims), line, col,
+                        is_global=True, is_const=not mutable,
+                    )
             elif isinstance(init, list):
                 # Struct literal for a weave-type variable; detailed field
                 # validation is deferred to Pass 2 (_validate_weave_init).
@@ -688,7 +782,10 @@ class SemanticAnalyzer:
         # resolve calls to functions declared later in the file.
         name       = node.get("name", "")
         ret_type   = _norm(node.get("ret_type", "void"))
-        ret_dims   = node.get("ret_dims", []) or []
+        raw_ret_dims = node.get("ret_dims", []) or []
+        ret_dims, _ = self._resolve_array_dims(
+            list(raw_ret_dims), node.get("line", 0), node.get("col", 0)
+        )
         params_raw = node.get("params", []) or []
         line       = node.get("line", 0)
         col        = node.get("col", 0)
@@ -711,7 +808,10 @@ class SemanticAnalyzer:
         for p in params_raw:
             pname  = p.get("name", "")
             pdtype = _norm(p.get("dtype", ""))
-            pdims  = p.get("dims", []) or []
+            raw_pdims = p.get("dims", []) or []
+            pdims, _ = self._resolve_array_dims(
+                list(raw_pdims), p.get("line", 0), p.get("col", 0)
+            )
             pline  = p.get("line", 0)
             pcol   = p.get("col", 0)
             if pname in seen_params:
@@ -723,7 +823,7 @@ class SemanticAnalyzer:
             seen_params.add(pname)
             params.append(SymInfo(
                 name=pname, dtype=pdtype,
-                is_array=bool(pdims), dims=list(pdims),
+                is_array=bool(raw_pdims), dims=list(pdims),
                 line=pline, col=pcol,
             ))
 
@@ -750,7 +850,7 @@ class SemanticAnalyzer:
         # return/loop/switch context.
         name       = node.get("name", "")
         ret_type   = _norm(node.get("ret_type", "void"))
-        ret_dims   = node.get("ret_dims", []) or []
+        raw_ret_dims = node.get("ret_dims", []) or []
         params_raw = node.get("params", []) or []
         using_list = node.get("using", []) or []
         locals_raw = node.get("locals", []) or []
@@ -758,6 +858,13 @@ class SemanticAnalyzer:
         ret_value  = node.get("ret_value")
         line       = node.get("line", 0)
         col        = node.get("col", 0)
+
+        fsym = self._global.lookup(name)
+        ret_dims = (
+            list(fsym.ret_dims)
+            if fsym is not None and fsym.is_func
+            else list(raw_ret_dims)
+        )
 
         self._scope     = FuncScope(name)
         # Store return expectations so return statements can be checked anywhere
@@ -802,10 +909,16 @@ class SemanticAnalyzer:
         # 2. Register parameters at function level
         # Parameters are visible throughout the function and conflict with bound
         # globals because both would resolve from the same name in this scope.
-        for p in params_raw:
+        signature_params = fsym.params if fsym is not None and fsym.is_func else []
+        for param_index, p in enumerate(params_raw):
             pname  = p.get("name", "")
             pdtype = _norm(p.get("dtype", ""))
-            pdims  = p.get("dims", []) or []
+            raw_pdims = p.get("dims", []) or []
+            pdims = (
+                list(signature_params[param_index].dims)
+                if param_index < len(signature_params)
+                else list(raw_pdims)
+            )
             pline  = p.get("line", 0)
             pcol   = p.get("col", 0)
             if not pname:
@@ -820,7 +933,7 @@ class SemanticAnalyzer:
             dup = self._scope.define_function_level(
                 SymInfo(
                     name=pname, dtype=pdtype,
-                    is_array=bool(pdims), dims=list(pdims),
+                    is_array=bool(raw_pdims), dims=list(pdims),
                     line=pline, col=pcol,
                 )
             )
@@ -968,7 +1081,10 @@ class SemanticAnalyzer:
         name    = node.get("name", "")
         dtype   = _norm(node.get("dtype", ""))
         mutable = node.get("mutable", True)
-        dims    = node.get("dims", []) or []
+        raw_dims = node.get("dims", []) or []
+        dims, dims_valid = self._resolve_array_dims(
+            list(raw_dims), node.get("line", 0), node.get("col", 0)
+        )
         init    = node.get("init")
         line    = node.get("line", 0)
         col     = node.get("col", 0)
@@ -1018,7 +1134,7 @@ class SemanticAnalyzer:
             self._err(
                 f"Constant '{name}' must be initialized at declaration", line, col
             )
-        elif init is None and not dims:
+        elif init is None and not raw_dims:
             # Weave-typed variables (var or const) must always be initialized
             wsym = self._global.lookup(resolved)
             if wsym and wsym.is_weave:
@@ -1031,11 +1147,12 @@ class SemanticAnalyzer:
         if init is not None:
             # Initializers are checked before the symbol is defined so self-use in
             # an initializer does not accidentally resolve to the new variable.
-            if dims:
-                self._validate_array_init_impl(
-                    init, resolved, list(dims), line, col,
-                    is_global=False, is_const=not mutable,
-                )
+            if raw_dims:
+                if dims_valid:
+                    self._validate_array_init_impl(
+                        init, resolved, list(dims), line, col,
+                        is_global=False, is_const=not mutable,
+                    )
             elif isinstance(init, list):
                 # Struct literal for a weave-type variable
                 self._validate_weave_init(resolved, init, line, col)
@@ -1053,8 +1170,12 @@ class SemanticAnalyzer:
             # The resulting local symbol records mutability and dimensions for
             # later assignment/index/whole-array checks.
             name=name, dtype=resolved, is_const=not mutable,
-            is_array=bool(dims), dims=list(dims),
+            is_array=bool(raw_dims), dims=list(dims),
             line=line, col=col,
+            const_value=(
+                self._const_int_value_from_init(init)
+                if not mutable and not raw_dims else None
+            ),
         )
         if function_level:
             self._scope.define_function_level(sym)

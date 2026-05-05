@@ -5,7 +5,7 @@ PORTIA Language Grammar Definition
 This module exports token-class constants plus the revised CFG, FIRST,
 FOLLOW, and PREDICT tables consumed by the recursive-descent parser.
 
-249 productions / 117 non-terminals
+250 productions / 117 non-terminals
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ MULT_OPS = frozenset({"*", "/", "%"})
 BUILTIN_FUNCTIONS = frozenset({"abs", "len", "pow", "sqrt"})
 BUILTIN_FIXED_ARITY = {"abs": 1, "len": 1, "pow": 2, "sqrt": 1}
 
-GRAMMAR_RULE_COUNT = 249
+GRAMMAR_RULE_COUNT = 250
 NON_TERMINAL_COUNT = 117
 
 
@@ -305,6 +305,7 @@ CFG = {
     247: _prod("main_body", "using_block", "local_block", "statement_list", "return", "intlit", ";"),
     248: _prod("multi_dec_const", ",", "id", "=", "literals_num", "multi_dec_const"),
     249: _prod("multi_dec_const"),
+    250: _prod("size", "id"),
 }
 
 
@@ -323,7 +324,7 @@ FIRST = _freeze_named_table({
     "value": {"!", "(", "-", "abs", "charlit", "doublelit", "false", "floatlit", "id", "intlit", "len", "longlit", "pow", "sqrt", "stringlit", "true"},
     "multi_dec": {","},
     "multi_dec_const": {","},
-    "size": {"intlit"},
+    "size": {"id", "intlit"},
     "literals_num": {"-", "charlit", "doublelit", "false", "floatlit", "intlit", "longlit", "stringlit", "true"},
     "num_lit": {"doublelit", "floatlit", "intlit", "longlit"},
     "var_1D_or_2D": {"=", "["},
@@ -809,6 +810,7 @@ PREDICT = _freeze_predict_table({
     247: {"abs", "do", "for", "id", "if", "len", "local", "pow", "return", "sqrt", "switch", "thread", "threadln", "trap", "using", "while"},
     248: {","},
     249: {";"},
+    250: {"id"},
 })
 
 

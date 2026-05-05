@@ -421,12 +421,17 @@ class PortiaParser:
         return decls
 
     # =====================================================================
-    # [25]  size -> intlit
+    # [25,250]  size -> intlit | id
     # =====================================================================
 
-    def parse_size(self) -> int:
-        tok = self.match("INTLIT")
-        return int(tok.get("value") or tok.get("lexeme"))
+    def parse_size(self) -> int | str:
+        if self.check_type("INTLIT"):
+            tok = self.advance()
+            return int(tok.get("value") or tok.get("lexeme"))
+        if self.check_type("ID"):
+            tok = self.advance()
+            return tok.get("value") or tok.get("lexeme")
+        raise self.error(FIRST["size"])
 
     # =====================================================================
     # [26-27]  literals_num
@@ -716,8 +721,8 @@ class PortiaParser:
     # [62-63]  ret_struct
     # =====================================================================
 
-    def parse_ret_struct(self) -> List[int]:
-        dims: List[int] = []
+    def parse_ret_struct(self) -> List[int | str]:
+        dims: List[int | str] = []
         if self.check("["):
             # [62] [ size ] ret_2D
             self.advance()
@@ -777,8 +782,8 @@ class PortiaParser:
     # [70-71]  param_struct
     # =====================================================================
 
-    def parse_param_struct(self) -> List[int]:
-        dims: List[int] = []
+    def parse_param_struct(self) -> List[int | str]:
+        dims: List[int | str] = []
         if self.check("["):
             # [70] [ size ] param_2D
             self.advance()

@@ -460,7 +460,7 @@ class RuntimeExecutor:
         # Call stack for function calls
         # Each call frame preserves caller IP, memory/results, the call result
         # slot, and array alias state for pass-by-reference array parameters.
-        self._call_stack: List[Tuple[int, Dict[str, Any], Dict[int, Any], int, Dict[str, str], Set[str], Set[str]]] = []
+        self._call_stack: List[Tuple[int, Dict[str, Any], Dict[int, Any], int, Dict[str, str], Set[str], Set[str], Dict[str, Dict[str, Any]]]] = []
         self._param_stack: List[Any] = []  # Parameters being pushed for a call
         
         # Array parameter aliases for pass-by-reference
@@ -469,6 +469,7 @@ class RuntimeExecutor:
         self._array_aliases: Dict[str, str] = {}
         self._preserved_arrays: Set[str] = set()
         self._active_bound_globals: Set[str] = set()
+        self._array_metadata: Dict[str, Dict[str, Any]] = {}
     
     def execute(self) -> ExecutionResult:
         """
@@ -499,6 +500,7 @@ class RuntimeExecutor:
         self._array_aliases.clear()
         self._preserved_arrays.clear()
         self._active_bound_globals.clear()
+        self._array_metadata.clear()
         
         # Build label index map (first pass)
         # Labels/functions are resolved before stepping so jumps and calls are O(1).
@@ -649,6 +651,19 @@ class RuntimeExecutor:
             # Runtime marker for globals explicitly bound in this function.
             if isinstance(arg1, str) and arg1:
                 self._active_bound_globals.add(arg1)
+
+        elif op == "array_decl":
+            # Runtime-scoped array metadata keeps bounds/default checks tied to
+            # the active declaration, even when different functions reuse names.
+            dtype = ""
+            dims: List[Any] = []
+            if isinstance(arg2, dict):
+                dtype = (arg2.get("dtype") or "").lower()
+                dims = list(arg2.get("dims") or [])
+            elif isinstance(arg2, (list, tuple)) and len(arg2) >= 2:
+                dtype = (arg2[0] or "").lower() if isinstance(arg2[0], str) else ""
+                dims = list(arg2[1] or [])
+            self._array_metadata[arg1] = {"dtype": dtype, "dims": dims}
         
         elif op == "label":
             # Label marker - no action needed
@@ -856,12 +871,12 @@ class RuntimeExecutor:
             if self._is_scalar_string_variable(array_name):
                 self._results[idx] = self._read_string_index(array_name, index_int, line, col)
             else:
+                self._check_array_bounds(array_name, [index_int], line, col)
                 key = f"{array_name}[{index_int}]"
                 if key in self._memory:
                     self._results[idx] = self._memory[key]
                 else:
-                    # Return default value with inferred type
-                    self._results[idx] = RuntimeValue(0, "int")
+                    self._results[idx] = self._array_element_default(array_name)
         
         elif op == "array_store":
             # Array element store - handles two formats:
@@ -878,7 +893,9 @@ class RuntimeExecutor:
                 # Always evaluate the index - it could be a ref, variable name, or literal
                 index_val = unwrap_value(self._eval(index, line, col))
                 value_result = self._eval(value, line, col)
-                key = f"{array_name}[{int(index_val)}]"
+                index_int = int(index_val)
+                self._check_array_bounds(array_name, [index_int], line, col)
+                key = f"{array_name}[{index_int}]"
                 value_result = self._coerce_value_to_type(
                     value_result,
                     self._declared_type_for_target(key),
@@ -887,6 +904,10 @@ class RuntimeExecutor:
             else:
                 # Format 1: arg1 already contains the full key like "arr[0]"
                 key = arg1
+                parsed_key = self._parse_array_key(key)
+                if parsed_key is not None:
+                    base_name, index_vals = parsed_key
+                    self._check_array_bounds(base_name, index_vals, line, col)
                 value_result = self._eval(arg2, line, col)
                 value_result = self._coerce_value_to_type(
                     value_result,
@@ -902,6 +923,7 @@ class RuntimeExecutor:
             # arg2 is a list of two indices [i, j]
             indices = arg2 if isinstance(arg2, list) else [arg2]
             idx_vals = [int(unwrap_value(self._eval(i, line, col))) for i in indices]
+            self._check_array_bounds(array_name, idx_vals, line, col)
             if len(idx_vals) >= 2:
                 key = f"{array_name}[{idx_vals[0]}][{idx_vals[1]}]"
             else:
@@ -909,8 +931,7 @@ class RuntimeExecutor:
             if key in self._memory:
                 self._results[idx] = self._memory[key]
             else:
-                # Return default value with inferred type
-                self._results[idx] = RuntimeValue(0, "int")
+                self._results[idx] = self._array_element_default(array_name)
         
         elif op == "array_store_2d":
             # 2D array element store: array_store_2d arr ([i, j], value)
@@ -927,6 +948,7 @@ class RuntimeExecutor:
                     # Single index wrapped
                     idx_vals = [int(unwrap_value(self._eval(indices, line, col)))]
                 value_result = self._eval(value, line, col)
+                self._check_array_bounds(array_name, idx_vals, line, col)
                 if len(idx_vals) >= 2:
                     key = f"{array_name}[{idx_vals[0]}][{idx_vals[1]}]"
                 else:
@@ -962,6 +984,9 @@ class RuntimeExecutor:
                 # Save current array aliases to preserve on return
                 saved_aliases = dict(self._array_aliases)
                 saved_preserved_arrays = set(self._preserved_arrays)
+                saved_array_metadata = {
+                    name: dict(meta) for name, meta in self._array_metadata.items()
+                }
                 # Save: return address, memory snapshot, results snapshot, call triple index, aliases
                 self._call_stack.append((
                     self._ip + 1,
@@ -971,6 +996,7 @@ class RuntimeExecutor:
                     saved_aliases,
                     saved_preserved_arrays,
                     set(self._active_bound_globals),
+                    saved_array_metadata,
                 ))
                 self._active_bound_globals = set()
                 # Jump to function entry point
@@ -1057,19 +1083,20 @@ class RuntimeExecutor:
             # Check for array access pattern: arr[index]
             # Formatted direct accesses are read from memory without needing a
             # separate array_access triple.
-            array_match = re.match(r'^(\w+)\[(\d+)\]$', arg)
+            array_match = re.match(r'^(\w+)\[(-?\d+)\]$', arg)
             if array_match:
                 array_name = array_match.group(1)
                 index = int(array_match.group(2))
                 if self._is_scalar_string_variable(array_name):
                     return self._read_string_index(array_name, index, line, col)
+                self._check_array_bounds(array_name, [index], line, col)
                 key = f"{array_name}[{index}]"
                 if key in self._memory:
                     val = self._memory[key]
                     if isinstance(val, RuntimeValue):
                         return val
                     return RuntimeValue(val, get_type_name(val))
-                return RuntimeValue(0, "int")
+                return self._array_element_default(array_name)
             
             # Check if it's a variable in memory
             if arg in self._memory:
@@ -1145,6 +1172,7 @@ class RuntimeExecutor:
         
         Returns RuntimeValue with array type if array exists, None otherwise.
         """
+        array_name = self._resolve_array_name(array_name)
         # Arrays are stored element-by-element in memory, so whole-array reads
         # reconstruct an ordered list from keys that match the array name.
         # Match both 1D and 2D arrays: array_name[idx1] OR array_name[idx1][idx2]
@@ -1152,7 +1180,8 @@ class RuntimeExecutor:
         
         elements_1d = {}
         elements_2d = {}
-        elem_type = "int"  # Default element type
+        declared_elem_type = self._declared_type_for_target(f"{array_name}[0]")
+        elem_type = declared_elem_type or "int"
         is_2d = False
         
         for key, value in self._memory.items():
@@ -1171,40 +1200,38 @@ class RuntimeExecutor:
                 else:
                     elements_1d[idx1] = val
                 
-                # Update element type
-                if isinstance(value, RuntimeValue):
+                if not declared_elem_type and isinstance(value, RuntimeValue):
                     elem_type = value.dtype
-                else:
+                elif not declared_elem_type:
                     elem_type = get_type_name(val)
-        
-        if not elements_1d and not elements_2d:
+
+        dims = self._array_dims_for_name(array_name)
+        if not elements_1d and not elements_2d and not dims:
             return None
-            
-        # Helper to get default values for missing indices
-        def get_default(t: str) -> Any:
-            if t == "string": return ""
-            if t == "bool": return False
-            if t in ("float", "double"): return 0.0
-            return 0
+        if len(dims) == 2:
+            is_2d = True
+
+        default_value = self._default_raw_value_for_type(elem_type)
 
         if is_2d:
             # Build ordered 2D array (list of lists)
-            max_i = max(elements_2d.keys()) if elements_2d else -1
+            max_i = dims[0] - 1 if len(dims) >= 1 else (max(elements_2d.keys()) if elements_2d else -1)
+            max_j_declared = dims[1] - 1 if len(dims) >= 2 else None
             array_values = []
             for i in range(max_i + 1):
                 row_dict = elements_2d.get(i, {})
-                max_j = max(row_dict.keys()) if row_dict else -1
+                max_j = max_j_declared if max_j_declared is not None else (max(row_dict.keys()) if row_dict else -1)
                 row_values = []
                 for j in range(max_j + 1):
-                    row_values.append(row_dict.get(j, get_default(elem_type)))
+                    row_values.append(row_dict.get(j, default_value))
                 array_values.append(row_values)
             return RuntimeValue(array_values, "array", elem_type)
         else:
             # Build ordered 1D array
-            max_idx = max(elements_1d.keys()) if elements_1d else -1
+            max_idx = dims[0] - 1 if len(dims) >= 1 else (max(elements_1d.keys()) if elements_1d else -1)
             array_values = []
             for i in range(max_idx + 1):
-                array_values.append(elements_1d.get(i, get_default(elem_type)))
+                array_values.append(elements_1d.get(i, default_value))
             return RuntimeValue(array_values, "array", elem_type)
     
     def _is_array_variable(self, var_name: str) -> bool:
@@ -1218,6 +1245,8 @@ class RuntimeExecutor:
         # Prefer semantic symbol-table shape, then fall back to runtime memory
         # keys in case TAC was loaded without symbol metadata.
         sym = self._symbol_table.get(var_name, {})
+        if var_name in self._array_metadata:
+            return True
         if sym.get("kind") == "array" or sym.get("dims"):
             return True
 
@@ -1245,13 +1274,98 @@ class RuntimeExecutor:
             array_name = next_name
         return array_name
 
+    def _parse_array_key(self, key: Any) -> Optional[Tuple[str, List[int]]]:
+        if not isinstance(key, str):
+            return None
+        match = re.match(r'^(\w+)((?:\[-?\d+\])+)$', key)
+        if not match:
+            return None
+        return match.group(1), [int(idx) for idx in re.findall(r'\[(-?\d+)\]', match.group(2))]
+
+    def _default_raw_value_for_type(self, dtype: str) -> Any:
+        dtype = (dtype or "int").lower()
+        if dtype in ("float", "double"):
+            return 0.0
+        if dtype == "bool":
+            return False
+        if dtype == "char":
+            return " "
+        if dtype == "string":
+            return ""
+        return 0
+
+    def _default_value_for_type(self, dtype: str) -> RuntimeValue:
+        dtype = (dtype or "int").lower()
+        return RuntimeValue(self._default_raw_value_for_type(dtype), dtype)
+
+    def _array_element_default(self, array_name: str) -> RuntimeValue:
+        dtype = self._declared_type_for_target(f"{array_name}[0]") or "int"
+        return self._default_value_for_type(dtype)
+
+    def _resolve_runtime_size(self, dim: Any, line: int = 0, col: int = 0) -> Optional[int]:
+        try:
+            if isinstance(dim, bool):
+                return None
+            if isinstance(dim, int):
+                value = dim
+            elif isinstance(dim, str):
+                text = dim.strip()
+                if text.isdigit() or (text.startswith("-") and text[1:].isdigit()):
+                    value = int(text)
+                else:
+                    value = int(unwrap_value(self._eval(text, line, col)))
+            else:
+                value = int(dim)
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0 else None
+
+    def _array_dims_for_name(self, array_name: str, line: int = 0, col: int = 0) -> List[int]:
+        array_name = self._resolve_array_name(array_name)
+        sym = self._symbol_table.get(array_name, {})
+        meta = self._array_metadata.get(array_name, {})
+        raw_dims = meta.get("dims") or sym.get("dims") or []
+        dims: List[int] = []
+        for raw_dim in raw_dims:
+            dim = self._resolve_runtime_size(raw_dim, line, col)
+            if dim is None:
+                return []
+            dims.append(dim)
+        return dims
+
+    def _check_array_bounds(
+        self, array_name: str, indices: List[int], line: int, col: int
+    ) -> None:
+        dims = self._array_dims_for_name(array_name, line, col)
+        if not dims:
+            return
+        for dim_pos, index in enumerate(indices):
+            if index < 0:
+                raise ICGRuntimeError(
+                    message=f"Array index cannot be negative (got {index})",
+                    line=line,
+                    col=col,
+                    error_type="runtime_error",
+                )
+            if dim_pos < len(dims) and index >= dims[dim_pos]:
+                raise ICGRuntimeError(
+                    message=(
+                        f"Index {index} out of bounds for '{array_name}' "
+                        f"(declared size {dims[dim_pos]})"
+                    ),
+                    line=line,
+                    col=col,
+                    error_type="runtime_error",
+                )
+
     def _is_scalar_string_variable(self, var_name: str) -> bool:
         """Check whether a variable refers to a non-array string value."""
         # String variables support index syntax but should not be mistaken for
         # actual array storage.
         sym = self._symbol_table.get(var_name, {})
         if (
-            sym.get("dtype") == "string"
+            var_name not in self._array_metadata
+            and sym.get("dtype") == "string"
             and sym.get("kind") != "array"
             and not sym.get("dims")
         ):
@@ -1273,9 +1387,16 @@ class RuntimeExecutor:
             field_info = (weave_info.get("fields") or {}).get(field_name, {})
             return (field_info.get("dtype") or "").lower()
 
+        meta = self._array_metadata.get(base, {})
         sym = self._symbol_table.get(base, {})
-        dtype = (sym.get("dtype") or "").lower()
-        if "[" in target_name and dtype == "string":
+        dtype = (meta.get("dtype") or sym.get("dtype") or "").lower()
+        if (
+            "[" in target_name
+            and dtype == "string"
+            and base not in self._array_metadata
+            and sym.get("kind") != "array"
+            and not sym.get("dims")
+        ):
             return "char"
         return dtype
 
@@ -1454,6 +1575,7 @@ class RuntimeExecutor:
             saved_aliases,
             saved_preserved_arrays,
             saved_bound_globals,
+            saved_array_metadata,
         ) = self._call_stack.pop()
         preserved_globals = self._collect_bound_global_values()
         preserved_elements = self._collect_preserved_array_elements()
@@ -1470,6 +1592,7 @@ class RuntimeExecutor:
         self._array_aliases = saved_aliases
         self._preserved_arrays = saved_preserved_arrays
         self._active_bound_globals = saved_bound_globals
+        self._array_metadata = saved_array_metadata
 
         if return_result is not None:
             return_type = self._function_return_type_for_call(call_idx)
@@ -1864,6 +1987,7 @@ class RuntimeExecutor:
                 index_int = index_vals[0]
                 string_target = (array_name, index_int)
             else:
+                self._check_array_bounds(array_name, index_vals, line, col)
                 actual_var_name = array_name + "".join(f"[{idx}]" for idx in index_vals)
         
         # Request input from handler
