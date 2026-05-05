@@ -734,6 +734,18 @@ class LexicalAnalyzer:
                     lexeme = ''
                     continue
 
+                # Keyword-prefix states such as "ch" or "st" can still be
+                # valid identifiers when followed by an identifier delimiter.
+                anyState = self.lex_transition(currState, 'ANY')
+                if anyState != 'UNDEFINED' and self.is_final_state(anyState):
+                    token_type = self.get_token_type(anyState, lexeme)
+                    if token_type == 'id' and check_delimiter(token_type, ch):
+                        add_token(lexeme, token_type, lexeme_start_line, lexeme_start_col, lexeme_start_i, i)
+                        currState = 's0'
+                        lexeme = ''
+                        # Reprocess this character as potential next token.
+                        continue
+
                 # Next, check if we're in an intermediate identifier state that can finalize via ANY
                 # Identifier states: s220, s222, s224, ... (even numbers from 220-268)
                 if 231 <= state_num <= 279 and state_num % 2 == 1:
