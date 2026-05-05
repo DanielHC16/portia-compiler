@@ -1,0 +1,41 @@
+func int printNumbers(int n, int limit) {
+    if (n > limit) {
+        return 0;
+    }
+
+
+    thread(n);
+    thread(" ");
+
+
+    printNumbers(n + 1, limit);
+
+
+    return 0;
+}
+
+
+int main() {
+    local var int num = 0;
+
+
+    while (true) {
+        thread("Input a number: ");
+        trap(num);
+
+
+        if (num > 0) {
+            break;
+        }
+
+
+        threadln("Only positive numbers are accepted. Try again.");
+    }
+
+
+    printNumbers(1, num);
+    threadln("");
+
+
+    return 0;
+}

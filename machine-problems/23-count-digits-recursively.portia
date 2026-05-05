@@ -1,0 +1,20 @@
+func int countDigitsStr(string s) {
+    return len(s);
+}
+
+
+int main() {
+    local var string input = "";
+    local var int result = 0;
+
+
+    thread("Input a number: ");
+    trap(input);
+
+
+    result = countDigitsStr(input);
+
+
+    threadln("The number of digits in the number is: " .. result);
+    return 0;
+}

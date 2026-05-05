@@ -1,0 +1,22 @@
+func int printNumbers(int n) {
+    if (n > 50) {
+        return 0;
+    }
+
+
+    thread(n);
+    thread(" ");
+
+
+    printNumbers(n + 1);
+
+
+    return 0;
+}
+
+
+int main() {
+    threadln("The natural numbers are:");
+    printNumbers(1);
+    return 0;
+}

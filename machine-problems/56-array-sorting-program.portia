@@ -1,0 +1,190 @@
+func int[10] bubbleSort(int arr[10], int n, int asc) {
+    local var int i = 0;
+    local var int j = 0;
+    local var int temp = 0;
+    local var int next = 0;
+    local var bool swapped = false;
+
+
+    i = 0;
+    while (i < n - 1) {
+        j = 0;
+        swapped = false;
+        while (j < n - i - 1) {
+            next = j + 1;
+            if (asc == 1) {
+                if (arr[j] > arr[next]) {
+                    temp = arr[j];
+                    arr[j] = arr[next];
+                    arr[next] = temp;
+                    swapped = true;
+                }
+            } else {
+                if (arr[j] < arr[next]) {
+                    temp = arr[j];
+                    arr[j] = arr[next];
+                    arr[next] = temp;
+                    swapped = true;
+                }
+            }
+            j = j + 1;
+        }
+        if (swapped == false) {
+            i = n;
+        }
+        i = i + 1;
+    }
+    return arr;
+}
+
+
+func int[10] balloonSort(int arr[10], int n, int asc) {
+    local var int i = 0;
+    local var int j = 0;
+    local var int temp = 0;
+    local var int prev = 0;
+
+
+    i = n - 1;
+    while (i > 0) {
+        j = i;
+        while (j > 0) {
+            prev = j - 1;
+            if (asc == 1) {
+                if (arr[j] < arr[prev]) {
+                    temp = arr[j];
+                    arr[j] = arr[prev];
+                    arr[prev] = temp;
+                }
+            } else {
+                if (arr[j] > arr[prev]) {
+                    temp = arr[j];
+                    arr[j] = arr[prev];
+                    arr[prev] = temp;
+                }
+            }
+            j = j - 1;
+        }
+        i = i - 1;
+    }
+    return arr;
+}
+
+
+int main() {
+    local var int arrA[10];
+    local var int arrB[10];
+    local var int arrC[10];
+    local var int i = 0;
+    local var int k = 0;
+    local var int orderChoice = 0;
+    local var int sortChoice = 0;
+    local var int asc = 1;
+
+
+    threadln("=== Array Sorting Program ===");
+    threadln("");
+
+
+    threadln("Input 5 numbers for Array A:");
+    i = 0;
+    while (i < 5) {
+        thread("A[" .. i .. "]: ");
+        trap(arrA[i]);
+        i = i + 1;
+    }
+
+
+    threadln("");
+    threadln("Input 5 numbers for Array B:");
+    i = 0;
+    while (i < 5) {
+        thread("B[" .. i .. "]: ");
+        trap(arrB[i]);
+        i = i + 1;
+    }
+
+
+    threadln("");
+    threadln("Sort Order:");
+    threadln("1. Ascending");
+    threadln("2. Descending");
+    while (true) {
+        thread("Enter choice: ");
+        trap(orderChoice);
+        if (orderChoice == 1 || orderChoice == 2) {
+            break;
+        }
+        threadln("Invalid choice. Enter 1 or 2.");
+    }
+
+
+    if (orderChoice == 1) {
+        asc = 1;
+    } else {
+        asc = 0;
+    }
+
+
+    threadln("");
+    threadln("Sorting Technique:");
+    threadln("1. Bubble Sort");
+    threadln("2. Balloon Sort");
+    while (true) {
+        thread("Enter choice: ");
+        trap(sortChoice);
+        if (sortChoice == 1 || sortChoice == 2) {
+            break;
+        }
+        threadln("Invalid choice. Enter 1 or 2.");
+    }
+
+
+    i = 0;
+    while (i < 5) {
+        arrC[i] = arrA[i];
+        i = i + 1;
+    }
+
+
+    k = 5;
+    i = 0;
+    while (i < 5) {
+        arrC[k] = arrB[i];
+        k = k + 1;
+        i = i + 1;
+    }
+
+
+    if (sortChoice == 1) {
+        arrC = bubbleSort(arrC, 10, asc);
+    } else {
+        arrC = balloonSort(arrC, 10, asc);
+    }
+
+
+    threadln("");
+    if (sortChoice == 1) {
+        thread("Sorting Technique: Bubble Sort | ");
+    } else {
+        thread("Sorting Technique: Balloon Sort | ");
+    }
+    if (asc == 1) {
+        threadln("Order: Ascending");
+    } else {
+        threadln("Order: Descending");
+    }
+
+
+    threadln("Array C (combined and sorted):");
+    i = 0;
+    while (i < 10) {
+        thread(arrC[i]);
+        thread(" ");
+        i = i + 1;
+    }
+    threadln("");
+
+
+    return 0;
+}

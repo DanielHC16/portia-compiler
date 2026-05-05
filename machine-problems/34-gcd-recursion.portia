@@ -1,0 +1,49 @@
+func int gcd(int a, int b) {
+    if (a < 0) {
+        a = 0 - a;
+    }
+
+
+    if (b < 0) {
+        b = 0 - b;
+    }
+
+
+    if (b == 0) {
+        return a;
+    }
+
+
+    return gcd(b, a % b);
+}
+
+
+int main() {
+    local var int a = 0;
+    local var int b = 0;
+    local var int result = 0;
+
+
+    thread("Enter first number: ");
+    trap(a);
+
+
+    thread("Enter second number: ");
+    trap(b);
+
+
+    if (a == 0 && b == 0) {
+        threadln("GCD is undefined for 0 and 0.");
+        return 0;
+    }
+
+
+    result = gcd(a, b);
+
+
+    thread("GCD: ");
+    threadln(result);
+
+
+    return 0;
+}
