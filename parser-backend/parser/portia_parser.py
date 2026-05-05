@@ -358,11 +358,11 @@ class PortiaParser:
     def parse_const_or_arr(self, dtype: str, name: str, is_global: bool,
                            line: int = 0, col: int = 0) -> List[VarDecl]:
         if self.check("="):
-            # [20] = literals_num multi_dec
+            # [20] = literals_num multi_dec_const
             self.advance()
             init = self.parse_literals_num()
             first = VarDecl(name, dtype, mutable=False, is_global=is_global, init=init, line=line, col=col)
-            rest = self.parse_multi_dec(dtype, False, is_global)
+            rest = self.parse_multi_dec_const(dtype, is_global)
             return [first] + rest
         elif self.check("["):
             # [21] [ size ] const_1D_or_2D
@@ -399,6 +399,25 @@ class PortiaParser:
             init = self.parse_value()
             decls.append(VarDecl(name, dtype, mutable=mutable, is_global=is_global, init=init, line=line, col=col))
         # [24] e -- FOLLOW: {;}
+        return decls
+
+    # =====================================================================
+    # [248-249]  multi_dec_const
+    # =====================================================================
+
+    def parse_multi_dec_const(self, dtype: str, is_global: bool) -> List[VarDecl]:
+        decls: List[VarDecl] = []
+        while self.check(","):
+            # [248] , id = literals_num
+            self.advance()
+            id_tok = self.match("ID")
+            name = id_tok.get("value") or id_tok.get("lexeme")
+            line = id_tok.get("line", 0)
+            col = id_tok.get("column", 0)
+            self.match_value("=")
+            init = self.parse_literals_num()
+            decls.append(VarDecl(name, dtype, mutable=False, is_global=is_global, init=init, line=line, col=col))
+        # [249] e -- FOLLOW: {;}
         return decls
 
     # =====================================================================

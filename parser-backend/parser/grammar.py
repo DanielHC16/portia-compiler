@@ -5,7 +5,7 @@ PORTIA Language Grammar Definition
 This module exports token-class constants plus the revised CFG, FIRST,
 FOLLOW, and PREDICT tables consumed by the recursive-descent parser.
 
-247 productions / 116 non-terminals
+249 productions / 117 non-terminals
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ MULT_OPS = frozenset({"*", "/", "%"})
 BUILTIN_FUNCTIONS = frozenset({"abs", "len", "pow", "sqrt"})
 BUILTIN_FIXED_ARITY = {"abs": 1, "len": 1, "pow": 2, "sqrt": 1}
 
-GRAMMAR_RULE_COUNT = 247
-NON_TERMINAL_COUNT = 116
+GRAMMAR_RULE_COUNT = 249
+NON_TERMINAL_COUNT = 117
 
 
 # =========================================================================
@@ -75,7 +75,7 @@ CFG = {
     17: _prod("dtype", "bool"),
     18: _prod("var_or_arr", "=", "value", "multi_dec"),
     19: _prod("var_or_arr", "[", "size", "]", "var_1D_or_2D"),
-    20: _prod("const_or_arr", "=", "literals_num", "multi_dec"),
+    20: _prod("const_or_arr", "=", "literals_num", "multi_dec_const"),
     21: _prod("const_or_arr", "[", "size", "]", "const_1D_or_2D"),
     22: _prod("value", "string_or_logical_expr"),
     23: _prod("multi_dec", ",", "id", "=", "value", "multi_dec"),
@@ -303,6 +303,8 @@ CFG = {
     245: _prod("ret_stmt", "return", "value", ";"),
     246: _prod("main_func", "int", "main", "(", ")", "{", "main_body", "}"),
     247: _prod("main_body", "using_block", "local_block", "statement_list", "return", "intlit", ";"),
+    248: _prod("multi_dec_const", ",", "id", "=", "literals_num", "multi_dec_const"),
+    249: _prod("multi_dec_const"),
 }
 
 
@@ -320,6 +322,7 @@ FIRST = _freeze_named_table({
     "const_or_arr": {"=", "["},
     "value": {"!", "(", "-", "abs", "charlit", "doublelit", "false", "floatlit", "id", "intlit", "len", "longlit", "pow", "sqrt", "stringlit", "true"},
     "multi_dec": {","},
+    "multi_dec_const": {","},
     "size": {"intlit"},
     "literals_num": {"-", "charlit", "doublelit", "false", "floatlit", "intlit", "longlit", "stringlit", "true"},
     "num_lit": {"doublelit", "floatlit", "intlit", "longlit"},
@@ -443,6 +446,7 @@ FOLLOW = _freeze_named_table({
     "const_or_arr": {";"},
     "value": {")", ",", ";"},
     "multi_dec": {";"},
+    "multi_dec_const": {";"},
     "size": {"]"},
     "literals_num": {",", ";", "}"},
     "num_lit": {",", ";", "}"},
@@ -803,6 +807,8 @@ PREDICT = _freeze_predict_table({
     245: {"return"},
     246: {"int"},
     247: {"abs", "do", "for", "id", "if", "len", "local", "pow", "return", "sqrt", "switch", "thread", "threadln", "trap", "using", "while"},
+    248: {","},
+    249: {";"},
 })
 
 

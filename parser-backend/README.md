@@ -146,8 +146,8 @@ checks uppercase them internally, so `match("ID")` works.
 
 | Constant | Contents |
 | --- | --- |
-| `GRAMMAR_RULE_COUNT` | `247` |
-| `NON_TERMINAL_COUNT` | `116` |
+| `GRAMMAR_RULE_COUNT` | `249` |
+| `NON_TERMINAL_COUNT` | `117` |
 | `CFG` | Rule-numbered production table. |
 | `FIRST` | First-token sets by non-terminal. |
 | `FOLLOW` | Legal follower sets by non-terminal. |
@@ -208,6 +208,7 @@ Global declarations are parsed by:
 | `parse_var_or_arr()` | Parses scalar `= value` declarations or array declarations. |
 | `parse_const_or_arr()` | Parses const scalar and const array declarations. |
 | `parse_multi_dec()` | Supports comma-separated declarations with the same dtype/mutability. |
+| `parse_multi_dec_const()` | Supports comma-separated const declarations restricted to literal initializers. |
 | `parse_weave_def()` | Builds `WeaveDecl` from fields. |
 | `parse_field_list()` and `parse_field_dec()` | Parse fields inside a weave. |
 
