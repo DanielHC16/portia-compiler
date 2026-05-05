@@ -34,6 +34,7 @@ from .triple import IndirectTripleTable, Triple, is_ref, get_ref_index
 DEFAULT_MAX_EXECUTION_STEPS = 1_000_000
 BUILTIN_FUNCTIONS = frozenset({"abs", "len", "pow", "sqrt"})
 NUMERIC_RANK = {"int": 0, "long": 1, "float": 2, "double": 3}
+FLOAT_SIGNIFICANT_DIGITS = 7
 
 @dataclass
 class RuntimeValue:
@@ -198,6 +199,14 @@ def wider_numeric_type(t1: str, t2: str) -> str:
     t1 = (t1 or "").lower()
     t2 = (t2 or "").lower()
     return t1 if NUMERIC_RANK.get(t1, -1) >= NUMERIC_RANK.get(t2, -1) else t2
+
+
+def portia_float(value: Any) -> float:
+    """Return a PORTIA float rounded to its seven significant digits."""
+    raw = float(value)
+    if not math.isfinite(raw):
+        return raw
+    return float(f"{raw:.{FLOAT_SIGNIFICANT_DIGITS}g}")
 
 
 # =============================================================================
@@ -1278,6 +1287,8 @@ class RuntimeExecutor:
         raw = unwrap_value(rv)
         if target in ("int", "long"):
             return RuntimeValue(int(raw), target)
+        if target == "float":
+            return RuntimeValue(portia_float(raw), target)
         return RuntimeValue(float(raw), target)
 
     def _coerce_array_value_to_type(self, value: RuntimeValue, target_type: str) -> RuntimeValue:
@@ -1447,7 +1458,9 @@ class RuntimeExecutor:
         dtype = (dtype or "int").lower()
         if dtype in ("int", "long"):
             return RuntimeValue(int(value), dtype)
-        if dtype in ("float", "double"):
+        if dtype == "float":
+            return RuntimeValue(portia_float(value), dtype)
+        if dtype == "double":
             return RuntimeValue(float(value), dtype)
         return RuntimeValue(value, get_type_name(value))
 
@@ -1490,7 +1503,11 @@ class RuntimeExecutor:
                     col=col,
                     error_type="runtime_error"
                 )
-            return self._coerce_builtin_numeric_result(math.sqrt(operand_val), operand.dtype)
+            result_value = math.sqrt(operand_val)
+            if operand.dtype in ("int", "long") and result_value.is_integer():
+                return self._coerce_builtin_numeric_result(result_value, operand.dtype)
+            result_dtype = "float" if operand.dtype in ("int", "long") else operand.dtype
+            return self._coerce_builtin_numeric_result(result_value, result_dtype)
 
         if op == "pow":
             left = self._eval(arg1, line, col)
@@ -1717,8 +1734,8 @@ class RuntimeExecutor:
                 return RuntimeValue(int(val), "long")
             elif target_type_lower == "float":
                 if source_type == "char":
-                    return RuntimeValue(float(ascii_code_for_char(val)), "float")
-                return RuntimeValue(float(val), "float")
+                    return RuntimeValue(portia_float(ascii_code_for_char(val)), "float")
+                return RuntimeValue(portia_float(val), "float")
             elif target_type_lower == "double":
                 if source_type == "char":
                     return RuntimeValue(float(ascii_code_for_char(val)), "double")
@@ -1759,6 +1776,8 @@ class RuntimeExecutor:
         trimmed = raw_input.strip()
         if not re.match(r'^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$', trimmed):
             raise ValueError(f"Expected {target_type}, got '{raw_input}'")
+        if target_type == "float":
+            return RuntimeValue(portia_float(trimmed), target_type)
         return RuntimeValue(float(trimmed), target_type)
     
     def _execute_trap(self, var_name: str, var_type: str, 
