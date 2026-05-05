@@ -458,7 +458,7 @@ compatibility.
 | --- | --- | --- | --- |
 | `len(expr)` | 1 | `expr` must be `string` or `char` | `int` |
 | `abs(expr)` | 1 | `expr` must be numeric | same type as argument |
-| `sqrt(expr)` | 1 | `expr` must be numeric | same type as argument |
+| `sqrt(expr)` | 1 | `expr` must be numeric | exact integer roots keep integer type; non-perfect integer roots return `float`; float/double roots keep their type |
 | `pow(left, right)` | 2 | both arguments must be numeric | wider numeric type |
 
 Examples:

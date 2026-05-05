@@ -756,7 +756,7 @@ buffer.
 | --- | --- |
 | `len` | Accepts `string` or `char`; returns `int`. |
 | `abs` | Accepts numeric; returns same numeric type. |
-| `sqrt` | Accepts numeric; rejects negative values; returns same numeric type. |
+| `sqrt` | Accepts numeric; rejects negative values; exact integer roots keep integer type, non-perfect integer roots return `float`, and float/double roots keep their type. |
 | `pow` | Accepts numeric operands; returns wider numeric type. |
 
 Semantic analysis should catch invalid built-ins earlier. Runtime checks remain

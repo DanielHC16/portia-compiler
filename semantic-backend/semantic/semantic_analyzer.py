@@ -10,6 +10,7 @@ Node dispatch uses the "node" field:
   ReturnStmt, BreakStmt, IOStmt
 """
 
+import math
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 
@@ -2085,6 +2086,22 @@ class SemanticAnalyzer:
         name = expr.get("name", "")
         return bool(expr.get("builtin")) or name in BUILTIN_FUNCTIONS
 
+    def _is_exact_integer_sqrt_literal(self, expr: Dict[str, Any]) -> bool:
+        # Keep exact integer sqrt literals compatible with existing integer
+        # contexts, while non-perfect roots correctly become float values.
+        if expr.get("node") != "Literal":
+            return False
+        if _lit_type(expr.get("dtype", "")) not in INTEGER_TYPES:
+            return False
+        try:
+            value = int(expr.get("value"))
+        except (TypeError, ValueError):
+            return False
+        if value < 0:
+            return False
+        root = math.isqrt(value)
+        return root * root == value
+
     def _infer_builtin_call(
         self,
         expr: Dict[str, Any],
@@ -2141,6 +2158,12 @@ class SemanticAnalyzer:
                     token_length=self._get_token_length(arg),
                 )
                 return "unknown"
+            if (
+                name == "sqrt"
+                and arg_type in INTEGER_TYPES
+                and not self._is_exact_integer_sqrt_literal(arg)
+            ):
+                return "float"
             return arg_type
 
         if name == "pow":
