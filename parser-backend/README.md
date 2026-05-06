@@ -146,7 +146,7 @@ checks uppercase them internally, so `match("ID")` works.
 
 | Constant | Contents |
 | --- | --- |
-| `GRAMMAR_RULE_COUNT` | `249` |
+| `GRAMMAR_RULE_COUNT` | `250` |
 | `NON_TERMINAL_COUNT` | `117` |
 | `CFG` | Rule-numbered production table. |
 | `FIRST` | First-token sets by non-terminal. |
