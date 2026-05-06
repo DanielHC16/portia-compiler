@@ -4,10 +4,7 @@ PORTIA ICG - TAC Optimizer
 Conservative optimization pass for Indirect Triple TAC.
 
 The optimizer runs after ICGVisitor has constructed TAC and before the table is
-serialized or executed. It keeps optimization local and predictable:
-- fold constant pure expression triples
-- simplify algebraic/logical identities that only discard constants
-- rewrite triple references while compacting the table
+serialized or executed.
 """
 
 from __future__ import annotations
