@@ -7,6 +7,7 @@ indirect triples, and can execute those triples through the PORTIA runtime.
 ```text
 validated AST + semantic symbol table
   -> ICGVisitor.generate(ast)
+  -> optimizer.optimize_tac(table)
   -> IndirectTripleTable
   -> RuntimeExecutor.execute()
   -> output, return value, runtime errors
@@ -61,6 +62,7 @@ by zero, bad input, invalid built-in operands, and exhausted input buffers.
 | `main.py` | FastAPI app, CORS, service info, router registration. |
 | `icg/api.py` | `/generate`, `/execute`, `/run`, and `/health` endpoints. |
 | `icg/icg_visitor.py` | AST visitor that lowers AST dictionaries into TAC triples. |
+| `icg/optimizer.py` | Conservative TAC optimizer for constant folding and safe peephole rewrites. |
 | `icg/triple.py` | `Triple`, `IndirectTripleTable`, references, serialization, pretty/HTML output. |
 | `icg/runtime_executor.py` | TAC interpreter, runtime memory, control flow, functions, arrays, I/O, built-ins. |
 | `icg/managers.py` | `TempManager` and `LabelManager`. |
@@ -74,6 +76,7 @@ AST + symbol table
   -> api.py
   -> icg_visitor.py
   -> triple.py
+  -> optimizer.py
   -> runtime_executor.py
   -> output / memory / errors
 ```
@@ -152,6 +155,7 @@ def generate(self, ast):
     self._temps.reset()
     self._labels.reset()
     self._visit(ast)
+    self._table = optimize_tac(self._table)
     return self._table
 ```
 
@@ -197,7 +201,27 @@ func_end   main     -
 At this point, the program is no longer being represented mainly as a tree. It
 is represented as a linear set of intermediate instructions.
 
-### 3. `managers.py` supplies generated names
+### 3. `optimizer.py` improves TAC conservatively
+
+`optimizer.py` runs inside `ICGVisitor.generate()` after the raw TAC has been
+constructed and before the table is returned. Because the hook lives in the
+visitor, both the local FastAPI backend and the Vercel serverless handlers use
+the same optimized TAC automatically.
+
+The optimizer currently focuses on local, behavior-preserving rewrites:
+
+| Optimization | Example |
+| --- | --- |
+| Constant folding | `2 + 3 * 4` becomes `14`. |
+| Algebraic identities | `x + 0`, `x - 0`, `x * 1`, and `x / 1` become `x`. |
+| Boolean identities | `x && true` and `x || false` become `x`. |
+| Reference compaction | Removed expression triples are replaced by constants or rewritten refs. |
+
+It intentionally does not do aggressive global data-flow optimization. In
+particular, it avoids rewrites that could hide runtime checks or discard
+value-producing instructions, such as replacing `x * 0` with `0`.
+
+### 4. `managers.py` supplies generated names
 
 `managers.py` supports the visitor while TAC is being generated.
 
@@ -222,7 +246,7 @@ Labels are used for control flow. For example, an `if`, `while`, `for`, or
 The managers are reset at the start of each `generate(ast)` call so each program
 gets a fresh set of temporary names and labels.
 
-### 4. `triple.py` stores the generated TAC
+### 5. `triple.py` stores the generated TAC
 
 `triple.py` defines how TAC is represented after the visitor emits it. The ICG
 does not just store plain strings. It stores each instruction as a `Triple`:
@@ -280,7 +304,7 @@ When TAC is sent over JSON, tuple references are serialized as:
 That allows the TAC table to move between the backend, frontend, and runtime
 without losing the link between instructions.
 
-### 5. `runtime_executor.py` executes the TAC
+### 6. `runtime_executor.py` executes the TAC
 
 `runtime_executor.py` receives:
 
@@ -317,7 +341,7 @@ symbol table that `x` is a `float`. So it stores the value as `25.0`.
 That is why generated TAC and the symbol table travel together. TAC says what to
 do. The symbol table helps the runtime know what the values are supposed to be.
 
-### 6. `api.py` returns the result
+### 7. `api.py` returns the result
 
 After generation and execution, `api.py` packages the result back into JSON.
 
@@ -345,13 +369,15 @@ validated AST
     -> icg_visitor.py walks the AST
     -> managers.py supplies temps and labels when needed
     -> triple.py stores the generated TAC
+    -> optimizer.py folds and rewrites safe TAC expressions
     -> runtime_executor.py executes the TAC using the symbol table
     -> api.py returns TAC, output, memory, return value, and errors
 ```
 
 In short: the AST gives the ICG structure, the symbol table gives it meaning,
-the visitor turns that structure into TAC, the triple table stores the TAC, and
-the runtime executor turns the TAC into actual program behavior.
+the visitor turns that structure into TAC, the optimizer improves safe local
+expressions, the triple table stores the TAC, and the runtime executor turns the
+TAC into actual program behavior.
 
 ## Core Data Structures
 
@@ -424,8 +450,8 @@ table = visitor.generate(ast)
 
 ### `ICGVisitor.generate(ast)`
 
-`generate` resets the table, temp manager, and label manager, then calls
-`_visit(ast)`. The result is an `IndirectTripleTable`.
+`generate` resets the table, temp manager, and label manager, calls `_visit(ast)`,
+then runs `optimize_tac()` before returning the `IndirectTripleTable`.
 
 ### `_visit(node)`
 

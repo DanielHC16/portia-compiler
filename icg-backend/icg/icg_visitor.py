@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from .triple import IndirectTripleTable, ref, is_ref
 from .managers import TempManager, LabelManager
+from .optimizer import optimize_tac
 
 
 # Type alias for visit results: variable name, constant, or triple reference
@@ -101,7 +102,8 @@ class ICGVisitor:
         # Visit the AST
         # Visiting the root recursively emits all triples into _table.
         self._visit(ast)
-        
+
+        self._table = optimize_tac(self._table)
         return self._table
     
     def _visit(self, node: Any) -> VisitResult:

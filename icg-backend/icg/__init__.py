@@ -11,6 +11,7 @@ and executes them via RuntimeExecutor.
 from .triple import Triple, IndirectTripleTable, ref, is_ref, get_ref_index
 from .managers import TempManager, LabelManager, ICGManagers
 from .icg_visitor import ICGVisitor
+from .optimizer import TACOptimizer, optimize_tac
 from .runtime_executor import (
     RuntimeExecutor,
     RuntimeValue,
@@ -37,6 +38,8 @@ __all__ = [
     "ICGManagers",
     # TAC generation
     "ICGVisitor",
+    "TACOptimizer",
+    "optimize_tac",
     # Runtime execution
     "RuntimeExecutor",
     "RuntimeValue",
