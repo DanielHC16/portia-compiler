@@ -47,6 +47,7 @@ export default function ViewSwitcher() {
   };
 
   
+  
   // // Download the current editor contents as a timestamped PORTIA source file.
   // const handleSave = () => {
   //   const blob = new Blob([sharedCode], { type: "text/plain" });

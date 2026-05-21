@@ -224,6 +224,7 @@ export default function ICGPanel({ sharedCode, setSharedCode, sharedTokens: _sha
     try {
       // Step 1: Lexer
       const normalizedCode = normalizeQuotes(sharedCode).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      console.log(normalizedCode);
       const lexResp = await lexCode(normalizedCode, { signal: controller.signal });
       setLexErrors(lexResp.errors);
       
