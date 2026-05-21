@@ -10,6 +10,12 @@
     "files.associations": {
         "*.css": "tailwindcss"
     },
+    "python.analysis.extraPaths": [
+        "lexer-backend",
+        "parser-backend",
+        "semantic-backend",
+        "icg-backend"
+    ],
     "editor.quickSuggestions": {
         "strings": true
     }
