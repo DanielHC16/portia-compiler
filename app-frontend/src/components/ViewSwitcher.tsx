@@ -2,7 +2,8 @@
 import {
   useState,
   useEffect,
-  // useRef,
+  useRef,
+  type ChangeEvent,
 } from "react";
 import LexerPanel from "./LexerPanel";
 import ParserPanel from "./ParserPanel";
@@ -31,7 +32,7 @@ export default function ViewSwitcher() {
   const [sharedLexErrors, setSharedLexErrors] = useState<LexError[]>([]);
   
   
-  // const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
 
   useEffect(() => {
@@ -48,48 +49,48 @@ export default function ViewSwitcher() {
 
   
   
-  // // Download the current editor contents as a timestamped PORTIA source file.
-  // const handleSave = () => {
-  //   const blob = new Blob([sharedCode], { type: "text/plain" });
-  //   const url = URL.createObjectURL(blob);
-  //   const link = document.createElement("a");
-  //   link.href = url;
-  //   // Generate a default filename with timestamp
-  //   const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  //   link.download = `program-${timestamp}.portia`;
-  //   document.body.appendChild(link);
-  //   link.click();
-  //   document.body.removeChild(link);
-  //   URL.revokeObjectURL(url);
-  // };
+  // Download the current editor contents as a timestamped PORTIA source file.
+  const handleSave = () => {
+    const blob = new Blob([sharedCode], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    // Generate a default filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    link.download = `program-${timestamp}.portia`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
-  // // Forward the toolbar button to the hidden file input.
-  // const handleLoadClick = () => {
-  //   fileInputRef.current?.click();
-  // };
+  // Forward the toolbar button to the hidden file input.
+  const handleLoadClick = () => {
+    fileInputRef.current?.click();
+  };
 
-  // // Read a local .portia/.txt file into the shared editor and clear stale phase
-  // // outputs because tokens/errors from the previous source no longer apply.
-  // const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const file = e.target.files?.[0];
-  //   if (!file) return;
+  // Read a local .portia/.txt file into the shared editor and clear stale phase
+  // outputs because tokens/errors from the previous source no longer apply.
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  //   const reader = new FileReader();
-  //   reader.onload = (event) => {
-  //     const content = event.target?.result;
-  //     if (typeof content === "string") {
-  //       // Normalize line endings
-  //       const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  //       setSharedCode(normalized);
-  //       // Reset tokens and errors when loading new file
-  //       setSharedTokens([]);
-  //       setSharedLexErrors([]);
-  //     }
-  //   };
-  //   reader.readAsText(file);
-  //   // Reset input so same file can be loaded again
-  //   e.target.value = "";
-  // };
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result;
+      if (typeof content === "string") {
+        // Normalize line endings
+        const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        setSharedCode(normalized);
+        // Reset tokens and errors when loading new file
+        setSharedTokens([]);
+        setSharedLexErrors([]);
+      }
+    };
+    reader.readAsText(file);
+    // Reset input so same file can be loaded again
+    e.target.value = "";
+  };
   
 
   return (
@@ -142,15 +143,15 @@ export default function ViewSwitcher() {
 
          
           
-          {/* <input
+          <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
             accept=".portia,.txt"
             style={{ display: "none" }}
-          /> */}
+          />
 
-          {/* <button
+          <button
             className="theme-toggle-btn"
             onClick={handleSave}
             aria-label="Save code as .portia file"
@@ -161,9 +162,9 @@ export default function ViewSwitcher() {
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
             </svg>
-          </button> */}
+          </button>
 
-          {/* <button
+          <button
             className="theme-toggle-btn"
             onClick={handleLoadClick}
             aria-label="Load .portia file"
@@ -174,7 +175,7 @@ export default function ViewSwitcher() {
               <line x1="12" y1="11" x2="12" y2="17" />
               <polyline points="9 14 12 11 15 14" />
             </svg>
-          </button> */}
+          </button>
 
 
 

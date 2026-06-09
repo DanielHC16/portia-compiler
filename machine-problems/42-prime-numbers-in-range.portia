@@ -1,0 +1,72 @@
+func int isPrime(int n) {
+    local var int i = 2;
+
+
+    if (n <= 1) {
+        return 0;
+    }
+
+
+    while (i * i <= n) {
+        if ((n % i) == 0) {
+            return 0;
+        }
+        i += 1;
+    }
+
+
+    return 1;
+}
+
+
+int main() {
+    local var int start = 0;
+    local var int end = 0;
+    local var int temp = 0;
+    local var int i = 0;
+
+
+    thread("Enter start: ");
+    trap(start);
+
+
+    while (start < 0) {
+        threadln("Negative numbers are not allowed.");
+        thread("Enter start again: ");
+        trap(start);
+    }
+
+
+    thread("Enter end: ");
+    trap(end);
+
+
+    while (end < 0) {
+        threadln("Negative numbers are not allowed.");
+        thread("Enter end again: ");
+        trap(end);
+    }
+
+
+    if (start > end) {
+        temp = start;
+        start = end;
+        end = temp;
+    }
+
+
+    thread("Prime numbers: ");
+
+
+    i = start;
+    while (i <= end) {
+        if (isPrime(i) == 1) {
+            thread(i);
+            thread(" ");
+        }
+        i += 1;
+    }
+
+
+    return 0;
+}

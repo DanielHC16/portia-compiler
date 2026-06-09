@@ -1,0 +1,43 @@
+func bool isPalindrome(string word) {
+    local var int left = 0;
+    local var int right = 0;
+
+
+    right = len(word) - 1;
+
+
+    while (left < right) {
+        if (word[left] != word[right]) {
+            return false;
+        }
+        left = left + 1;
+        right = right - 1;
+    }
+
+
+    return true;
+}
+
+
+int main() {
+    local var string word = "";
+
+
+    do {
+        thread("Enter a word: ");
+        trap(word);
+
+
+        if (len(word) == 0) {
+            threadln("Invalid input. Word must not be empty.");
+        } else if (isPalindrome(word) == false) {
+            threadln("Not a palindrome. Try again.");
+        }
+
+
+    } while (len(word) == 0 || isPalindrome(word) == false);
+
+
+    threadln("Accepted palindrome: " .. word);
+    return 0;
+}

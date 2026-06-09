@@ -1,0 +1,151 @@
+func int inputArray(int arr[100], int i, int n) {
+    if (i >= n) {
+        return 0;
+    }
+
+
+    thread("element - ");
+    thread(i);
+    thread(" : ");
+    trap(arr[i]);
+
+
+    inputArray(arr, i + 1, n);
+    return 0;
+}
+
+
+func int printArray(int arr[100], int i, int n) {
+    if (i >= n) {
+        return 0;
+    }
+
+
+    thread(arr[i]);
+    thread("  ");
+
+
+    printArray(arr, i + 1, n);
+    return 0;
+}
+
+
+func int sortAscending(int arr[100], int i, int j, int n) {
+    local var int temp = 0;
+    local var int next = 0;
+
+
+    if (i >= n - 1) {
+        return 0;
+    }
+
+
+    if (j >= n - i - 1) {
+        sortAscending(arr, i + 1, 0, n);
+        return 0;
+    }
+
+
+    next = j + 1;
+
+
+    if (arr[j] > arr[next]) {
+        temp = arr[j];
+        arr[j] = arr[next];
+        arr[next] = temp;
+    }
+
+
+    sortAscending(arr, i, j + 1, n);
+    return 0;
+}
+
+
+func int sortDescending(int arr[100], int i, int j, int n) {
+    local var int temp = 0;
+    local var int next = 0;
+
+
+    if (i >= n - 1) {
+        return 0;
+    }
+
+
+    if (j >= n - i - 1) {
+        sortDescending(arr, i + 1, 0, n);
+        return 0;
+    }
+
+
+    next = j + 1;
+
+
+    if (arr[j] < arr[next]) {
+        temp = arr[j];
+        arr[j] = arr[next];
+        arr[next] = temp;
+    }
+
+
+    sortDescending(arr, i, j + 1, n);
+    return 0;
+}
+
+
+int main() {
+    local var int n = 0;
+    local var int choice = 0;
+    local var int arr[100];
+
+
+    do {
+        thread("Input the number of elements to be stored in the array: ");
+        trap(n);
+
+
+        if (n <= 0 || n > 100) {
+            threadln("Invalid size. Please enter a value.");
+        }
+
+
+    } while (n <= 0 || n > 100);
+
+
+    threadln("Input elements in the array :");
+    inputArray(arr, 0, n);
+
+
+    do {
+        threadln("\nSort Out:");
+        threadln("1. Ascending");
+        threadln("2. Descending");
+        thread("Enter choice: ");
+        trap(choice);
+
+
+        if (choice == 1) {
+            sortAscending(arr, 0, 0, n);
+            thread("Ascending order: ");
+            printArray(arr, 0, n);
+            threadln("");
+        }
+
+
+        else if (choice == 2) {
+            sortDescending(arr, 0, 0, n);
+            thread("Descending order: ");
+            printArray(arr, 0, n);
+            threadln("");
+        }
+
+
+        else {
+            threadln("Invalid Input. Please try again.");
+        }
+
+
+    } while (choice != 1 && choice != 2);
+
+
+    return 0;
+}

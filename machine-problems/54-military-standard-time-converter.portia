@@ -1,0 +1,207 @@
+func int charToInt(char c) {
+    if (c == '0') { return 0; }
+    if (c == '1') { return 1; }
+    if (c == '2') { return 2; }
+    if (c == '3') { return 3; }
+    if (c == '4') { return 4; }
+    if (c == '5') { return 5; }
+    if (c == '6') { return 6; }
+    if (c == '7') { return 7; }
+    if (c == '8') { return 8; }
+    if (c == '9') { return 9; }
+    return -1;
+}
+
+
+func bool isDigit(char c) {
+    if (c >= '0' && c <= '9') {
+        return true;
+    }
+    return false;
+}
+
+
+func int parseTime(string t, int leng) {
+    if (leng != 5) {
+        return 0;
+    }
+    if (t[2] != ':') {
+        return 0;
+    }
+    if (isDigit(t[0]) == false || isDigit(t[1]) == false) {
+        return 0;
+    }
+    if (isDigit(t[3]) == false || isDigit(t[4]) == false) {
+        return 0;
+    }
+    return 1;
+}
+
+
+func int extractHours(string t) {
+    local var int h1 = 0;
+    local var int h2 = 0;
+    h1 = charToInt(t[0]);
+    h2 = charToInt(t[1]);
+    return h1 * 10 + h2;
+}
+
+
+func int extractMinutes(string t) {
+    local var int m1 = 0;
+    local var int m2 = 0;
+    m1 = charToInt(t[3]);
+    m2 = charToInt(t[4]);
+    return m1 * 10 + m2;
+}
+
+
+int main() {
+    local var int choice = 0;
+    local var int hour = 0;
+    local var int minute = 0;
+    local var string period = "";
+    local var string timeInput = "";
+    local var int leng = 0;
+    local var int valid = 0;
+    local var int convertedHour = 0;
+    local var int convertedMil = 0;
+
+
+    do {
+    threadln("Time Converter");
+    threadln("1. Military (24-hour) to Standard (12-hour)");
+    threadln("2. Standard (12-hour) to Military (24-hour)");
+    threadln("Enter your choice: ");
+    trap(choice);
+
+
+    if (choice != 1 && choice != 2) {
+        threadln("Invalid choice. Please enter 1 or 2.");
+    }
+} while (choice != 1 && choice != 2);
+    if (choice == 1) {
+        do {
+            threadln("Enter military time in HH:MM format (e.g. 14:30): ");
+            trap(timeInput);
+            leng = len(timeInput);
+            valid = parseTime(timeInput, leng);
+            if (valid == 1) {
+                hour = extractHours(timeInput);
+                minute = extractMinutes(timeInput);
+                if (hour < 0 || hour > 23) {
+                    threadln("Invalid hours. Must be 00-23.");
+                    valid = 0;
+                }
+                if (minute < 0 || minute > 59) {
+                    threadln("Invalid minutes. Must be 00-59.");
+                    valid = 0;
+                }
+            }
+            if (valid == 0) {
+                threadln("Invalid format. Please use HH:MM (e.g. 14:30).");
+            }
+        } while (valid == 0);
+
+
+        convertedHour = hour;
+        period = "AM";
+
+
+        if (hour == 0) {
+            convertedHour = 12;
+            period = "AM";
+        }
+        if (hour >= 1 && hour <= 11) {
+            convertedHour = hour;
+            period = "AM";
+        }
+        if (hour == 12) {
+            convertedHour = 12;
+            period = "PM";
+        }
+        if (hour >= 13 && hour <= 23) {
+            convertedHour = hour - 12;
+            period = "PM";
+        }
+
+
+        if (minute < 10) {
+            threadln("Standard Time: " .. convertedHour .. ":0" .. minute .. " " .. period);
+        }
+        if (minute >= 10) {
+            threadln("Standard Time: " .. convertedHour .. ":" .. minute .. " " .. period);
+        }
+    }
+
+
+    if (choice == 2) {
+        do {
+            threadln("Enter standard time in HH:MM format (e.g. 02:30): ");
+            trap(timeInput);
+            leng = len(timeInput);
+            valid = parseTime(timeInput, leng);
+            if (valid == 1) {
+                hour = extractHours(timeInput);
+                minute = extractMinutes(timeInput);
+                if (hour < 1 || hour > 12) {
+                    threadln("Invalid hours. Must be 01-12.");
+                    valid = 0;
+                }
+                if (minute < 0 || minute > 59) {
+                    threadln("Invalid minutes. Must be 00-59.");
+                    valid = 0;
+                }
+            }
+            if (valid == 0) {
+                threadln("Invalid format. Please use HH:MM (e.g. 02:30).");
+            }
+        } while (valid == 0);
+
+
+        do {
+            threadln("Enter period (AM or PM): ");
+            trap(period);
+            if (period != "AM" && period != "PM") {
+                threadln("Invalid. Enter AM or PM only.");
+            }
+        } while (period != "AM" && period != "PM");
+
+
+        convertedHour = hour;
+
+
+        if (period == "PM" && hour != 12) {
+            convertedHour = hour + 12;
+        }
+        if (period == "AM" && hour == 12) {
+            convertedHour = 0;
+        }
+
+
+        convertedMil = convertedHour * 100 + minute;
+
+
+    if (convertedHour < 10) {
+        if (minute < 10) {
+            threadln("Military Time: 0" .. convertedHour .. ":0" .. minute);
+        } else {
+            threadln("Military Time: 0" .. convertedHour .. ":" .. minute);
+        }
+    } else {
+        if (minute < 10) {
+            threadln("Military Time: " .. convertedHour .. ":0" .. minute);
+        } else {
+            threadln("Military Time: " .. convertedHour .. ":" .. minute);
+        }
+    }
+    }
+
+
+    if (choice != 1 && choice != 2) {
+        threadln("Invalid choice.");
+    }
+
+
+    return 0;
+}

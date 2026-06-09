@@ -1,0 +1,150 @@
+int main() {
+    local var string word = "";
+    local var int choice = 0;
+    local var char a[5] = {' ', ' ', ' ', ' ', ' '};
+    local var char orig[5] = {' ', ' ', ' ', ' ', ' '};
+    local var int i = 0;
+    local var int j = 0;
+    local var int minMaxIndex = 0;
+    local var int validWord = 0;
+    local var char temp = ' ';
+    local var char ch = ' ';
+    local var int exitProgram = 0;
+
+
+    while (exitProgram == 0) {
+        validWord = 0;
+
+
+        while (validWord == 0) {
+            thread("Enter a 5-letter word: ");
+            trap(word);
+
+
+            if (len(word) != 5) {
+                threadln("Invalid input.");
+            }
+            else {
+                validWord = 1;
+                i = 0;
+                while (i < 5) {
+                    ch = word[i];
+                    if (!((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z'))) {
+                        validWord = 0;
+                    }
+                    i = i + 1;
+                }
+
+
+                if (validWord == 0) {
+                    threadln("Invalid input.");
+                }
+            }
+        }
+
+
+        i = 0;
+        while (i < 5) {
+            orig[i] = word[i];
+            i = i + 1;
+        }
+
+
+        choice = 0;
+        while (choice != 3 && choice != 4) {
+            i = 0;
+            while (i < 5) {
+                a[i] = orig[i];
+                i = i + 1;
+            }
+
+
+            threadln("Choose sorting order:");
+            threadln("1. Ascending");
+            threadln("2. Descending");
+            threadln("3. Enter new word");
+            threadln("4. Exit");
+            thread("Enter choice: ");
+            trap(choice);
+
+
+            if (choice == 1) {
+                i = 0;
+                while (i < 4) {
+                    minMaxIndex = i;
+                    j = i + 1;
+
+
+                    while (j < 5) {
+                        if (a[j] < a[minMaxIndex]) {
+                            minMaxIndex = j;
+                        }
+                        j = j + 1;
+                    }
+
+
+                    temp = a[i];
+                    a[i] = a[minMaxIndex];
+                    a[minMaxIndex] = temp;
+
+
+                    i = i + 1;
+                }
+
+
+                thread("Sorted word: ");
+                i = 0;
+                while (i < 5) {
+                    thread(a[i]);
+                    i = i + 1;
+                }
+                threadln("");
+            }
+            else if (choice == 2) {
+                i = 0;
+                while (i < 4) {
+                    minMaxIndex = i;
+                    j = i + 1;
+
+
+                    while (j < 5) {
+                        if (a[j] > a[minMaxIndex]) {
+                            minMaxIndex = j;
+                        }
+                        j = j + 1;
+                    }
+
+
+                    temp = a[i];
+                    a[i] = a[minMaxIndex];
+                    a[minMaxIndex] = temp;
+
+
+                    i = i + 1;
+                }
+
+
+                thread("Sorted word: ");
+                i = 0;
+                while (i < 5) {
+                    thread(a[i]);
+                    i = i + 1;
+                }
+                threadln("");
+            }
+            else if (choice == 3) {
+                threadln("Entering new word...");
+            }
+            else if (choice == 4) {
+                threadln("Program exited.");
+                exitProgram = 1;
+            }
+            else {
+                threadln("Invalid choice.");
+            }
+        }
+    }
+
+
+    return 0;
+}

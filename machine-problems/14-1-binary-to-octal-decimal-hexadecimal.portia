@@ -1,0 +1,96 @@
+func int binaryToDecimal(int binary) {
+    local var int decimal = 0;
+    local var int base = 1;
+    local var int rem = 0;
+
+
+    while (binary > 0) {
+        rem = binary % 10;
+        decimal = decimal + (rem * base);
+        base = base * 2;
+        binary = binary / 10;
+    }
+
+
+    return decimal;
+}
+
+
+func int decimalToOctal(int dec) {
+    local var int octal = 0;
+    local var int place = 1;
+    local var int rem = 0;
+
+
+    while (dec > 0) {
+        rem = dec % 8;
+        octal = octal + (rem * place);
+        place = place * 10;
+        dec = dec / 8;
+    }
+
+
+    return octal;
+}
+
+
+func int decimalToHex(int dec) {
+    local var int rem = 0;
+
+
+    thread("Hexadecimal: ");
+
+
+    while (dec > 0) {
+        rem = dec % 16;
+
+
+        if (rem < 10) {
+            thread(rem);
+        } else {
+            if (rem == 10) { thread("A"); }
+            else if (rem == 11) { thread("B"); }
+            else if (rem == 12) { thread("C"); }
+            else if (rem == 13) { thread("D"); }
+            else if (rem == 14) { thread("E"); }
+            else { thread("F"); }
+        }
+
+
+        dec = dec / 16;
+    }
+
+
+    threadln("");
+    return 0;
+}
+
+
+int main() {
+    local var int binary = 0;
+    local var int decimal = 0;
+    local var int octal = 0;
+
+
+    thread("Enter binary number: ");
+    trap(binary);
+
+
+
+    decimal = binaryToDecimal(binary);
+
+
+
+    octal = decimalToOctal(decimal);
+
+
+    threadln("Decimal: " .. decimal);
+    threadln("Octal: " .. octal);
+
+
+
+    decimalToHex(decimal);
+
+
+    return 0;
+}

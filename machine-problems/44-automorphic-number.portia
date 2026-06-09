@@ -1,0 +1,46 @@
+func bool isAutomorphic(int n) {
+    local var int squared = n * n;
+    local var int temp = n;
+    local var int divisor = 1;
+
+
+    while (temp > 0) {
+        divisor = divisor * 10;
+        temp = temp / 10;
+    }
+
+
+    return (squared % divisor) == n;
+}
+
+
+int main() {
+    local var int n = 0;
+    local var bool result = false;
+    while (true) {
+        thread("Enter a number: ");
+        trap(n);
+
+
+        if (n < 0) {
+            threadln("Invalid input: negative numbers are not allowed.");
+        } else {
+            break;
+        }
+    }
+
+
+    result = isAutomorphic(n);
+
+
+    if (result == true) {
+        thread(n);
+        threadln(" is an automorphic number.");
+    } else {
+        thread(n);
+        threadln(" is NOT an automorphic number.");
+    }
+
+
+    return 0;
+}

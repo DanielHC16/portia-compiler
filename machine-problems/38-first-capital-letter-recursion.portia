@@ -1,0 +1,46 @@
+func char firstCapital(string s, int i) {
+    if (i >= len(s)) {
+        return ' ';
+    }
+
+
+    if (s[i] >= 'A') {
+        if (s[i] <= 'Z') {
+            return s[i];
+        }
+    }
+
+
+    return firstCapital(s, i + 1);
+}
+
+
+int main() {
+    local var string s = "";
+    local var char ch = ' ';
+
+
+
+    while (true) {
+        threadln("Enter a string:");
+        trap(s);
+
+
+        ch = firstCapital(s, 0);
+
+
+        if (ch >= 'A') {
+            if (ch <= 'Z') {
+                thread("First capital letter: ");
+                threadln(ch);
+                break;
+            }
+        }
+
+
+        threadln("Invalid input. Please enter a string with at least one capital letter.");
+    }
+
+
+    return 0;
+}

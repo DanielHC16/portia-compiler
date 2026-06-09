@@ -1,0 +1,269 @@
+int main() {
+    local var int maxCapacity = 22;
+    local var int currentPassengers = 0;
+    local var int availableSeats = 0;
+    local var int choice = 0;
+    local var int loadCount = 0;
+    local var int unloadCount = 0;
+    local var int loadCounter = 0;
+    local var int unloadCounter = 0;
+    local var int displayIndex = 0;
+    local var int seatChoice = 0;
+    local var int seatIndex = 0;
+    local var bool validCount = false;
+    local var bool validSeatChoice = false;
+    local var string seatLocations[22] = {
+        "Left Bench 1",
+        "Left Bench 2",
+        "Left Bench 3",
+        "Left Bench 4",
+        "Left Bench 5",
+        "Left Bench 6",
+        "Left Bench 7",
+        "Left Bench 8",
+        "Left Bench 9",
+        "Left Bench 10",
+        "Left Bench 11",
+        "Right Bench 1",
+        "Right Bench 2",
+        "Right Bench 3",
+        "Right Bench 4",
+        "Right Bench 5",
+        "Right Bench 6",
+        "Right Bench 7",
+        "Right Bench 8",
+        "Right Bench 9",
+        "Right Bench 10",
+        "Right Bench 11"
+    };
+    local var bool seatOccupied[22] = {
+        false, false, false, false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false, false, false, false
+    };
+
+
+    while (choice != 6) {
+        availableSeats = maxCapacity - currentPassengers;
+
+
+        threadln("========================================");
+        threadln("Menu");
+        threadln("1. Loading");
+        threadln("2. Unloading");
+        threadln("3. Show Occupied Seats");
+        threadln("4. Show Unoccupied Seats");
+        threadln("5. Show All Seats With Status");
+        threadln("6. Exit");
+        threadln("Maximum jeep capacity: 22 passengers");
+        threadln("Current passengers: " .. currentPassengers);
+        threadln("Vacant seats: " .. availableSeats);
+        threadln("Enter menu choice:");
+        trap(choice);
+        threadln("");
+
+
+        if (choice == 1) {
+            threadln("=== Loading Area ===");
+
+
+            if (currentPassengers == maxCapacity) {
+                threadln("The jeep is already full.");
+            } else {
+                validCount = false;
+                while (validCount == false) {
+                    availableSeats = maxCapacity - currentPassengers;
+                    threadln("How many passengers will load?");
+                    trap(loadCount);
+
+
+                    if (loadCount <= 0) {
+                        threadln("The number of passengers to load must be greater than 0.");
+                    } else if (loadCount > availableSeats) {
+                        threadln("Only " .. availableSeats .. " seat(s) are available.");
+                        threadln("The number of passengers to load must not exceed the remaining vacant seats.");
+                    } else {
+                        validCount = true;
+                    }
+                }
+
+
+                loadCounter = 0;
+                while (loadCounter < loadCount) {
+                    threadln("");
+                    threadln("Loading passenger " .. (loadCounter + 1) .. " of " .. loadCount);
+
+
+                    validSeatChoice = false;
+                    while (validSeatChoice == false) {
+                        threadln("Available seat locations:");
+                        displayIndex = 0;
+
+
+                        while (displayIndex < maxCapacity) {
+                            if (seatOccupied[displayIndex] == false) {
+                                threadln("" .. (displayIndex + 1) .. " - " .. seatLocations[displayIndex]);
+                            }
+                            displayIndex += 1;
+                        }
+
+
+                        threadln("Choose seat number:");
+                        trap(seatChoice);
+
+
+                        if (seatChoice <= 0 || seatChoice > maxCapacity) {
+                            threadln("Invalid seat number. Please choose from 1 to 22 only.");
+                        } else {
+                            seatIndex = seatChoice - 1;
+
+
+                            if (seatOccupied[seatIndex] == true) {
+                                threadln("That seat location is already occupied.");
+                            } else {
+                                validSeatChoice = true;
+                            }
+                        }
+                    }
+
+
+                    seatOccupied[seatIndex] = true;
+                    currentPassengers += 1;
+
+
+                    threadln("Passenger loaded into: " .. seatLocations[seatIndex]);
+                    loadCounter += 1;
+                }
+            }
+        } else if (choice == 2) {
+            threadln("=== Unloading Area ===");
+
+
+            if (currentPassengers == 0) {
+                threadln("There are no passengers to unload.");
+            } else {
+                validCount = false;
+                while (validCount == false) {
+                    threadln("How many passengers will unload?");
+                    trap(unloadCount);
+
+
+                    if (unloadCount <= 0) {
+                        threadln("The number of passengers to unload must be greater than 0.");
+                    } else if (unloadCount > currentPassengers) {
+                        threadln("The number of passengers to unload must not exceed the current passengers.");
+                    } else {
+                        validCount = true;
+                    }
+                }
+
+
+                unloadCounter = 0;
+                while (unloadCounter < unloadCount) {
+                    threadln("Occupied seats inside the jeep:");
+                    displayIndex = 0;
+
+
+                    while (displayIndex < maxCapacity) {
+                        if (seatOccupied[displayIndex] == true) {
+                            threadln("" .. (displayIndex + 1) .. " - " .. seatLocations[displayIndex]);
+                        }
+                        displayIndex += 1;
+                    }
+
+
+                    validSeatChoice = false;
+                    while (validSeatChoice == false) {
+                        threadln("Choose seat number to unload:");
+                        trap(seatChoice);
+
+
+                        if (seatChoice <= 0 || seatChoice > maxCapacity) {
+                            threadln("Invalid seat number.");
+                        } else {
+                            seatIndex = seatChoice - 1;
+
+
+                            if (seatOccupied[seatIndex] == false) {
+                                threadln("That seat is already vacant.");
+                            } else {
+                                validSeatChoice = true;
+                            }
+                        }
+                    }
+
+
+                    seatOccupied[seatIndex] = false;
+                    currentPassengers -= 1;
+
+
+                    unloadCounter += 1;
+                    threadln("Passenger unloaded from: " .. seatLocations[seatIndex]);
+                    threadln("Remaining passengers: " .. currentPassengers);
+                }
+            }
+        } else if (choice == 3) {
+            threadln("=== Occupied Seats ===");
+
+
+            if (currentPassengers == 0) {
+                threadln("No occupied seats to show.");
+            } else {
+                displayIndex = 0;
+                while (displayIndex < maxCapacity) {
+                    if (seatOccupied[displayIndex] == true) {
+                        threadln("" .. (displayIndex + 1) .. ". Seat: " .. seatLocations[displayIndex]);
+                    }
+                    displayIndex += 1;
+                }
+
+
+                threadln("Total passengers: " .. currentPassengers);
+            }
+        } else if (choice == 4) {
+            threadln("=== Unoccupied Seats ===");
+
+
+            if (currentPassengers == maxCapacity) {
+                threadln("There are no unoccupied seats.");
+            } else {
+                displayIndex = 0;
+                while (displayIndex < maxCapacity) {
+                    if (seatOccupied[displayIndex] == false) {
+                        threadln("" .. (displayIndex + 1) .. ". Seat: " .. seatLocations[displayIndex]);
+                    }
+                    displayIndex += 1;
+                }
+
+
+                threadln("Total vacant seats: " .. (maxCapacity - currentPassengers));
+            }
+        } else if (choice == 5) {
+            threadln("=== All Seats With Status ===");
+
+
+            displayIndex = 0;
+            while (displayIndex < maxCapacity) {
+                if (seatOccupied[displayIndex] == true) {
+                    threadln("" .. (displayIndex + 1) .. ". " .. seatLocations[displayIndex] .. " - Not Vacant");
+                } else {
+                    threadln("" .. (displayIndex + 1) .. ". " .. seatLocations[displayIndex] .. " - Vacant");
+                }
+                displayIndex += 1;
+            }
+
+
+            threadln("Occupied seats: " .. currentPassengers);
+            threadln("Vacant seats: " .. (maxCapacity - currentPassengers));
+        } else if (choice == 6) {
+            threadln("Exiting program. The driver remains on route.");
+        } else {
+            threadln("Invalid menu choice. Please select from 1 to 6 only.");
+        }
+
+
+        threadln("");
+    }
+
+
+    return 0;
+}

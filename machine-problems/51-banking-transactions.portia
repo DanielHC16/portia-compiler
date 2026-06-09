@@ -1,0 +1,1337 @@
+global var string clientName1 = "";
+global var string clientName2 = "";
+global var string clientName3 = "";
+global var string clientName4 = "";
+global var string clientName5 = "";
+
+
+global var int accountNo1 = 0;
+global var int accountNo2 = 0;
+global var int accountNo3 = 0;
+global var int accountNo4 = 0;
+global var int accountNo5 = 0;
+
+
+global var int balance1 = 0;
+global var int balance2 = 0;
+global var int balance3 = 0;
+global var int balance4 = 0;
+global var int balance5 = 0;
+
+
+global var int date1 = 0;
+global var int date2 = 0;
+global var int date3 = 0;
+global var int date4 = 0;
+global var int date5 = 0;
+
+
+global var int txCount1 = 0;
+global var int txCount2 = 0;
+global var int txCount3 = 0;
+global var int txCount4 = 0;
+global var int txCount5 = 0;
+
+
+global var int depTotal1 = 0;
+global var int depTotal2 = 0;
+global var int depTotal3 = 0;
+global var int depTotal4 = 0;
+global var int depTotal5 = 0;
+
+
+global var int wdTotal1 = 0;
+global var int wdTotal2 = 0;
+global var int wdTotal3 = 0;
+global var int wdTotal4 = 0;
+global var int wdTotal5 = 0;
+
+
+
+global var int recType11 = 0;
+global var int recAmt11 = 0;
+global var int recType12 = 0;
+global var int recAmt12 = 0;
+global var int recType13 = 0;
+global var int recAmt13 = 0;
+global var int recType14 = 0;
+global var int recAmt14 = 0;
+global var int recType15 = 0;
+global var int recAmt15 = 0;
+
+
+
+global var int recType21 = 0;
+global var int recAmt21 = 0;
+global var int recType22 = 0;
+global var int recAmt22 = 0;
+global var int recType23 = 0;
+global var int recAmt23 = 0;
+global var int recType24 = 0;
+global var int recAmt24 = 0;
+global var int recType25 = 0;
+global var int recAmt25 = 0;
+
+
+
+global var int recType31 = 0;
+global var int recAmt31 = 0;
+global var int recType32 = 0;
+global var int recAmt32 = 0;
+global var int recType33 = 0;
+global var int recAmt33 = 0;
+global var int recType34 = 0;
+global var int recAmt34 = 0;
+global var int recType35 = 0;
+global var int recAmt35 = 0;
+
+
+
+global var int recType41 = 0;
+global var int recAmt41 = 0;
+global var int recType42 = 0;
+global var int recAmt42 = 0;
+global var int recType43 = 0;
+global var int recAmt43 = 0;
+global var int recType44 = 0;
+global var int recAmt44 = 0;
+global var int recType45 = 0;
+global var int recAmt45 = 0;
+
+
+
+global var int recType51 = 0;
+global var int recAmt51 = 0;
+global var int recType52 = 0;
+global var int recAmt52 = 0;
+global var int recType53 = 0;
+global var int recAmt53 = 0;
+global var int recType54 = 0;
+global var int recAmt54 = 0;
+global var int recType55 = 0;
+global var int recAmt55 = 0;
+
+
+func bool isValidAccountNo(int acc) {
+    local var bool ok = false;
+
+
+    if (acc >= 10000000 && acc <= 99999999) {
+        ok = true;
+    } else {
+        ok = false;
+    }
+
+
+    return ok;
+}
+
+
+func bool isLeapYear(int year) {
+    local var bool result = false;
+
+
+    if (year % 400 == 0) {
+        result = true;
+    } else {
+        if (year % 100 == 0) {
+            result = false;
+        } else {
+            if (year % 4 == 0) {
+                result = true;
+            } else {
+                result = false;
+            }
+        }
+    }
+
+
+    return result;
+}
+
+
+func bool isValidDate(int d) {
+    local var int year = 0;
+    local var int month = 0;
+    local var int day = 0;
+    local var bool ok = true;
+
+
+    if (d < 10000101 || d > 99991231) {
+        ok = false;
+    } else {
+        year = (int)(d / 10000);
+        month = ((int)(d / 100)) % 100;
+        day = d % 100;
+
+
+        if (month < 1 || month > 12) {
+            ok = false;
+        } else {
+            if (day < 1) {
+                ok = false;
+            } else {
+                if (month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12) {
+                    if (day > 31) {
+                        ok = false;
+                    } else {
+                        ok = ok;
+                    }
+                } else {
+                    if (month == 4 || month == 6 || month == 9 || month == 11) {
+                        if (day > 30) {
+                            ok = false;
+                        } else {
+                            ok = ok;
+                        }
+                    } else {
+                        if (month == 2) {
+                            if (isLeapYear(year)) {
+                                if (day > 29) {
+                                    ok = false;
+                                } else {
+                                    ok = ok;
+                                }
+                            } else {
+                                if (day > 28) {
+                                    ok = false;
+                                } else {
+                                    ok = ok;
+                                }
+                            }
+                        } else {
+                            ok = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    return ok;
+}
+
+
+func bool isDuplicateAccountNo(int acc, int currentClient) {
+    using accountNo1, accountNo2, accountNo3, accountNo4, accountNo5;
+    local var bool dup = false;
+
+
+    if (currentClient != 1 && acc == accountNo1) {
+        dup = true;
+    } else {
+        if (currentClient != 2 && acc == accountNo2) {
+            dup = true;
+        } else {
+            if (currentClient != 3 && acc == accountNo3) {
+                dup = true;
+            } else {
+                if (currentClient != 4 && acc == accountNo4) {
+                    dup = true;
+                } else {
+                    if (currentClient != 5 && acc == accountNo5) {
+                        dup = true;
+                    } else {
+                        dup = false;
+                    }
+                }
+            }
+        }
+    }
+
+
+    return dup;
+}
+
+
+func bool isLetterOnlyName(string s) {
+    local var int i = 0;
+    local var int n = 0;
+    local var char ch = ' ';
+    local var bool ok = true;
+
+
+    n = len(s);
+
+
+    if (n == 0) {
+        ok = false;
+    } else {
+        i = 0;
+        while (i < n) {
+            ch = s[i];
+
+
+            if (ch >= 'A' && ch <= 'Z') {
+                ok = ok;
+            } else {
+                if (ch >= 'a' && ch <= 'z') {
+                    ok = ok;
+                } else {
+                    if (ch == ' ') {
+                        ok = ok;
+                    } else {
+                        ok = false;
+                    }
+                }
+            }
+
+
+            i = i + 1;
+        }
+    }
+
+
+    return ok;
+}
+
+
+func int printRecord(int idx, int t, int a) {
+    local var int dummy = 0;
+
+
+    if (t == 1) {
+        threadln(idx, ". Deposit - PHP ", a);
+    } else {
+        if (t == 2) {
+            threadln(idx, ". Withdrawal - PHP ", a);
+        } else {
+            threadln("");
+        }
+    }
+
+
+    return dummy;
+}
+
+
+int main() {
+    using clientName1, clientName2, clientName3, clientName4, clientName5;
+    using accountNo1, accountNo2, accountNo3, accountNo4, accountNo5;
+    using balance1, balance2, balance3, balance4, balance5;
+    using date1, date2, date3, date4, date5;
+    using txCount1, txCount2, txCount3, txCount4, txCount5;
+    using depTotal1, depTotal2, depTotal3, depTotal4, depTotal5;
+    using wdTotal1, wdTotal2, wdTotal3, wdTotal4, wdTotal5;
+
+
+    using recType11, recAmt11, recType12, recAmt12, recType13, recAmt13, recType14, recAmt14, recType15, recAmt15;
+    using recType21, recAmt21, recType22, recAmt22, recType23, recAmt23, recType24, recAmt24, recType25, recAmt25;
+    using recType31, recAmt31, recType32, recAmt32, recType33, recAmt33, recType34, recAmt34, recType35, recAmt35;
+    using recType41, recAmt41, recType42, recAmt42, recType43, recAmt43, recType44, recAmt44, recType45, recAmt45;
+    using recType51, recAmt51, recType52, recAmt52, recType53, recAmt53, recType54, recAmt54, recType55, recAmt55;
+
+
+    local var int clientCount = 0;
+    local var int i = 1;
+    local var int menu = 0;
+    local var int clientChoice = 0;
+    local var int dateInput = 0;
+    local var int txChoice = 0;
+    local var int amount = 0;
+    local var int currentBalance = 0;
+    local var int currentTxCount = 0;
+    local var int currentDep = 0;
+    local var int currentWd = 0;
+    local var bool running = true;
+    local var bool validAcc = false;
+    local var bool validDate = false;
+    local var bool txDone = false;
+
+
+    threadln("==========================================");
+    threadln("BANKING TRANSACTION SYSTEM - PORTIA");
+    threadln("Rules:");
+    threadln("1. Maximum clients: 5");
+    threadln("2. Account number must be unique and 8 digits");
+    threadln("3. Date format: YYYYMMDD");
+    threadln("4. Max deposit per date: PHP 50000");
+    threadln("5. Max withdrawal per date: PHP 20000");
+    threadln("6. Max financial transactions per date: 5");
+    threadln("7. Balance inquiry does not consume the 5");
+    threadln("==========================================");
+
+
+    while (clientCount < 1 || clientCount > 5) {
+        thread("Enter number of clients (1 to 5): ");
+        trap(clientCount);
+
+
+        if (clientCount < 1 || clientCount > 5) {
+            threadln("Invalid number of clients.");
+        } else {
+            threadln("");
+        }
+    }
+
+
+    while (i <= clientCount) {
+        if (i == 1) {
+            while (len(clientName1) == 0 || !isLetterOnlyName(clientName1)) {
+                thread("Enter Client 1 name: ");
+                trap(clientName1);
+
+
+                if (len(clientName1) == 0) {
+                    threadln("Client name cannot be empty.");
+                } else {
+                    if (!isLetterOnlyName(clientName1)) {
+                        threadln("Client name must contain letters and spaces only.");
+                    } else {
+                        threadln("");
+                    }
+                }
+            }
+
+
+            validAcc = false;
+            while (!validAcc) {
+                thread("Enter Client 1 account number: ");
+                trap(accountNo1);
+
+
+                if (!isValidAccountNo(accountNo1)) {
+                    threadln("Invalid account number.");
+                } else {
+                    if (isDuplicateAccountNo(accountNo1, 1)) {
+                        threadln("Duplicate account number is not allowed.");
+                    } else {
+                        validAcc = true;
+                    }
+                }
+            }
+        } else {
+            if (i == 2) {
+                while (len(clientName2) == 0 || !isLetterOnlyName(clientName2)) {
+                    thread("Enter Client 2 name: ");
+                    trap(clientName2);
+
+
+                    if (len(clientName2) == 0) {
+                        threadln("Client name cannot be empty.");
+                    } else {
+                        if (!isLetterOnlyName(clientName2)) {
+                            threadln("Client name must contain letters and spaces only.");
+                        } else {
+                            threadln("");
+                        }
+                    }
+                }
+
+
+                validAcc = false;
+                while (!validAcc) {
+                    thread("Enter Client 2 account number: ");
+                    trap(accountNo2);
+
+
+                    if (!isValidAccountNo(accountNo2)) {
+                        threadln("Invalid account number.");
+                    } else {
+                        if (isDuplicateAccountNo(accountNo2, 2)) {
+                            threadln("Duplicate account number is not allowed.");
+                        } else {
+                            validAcc = true;
+                        }
+                    }
+                }
+            } else {
+                if (i == 3) {
+                    while (len(clientName3) == 0 || !isLetterOnlyName(clientName3)) {
+                        thread("Enter Client 3 name: ");
+                        trap(clientName3);
+
+
+                        if (len(clientName3) == 0) {
+                            threadln("Client name cannot be empty.");
+                        } else {
+                            if (!isLetterOnlyName(clientName3)) {
+                                threadln("Client name must contain letters and spaces only.");
+                            } else {
+                                threadln("");
+                            }
+                        }
+                    }
+
+
+                    validAcc = false;
+                    while (!validAcc) {
+                        thread("Enter Client 3 account number: ");
+                        trap(accountNo3);
+
+
+                        if (!isValidAccountNo(accountNo3)) {
+                            threadln("Invalid account number.");
+                        } else {
+                            if (isDuplicateAccountNo(accountNo3, 3)) {
+                                threadln("Duplicate account number is not allowed.");
+                            } else {
+                                validAcc = true;
+                            }
+                        }
+                    }
+                } else {
+                    if (i == 4) {
+                        while (len(clientName4) == 0 || !isLetterOnlyName(clientName4)) {
+                            thread("Enter Client 4 name: ");
+                            trap(clientName4);
+
+
+                            if (len(clientName4) == 0) {
+                                threadln("Client name cannot be empty.");
+                            } else {
+                                if (!isLetterOnlyName(clientName4)) {
+                                    threadln("Client name must contain letters and spaces only.");
+                                } else {
+                                    threadln("");
+                                }
+                            }
+                        }
+
+
+                        validAcc = false;
+                        while (!validAcc) {
+                            thread("Enter Client 4 account number: ");
+                            trap(accountNo4);
+
+
+                            if (!isValidAccountNo(accountNo4)) {
+                                threadln("Invalid account number.");
+                            } else {
+                                if (isDuplicateAccountNo(accountNo4, 4)) {
+                                    threadln("Duplicate account number is not allowed.");
+                                } else {
+                                    validAcc = true;
+                                }
+                            }
+                        }
+                    } else {
+                        while (len(clientName5) == 0 || !isLetterOnlyName(clientName5)) {
+                            thread("Enter Client 5 name: ");
+                            trap(clientName5);
+
+
+                            if (len(clientName5) == 0) {
+                                threadln("Client name cannot be empty.");
+                            } else {
+                                if (!isLetterOnlyName(clientName5)) {
+                                    threadln("Client name must contain letters and spaces only.");
+                                } else {
+                                    threadln("");
+                                }
+                            }
+                        }
+
+
+                        validAcc = false;
+                        while (!validAcc) {
+                            thread("Enter Client 5 account number: ");
+                            trap(accountNo5);
+
+
+                            if (!isValidAccountNo(accountNo5)) {
+                                threadln("Invalid account number.");
+                            } else {
+                                if (isDuplicateAccountNo(accountNo5, 5)) {
+                                    threadln("Duplicate account number is not allowed.");
+                                } else {
+                                    validAcc = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        i = i + 1;
+    }
+
+
+    while (running) {
+        threadln("");
+        threadln("=========== MAIN MENU ===========");
+        threadln("1 - Select client");
+        threadln("2 - Exit");
+        thread("Enter choice: ");
+        trap(menu);
+
+
+        if (menu == 1) {
+            clientChoice = 0;
+
+
+            while (clientChoice < 1 || clientChoice > clientCount) {
+                thread("Select client number: ");
+                trap(clientChoice);
+
+
+                if (clientChoice < 1 || clientChoice > clientCount) {
+                    threadln("Invalid client number.");
+                } else {
+                    threadln("");
+                }
+            }
+
+
+            if (clientChoice == 1) {
+                threadln("Client: ", clientName1);
+                threadln("Account No.: ", accountNo1);
+            } else {
+                if (clientChoice == 2) {
+                    threadln("Client: ", clientName2);
+                    threadln("Account No.: ", accountNo2);
+                } else {
+                    if (clientChoice == 3) {
+                        threadln("Client: ", clientName3);
+                        threadln("Account No.: ", accountNo3);
+                    } else {
+                        if (clientChoice == 4) {
+                            threadln("Client: ", clientName4);
+                            threadln("Account No.: ", accountNo4);
+                        } else {
+                            threadln("Client: ", clientName5);
+                            threadln("Account No.: ", accountNo5);
+                        }
+                    }
+                }
+            }
+
+
+            validDate = false;
+            while (!validDate) {
+                thread("Enter date (YYYYMMDD): ");
+                trap(dateInput);
+
+
+                if (isValidDate(dateInput)) {
+                    validDate = true;
+                } else {
+                    threadln("Invalid date.");
+                }
+            }
+
+
+            if (clientChoice == 1) {
+                if (date1 != dateInput) {
+                    date1 = dateInput;
+                    txCount1 = 0;
+                    depTotal1 = 0;
+                    wdTotal1 = 0;
+                    recType11 = 0; recAmt11 = 0;
+                    recType12 = 0; recAmt12 = 0;
+                    recType13 = 0; recAmt13 = 0;
+                    recType14 = 0; recAmt14 = 0;
+                    recType15 = 0; recAmt15 = 0;
+                }
+            } else {
+                if (clientChoice == 2) {
+                    if (date2 != dateInput) {
+                        date2 = dateInput;
+                        txCount2 = 0;
+                        depTotal2 = 0;
+                        wdTotal2 = 0;
+                        recType21 = 0; recAmt21 = 0;
+                        recType22 = 0; recAmt22 = 0;
+                        recType23 = 0; recAmt23 = 0;
+                        recType24 = 0; recAmt24 = 0;
+                        recType25 = 0; recAmt25 = 0;
+                    }
+                } else {
+                    if (clientChoice == 3) {
+                        if (date3 != dateInput) {
+                            date3 = dateInput;
+                            txCount3 = 0;
+                            depTotal3 = 0;
+                            wdTotal3 = 0;
+                            recType31 = 0; recAmt31 = 0;
+                            recType32 = 0; recAmt32 = 0;
+                            recType33 = 0; recAmt33 = 0;
+                            recType34 = 0; recAmt34 = 0;
+                            recType35 = 0; recAmt35 = 0;
+                        }
+                    } else {
+                        if (clientChoice == 4) {
+                            if (date4 != dateInput) {
+                                date4 = dateInput;
+                                txCount4 = 0;
+                                depTotal4 = 0;
+                                wdTotal4 = 0;
+                                recType41 = 0; recAmt41 = 0;
+                                recType42 = 0; recAmt42 = 0;
+                                recType43 = 0; recAmt43 = 0;
+                                recType44 = 0; recAmt44 = 0;
+                                recType45 = 0; recAmt45 = 0;
+                            }
+                        } else {
+                            if (date5 != dateInput) {
+                                date5 = dateInput;
+                                txCount5 = 0;
+                                depTotal5 = 0;
+                                wdTotal5 = 0;
+                                recType51 = 0; recAmt51 = 0;
+                                recType52 = 0; recAmt52 = 0;
+                                recType53 = 0; recAmt53 = 0;
+                                recType54 = 0; recAmt54 = 0;
+                                recType55 = 0; recAmt55 = 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            txDone = false;
+
+
+            while (!txDone) {
+                if (clientChoice == 1) {
+                    currentBalance = balance1;
+                    currentTxCount = txCount1;
+                    currentDep = depTotal1;
+                    currentWd = wdTotal1;
+                } else {
+                    if (clientChoice == 2) {
+                        currentBalance = balance2;
+                        currentTxCount = txCount2;
+                        currentDep = depTotal2;
+                        currentWd = wdTotal2;
+                    } else {
+                        if (clientChoice == 3) {
+                            currentBalance = balance3;
+                            currentTxCount = txCount3;
+                            currentDep = depTotal3;
+                            currentWd = wdTotal3;
+                        } else {
+                            if (clientChoice == 4) {
+                                currentBalance = balance4;
+                                currentTxCount = txCount4;
+                                currentDep = depTotal4;
+                                currentWd = wdTotal4;
+                            } else {
+                                currentBalance = balance5;
+                                currentTxCount = txCount5;
+                                currentDep = depTotal5;
+                                currentWd = wdTotal5;
+                            }
+                        }
+                    }
+                }
+
+
+                threadln("");
+                threadln("Date: ", dateInput);
+                threadln("Financial transactions used: ", currentTxCount, " of 5");
+                threadln("1 - Deposit");
+                threadln("2 - Withdraw");
+                threadln("3 - Balance Inquiry");
+                threadln("4 - Summary by Date");
+                threadln("5 - Done");
+                thread("Enter transaction type: ");
+                trap(txChoice);
+
+
+                if (txChoice == 1) {
+                    if (currentTxCount >= 5) {
+                        threadln("Daily financial transaction limit reached.");
+                    } else {
+                        amount = 0;
+
+
+                        while (amount <= 0) {
+                            thread("Enter deposit amount: ");
+                            trap(amount);
+
+
+                            if (amount <= 0) {
+                                threadln("Invalid amount.");
+                            } else {
+                                threadln("");
+                            }
+                        }
+
+
+                        if (currentDep + amount > 50000) {
+                            threadln("Deposit rejected. Daily deposit cap exceeded.");
+                        } else {
+                            if (clientChoice == 1) {
+                                balance1 = balance1 + amount;
+                                txCount1 = txCount1 + 1;
+                                depTotal1 = depTotal1 + amount;
+
+
+                                if (txCount1 == 1) {
+                                    recType11 = 1;
+                                    recAmt11 = amount;
+                                } else {
+                                    if (txCount1 == 2) {
+                                        recType12 = 1;
+                                        recAmt12 = amount;
+                                    } else {
+                                        if (txCount1 == 3) {
+                                            recType13 = 1;
+                                            recAmt13 = amount;
+                                        } else {
+                                            if (txCount1 == 4) {
+                                                recType14 = 1;
+                                                recAmt14 = amount;
+                                            } else {
+                                                recType15 = 1;
+                                                recAmt15 = amount;
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (clientChoice == 2) {
+                                    balance2 = balance2 + amount;
+                                    txCount2 = txCount2 + 1;
+                                    depTotal2 = depTotal2 + amount;
+
+
+                                    if (txCount2 == 1) {
+                                        recType21 = 1;
+                                        recAmt21 = amount;
+                                    } else {
+                                        if (txCount2 == 2) {
+                                            recType22 = 1;
+                                            recAmt22 = amount;
+                                        } else {
+                                            if (txCount2 == 3) {
+                                                recType23 = 1;
+                                                recAmt23 = amount;
+                                            } else {
+                                                if (txCount2 == 4) {
+                                                    recType24 = 1;
+                                                    recAmt24 = amount;
+                                                } else {
+                                                    recType25 = 1;
+                                                    recAmt25 = amount;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    if (clientChoice == 3) {
+                                        balance3 = balance3 + amount;
+                                        txCount3 = txCount3 + 1;
+                                        depTotal3 = depTotal3 + amount;
+
+
+                                        if (txCount3 == 1) {
+                                            recType31 = 1;
+                                            recAmt31 = amount;
+                                        } else {
+                                            if (txCount3 == 2) {
+                                                recType32 = 1;
+                                                recAmt32 = amount;
+                                            } else {
+                                                if (txCount3 == 3) {
+                                                    recType33 = 1;
+                                                    recAmt33 = amount;
+                                                } else {
+                                                    if (txCount3 == 4) {
+                                                        recType34 = 1;
+                                                        recAmt34 = amount;
+                                                    } else {
+                                                        recType35 = 1;
+                                                        recAmt35 = amount;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        if (clientChoice == 4) {
+                                            balance4 = balance4 + amount;
+                                            txCount4 = txCount4 + 1;
+                                            depTotal4 = depTotal4 + amount;
+
+
+                                            if (txCount4 == 1) {
+                                                recType41 = 1;
+                                                recAmt41 = amount;
+                                            } else {
+                                                if (txCount4 == 2) {
+                                                    recType42 = 1;
+                                                    recAmt42 = amount;
+                                                } else {
+                                                    if (txCount4 == 3) {
+                                                        recType43 = 1;
+                                                        recAmt43 = amount;
+                                                    } else {
+                                                        if (txCount4 == 4) {
+                                                            recType44 = 1;
+                                                            recAmt44 = amount;
+                                                        } else {
+                                                            recType45 = 1;
+                                                            recAmt45 = amount;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            balance5 = balance5 + amount;
+                                            txCount5 = txCount5 + 1;
+                                            depTotal5 = depTotal5 + amount;
+
+
+                                            if (txCount5 == 1) {
+                                                recType51 = 1;
+                                                recAmt51 = amount;
+                                            } else {
+                                                if (txCount5 == 2) {
+                                                    recType52 = 1;
+                                                    recAmt52 = amount;
+                                                } else {
+                                                    if (txCount5 == 3) {
+                                                        recType53 = 1;
+                                                        recAmt53 = amount;
+                                                    } else {
+                                                        if (txCount5 == 4) {
+                                                            recType54 = 1;
+                                                            recAmt54 = amount;
+                                                        } else {
+                                                            recType55 = 1;
+                                                            recAmt55 = amount;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+
+                            threadln("Deposit successful.");
+                        }
+                    }
+                } else {
+                    if (txChoice == 2) {
+                        if (currentTxCount >= 5) {
+                            threadln("Daily financial transaction limit reached.");
+                        } else {
+                            amount = 0;
+
+
+                            while (amount <= 0) {
+                                thread("Enter withdrawal amount: ");
+                                trap(amount);
+
+
+                                if (amount <= 0) {
+                                    threadln("Invalid amount.");
+                                } else {
+                                    threadln("");
+                                }
+                            }
+
+
+                            if (currentWd + amount > 20000) {
+                                threadln("Withdrawal rejected. Daily withdrawal cap exceeded.");
+                            } else {
+                                if (amount > currentBalance) {
+                                    threadln("Withdrawal rejected. Amount exceeds balance.");
+                                } else {
+                                    if (clientChoice == 1) {
+                                        balance1 = balance1 - amount;
+                                        txCount1 = txCount1 + 1;
+                                        wdTotal1 = wdTotal1 + amount;
+
+
+                                        if (txCount1 == 1) {
+                                            recType11 = 2;
+                                            recAmt11 = amount;
+                                        } else {
+                                            if (txCount1 == 2) {
+                                                recType12 = 2;
+                                                recAmt12 = amount;
+                                            } else {
+                                                if (txCount1 == 3) {
+                                                    recType13 = 2;
+                                                    recAmt13 = amount;
+                                                } else {
+                                                    if (txCount1 == 4) {
+                                                        recType14 = 2;
+                                                        recAmt14 = amount;
+                                                    } else {
+                                                        recType15 = 2;
+                                                        recAmt15 = amount;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        if (clientChoice == 2) {
+                                            balance2 = balance2 - amount;
+                                            txCount2 = txCount2 + 1;
+                                            wdTotal2 = wdTotal2 + amount;
+
+
+                                            if (txCount2 == 1) {
+                                                recType21 = 2;
+                                                recAmt21 = amount;
+                                            } else {
+                                                if (txCount2 == 2) {
+                                                    recType22 = 2;
+                                                    recAmt22 = amount;
+                                                } else {
+                                                    if (txCount2 == 3) {
+                                                        recType23 = 2;
+                                                        recAmt23 = amount;
+                                                    } else {
+                                                        if (txCount2 == 4) {
+                                                            recType24 = 2;
+                                                            recAmt24 = amount;
+                                                        } else {
+                                                            recType25 = 2;
+                                                            recAmt25 = amount;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            if (clientChoice == 3) {
+                                                balance3 = balance3 - amount;
+                                                txCount3 = txCount3 + 1;
+                                                wdTotal3 = wdTotal3 + amount;
+
+
+                                                if (txCount3 == 1) {
+                                                    recType31 = 2;
+                                                    recAmt31 = amount;
+                                                } else {
+                                                    if (txCount3 == 2) {
+                                                        recType32 = 2;
+                                                        recAmt32 = amount;
+                                                    } else {
+                                                        if (txCount3 == 3) {
+                                                            recType33 = 2;
+                                                            recAmt33 = amount;
+                                                        } else {
+                                                            if (txCount3 == 4) {
+                                                                recType34 = 2;
+                                                                recAmt34 = amount;
+                                                            } else {
+                                                                recType35 = 2;
+                                                                recAmt35 = amount;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                if (clientChoice == 4) {
+                                                    balance4 = balance4 - amount;
+                                                    txCount4 = txCount4 + 1;
+                                                    wdTotal4 = wdTotal4 + amount;
+
+
+                                                    if (txCount4 == 1) {
+                                                        recType41 = 2;
+                                                        recAmt41 = amount;
+                                                    } else {
+                                                        if (txCount4 == 2) {
+                                                            recType42 = 2;
+                                                            recAmt42 = amount;
+                                                        } else {
+                                                            if (txCount4 == 3) {
+                                                                recType43 = 2;
+                                                                recAmt43 = amount;
+                                                            } else {
+                                                                if (txCount4 == 4) {
+                                                                    recType44 = 2;
+                                                                    recAmt44 = amount;
+                                                                } else {
+                                                                    recType45 = 2;
+                                                                    recAmt45 = amount;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    balance5 = balance5 - amount;
+                                                    txCount5 = txCount5 + 1;
+                                                    wdTotal5 = wdTotal5 + amount;
+
+
+                                                    if (txCount5 == 1) {
+                                                        recType51 = 2;
+                                                        recAmt51 = amount;
+                                                    } else {
+                                                        if (txCount5 == 2) {
+                                                            recType52 = 2;
+                                                            recAmt52 = amount;
+                                                        } else {
+                                                            if (txCount5 == 3) {
+                                                                recType53 = 2;
+                                                                recAmt53 = amount;
+                                                            } else {
+                                                                if (txCount5 == 4) {
+                                                                    recType54 = 2;
+                                                                    recAmt54 = amount;
+                                                                } else {
+                                                                    recType55 = 2;
+                                                                    recAmt55 = amount;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+
+                                    threadln("Withdrawal successful.");
+                                }
+                            }
+                        }
+                    } else {
+                        if (txChoice == 3) {
+                            if (clientChoice == 1) {
+                                threadln("Balance Inquiry");
+                                threadln("Client: ", clientName1);
+                                threadln("Account No.: ", accountNo1);
+                                threadln("Date: ", date1);
+                                threadln("Current Balance: PHP ", balance1);
+                            } else {
+                                if (clientChoice == 2) {
+                                    threadln("Balance Inquiry");
+                                    threadln("Client: ", clientName2);
+                                    threadln("Account No.: ", accountNo2);
+                                    threadln("Date: ", date2);
+                                    threadln("Current Balance: PHP ", balance2);
+                                } else {
+                                    if (clientChoice == 3) {
+                                        threadln("Balance Inquiry");
+                                        threadln("Client: ", clientName3);
+                                        threadln("Account No.: ", accountNo3);
+                                        threadln("Date: ", date3);
+                                        threadln("Current Balance: PHP ", balance3);
+                                    } else {
+                                        if (clientChoice == 4) {
+                                            threadln("Balance Inquiry");
+                                            threadln("Client: ", clientName4);
+                                            threadln("Account No.: ", accountNo4);
+                                            threadln("Date: ", date4);
+                                            threadln("Current Balance: PHP ", balance4);
+                                        } else {
+                                            threadln("Balance Inquiry");
+                                            threadln("Client: ", clientName5);
+                                            threadln("Account No.: ", accountNo5);
+                                            threadln("Date: ", date5);
+                                            threadln("Current Balance: PHP ", balance5);
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            if (txChoice == 4) {
+                                if (clientChoice == 1) {
+                                    threadln("==========================================");
+                                    threadln("Client: ", clientName1);
+                                    threadln("Account No.: ", accountNo1);
+                                    threadln("Date: ", date1);
+                                    threadln("Deposit Total: PHP ", depTotal1);
+                                    threadln("Withdrawal Total: PHP ", wdTotal1);
+                                    threadln("Financial Transaction Count: ", txCount1);
+
+
+                                    if (txCount1 >= 1) {
+                                        printRecord(1, recType11, recAmt11);
+                                    } else {
+                                        threadln("");
+                                    }
+                                    if (txCount1 >= 2) {
+                                        printRecord(2, recType12, recAmt12);
+                                    } else {
+                                        threadln("");
+                                    }
+                                    if (txCount1 >= 3) {
+                                        printRecord(3, recType13, recAmt13);
+                                    } else {
+                                        threadln("");
+                                    }
+                                    if (txCount1 >= 4) {
+                                        printRecord(4, recType14, recAmt14);
+                                    } else {
+                                        threadln("");
+                                    }
+                                    if (txCount1 >= 5) {
+                                        printRecord(5, recType15, recAmt15);
+                                    } else {
+                                        threadln("");
+                                    }
+                                } else {
+                                    if (clientChoice == 2) {
+                                        threadln("==========================================");
+                                        threadln("Client: ", clientName2);
+                                        threadln("Account No.: ", accountNo2);
+                                        threadln("Date: ", date2);
+                                        threadln("Deposit Total: PHP ", depTotal2);
+                                        threadln("Withdrawal Total: PHP ", wdTotal2);
+                                        threadln("Financial Transaction Count: ", txCount2);
+
+
+                                        if (txCount2 >= 1) {
+                                            printRecord(1, recType21, recAmt21);
+                                        } else {
+                                            threadln("");
+                                        }
+                                        if (txCount2 >= 2) {
+                                            printRecord(2, recType22, recAmt22);
+                                        } else {
+                                            threadln("");
+                                        }
+                                        if (txCount2 >= 3) {
+                                            printRecord(3, recType23, recAmt23);
+                                        } else {
+                                            threadln("");
+                                        }
+                                        if (txCount2 >= 4) {
+                                            printRecord(4, recType24, recAmt24);
+                                        } else {
+                                            threadln("");
+                                        }
+                                        if (txCount2 >= 5) {
+                                            printRecord(5, recType25, recAmt25);
+                                        } else {
+                                            threadln("");
+                                        }
+                                    } else {
+                                        if (clientChoice == 3) {
+                                            threadln("==========================================");
+                                            threadln("Client: ", clientName3);
+                                            threadln("Account No.: ", accountNo3);
+                                            threadln("Date: ", date3);
+                                            threadln("Deposit Total: PHP ", depTotal3);
+                                            threadln("Withdrawal Total: PHP ", wdTotal3);
+                                            threadln("Financial Transaction Count: ", txCount3);
+
+
+                                            if (txCount3 >= 1) {
+                                                printRecord(1, recType31, recAmt31);
+                                            } else {
+                                                threadln("");
+                                            }
+                                            if (txCount3 >= 2) {
+                                                printRecord(2, recType32, recAmt32);
+                                            } else {
+                                                threadln("");
+                                            }
+                                            if (txCount3 >= 3) {
+                                                printRecord(3, recType33, recAmt33);
+                                            } else {
+                                                threadln("");
+                                            }
+                                            if (txCount3 >= 4) {
+                                                printRecord(4, recType34, recAmt34);
+                                            } else {
+                                                threadln("");
+                                            }
+                                            if (txCount3 >= 5) {
+                                                printRecord(5, recType35, recAmt35);
+                                            } else {
+                                                threadln("");
+                                            }
+                                        } else {
+                                            if (clientChoice == 4) {
+                                                threadln("==========================================");
+                                                threadln("Client: ", clientName4);
+                                                threadln("Account No.: ", accountNo4);
+                                                threadln("Date: ", date4);
+                                                threadln("Deposit Total: PHP ", depTotal4);
+                                                threadln("Withdrawal Total: PHP ", wdTotal4);
+                                                threadln("Financial Transaction Count: ", txCount4);
+
+
+                                                if (txCount4 >= 1) {
+                                                    printRecord(1, recType41, recAmt41);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                                if (txCount4 >= 2) {
+                                                    printRecord(2, recType42, recAmt42);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                                if (txCount4 >= 3) {
+                                                    printRecord(3, recType43, recAmt43);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                                if (txCount4 >= 4) {
+                                                    printRecord(4, recType44, recAmt44);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                                if (txCount4 >= 5) {
+                                                    printRecord(5, recType45, recAmt45);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                            } else {
+                                                threadln("==========================================");
+                                                threadln("Client: ", clientName5);
+                                                threadln("Account No.: ", accountNo5);
+                                                threadln("Date: ", date5);
+                                                threadln("Deposit Total: PHP ", depTotal5);
+                                                threadln("Withdrawal Total: PHP ", wdTotal5);
+                                                threadln("Financial Transaction Count: ", txCount5);
+
+
+                                                if (txCount5 >= 1) {
+                                                    printRecord(1, recType51, recAmt51);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                                if (txCount5 >= 2) {
+                                                    printRecord(2, recType52, recAmt52);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                                if (txCount5 >= 3) {
+                                                    printRecord(3, recType53, recAmt53);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                                if (txCount5 >= 4) {
+                                                    printRecord(4, recType54, recAmt54);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                                if (txCount5 >= 5) {
+                                                    printRecord(5, recType55, recAmt55);
+                                                } else {
+                                                    threadln("");
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (txChoice == 5) {
+                                    txDone = true;
+                                } else {
+                                    threadln("Invalid transaction type.");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            if (menu == 2) {
+                running = false;
+                threadln("Exiting system...");
+            } else {
+                threadln("Invalid menu choice.");
+            }
+        }
+    }
+
+
+    return 0;
+}
